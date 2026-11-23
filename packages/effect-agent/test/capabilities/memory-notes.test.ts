@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@effect/vitest'
-import { DurableStep, DurableStepError } from '@yielded/agent/durable-step'
-import * as MemoryNamespace from '@yielded/agent/memory-namespace'
-import { MemoryAttribution } from '@yielded/agent/memory-reference'
+import { DurableStep, DurableStepError } from '@systemfsoftware/agent/durable-step'
+import * as MemoryNamespace from '@systemfsoftware/agent/memory-namespace'
+import { MemoryAttribution } from '@systemfsoftware/agent/memory-reference'
 import {
   applyMemoryWrite,
   type MemoryDocument,
@@ -12,7 +12,7 @@ import {
   MemoryStorageError,
   type MemoryWrite,
   MemoryWriter,
-} from '@yielded/agent/memory-store'
+} from '@systemfsoftware/agent/memory-store'
 import * as IdGenerator from 'effect/ai/IdGenerator'
 import * as Clock from 'effect/Clock'
 import * as Effect from 'effect/Effect'

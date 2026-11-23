@@ -9,8 +9,8 @@ import {
   ActivityStoreError,
   ActivityWorkConflict,
   PreparedActivity,
-} from '@yielded/agent/activity-store'
-import { CanonicalSequence, Digest } from '@yielded/agent/records'
+} from '@systemfsoftware/agent/activity-store'
+import { CanonicalSequence, Digest } from '@systemfsoftware/agent/records'
 import * as Clock from 'effect/Clock'
 import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'

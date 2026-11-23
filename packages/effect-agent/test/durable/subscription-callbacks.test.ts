@@ -1,10 +1,15 @@
 import { describe, expect, it } from '@effect/vitest'
-import { makeEventSource } from '@yielded/agent/event-source'
-import { AgentId, ThreadId } from '@yielded/agent/identifiers'
-import { DefinitionDigests, Digest } from '@yielded/agent/records'
-import { Principal } from '@yielded/agent/submission-ledger'
-import { AcceptedEvent, EventSourceVersion, SourcePartition, SubscriptionRecord } from '@yielded/agent/subscription'
-import { makeSubscriptionInputBinding } from '@yielded/agent/subscription-input'
+import { makeEventSource } from '@systemfsoftware/agent/event-source'
+import { AgentId, ThreadId } from '@systemfsoftware/agent/identifiers'
+import { DefinitionDigests, Digest } from '@systemfsoftware/agent/records'
+import { Principal } from '@systemfsoftware/agent/submission-ledger'
+import {
+  AcceptedEvent,
+  EventSourceVersion,
+  SourcePartition,
+  SubscriptionRecord,
+} from '@systemfsoftware/agent/subscription'
+import { makeSubscriptionInputBinding } from '@systemfsoftware/agent/subscription-input'
 import * as Context from 'effect/Context'
 import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'

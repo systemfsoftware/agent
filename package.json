@@ -9,7 +9,6 @@
   },
   "scripts": {
     "prepare": "effect-tsgo patch --oxlint --no-typescript",
-    "changeset": "changeset",
     "build": "pnpm -r run build",
     "typecheck": "pnpm -r run typecheck && pnpm run typecheck:scripts",
     "typecheck:scripts": "effect-tsgo tsrs --noEmit -p scripts/tsconfig.json",
@@ -23,8 +22,6 @@
     "check:pack": "pnpm -r --filter './packages/*' run check:pack"
   },
   "devDependencies": {
-    "@changesets/changelog-github": "1.0.1",
-    "@changesets/cli": "3.0.3",
     "@commitlint/cli": "^21.2.4",
     "@commitlint/config-conventional": "^21.2.4",
     "@commitlint/types": "^21.2.3",
@@ -32,8 +29,8 @@
     "@effect/tsgo": "catalog:",
     "@systemfsoftware/oxlint-config-recommended": "^8.0.3",
     "@types/node": "catalog:",
-    "@yielded/agent": "workspace:*",
-    "@yielded/agent-storage-sql": "workspace:*",
+    "@systemfsoftware/agent": "workspace:*",
+    "@systemfsoftware/agent-storage-sql": "workspace:*",
     "dprint": "catalog:",
     "effect": "catalog:",
     "esbuild": "catalog:",

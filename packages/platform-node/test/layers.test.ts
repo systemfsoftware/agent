@@ -6,29 +6,29 @@ import {
   type NodeDurableAgentRuntimeInitializationError,
   type NodeDurableAgentRuntimeOptions,
   type NodeDurableAgentRuntimeServices,
-} from '@yielded/agent-platform-node/node-durable-agent-runtime'
-import { NodeDurableHost } from '@yielded/agent-platform-node/node-durable-host'
-import * as NodeHost from '@yielded/agent-platform-node/node-durable-host'
-import * as Agent from '@yielded/agent/agent'
-import { AgentPolicy } from '@yielded/agent/agent-policy'
-import { digestDefinitions } from '@yielded/agent/digest'
-import { DurableAgentRuntime, type DurableSubmitOptions } from '@yielded/agent/durable-agent-runtime'
-import { DurableRuntimeFailpoint, DurableRuntimeFailpointError } from '@yielded/agent/durable-failpoint'
-import { ToolExecutionClass } from '@yielded/agent/durable-step'
-import { ThreadId } from '@yielded/agent/identifiers'
-import * as Output from '@yielded/agent/output'
-import { DefinitionDigestInput, DefinitionDigests, Digest, type RecordEnvelope } from '@yielded/agent/records'
-import { runIdForSubmission } from '@yielded/agent/run-journal'
-import { RunContextPreparation, RunToolAuthorization } from '@yielded/agent/run-options'
+} from '@systemfsoftware/agent-platform-node/node-durable-agent-runtime'
+import { NodeDurableHost } from '@systemfsoftware/agent-platform-node/node-durable-host'
+import * as NodeHost from '@systemfsoftware/agent-platform-node/node-durable-host'
+import * as Agent from '@systemfsoftware/agent/agent'
+import { AgentPolicy } from '@systemfsoftware/agent/agent-policy'
+import { digestDefinitions } from '@systemfsoftware/agent/digest'
+import { DurableAgentRuntime, type DurableSubmitOptions } from '@systemfsoftware/agent/durable-agent-runtime'
+import { DurableRuntimeFailpoint, DurableRuntimeFailpointError } from '@systemfsoftware/agent/durable-failpoint'
+import { ToolExecutionClass } from '@systemfsoftware/agent/durable-step'
+import { ThreadId } from '@systemfsoftware/agent/identifiers'
+import * as Output from '@systemfsoftware/agent/output'
+import { DefinitionDigestInput, DefinitionDigests, Digest, type RecordEnvelope } from '@systemfsoftware/agent/records'
+import { runIdForSubmission } from '@systemfsoftware/agent/run-journal'
+import { RunContextPreparation, RunToolAuthorization } from '@systemfsoftware/agent/run-options'
 import {
   IdempotencyKey,
   Principal,
   RecoverySnapshotRequest,
   SubmissionLedger,
   SubmissionLookupById,
-} from '@yielded/agent/submission-ledger'
-import { ThreadRead, ThreadStore } from '@yielded/agent/thread-store'
-import { ToolReconciler } from '@yielded/agent/tool-reconciler'
+} from '@systemfsoftware/agent/submission-ledger'
+import { ThreadRead, ThreadStore } from '@systemfsoftware/agent/thread-store'
+import { ToolReconciler } from '@systemfsoftware/agent/tool-reconciler'
 import * as LanguageModel from 'effect/ai/LanguageModel'
 import * as Model from 'effect/ai/Model'
 import * as Prompt from 'effect/ai/Prompt'
@@ -764,7 +764,7 @@ describe('NodeDurableAgentRuntime', () => {
       ),
   )
 
-  // Regression: https://github.com/yielded-dev/agent/commit/6ceda1d2
+  // Regression: https://github.com/systemfsoftware/agent/commit/6ceda1d2
   it.effect('keeps accepted input owed across incompatible current Bindings', () =>
     withTemporaryDatabase((filename) =>
       Effect.gen(function*() {

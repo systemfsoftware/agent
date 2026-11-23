@@ -1,15 +1,15 @@
-import { canonicalJson, utf8ByteLength } from '@yielded/agent/digest'
-import { RunId, SubmissionId, ThreadId } from '@yielded/agent/identifiers'
+import { canonicalJson, utf8ByteLength } from '@systemfsoftware/agent/digest'
+import { RunId, SubmissionId, ThreadId } from '@systemfsoftware/agent/identifiers'
 import {
   defaultMessageDeliveryStoreLimits,
   messageDeliveryDeadline,
   MessageDeliveryRecord,
   type MessageDeliveryStoreLimits,
   peerMessageRetentionDeadline,
-} from '@yielded/agent/message-delivery'
-import { PreparedInput } from '@yielded/agent/prepared-input-admission'
-import { decodeExportRecordJson, ExportedRecord } from '@yielded/agent/record-format'
-import type { RecordId } from '@yielded/agent/records'
+} from '@systemfsoftware/agent/message-delivery'
+import { PreparedInput } from '@systemfsoftware/agent/prepared-input-admission'
+import { decodeExportRecordJson, ExportedRecord } from '@systemfsoftware/agent/record-format'
+import type { RecordId } from '@systemfsoftware/agent/records'
 import {
   CanonicalRecordEnvelope,
   CanonicalSequence,
@@ -23,10 +23,10 @@ import {
   RecordJson,
   RUN_TERMINAL_RESERVE_RECORDS,
   SettlementOutcome,
-} from '@yielded/agent/records'
-import { isOperationalRecord, verifyRunContinuations } from '@yielded/agent/run-continuation'
-import type { StorageOwner } from '@yielded/agent/run-storage'
-import { validateCanonicalSettlement } from '@yielded/agent/settlement-publisher'
+} from '@systemfsoftware/agent/records'
+import { isOperationalRecord, verifyRunContinuations } from '@systemfsoftware/agent/run-continuation'
+import type { StorageOwner } from '@systemfsoftware/agent/run-storage'
+import { validateCanonicalSettlement } from '@systemfsoftware/agent/settlement-publisher'
 import {
   AbortIntent,
   ApprovalDecisionIntent,
@@ -41,7 +41,7 @@ import {
   UnknownResolutionKind,
   unknownResolutionKind,
   workerTerminalFromRecord,
-} from '@yielded/agent/submission-ledger'
+} from '@systemfsoftware/agent/submission-ledger'
 import {
   captureImportSource,
   finishThreadImport,
@@ -59,9 +59,9 @@ import {
   validateImportedRunExecution,
   verifyImportedInputOrder,
   verifyImportedReferences,
-} from '@yielded/agent/thread-import'
-import { verifyThreadInvariants } from '@yielded/agent/thread-invariants'
-import type { ThreadCommands, ThreadExportRequest } from '@yielded/agent/thread-store'
+} from '@systemfsoftware/agent/thread-import'
+import { verifyThreadInvariants } from '@systemfsoftware/agent/thread-invariants'
+import type { ThreadCommands, ThreadExportRequest } from '@systemfsoftware/agent/thread-store'
 import {
   canonicalBatchFitsTransfer,
   ExecutionCheckpoint,
@@ -74,7 +74,7 @@ import {
   ThreadNotMaterialized,
   ThreadReadRequest,
   ThreadStoreError,
-} from '@yielded/agent/thread-store'
+} from '@systemfsoftware/agent/thread-store'
 import {
   checkExportSource,
   exportThreadPage,
@@ -83,9 +83,9 @@ import {
   type TransferFacts,
   type TransferManifest,
   type TransferSection,
-} from '@yielded/agent/thread-transfer'
-import { WORK_INDEX_VERSION } from '@yielded/agent/thread-work'
-import { AssignmentTerminal } from '@yielded/agent/worker'
+} from '@systemfsoftware/agent/thread-transfer'
+import { WORK_INDEX_VERSION } from '@systemfsoftware/agent/thread-work'
+import { AssignmentTerminal } from '@systemfsoftware/agent/worker'
 import * as Clock from 'effect/Clock'
 import * as CryptoDigest from 'effect/crypto/Digest'
 import * as DateTime from 'effect/DateTime'

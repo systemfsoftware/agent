@@ -1,4 +1,4 @@
-import { makeStorageOwner, type StorageOwner } from '@yielded/agent/run-storage'
+import { makeStorageOwner, type StorageOwner } from '@systemfsoftware/agent/run-storage'
 import * as Deferred from 'effect/Deferred'
 import * as Effect from 'effect/Effect'
 import * as Exit from 'effect/Exit'

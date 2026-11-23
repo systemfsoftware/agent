@@ -1,9 +1,9 @@
 import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import { expect, it } from '@effect/vitest'
-import { NodeDurableHost } from '@yielded/agent-platform-node/node-durable-host'
-import { NodeScheduling } from '@yielded/agent-platform-node/node-scheduling'
-import { AgentId } from '@yielded/agent/identifiers'
-import { DefinitionDigests, Digest } from '@yielded/agent/records'
+import { NodeDurableHost } from '@systemfsoftware/agent-platform-node/node-durable-host'
+import { NodeScheduling } from '@systemfsoftware/agent-platform-node/node-scheduling'
+import { AgentId } from '@systemfsoftware/agent/identifiers'
+import { DefinitionDigests, Digest } from '@systemfsoftware/agent/records'
 import {
   defaultSchedulingLimits,
   ScheduleAuthorizer,
@@ -12,9 +12,9 @@ import {
   ScheduleId,
   type ScheduleSnapshot,
   ScheduleStore,
-} from '@yielded/agent/schedule'
-import { Scheduling } from '@yielded/agent/scheduling'
-import { Principal } from '@yielded/agent/submission-ledger'
+} from '@systemfsoftware/agent/schedule'
+import { Scheduling } from '@systemfsoftware/agent/scheduling'
+import { Principal } from '@systemfsoftware/agent/submission-ledger'
 import * as Context from 'effect/Context'
 import * as Deferred from 'effect/Deferred'
 import * as Effect from 'effect/Effect'

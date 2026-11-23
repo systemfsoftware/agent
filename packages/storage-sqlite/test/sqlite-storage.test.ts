@@ -2,24 +2,27 @@ import * as NodeCrypto from '@effect/platform-node/NodeCrypto'
 import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import * as SqliteClient from '@effect/sql-sqlite-node/SqliteClient'
 import { describe, expect, it } from '@effect/vitest'
-import { SqliteStorageConfig, SqliteStorageConfigValue } from '@yielded/agent-storage-sqlite/sqlite-storage-config'
+import {
+  SqliteStorageConfig,
+  SqliteStorageConfigValue,
+} from '@systemfsoftware/agent-storage-sqlite/sqlite-storage-config'
 import {
   SqliteStorageCompatibilityError,
   SqliteStorageCorruptionError,
   SqliteStorageFailpointError,
   type SqliteStorageFailpointLocation,
-} from '@yielded/agent-storage-sqlite/sqlite-storage-error'
-import { SqliteStorageFailpoint } from '@yielded/agent-storage-sqlite/sqlite-storage-failpoint'
+} from '@systemfsoftware/agent-storage-sqlite/sqlite-storage-error'
+import { SqliteStorageFailpoint } from '@systemfsoftware/agent-storage-sqlite/sqlite-storage-failpoint'
 import {
   exclusiveHostClientLayer,
   exclusiveRunStorageLayer,
   layer,
   storageConfigLayer,
   threadStoreLayer,
-} from '@yielded/agent-storage-sqlite/sqlite-thread-store'
-import { digestJson } from '@yielded/agent/digest'
-import { lifecyclePublicationLayer } from '@yielded/agent/lifecycle-publication'
-import * as PersistentHistory from '@yielded/agent/persistent-history'
+} from '@systemfsoftware/agent-storage-sqlite/sqlite-thread-store'
+import { digestJson } from '@systemfsoftware/agent/digest'
+import { lifecyclePublicationLayer } from '@systemfsoftware/agent/lifecycle-publication'
+import * as PersistentHistory from '@systemfsoftware/agent/persistent-history'
 import {
   CanonicalBatch,
   CanonicalRecord,
@@ -31,13 +34,18 @@ import {
   RunPolicyUsageReserved,
   RunStartedRecord,
   UserInputRecorded,
-} from '@yielded/agent/records'
-import { CurrentRunWriter, makeProgressWriter, readContinuation } from '@yielded/agent/run-continuation'
-import { runIdForSubmission } from '@yielded/agent/run-journal'
-import { makeRunWriter, RunStorage, type StorageOwner } from '@yielded/agent/run-storage'
-import { AdmissionRequest, ClaimRequest, MarkReadyRequest, SubmissionLedger } from '@yielded/agent/submission-ledger'
-import { readTestThread, threadStoreConformanceCases } from '@yielded/agent/testing/thread-store-conformance'
-import { ThreadHistory } from '@yielded/agent/thread-history'
+} from '@systemfsoftware/agent/records'
+import { CurrentRunWriter, makeProgressWriter, readContinuation } from '@systemfsoftware/agent/run-continuation'
+import { runIdForSubmission } from '@systemfsoftware/agent/run-journal'
+import { makeRunWriter, RunStorage, type StorageOwner } from '@systemfsoftware/agent/run-storage'
+import {
+  AdmissionRequest,
+  ClaimRequest,
+  MarkReadyRequest,
+  SubmissionLedger,
+} from '@systemfsoftware/agent/submission-ledger'
+import { readTestThread, threadStoreConformanceCases } from '@systemfsoftware/agent/testing/thread-store-conformance'
+import { ThreadHistory } from '@systemfsoftware/agent/thread-history'
 import {
   AppendRequest,
   type AppendResult,
@@ -50,7 +58,7 @@ import {
   ThreadStore,
   ThreadStoreError,
   ThreadTailRequest,
-} from '@yielded/agent/thread-store'
+} from '@systemfsoftware/agent/thread-store'
 import * as Cause from 'effect/Cause'
 import * as Context from 'effect/Context'
 import type * as CryptoDigest from 'effect/crypto/Digest'
@@ -390,7 +398,7 @@ describe('SqliteThreadStore', () => {
     }
   })
 
-  // Regression: https://github.com/yielded-dev/agent/commit/8b88036d879da7bbab88bb9918ac6f1f87f2930a
+  // Regression: https://github.com/systemfsoftware/agent/commit/8b88036d879da7bbab88bb9918ac6f1f87f2930a
   it.effect('rejects undeclared schema-header triggers before opening storage', () =>
     withTemporaryDatabase((filename) =>
       Effect.gen(function*() {
@@ -1085,4 +1093,4 @@ describe('SqliteThreadStore', () => {
       ),
   )
 })
-import { SubmissionId } from '@yielded/agent/identifiers'
+import { SubmissionId } from '@systemfsoftware/agent/identifiers'

@@ -1,5 +1,8 @@
-import { makeSqlScheduleStore, SqlScheduleWriteTransaction } from '@yielded/agent-storage-sql/sql-schedule-store'
-import { ScheduleStore } from '@yielded/agent/schedule'
+import {
+  makeSqlScheduleStore,
+  SqlScheduleWriteTransaction,
+} from '@systemfsoftware/agent-storage-sql/sql-schedule-store'
+import { ScheduleStore } from '@systemfsoftware/agent/schedule'
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import * as SqlClient from 'effect/sql/SqlClient'

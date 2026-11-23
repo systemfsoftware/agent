@@ -1,13 +1,17 @@
 {
-  "name": "@yielded/agent-storage-sql",
-  "version": "0.1.0-beta.192",
+  "name": "@systemfsoftware/agent-storage-sql",
+  "version": "0.1.0",
   "description": "Shared SQL persistence implementations for Effect Agent storage adapters.",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yielded-dev/agent.git",
+    "url": "git+https://github.com/systemfsoftware/agent.git",
     "directory": "packages/storage-sql"
   },
+  "bugs": {
+    "url": "https://github.com/systemfsoftware/agent/issues"
+  },
+  "homepage": "https://github.com/systemfsoftware/agent/tree/main/packages/storage-sql#readme",
   "files": [
     "dist",
     "src"
@@ -138,7 +142,7 @@
     "check:pack": "pnpm pack --pack-destination .pack && attw .pack/*.tgz --profile esm-only; s=$?; rm -rf .pack; exit $s"
   },
   "dependencies": {
-    "@yielded/agent": "workspace:*"
+    "@systemfsoftware/agent": "workspace:*"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "catalog:",

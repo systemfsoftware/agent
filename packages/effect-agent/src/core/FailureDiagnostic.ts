@@ -7,7 +7,7 @@ import * as SchemaTransformation from 'effect/SchemaTransformation'
 
 import { strictSchema } from './internal/strict-schema.ts'
 
-const PrivateCause = Symbol.for('@yielded/agent/FailureDiagnostic/PrivateCause')
+const PrivateCause = Symbol.for('@systemfsoftware/agent/FailureDiagnostic/PrivateCause')
 
 const Text = Schema.String.check(Schema.isMaxLength(16 * 1024))
 const Name = Schema.String.check(Schema.isMaxLength(1_024))

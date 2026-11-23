@@ -1,5 +1,5 @@
-import { makeSqlSubscriptionStore } from '@yielded/agent-storage-sql/sql-subscription-store'
-import { SourcePartition, SubscriptionError, SubscriptionStore } from '@yielded/agent/subscription'
+import { makeSqlSubscriptionStore } from '@systemfsoftware/agent-storage-sql/sql-subscription-store'
+import { SourcePartition, SubscriptionError, SubscriptionStore } from '@systemfsoftware/agent/subscription'
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import * as Schema from 'effect/Schema'

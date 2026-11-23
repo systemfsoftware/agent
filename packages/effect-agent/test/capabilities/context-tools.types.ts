@@ -1,13 +1,18 @@
-import * as Agent from '@yielded/agent/agent'
-import { AgentPolicy } from '@yielded/agent/agent-policy'
-import * as AgentRuntime from '@yielded/agent/agent-runtime'
-import type { ContextHistory, ContextHistoryError } from '@yielded/agent/context-history'
-import type { ContextWindow } from '@yielded/agent/context-window'
-import type { DurableStep, DurableStepError } from '@yielded/agent/durable-step'
-import * as MemoryNamespace from '@yielded/agent/memory-namespace'
-import type { MemoryConflict, MemoryReader, MemoryStorageError, MemoryWriter } from '@yielded/agent/memory-store'
-import { MemoryKey, MemoryScope } from '@yielded/agent/memory-store'
-import type { ThreadHistory } from '@yielded/agent/thread-history'
+import * as Agent from '@systemfsoftware/agent/agent'
+import { AgentPolicy } from '@systemfsoftware/agent/agent-policy'
+import * as AgentRuntime from '@systemfsoftware/agent/agent-runtime'
+import type { ContextHistory, ContextHistoryError } from '@systemfsoftware/agent/context-history'
+import type { ContextWindow } from '@systemfsoftware/agent/context-window'
+import type { DurableStep, DurableStepError } from '@systemfsoftware/agent/durable-step'
+import * as MemoryNamespace from '@systemfsoftware/agent/memory-namespace'
+import type {
+  MemoryConflict,
+  MemoryReader,
+  MemoryStorageError,
+  MemoryWriter,
+} from '@systemfsoftware/agent/memory-store'
+import { MemoryKey, MemoryScope } from '@systemfsoftware/agent/memory-store'
+import type { ThreadHistory } from '@systemfsoftware/agent/thread-history'
 import type * as EffectAiIdGenerator from 'effect/ai/IdGenerator'
 import type * as LanguageModel from 'effect/ai/LanguageModel'
 import type * as Model from 'effect/ai/Model'

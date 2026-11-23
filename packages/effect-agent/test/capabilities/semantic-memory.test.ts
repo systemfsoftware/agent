@@ -1,7 +1,7 @@
 import * as NodeCrypto from '@effect/platform-node/NodeCrypto'
 import { describe, expect, it } from '@effect/vitest'
-import * as MemoryNamespace from '@yielded/agent/memory-namespace'
-import { MemoryAccess } from '@yielded/agent/memory-revalidation'
+import * as MemoryNamespace from '@systemfsoftware/agent/memory-namespace'
+import { MemoryAccess } from '@systemfsoftware/agent/memory-revalidation'
 import {
   ActiveMemoryDocument,
   type MemoryDocument,
@@ -10,21 +10,21 @@ import {
   MemoryScope,
   type MemoryStorageError,
   WithdrawnMemoryDocument,
-} from '@yielded/agent/memory-store'
+} from '@systemfsoftware/agent/memory-store'
 import {
   indexMemorySource,
   querySemanticMemory,
   SemanticIndexLimits,
   SemanticQueryLimits,
-} from '@yielded/agent/semantic-memory'
+} from '@systemfsoftware/agent/semantic-memory'
 import {
   MemoryIndexCandidate,
   type MemoryIndexError,
   type SemanticMemoryChunk,
   SemanticMemoryIndex,
   SemanticMemoryProfile,
-} from '@yielded/agent/semantic-memory-index'
-import { type SemanticMemoryError } from '@yielded/agent/semantic-memory-revalidation'
+} from '@systemfsoftware/agent/semantic-memory-index'
+import { type SemanticMemoryError } from '@systemfsoftware/agent/semantic-memory-revalidation'
 import type * as AiError from 'effect/ai/AiError'
 import * as EmbeddingModel from 'effect/ai/EmbeddingModel'
 import type * as CryptoDigest from 'effect/crypto/Digest'

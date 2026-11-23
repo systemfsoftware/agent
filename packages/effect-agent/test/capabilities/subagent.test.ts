@@ -1,34 +1,34 @@
 import { expect, layer } from '@effect/vitest'
-import * as Agent from '@yielded/agent/agent'
-import { AgentPolicy } from '@yielded/agent/agent-policy'
-import * as AgentRuntime from '@yielded/agent/agent-runtime'
+import * as Agent from '@systemfsoftware/agent/agent'
+import { AgentPolicy } from '@systemfsoftware/agent/agent-policy'
+import * as AgentRuntime from '@systemfsoftware/agent/agent-runtime'
 import {
   type AgentSpawner,
   type RuntimeBinding,
   type SubagentDurability,
   type SubagentDurabilityError,
   type ToolCallWaiting,
-} from '@yielded/agent/agent-runtime'
-import { IdGenerator } from '@yielded/agent/id-generator'
-import { RunId, ThreadId, TurnId } from '@yielded/agent/identifiers'
-import { type RunEventSink } from '@yielded/agent/run-event-sink'
-import { RunContextPreparationPassthrough } from '@yielded/agent/run-options'
-import * as Subagent from '@yielded/agent/subagent'
+} from '@systemfsoftware/agent/agent-runtime'
+import { IdGenerator } from '@systemfsoftware/agent/id-generator'
+import { RunId, ThreadId, TurnId } from '@systemfsoftware/agent/identifiers'
+import { type RunEventSink } from '@systemfsoftware/agent/run-event-sink'
+import { RunContextPreparationPassthrough } from '@systemfsoftware/agent/run-options'
+import * as Subagent from '@systemfsoftware/agent/subagent'
 import {
   type SubagentChildRunFailure,
   type SubagentExecutionFailure,
   SubagentPolicy,
   type SubagentPrestartDenied,
   type SubagentProjectionFailure,
-} from '@yielded/agent/subagent'
+} from '@systemfsoftware/agent/subagent'
 import {
   type SubagentBudgetExhausted,
   type SubagentParentBudgetView,
   SubagentReservations,
   SubagentReservationsMemoryLive,
   type SubagentReservationView,
-} from '@yielded/agent/subagent-reservations'
-import { ThreadHistory } from '@yielded/agent/thread-history'
+} from '@systemfsoftware/agent/subagent-reservations'
+import { ThreadHistory } from '@systemfsoftware/agent/thread-history'
 import type * as AiError from 'effect/ai/AiError'
 import * as LanguageModel from 'effect/ai/LanguageModel'
 import * as Model from 'effect/ai/Model'
@@ -304,7 +304,7 @@ layer(TestServices)('Subagent.layer S1 attached delegation', (it) => {
       expect(result.output).toBe('done')
     }))
 
-  // Regression: https://github.com/yielded-dev/agent/issues/961
+  // Regression: https://github.com/systemfsoftware/agent/issues/961
   it.effect('bounds late children by the parent deadline and leaves time to finish', () =>
     Effect.gen(function*() {
       const childCalls = yield* Ref.make(0)

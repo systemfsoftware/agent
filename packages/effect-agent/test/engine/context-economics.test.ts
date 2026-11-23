@@ -1,15 +1,15 @@
 import * as OpenAiClient from '@effect/ai-openai/OpenAiClient'
 import * as OpenAiLanguageModel from '@effect/ai-openai/OpenAiLanguageModel'
 import { expect, layer } from '@effect/vitest'
-import * as Agent from '@yielded/agent/agent'
-import { ContextBudgetError } from '@yielded/agent/agent-error'
-import { AgentPolicy } from '@yielded/agent/agent-policy'
-import { ModelCallContext } from '@yielded/agent/context-window'
-import { IdGenerator } from '@yielded/agent/id-generator'
-import { RunId, ThreadId, TurnId } from '@yielded/agent/identifiers'
-import { type RunEvent } from '@yielded/agent/run-event'
-import { ToolResultBounds, TruncatedToolResult } from '@yielded/agent/tool-result'
-import { ToolResultStorage, ToolResultStorageError } from '@yielded/agent/tool-result-storage'
+import * as Agent from '@systemfsoftware/agent/agent'
+import { ContextBudgetError } from '@systemfsoftware/agent/agent-error'
+import { AgentPolicy } from '@systemfsoftware/agent/agent-policy'
+import { ModelCallContext } from '@systemfsoftware/agent/context-window'
+import { IdGenerator } from '@systemfsoftware/agent/id-generator'
+import { RunId, ThreadId, TurnId } from '@systemfsoftware/agent/identifiers'
+import { type RunEvent } from '@systemfsoftware/agent/run-event'
+import { ToolResultBounds, TruncatedToolResult } from '@systemfsoftware/agent/tool-result'
+import { ToolResultStorage, ToolResultStorageError } from '@systemfsoftware/agent/tool-result-storage'
 import * as LanguageModel from 'effect/ai/LanguageModel'
 import * as Model from 'effect/ai/Model'
 import * as OpenAiStructuredOutput from 'effect/ai/OpenAiStructuredOutput'
@@ -343,7 +343,7 @@ layer(testLayer)('context economics — bounding, tracking, status, exhaustion',
       }),
   )
 
-  // Regression: https://github.com/yielded-dev/agent/commit/2259fc0
+  // Regression: https://github.com/systemfsoftware/agent/commit/2259fc0
   // KOM-125: a transformed Class retains provider definitions that Schema.toEncoded removes.
   it.effect('admits original Tool schemas exactly as native OpenAI serializes them', () =>
     Effect.gen(function*() {

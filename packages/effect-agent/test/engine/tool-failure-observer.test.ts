@@ -1,19 +1,19 @@
 import { expect, layer } from '@effect/vitest'
-import * as Agent from '@yielded/agent/agent'
-import { AgentPolicy } from '@yielded/agent/agent-policy'
-import * as AgentRuntime from '@yielded/agent/agent-runtime'
-import { ToolExecutionClass } from '@yielded/agent/durable-step'
-import * as FailureDiagnostic from '@yielded/agent/failure-diagnostic'
-import { IdGenerator } from '@yielded/agent/id-generator'
-import { RunId, ThreadId, TurnId } from '@yielded/agent/identifiers'
-import { type RunEvent } from '@yielded/agent/run-event'
+import * as Agent from '@systemfsoftware/agent/agent'
+import { AgentPolicy } from '@systemfsoftware/agent/agent-policy'
+import * as AgentRuntime from '@systemfsoftware/agent/agent-runtime'
+import { ToolExecutionClass } from '@systemfsoftware/agent/durable-step'
+import * as FailureDiagnostic from '@systemfsoftware/agent/failure-diagnostic'
+import { IdGenerator } from '@systemfsoftware/agent/id-generator'
+import { RunId, ThreadId, TurnId } from '@systemfsoftware/agent/identifiers'
+import { type RunEvent } from '@systemfsoftware/agent/run-event'
 import {
   type RunOptions,
   type RunToolFailureObserver,
   type ToolFailureObservation,
   toolFailureObserverLayer,
-} from '@yielded/agent/run-options'
-import { ToolBroker, type ToolBrokerPass, type ToolBrokerService } from '@yielded/agent/tool-broker'
+} from '@systemfsoftware/agent/run-options'
+import { ToolBroker, type ToolBrokerPass, type ToolBrokerService } from '@systemfsoftware/agent/tool-broker'
 import * as LanguageModel from 'effect/ai/LanguageModel'
 import * as Model from 'effect/ai/Model'
 import type * as Response from 'effect/ai/Response'

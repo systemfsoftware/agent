@@ -1,6 +1,6 @@
-import { canonicalJson, utf8ByteLength } from '@yielded/agent/digest'
-import { ExportBatch, ExportRecord } from '@yielded/agent/record-format'
-import { CanonicalSequence } from '@yielded/agent/records'
+import { canonicalJson, utf8ByteLength } from '@systemfsoftware/agent/digest'
+import { ExportBatch, ExportRecord } from '@systemfsoftware/agent/record-format'
+import { CanonicalSequence } from '@systemfsoftware/agent/records'
 import {
   MAX_ARCHIVE_RANGE_BYTES,
   MAX_ARCHIVE_RANGE_PAGE,
@@ -12,8 +12,8 @@ import {
   ThreadArchiveRangeRequest,
   ThreadArchiveRangeSeal,
   type ThreadArchiveStorage,
-} from '@yielded/agent/thread-archive-range'
-import { type ThreadExportBatch, ThreadNotMaterialized, ThreadStoreError } from '@yielded/agent/thread-store'
+} from '@systemfsoftware/agent/thread-archive-range'
+import { type ThreadExportBatch, ThreadNotMaterialized, ThreadStoreError } from '@systemfsoftware/agent/thread-store'
 import * as Effect from 'effect/Effect'
 import * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'

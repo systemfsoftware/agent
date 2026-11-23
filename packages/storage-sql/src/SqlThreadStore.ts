@@ -1,15 +1,20 @@
-import { digestCanonicalJson, utf8ByteLength } from '@yielded/agent/digest'
-import { ThreadId } from '@yielded/agent/identifiers'
-import { prepareCanonicalMessageDeliveries } from '@yielded/agent/message-delivery'
-import { decodeExportRecordJson } from '@yielded/agent/record-format'
-import { CanonicalRecordEnvelope, CanonicalSequence, ObservationOffset, RecordEnvelope } from '@yielded/agent/records'
-import { isOperationalRecord } from '@yielded/agent/run-continuation'
+import { digestCanonicalJson, utf8ByteLength } from '@systemfsoftware/agent/digest'
+import { ThreadId } from '@systemfsoftware/agent/identifiers'
+import { prepareCanonicalMessageDeliveries } from '@systemfsoftware/agent/message-delivery'
+import { decodeExportRecordJson } from '@systemfsoftware/agent/record-format'
+import {
+  CanonicalRecordEnvelope,
+  CanonicalSequence,
+  ObservationOffset,
+  RecordEnvelope,
+} from '@systemfsoftware/agent/records'
+import { isOperationalRecord } from '@systemfsoftware/agent/run-continuation'
 import {
   finishThreadImport,
   makeThreadImportProgress,
   prepareImportPage,
   ThreadArchive,
-} from '@yielded/agent/thread-import'
+} from '@systemfsoftware/agent/thread-import'
 import {
   AppendConflict,
   type AppendRequest,
@@ -25,7 +30,7 @@ import {
   ThreadStoreError,
   ThreadTail,
   ThreadTailRequest,
-} from '@yielded/agent/thread-store'
+} from '@systemfsoftware/agent/thread-store'
 import * as Clock from 'effect/Clock'
 import * as CryptoDigest from 'effect/crypto/Digest'
 import * as Effect from 'effect/Effect'

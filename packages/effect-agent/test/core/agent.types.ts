@@ -1,11 +1,11 @@
-import { Agent } from '@yielded/agent'
+import { Agent } from '@systemfsoftware/agent'
 import {
   type AgentInputDecodeError,
   type AgentInputError,
   type AgentOutputError,
   type AgentRunDispositionError,
-} from '@yielded/agent/agent-error'
-import { AgentPolicy } from '@yielded/agent/agent-policy'
+} from '@systemfsoftware/agent/agent-error'
+import { AgentPolicy } from '@systemfsoftware/agent/agent-policy'
 import type * as AiError from 'effect/ai/AiError'
 import * as LanguageModel from 'effect/ai/LanguageModel'
 import * as Model from 'effect/ai/Model'

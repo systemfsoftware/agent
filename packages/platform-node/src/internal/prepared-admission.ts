@@ -1,12 +1,12 @@
-import { type DurableSubmitAgent } from '@yielded/agent/durable-agent-runtime'
-import { type AgentId } from '@yielded/agent/identifiers'
+import { type DurableSubmitAgent } from '@systemfsoftware/agent/durable-agent-runtime'
+import { type AgentId } from '@systemfsoftware/agent/identifiers'
 import {
   PreparedInputAdmission,
   PreparedInputRefused,
   PreparedInputRetryable,
-} from '@yielded/agent/prepared-input-admission'
-import { PersistedJson } from '@yielded/agent/records'
-import { ScheduleStorageError } from '@yielded/agent/schedule'
+} from '@systemfsoftware/agent/prepared-input-admission'
+import { PersistedJson } from '@systemfsoftware/agent/records'
+import { ScheduleStorageError } from '@systemfsoftware/agent/schedule'
 import * as Context from 'effect/Context'
 import * as Effect from 'effect/Effect'
 

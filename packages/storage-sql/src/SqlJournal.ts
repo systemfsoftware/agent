@@ -8,21 +8,21 @@ import {
 } from './internal/SqlExecutionState.ts'
 import { sqlStorageOwner } from './internal/SqlOwner.ts'
 export { sqlStorageOwner } from './internal/SqlOwner.ts'
-import { type RunId, ThreadId } from '@yielded/agent/identifiers'
-import { LifecyclePublicationFact } from '@yielded/agent/lifecycle-publication'
-import type { MessageDeliveryRecord } from '@yielded/agent/message-delivery'
-import type { Digest } from '@yielded/agent/records'
-import { CanonicalSequence, RunContinuation } from '@yielded/agent/records'
-import { ProgressAppendReader, validateProgressAppend } from '@yielded/agent/run-continuation'
-import { StorageOwner } from '@yielded/agent/run-storage'
-import { SqlStorageOwner } from '@yielded/agent/sql-storage-owner'
+import { type RunId, ThreadId } from '@systemfsoftware/agent/identifiers'
+import { LifecyclePublicationFact } from '@systemfsoftware/agent/lifecycle-publication'
+import type { MessageDeliveryRecord } from '@systemfsoftware/agent/message-delivery'
+import type { Digest } from '@systemfsoftware/agent/records'
+import { CanonicalSequence, RunContinuation } from '@systemfsoftware/agent/records'
+import { ProgressAppendReader, validateProgressAppend } from '@systemfsoftware/agent/run-continuation'
+import { StorageOwner } from '@systemfsoftware/agent/run-storage'
+import { SqlStorageOwner } from '@systemfsoftware/agent/sql-storage-owner'
 import {
   AppendConflict,
   type ExecutionCheckpoint,
   type PreparedAppend,
   ThreadStoreError,
-} from '@yielded/agent/thread-store'
-import { WORK_INDEX_VERSION } from '@yielded/agent/thread-work'
+} from '@systemfsoftware/agent/thread-store'
+import { WORK_INDEX_VERSION } from '@systemfsoftware/agent/thread-work'
 import * as Effect from 'effect/Effect'
 import * as Option from 'effect/Option'
 import * as Result from 'effect/Result'

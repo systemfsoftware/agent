@@ -1,15 +1,15 @@
 import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import { expect, it } from '@effect/vitest'
-import * as NodeHost from '@yielded/agent-platform-node/node-durable-host'
-import * as Agent from '@yielded/agent/agent'
-import { DurableAgentRuntime } from '@yielded/agent/durable-agent-runtime'
-import { ThreadId } from '@yielded/agent/identifiers'
-import { MessageDeliveryStore } from '@yielded/agent/message-delivery'
-import { DefinitionDigestInput } from '@yielded/agent/records'
-import * as Subagent from '@yielded/agent/subagent'
-import { SubagentHost } from '@yielded/agent/subagent-host'
-import { IdempotencyKey, Principal } from '@yielded/agent/submission-ledger'
-import { WorkerHostAuthorizer } from '@yielded/agent/worker-host'
+import * as NodeHost from '@systemfsoftware/agent-platform-node/node-durable-host'
+import * as Agent from '@systemfsoftware/agent/agent'
+import { DurableAgentRuntime } from '@systemfsoftware/agent/durable-agent-runtime'
+import { ThreadId } from '@systemfsoftware/agent/identifiers'
+import { MessageDeliveryStore } from '@systemfsoftware/agent/message-delivery'
+import { DefinitionDigestInput } from '@systemfsoftware/agent/records'
+import * as Subagent from '@systemfsoftware/agent/subagent'
+import { SubagentHost } from '@systemfsoftware/agent/subagent-host'
+import { IdempotencyKey, Principal } from '@systemfsoftware/agent/submission-ledger'
+import { WorkerHostAuthorizer } from '@systemfsoftware/agent/worker-host'
 import * as LanguageModel from 'effect/ai/LanguageModel'
 import * as Model from 'effect/ai/Model'
 import type * as Response from 'effect/ai/Response'
@@ -48,7 +48,7 @@ const model = (name: string, streamText: Parameters<typeof LanguageModel.make>[0
     ),
   )
 
-// Regression: https://github.com/yielded-dev/agent/blob/36a411fc3f468fa87d4dd91234988a716d4ebbc5/packages/effect-agent/src/durable/internal/worker-host.ts#L3058-L3075
+// Regression: https://github.com/systemfsoftware/agent/blob/36a411fc3f468fa87d4dd91234988a716d4ebbc5/packages/effect-agent/src/durable/internal/worker-host.ts#L3058-L3075
 it.effect(
   'authorizes successor completion reports as the current source principal',
   () =>

@@ -4,7 +4,7 @@ import { describe, expect, it } from '@effect/vitest'
 import {
   activityProcessorStoreLayer,
   activityProcessorStoreLayerWithFailpoints,
-} from '@yielded/agent-storage-sqlite/sqlite-activity-store'
+} from '@systemfsoftware/agent-storage-sqlite/sqlite-activity-store'
 import {
   ActivityBusy,
   ActivityMutationFailpoint,
@@ -14,7 +14,7 @@ import {
   ActivityProcessorStore,
   ActivityWorkConflict,
   PreparedActivity,
-} from '@yielded/agent/activity-store'
+} from '@systemfsoftware/agent/activity-store'
 import * as Cause from 'effect/Cause'
 import * as Context from 'effect/Context'
 import * as Deferred from 'effect/Deferred'

@@ -1,5 +1,5 @@
-import { digestJson } from '@yielded/agent/digest'
-import type { ThreadId } from '@yielded/agent/identifiers'
+import { digestJson } from '@systemfsoftware/agent/digest'
+import type { ThreadId } from '@systemfsoftware/agent/identifiers'
 import {
   LifecyclePublication,
   LifecyclePublicationBatch,
@@ -7,8 +7,8 @@ import {
   LifecyclePublicationConfig,
   LifecyclePublicationError,
   type LifecyclePublicationStorage,
-} from '@yielded/agent/lifecycle-publication'
-import { SqlStorageOwner } from '@yielded/agent/sql-storage-owner'
+} from '@systemfsoftware/agent/lifecycle-publication'
+import { SqlStorageOwner } from '@systemfsoftware/agent/sql-storage-owner'
 import * as Arr from 'effect/Array'
 import * as Array from 'effect/Array'
 import * as Cause from 'effect/Cause'

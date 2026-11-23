@@ -3,8 +3,8 @@ import {
   ApprovalDecisionIntent,
   UnknownResolutionIntent,
   unknownResolutionKind,
-} from '@yielded/agent/submission-ledger'
-import { ThreadAdmission } from '@yielded/agent/thread-store'
+} from '@systemfsoftware/agent/submission-ledger'
+import { ThreadAdmission } from '@systemfsoftware/agent/thread-store'
 import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 

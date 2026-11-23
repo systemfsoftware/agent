@@ -1,12 +1,12 @@
 import { describe, expect, it } from '@effect/vitest'
-import { RunId, ToolCallId } from '@yielded/agent/identifiers'
-import { SubagentDelegationCaps, SubagentReservationAmounts } from '@yielded/agent/subagent-contract'
-import type { SubagentParentBudgetView } from '@yielded/agent/subagent-reservations'
+import { RunId, ToolCallId } from '@systemfsoftware/agent/identifiers'
+import { SubagentDelegationCaps, SubagentReservationAmounts } from '@systemfsoftware/agent/subagent-contract'
+import type { SubagentParentBudgetView } from '@systemfsoftware/agent/subagent-reservations'
 import {
   SubagentReservationRequest,
   SubagentReservations,
   SubagentReservationsMemoryLive,
-} from '@yielded/agent/subagent-reservations'
+} from '@systemfsoftware/agent/subagent-reservations'
 import * as Deferred from 'effect/Deferred'
 import * as Effect from 'effect/Effect'
 import * as Fiber from 'effect/Fiber'

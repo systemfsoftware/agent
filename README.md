@@ -6,8 +6,8 @@
 </h1>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@yielded/agent"><img alt="npm" src="https://img.shields.io/npm/v/@yielded/agent/beta?label=npm&labelColor=121310&color=b9a4ff" /></a>
-  <a href="https://github.com/yielded-dev/agent/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/yielded-dev/agent/ci.yml?branch=main&label=ci&labelColor=121310" /></a>
+  <a href="https://www.npmjs.com/package/@systemfsoftware/agent"><img alt="npm" src="https://img.shields.io/npm/v/@systemfsoftware/agent/beta?label=npm&labelColor=121310&color=b9a4ff" /></a>
+  <a href="https://github.com/systemfsoftware/agent/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/systemfsoftware/agent/ci.yml?branch=main&label=ci&labelColor=121310" /></a>
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-f3f1e8?labelColor=121310" /></a>
 </p>
 
@@ -42,11 +42,11 @@ There is no exactly-once external execution guarantee.
 ## Try it
 
 ```sh
-bun add @yielded/agent@beta effect
+bun add @systemfsoftware/agent@beta effect
 ```
 
 ```ts
-import { Agent, AgentRuntime } from '@yielded/agent'
+import { Agent, AgentRuntime } from '@systemfsoftware/agent'
 import { Schema } from 'effect'
 import { Toolkit } from 'effect/ai'
 

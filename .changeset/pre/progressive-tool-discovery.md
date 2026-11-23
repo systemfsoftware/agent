@@ -1,5 +1,0 @@
----
-"@yielded/agent": minor
----
-
-Add opt-in run-scoped tool exposure and `ToolDiscovery.make` with bounded namespace search and durable selection recovery. Add selective Code Mode documentation; set `includeDeclarations: false` when host visibility or subagent grants hide any allowlisted method.

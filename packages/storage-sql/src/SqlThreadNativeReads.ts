@@ -1,5 +1,5 @@
-import { RunId, ThreadId } from '@yielded/agent/identifiers'
-import { decodeExportRecordJson } from '@yielded/agent/record-format'
+import { RunId, ThreadId } from '@systemfsoftware/agent/identifiers'
+import { decodeExportRecordJson } from '@systemfsoftware/agent/record-format'
 import {
   BatchId,
   type CanonicalRecord,
@@ -15,21 +15,21 @@ import {
   RecordId,
   type RecordJson,
   RunContinuation,
-} from '@yielded/agent/records'
-import { canonicalRecordBytes, canonicalRunIds, isWorkHandoff } from '@yielded/agent/run-continuation'
+} from '@systemfsoftware/agent/records'
+import { canonicalRecordBytes, canonicalRunIds, isWorkHandoff } from '@systemfsoftware/agent/run-continuation'
 import {
   runIdForSubmission,
   subagentLineageRecordId,
   toolCallSettledRecordId,
   workerOriginRecordId,
-} from '@yielded/agent/run-journal'
-import { SqlStorageOwner } from '@yielded/agent/sql-storage-owner'
+} from '@systemfsoftware/agent/run-journal'
+import { SqlStorageOwner } from '@systemfsoftware/agent/sql-storage-owner'
 import {
   submissionAbortRecordId,
   submissionInputRecordId,
   submissionSettlementRecordId,
-} from '@yielded/agent/submission-ledger'
-import type { PreparedAppend, ThreadStore } from '@yielded/agent/thread-store'
+} from '@systemfsoftware/agent/submission-ledger'
+import type { PreparedAppend, ThreadStore } from '@systemfsoftware/agent/thread-store'
 import {
   ExecutionCheckpoint,
   ExecutionRead,
@@ -44,8 +44,8 @@ import {
   ThreadStoreError,
   ThreadWorkerCapacity,
   ThreadWorkerCapacityRequest,
-} from '@yielded/agent/thread-store'
-import { WORK_INDEX_VERSION } from '@yielded/agent/thread-work'
+} from '@systemfsoftware/agent/thread-store'
+import { WORK_INDEX_VERSION } from '@systemfsoftware/agent/thread-work'
 import * as Context from 'effect/Context'
 import * as Effect from 'effect/Effect'
 import * as Option from 'effect/Option'

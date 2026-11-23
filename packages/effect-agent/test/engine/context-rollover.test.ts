@@ -1,25 +1,25 @@
 import { expect, layer } from '@effect/vitest'
-import * as Agent from '@yielded/agent/agent'
-import { AgentPolicy } from '@yielded/agent/agent-policy'
-import * as AgentRuntime from '@yielded/agent/agent-runtime'
-import type { CompactionError } from '@yielded/agent/context-compactor'
-import { ContextCompactor } from '@yielded/agent/context-compactor'
+import * as Agent from '@systemfsoftware/agent/agent'
+import { AgentPolicy } from '@systemfsoftware/agent/agent-policy'
+import * as AgentRuntime from '@systemfsoftware/agent/agent-runtime'
+import type { CompactionError } from '@systemfsoftware/agent/context-compactor'
+import { ContextCompactor } from '@systemfsoftware/agent/context-compactor'
 import {
   ContextRolloverRequest,
   ContextRolloverTool,
   ContextWindow,
   ModelCallContext,
-} from '@yielded/agent/context-window'
-import { IdGenerator } from '@yielded/agent/id-generator'
-import { RunId, ThreadId, TurnId } from '@yielded/agent/identifiers'
-import { type RunEvent } from '@yielded/agent/run-event'
+} from '@systemfsoftware/agent/context-window'
+import { IdGenerator } from '@systemfsoftware/agent/id-generator'
+import { RunId, ThreadId, TurnId } from '@systemfsoftware/agent/identifiers'
+import { type RunEvent } from '@systemfsoftware/agent/run-event'
 import {
   type RunContextHook,
   RunContextPreparationPassthrough,
   type RunInputHook,
   type RunTransientContextHook,
-} from '@yielded/agent/run-options'
-import { ThreadHistory } from '@yielded/agent/thread-history'
+} from '@systemfsoftware/agent/run-options'
+import { ThreadHistory } from '@systemfsoftware/agent/thread-history'
 import * as LanguageModel from 'effect/ai/LanguageModel'
 import * as Model from 'effect/ai/Model'
 import * as Prompt from 'effect/ai/Prompt'

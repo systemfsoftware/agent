@@ -1,7 +1,7 @@
 import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import * as SqliteClient from '@effect/sql-sqlite-node/SqliteClient'
 import { describe, expect, it } from '@effect/vitest'
-import * as MemoryNamespace from '@yielded/agent/memory-namespace'
+import * as MemoryNamespace from '@systemfsoftware/agent/memory-namespace'
 import {
   MemoryConflict,
   MemoryKey,
@@ -14,13 +14,13 @@ import {
   MemoryWithdrawn,
   MemoryWrite,
   MemoryWriter,
-} from '@yielded/agent/memory-store'
+} from '@systemfsoftware/agent/memory-store'
 import {
   memoryReaderLayer,
   memoryStoreLayer,
   memoryStoreLayerWithFailpoints,
   SqlMemoryLimits,
-} from '@yielded/agent/sql-memory-store'
+} from '@systemfsoftware/agent/sql-memory-store'
 import * as Cause from 'effect/Cause'
 import * as Deferred from 'effect/Deferred'
 import * as Effect from 'effect/Effect'

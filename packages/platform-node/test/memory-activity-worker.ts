@@ -1,21 +1,21 @@
 import * as NodeCrypto from '@effect/platform-node/NodeCrypto'
 import * as SqliteClient from '@effect/sql-sqlite-node/SqliteClient'
-import { activityProcessorStoreLayer } from '@yielded/agent-storage-sqlite/sqlite-activity-store'
+import { activityProcessorStoreLayer } from '@systemfsoftware/agent-storage-sqlite/sqlite-activity-store'
 import {
   storageConfigLayer,
   storageFailpointLayer,
   threadStoreLayer,
-} from '@yielded/agent-storage-sqlite/sqlite-thread-store'
-import { type PreparedActivity } from '@yielded/agent/activity-store'
-import { processCommittedActivity } from '@yielded/agent/committed-activity'
+} from '@systemfsoftware/agent-storage-sqlite/sqlite-thread-store'
+import { type PreparedActivity } from '@systemfsoftware/agent/activity-store'
+import { processCommittedActivity } from '@systemfsoftware/agent/committed-activity'
 import {
   MemoryMutationFailpoint,
   type MemoryMutationPoint,
   MemoryWrite,
   MemoryWriter,
-} from '@yielded/agent/memory-store'
-import { type CanonicalRecordEnvelope } from '@yielded/agent/records'
-import { memoryStoreLayerWithFailpoints } from '@yielded/agent/sql-memory-store'
+} from '@systemfsoftware/agent/memory-store'
+import { type CanonicalRecordEnvelope } from '@systemfsoftware/agent/records'
+import { memoryStoreLayerWithFailpoints } from '@systemfsoftware/agent/sql-memory-store'
 import * as Config from 'effect/Config'
 import * as Console from 'effect/Console'
 import * as Effect from 'effect/Effect'

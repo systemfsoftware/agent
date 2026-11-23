@@ -47,8 +47,8 @@ fully enforces; each names what enforces it, or says that review does.
 ## Package dependency direction
 
 ```text
-@yielded/agent <- storage-sql <- storage-sqlite
-@yielded/agent + selected adapters <- platform-node
+@systemfsoftware/agent <- storage-sql <- storage-sqlite
+@systemfsoftware/agent + selected adapters <- platform-node
 ```
 
 An inward package must not import an outward package. If a feature appears to require that, define

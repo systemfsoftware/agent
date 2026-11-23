@@ -1,11 +1,17 @@
-import { ApprovalDecision, type CanonicalSequence, Digest, RecordId, SettlementOutcome } from '@yielded/agent/records'
+import {
+  ApprovalDecision,
+  type CanonicalSequence,
+  Digest,
+  RecordId,
+  SettlementOutcome,
+} from '@systemfsoftware/agent/records'
 import {
   AdmissionGroup,
   ChildReservationStatus,
   type QueueSequence,
   SubmissionState,
   UnknownResolutionKind,
-} from '@yielded/agent/submission-ledger'
+} from '@systemfsoftware/agent/submission-ledger'
 import * as Schema from 'effect/Schema'
 
 export const BoundedIdentifier = Schema.NonEmptyString.check(Schema.isMaxLength(1024))

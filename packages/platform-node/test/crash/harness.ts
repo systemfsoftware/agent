@@ -6,13 +6,13 @@ import { expect } from '@effect/vitest'
 import {
   NodeDurableAgentRuntime,
   type NodeDurableAgentRuntimeOptions,
-} from '@yielded/agent-platform-node/node-durable-agent-runtime'
-import { NodeDurableHost } from '@yielded/agent-platform-node/node-durable-host'
-import { type SqliteStorageFailpointLocation } from '@yielded/agent-storage-sqlite/sqlite-storage-error'
-import { type ResolvedBinding } from '@yielded/agent/agent-registration'
-import { type DurableRuntimeFailpointLocation } from '@yielded/agent/durable-failpoint'
-import { type SubmissionId } from '@yielded/agent/identifiers'
-import { type CanonicalRecordEnvelope } from '@yielded/agent/records'
+} from '@systemfsoftware/agent-platform-node/node-durable-agent-runtime'
+import { NodeDurableHost } from '@systemfsoftware/agent-platform-node/node-durable-host'
+import { type SqliteStorageFailpointLocation } from '@systemfsoftware/agent-storage-sqlite/sqlite-storage-error'
+import { type ResolvedBinding } from '@systemfsoftware/agent/agent-registration'
+import { type DurableRuntimeFailpointLocation } from '@systemfsoftware/agent/durable-failpoint'
+import { type SubmissionId } from '@systemfsoftware/agent/identifiers'
+import { type CanonicalRecordEnvelope } from '@systemfsoftware/agent/records'
 import {
   submissionInputRecordId,
   SubmissionLedger,
@@ -20,8 +20,8 @@ import {
   SubmissionLookupByKey,
   submissionSettlementRecordId,
   type SubmissionSnapshot,
-} from '@yielded/agent/submission-ledger'
-import { ThreadRead, ThreadStore } from '@yielded/agent/thread-store'
+} from '@systemfsoftware/agent/submission-ledger'
+import { ThreadRead, ThreadStore } from '@systemfsoftware/agent/thread-store'
 import * as Cause from 'effect/Cause'
 import * as Duration from 'effect/Duration'
 import * as Effect from 'effect/Effect'

@@ -1,5 +1,5 @@
-import { makeCanonicalStorage } from '@yielded/agent-storage-sql/sql-canonical-storage'
-import type { SubmissionId } from '@yielded/agent/identifiers'
+import { makeCanonicalStorage } from '@systemfsoftware/agent-storage-sql/sql-canonical-storage'
+import type { SubmissionId } from '@systemfsoftware/agent/identifiers'
 import {
   CanonicalBatch,
   DefinitionDigests,
@@ -9,14 +9,14 @@ import {
   RecordEnvelope,
   type SettlementOutcome,
   SubmissionSettledRecord,
-} from '@yielded/agent/records'
-import { runIdForSubmission } from '@yielded/agent/run-journal'
-import { layer as runStorageLayer, RunStorage } from '@yielded/agent/run-storage'
+} from '@systemfsoftware/agent/records'
+import { runIdForSubmission } from '@systemfsoftware/agent/run-journal'
+import { layer as runStorageLayer, RunStorage } from '@systemfsoftware/agent/run-storage'
 import {
   SettlementPublication,
   type SettlementPublicationAuthority,
   SettlementPublisher,
-} from '@yielded/agent/settlement-publisher'
+} from '@systemfsoftware/agent/settlement-publisher'
 import {
   AbortCommand,
   AdmissionRequest,
@@ -31,8 +31,13 @@ import {
   submissionSettlementId,
   submissionSettlementRecordId,
   type SubmissionSnapshot,
-} from '@yielded/agent/submission-ledger'
-import { AppendRequest, ThreadMaterialization, ThreadStore, ThreadTailRequest } from '@yielded/agent/thread-store'
+} from '@systemfsoftware/agent/submission-ledger'
+import {
+  AppendRequest,
+  ThreadMaterialization,
+  ThreadStore,
+  ThreadTailRequest,
+} from '@systemfsoftware/agent/thread-store'
 import { Cause, DateTime, Effect, Exit, Option, Schema, Stream } from 'effect'
 import * as SqlClient from 'effect/sql/SqlClient'
 import { CurrentTransformer } from 'effect/sql/Statement'

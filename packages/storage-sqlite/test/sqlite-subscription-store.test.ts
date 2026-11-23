@@ -1,10 +1,13 @@
 import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import * as SqliteClient from '@effect/sql-sqlite-node/SqliteClient'
 import { describe, expect, it } from '@effect/vitest'
-import { SqliteStorageConfig, SqliteStorageConfigValue } from '@yielded/agent-storage-sqlite/sqlite-storage-config'
-import { SqliteStorageFailpoint } from '@yielded/agent-storage-sqlite/sqlite-storage-failpoint'
-import { subscriptionStoreLayer } from '@yielded/agent-storage-sqlite/sqlite-subscription-store'
-import { Digest } from '@yielded/agent/records'
+import {
+  SqliteStorageConfig,
+  SqliteStorageConfigValue,
+} from '@systemfsoftware/agent-storage-sqlite/sqlite-storage-config'
+import { SqliteStorageFailpoint } from '@systemfsoftware/agent-storage-sqlite/sqlite-storage-failpoint'
+import { subscriptionStoreLayer } from '@systemfsoftware/agent-storage-sqlite/sqlite-subscription-store'
+import { Digest } from '@systemfsoftware/agent/records'
 import {
   AcceptedEvent,
   defaultSubscriptionLimits,
@@ -12,11 +15,11 @@ import {
   SubscriptionFailpoint,
   SubscriptionFailpointError,
   SubscriptionStore,
-} from '@yielded/agent/subscription'
+} from '@systemfsoftware/agent/subscription'
 import {
   subscriptionConformancePartition,
   subscriptionStoreConformanceCases,
-} from '@yielded/agent/testing/subscription-store-conformance'
+} from '@systemfsoftware/agent/testing/subscription-store-conformance'
 import * as Effect from 'effect/Effect'
 import * as FileSystem from 'effect/FileSystem'
 import * as Layer from 'effect/Layer'

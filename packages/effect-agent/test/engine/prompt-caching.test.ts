@@ -3,9 +3,9 @@ import * as AnthropicLanguageModel from '@effect/ai-anthropic/AnthropicLanguageM
 import * as OpenAiClient from '@effect/ai-openai/OpenAiClient'
 import * as OpenAiLanguageModel from '@effect/ai-openai/OpenAiLanguageModel'
 import { describe, expect, it } from '@effect/vitest'
-import { Agent, AgentRuntime, InMemory, ThreadHistory } from '@yielded/agent'
-import { ContextCompactor } from '@yielded/agent/context-compactor'
-import { ModelCallContext } from '@yielded/agent/context-window'
+import { Agent, AgentRuntime, InMemory, ThreadHistory } from '@systemfsoftware/agent'
+import { ContextCompactor } from '@systemfsoftware/agent/context-compactor'
+import { ModelCallContext } from '@systemfsoftware/agent/context-window'
 import * as Model from 'effect/ai/Model'
 import * as Prompt from 'effect/ai/Prompt'
 import * as ResponseIdTracker from 'effect/ai/ResponseIdTracker'
@@ -165,7 +165,7 @@ const lookup = Toolkit.make(
 
 // #651: successful answers and reported usage do not prove a reusable prompt prefix.
 // These assertions compare real wire prefixes, without simulating the provider cache.
-describe('prompt caching: https://github.com/yielded-dev/agent/issues/651', () => {
+describe('prompt caching: https://github.com/systemfsoftware/agent/issues/651', () => {
   it.effect.each(['retained', 'prepared', 'conversation-only'] as const)(
     'preserves user-ending prefixes within the context limit across three runs with %s history',
     (historyMode) =>

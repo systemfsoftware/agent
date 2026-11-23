@@ -2,7 +2,7 @@ import {
   MessageDeliveryDriver,
   type MessageDeliveryFailure,
   MessageDeliveryStore,
-} from '@yielded/agent/message-delivery'
+} from '@systemfsoftware/agent/message-delivery'
 import * as Cause from 'effect/Cause'
 import * as Clock from 'effect/Clock'
 import * as Effect from 'effect/Effect'

@@ -1,5 +1,5 @@
-import * as Memory from '@yielded/agent/memory'
-import { type MemoryLookup, MemoryRecallError, MemoryRecallLimits } from '@yielded/agent/memory-reference'
+import * as Memory from '@systemfsoftware/agent/memory'
+import { type MemoryLookup, MemoryRecallError, MemoryRecallLimits } from '@systemfsoftware/agent/memory-reference'
 import * as Context from 'effect/Context'
 import * as Effect from 'effect/Effect'
 

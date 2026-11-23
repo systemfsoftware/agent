@@ -6,10 +6,10 @@ import {
   SqliteStorageCompatibilityError,
   SqliteStorageFailpointError,
   type SqliteStorageFailpointLocation,
-} from '@yielded/agent-storage-sqlite/sqlite-storage-error'
-import { SqliteStorageFailpoint } from '@yielded/agent-storage-sqlite/sqlite-storage-failpoint'
-import { CurrentSqliteStorageVersion } from '@yielded/agent-storage-sqlite/sqlite-storage-version'
-import { ledgerLayer, submissionLedgerLayer } from '@yielded/agent-storage-sqlite/sqlite-submission-ledger'
+} from '@systemfsoftware/agent-storage-sqlite/sqlite-storage-error'
+import { SqliteStorageFailpoint } from '@systemfsoftware/agent-storage-sqlite/sqlite-storage-failpoint'
+import { CurrentSqliteStorageVersion } from '@systemfsoftware/agent-storage-sqlite/sqlite-storage-version'
+import { ledgerLayer, submissionLedgerLayer } from '@systemfsoftware/agent-storage-sqlite/sqlite-submission-ledger'
 import {
   exclusiveHostClientLayer,
   exclusiveRunStorageLayer,
@@ -17,8 +17,8 @@ import {
   storageConfigLayer,
   storageFailpointLayer,
   threadStoreLayer,
-} from '@yielded/agent-storage-sqlite/sqlite-thread-store'
-import { digestJson } from '@yielded/agent/digest'
+} from '@systemfsoftware/agent-storage-sqlite/sqlite-thread-store'
+import { digestJson } from '@systemfsoftware/agent/digest'
 import {
   AbortRequested,
   CanonicalBatch,
@@ -35,12 +35,12 @@ import {
   SubmissionSettled,
   SubmissionSettledRecord,
   UserInputRecorded,
-} from '@yielded/agent/records'
-import { CurrentRunSettlement, CurrentRunWriter, makeProgressWriter } from '@yielded/agent/run-continuation'
-import { runIdForSubmission } from '@yielded/agent/run-journal'
-import type { StorageOwner } from '@yielded/agent/run-storage'
-import { layer as runStorageLayer, makeRunWriter, RunStorage } from '@yielded/agent/run-storage'
-import { SettlementPublication, SettlementPublisher } from '@yielded/agent/settlement-publisher'
+} from '@systemfsoftware/agent/records'
+import { CurrentRunSettlement, CurrentRunWriter, makeProgressWriter } from '@systemfsoftware/agent/run-continuation'
+import { runIdForSubmission } from '@systemfsoftware/agent/run-journal'
+import type { StorageOwner } from '@systemfsoftware/agent/run-storage'
+import { layer as runStorageLayer, makeRunWriter, RunStorage } from '@systemfsoftware/agent/run-storage'
+import { SettlementPublication, SettlementPublisher } from '@systemfsoftware/agent/settlement-publisher'
 import {
   AbortCommand,
   AdmissionPolicyError,
@@ -85,10 +85,15 @@ import {
   UnknownResolutionCommand,
   WaitingChild,
   WaitingForChildSuspension,
-} from '@yielded/agent/submission-ledger'
-import { submissionLedgerConformanceCases } from '@yielded/agent/testing/submission-ledger-conformance'
-import { readTestThread } from '@yielded/agent/testing/thread-store-conformance'
-import { AppendRequest, ThreadExportRequest, ThreadMaterialization, ThreadStore } from '@yielded/agent/thread-store'
+} from '@systemfsoftware/agent/submission-ledger'
+import { submissionLedgerConformanceCases } from '@systemfsoftware/agent/testing/submission-ledger-conformance'
+import { readTestThread } from '@systemfsoftware/agent/testing/thread-store-conformance'
+import {
+  AppendRequest,
+  ThreadExportRequest,
+  ThreadMaterialization,
+  ThreadStore,
+} from '@systemfsoftware/agent/thread-store'
 import * as Cause from 'effect/Cause'
 import type * as CryptoDigest from 'effect/crypto/Digest'
 import * as DateTime from 'effect/DateTime'

@@ -4,12 +4,12 @@ import {
   ContextHistoryError,
   ContextHistoryRead,
   ContextHistorySearch,
-} from '@yielded/agent/context-history'
-import { ThreadId } from '@yielded/agent/identifiers'
-import type { RecordEnvelope } from '@yielded/agent/records'
-import { CanonicalRecordEnvelope, CanonicalSequence, PersistedJson } from '@yielded/agent/records'
-import * as ThreadContextHistory from '@yielded/agent/thread-context-history'
-import { ThreadStore, ThreadStoreError, ThreadTail } from '@yielded/agent/thread-store'
+} from '@systemfsoftware/agent/context-history'
+import { ThreadId } from '@systemfsoftware/agent/identifiers'
+import type { RecordEnvelope } from '@systemfsoftware/agent/records'
+import { CanonicalRecordEnvelope, CanonicalSequence, PersistedJson } from '@systemfsoftware/agent/records'
+import * as ThreadContextHistory from '@systemfsoftware/agent/thread-context-history'
+import { ThreadStore, ThreadStoreError, ThreadTail } from '@systemfsoftware/agent/thread-store'
 import * as Prompt from 'effect/ai/Prompt'
 import * as Cause from 'effect/Cause'
 import * as Deferred from 'effect/Deferred'

@@ -1,4 +1,4 @@
-import { Digest } from '@yielded/agent/records'
+import { Digest } from '@systemfsoftware/agent/records'
 import {
   AcceptedEvent,
   defaultSubscriptionLimits,
@@ -18,7 +18,7 @@ import {
   SubscriptionRetentionPolicy,
   SubscriptionScanCursors,
   SubscriptionStore,
-} from '@yielded/agent/subscription'
+} from '@systemfsoftware/agent/subscription'
 import {
   applySubscriptionChange,
   applySubscriptionDeliveryChange,
@@ -29,7 +29,7 @@ import {
   subscriptionDeliveryUsesCapacity,
   subscriptionUsesCapacity,
   validateEventRetention,
-} from '@yielded/agent/subscription-transition'
+} from '@systemfsoftware/agent/subscription-transition'
 import * as Clock from 'effect/Clock'
 import * as Effect from 'effect/Effect'
 import * as Result from 'effect/Result'

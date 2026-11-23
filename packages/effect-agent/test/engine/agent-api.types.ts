@@ -1,16 +1,16 @@
-import { AgentRuntime, Output } from '@yielded/agent'
-import * as Agent from '@yielded/agent/agent'
-import { AgentPolicy } from '@yielded/agent/agent-policy'
+import { AgentRuntime, Output } from '@systemfsoftware/agent'
+import * as Agent from '@systemfsoftware/agent/agent'
+import { AgentPolicy } from '@systemfsoftware/agent/agent-policy'
 import {
   type AgentCompletionProjectionRequirements,
   type AgentResult,
   type AgentRuntimeFailure,
   type AgentRuntimeRequirements,
-} from '@yielded/agent/agent-runtime'
-import { ModelCallContext } from '@yielded/agent/context-window'
-import { type RunBufferLimits, type RunContextHook } from '@yielded/agent/run-options'
-import { type ThreadHistory } from '@yielded/agent/thread-history'
-import { RunToolVisibility } from '@yielded/agent/tool-exposure'
+} from '@systemfsoftware/agent/agent-runtime'
+import { ModelCallContext } from '@systemfsoftware/agent/context-window'
+import { type RunBufferLimits, type RunContextHook } from '@systemfsoftware/agent/run-options'
+import { type ThreadHistory } from '@systemfsoftware/agent/thread-history'
+import { RunToolVisibility } from '@systemfsoftware/agent/tool-exposure'
 import * as LanguageModel from 'effect/ai/LanguageModel'
 import * as Model from 'effect/ai/Model'
 import * as Tool from 'effect/ai/Tool'

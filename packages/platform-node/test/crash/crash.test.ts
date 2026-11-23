@@ -1,9 +1,9 @@
 import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import { expect, layer } from '@effect/vitest'
-import { NodeDurableHost } from '@yielded/agent-platform-node/node-durable-host'
-import * as Agent from '@yielded/agent/agent'
-import { DurableAgentRuntime, recoveryRepairRecordId } from '@yielded/agent/durable-agent-runtime'
-import { type CanonicalRecordEnvelope, type RecordEnvelope } from '@yielded/agent/records'
+import { NodeDurableHost } from '@systemfsoftware/agent-platform-node/node-durable-host'
+import * as Agent from '@systemfsoftware/agent/agent'
+import { DurableAgentRuntime, recoveryRepairRecordId } from '@systemfsoftware/agent/durable-agent-runtime'
+import { type CanonicalRecordEnvelope, type RecordEnvelope } from '@systemfsoftware/agent/records'
 import {
   modelResponseInterruptedRecordId,
   modelResponseRecordId,
@@ -14,8 +14,8 @@ import {
   toolCallSettledRecordId,
   toolCallUnknownRecordId,
   toolStepSettledRecordId,
-} from '@yielded/agent/run-journal'
-import { RunStorage, StorageOwner } from '@yielded/agent/run-storage'
+} from '@systemfsoftware/agent/run-journal'
+import { RunStorage, StorageOwner } from '@systemfsoftware/agent/run-storage'
 import {
   AbortCommand,
   ApprovalDecisionCommand,
@@ -24,8 +24,8 @@ import {
   submissionInputRecordId,
   SubmissionLedger,
   submissionSettlementRecordId,
-} from '@yielded/agent/submission-ledger'
-import { ThreadStore } from '@yielded/agent/thread-store'
+} from '@systemfsoftware/agent/submission-ledger'
+import { ThreadStore } from '@systemfsoftware/agent/thread-store'
 import * as Prompt from 'effect/ai/Prompt'
 import * as Deferred from 'effect/Deferred'
 import * as Effect from 'effect/Effect'

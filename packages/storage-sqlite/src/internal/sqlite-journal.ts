@@ -1,10 +1,10 @@
-import { makeSqlJournalKernel } from '@yielded/agent-storage-sql/sql-journal'
+import { makeSqlJournalKernel } from '@systemfsoftware/agent-storage-sql/sql-journal'
 import {
   type CorruptionErrorFields,
   makeRowDecoder,
   makeSqlTransaction,
   type StorageErrorFields,
-} from '@yielded/agent-storage-sql/sql-storage'
+} from '@systemfsoftware/agent-storage-sql/sql-storage'
 import * as Effect from 'effect/Effect'
 import * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'

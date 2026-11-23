@@ -1,5 +1,5 @@
-import { SqlStorageFailpointLocation as SqliteStorageFailpointLocation } from '@yielded/agent-storage-sql/sql-storage-failpoint'
-import { CanonicalSequence } from '@yielded/agent/records'
+import { SqlStorageFailpointLocation as SqliteStorageFailpointLocation } from '@systemfsoftware/agent-storage-sql/sql-storage-failpoint'
+import { CanonicalSequence } from '@systemfsoftware/agent/records'
 import * as Schema from 'effect/Schema'
 
 /** The SQLite file uses a private-development format this adapter cannot read. */
@@ -81,7 +81,7 @@ export class SqliteCheckpointConflict extends Schema.TaggedError<SqliteCheckpoin
   },
 ) {}
 
-export { SqlStorageFailpointLocation as SqliteStorageFailpointLocation } from '@yielded/agent-storage-sql/sql-storage-failpoint'
+export { SqlStorageFailpointLocation as SqliteStorageFailpointLocation } from '@systemfsoftware/agent-storage-sql/sql-storage-failpoint'
 
 /** Deterministic test-only fault or pause injected at a SQLite operation boundary. */
 export class SqliteStorageFailpointError extends Schema.TaggedError<SqliteStorageFailpointError>()(
