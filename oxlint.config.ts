@@ -20,7 +20,7 @@ function spellings(key: string): ReadonlyArray<string> {
     const bare = plugin.replace(/^oxlint-plugin-/, '')
     return [`@systemfsoftware/${bare}/${rule}`, `@systemfsoftware/oxlint-plugin-${bare}/${rule}`]
   }
-  return [key, segments[1]!]
+  return segments.length > 1 ? [key, segments[1]!] : [key]
 }
 
 export default defineConfig({
