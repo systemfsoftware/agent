@@ -1,0 +1,38 @@
+allowBuilds:
+  dprint: true
+  esbuild: false
+minimumReleaseAgeExclude:
+  - "@systemfsoftware/oxlint-config-recommended"
+  - "@systemfsoftware/oxlint-config-cell-architecture"
+  - "@systemfsoftware/oxlint-config-dmmf"
+  - "@systemfsoftware/oxlint-plugin-cell-architecture"
+  - "@systemfsoftware/oxlint-plugin-dmmf-workflow"
+  - "@systemfsoftware/oxlint-plugin-effect-platform"
+  - "@systemfsoftware/oxlint-plugin-effect-schema"
+  - "@systemfsoftware/oxlint-plugin-test-discipline"
+  - "@systemfsoftware/oxlint-config-rule-authoring@3.0.3"
+packages:
+  - packages/*
+catalog:
+  "@arethetypeswrong/cli": "^0.18.5"
+  "dprint": "^0.65.0"
+  "effect": "4.1.2"
+  "@effect/ai-anthropic": "4.1.2"
+  "@effect/ai-openai": "4.1.2"
+  "@effect/platform-node": "4.1.2"
+  "@effect/sql-sqlite-node": "4.1.2"
+  "@effect/tsgo": "0.70.0"
+  "@effect/vitest": "4.1.2"
+  "esbuild": "0.28.1"
+  "image-dimensions": "2.6.0"
+  "tsdown": "^0.23.0"
+  "tsrs": "0.18.0-ts7.1.0-dev.20260929"
+  "@types/node": "26.1.2"
+  "typescript": "7.0.2"
+  "typescript-twoslash": "npm:typescript@6.0.3"
+  "vitest": "5.0.3"
+overrides:
+  "@effect/platform-node": "catalog:"
+  "@effect/vitest": "catalog:"
+  effect: "catalog:"
+  vitest: "catalog:"

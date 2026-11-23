@@ -1,68 +1,57 @@
-import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
-import { expect, it } from "@effect/vitest";
-import { NodeDurableHost } from "@yielded/agent-platform-node/node-durable-host";
-import { NodeSubscriptions } from "@yielded/agent-platform-node/node-subscriptions";
-import { subscriptionStoreLayer } from "@yielded/agent-storage-sqlite/sqlite-subscription-store";
-import * as Agent from "@yielded/agent/agent";
-import { AgentPolicy } from "@yielded/agent/agent-policy";
-import { DurableAgentRuntime } from "@yielded/agent/durable-agent-runtime";
+import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
+import { expect, it } from '@effect/vitest'
+import { NodeDurableHost } from '@yielded/agent-platform-node/node-durable-host'
+import { NodeSubscriptions } from '@yielded/agent-platform-node/node-subscriptions'
+import { subscriptionStoreLayer } from '@yielded/agent-storage-sqlite/sqlite-subscription-store'
+import * as Agent from '@yielded/agent/agent'
+import { AgentPolicy } from '@yielded/agent/agent-policy'
+import { DurableAgentRuntime } from '@yielded/agent/durable-agent-runtime'
+import { DurableRuntimeFailpointError, type DurableRuntimeFailpointHandler } from '@yielded/agent/durable-failpoint'
+import { EventSources, makeEventSource } from '@yielded/agent/event-source'
+import { AgentId, ThreadId } from '@yielded/agent/identifiers'
+import { DefinitionDigests, Digest } from '@yielded/agent/records'
+import { IdempotencyKey, Principal, SubmissionLedger, SubmissionLookupByKey } from '@yielded/agent/submission-ledger'
 import {
-  DurableRuntimeFailpointError,
-  type DurableRuntimeFailpointHandler,
-} from "@yielded/agent/durable-failpoint";
-import { EventSources, makeEventSource } from "@yielded/agent/event-source";
-import { AgentId, ThreadId } from "@yielded/agent/identifiers";
-import { DefinitionDigests, Digest } from "@yielded/agent/records";
-import {
-  IdempotencyKey,
-  Principal,
-  SubmissionLedger,
-  SubmissionLookupByKey,
-} from "@yielded/agent/submission-ledger";
-import {
+  defaultSubscriptionLimits,
   SourcePartition,
   SubscriptionAuthorizer,
   type SubscriptionDeliverySnapshot,
   SubscriptionStore,
-  defaultSubscriptionLimits,
-} from "@yielded/agent/subscription";
-import {
-  SubscriptionInputBindings,
-  makeSubscriptionInputBinding,
-} from "@yielded/agent/subscription-input";
-import { Subscriptions } from "@yielded/agent/subscriptions";
-import * as LanguageModel from "effect/ai/LanguageModel";
-import * as Model from "effect/ai/Model";
-import type * as Response from "effect/ai/Response";
-import * as Toolkit from "effect/ai/Toolkit";
-import * as Context from "effect/Context";
-import * as Effect from "effect/Effect";
-import * as Exit from "effect/Exit";
-import * as FileSystem from "effect/FileSystem";
-import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
-import type * as PlatformError from "effect/PlatformError";
-import * as Ref from "effect/Ref";
-import * as Schema from "effect/Schema";
-import * as Scope from "effect/Scope";
-import * as Stream from "effect/Stream";
-import * as TestClock from "effect/testing/TestClock";
+} from '@yielded/agent/subscription'
+import { makeSubscriptionInputBinding, SubscriptionInputBindings } from '@yielded/agent/subscription-input'
+import { Subscriptions } from '@yielded/agent/subscriptions'
+import * as LanguageModel from 'effect/ai/LanguageModel'
+import * as Model from 'effect/ai/Model'
+import type * as Response from 'effect/ai/Response'
+import * as Toolkit from 'effect/ai/Toolkit'
+import * as Context from 'effect/Context'
+import * as Effect from 'effect/Effect'
+import * as Exit from 'effect/Exit'
+import * as FileSystem from 'effect/FileSystem'
+import * as Layer from 'effect/Layer'
+import * as Option from 'effect/Option'
+import type * as PlatformError from 'effect/PlatformError'
+import * as Ref from 'effect/Ref'
+import * as Schema from 'effect/Schema'
+import * as Scope from 'effect/Scope'
+import * as Stream from 'effect/Stream'
+import * as TestClock from 'effect/testing/TestClock'
 
 const partition = SourcePartition.make({
-  tenantId: "node-subscription-tenant",
-  address: "workflow:completion",
-});
+  tenantId: 'node-subscription-tenant',
+  address: 'workflow:completion',
+})
 
-const principal = Schema.decodeSync(Principal)("node-subscription-principal");
-const threadId = Schema.decodeSync(ThreadId)("node-subscription-thread");
-const digest = Schema.decodeSync(Digest)("b".repeat(64));
-const definitions = DefinitionDigests.make({ agent: digest, model: digest, tools: digest });
-const agentId = Schema.decodeSync(AgentId)("node-subscription-agent");
-const workflowSource = { name: "workflow-completed", version: "1" } as const;
-const WorkflowWatch = Schema.Struct({ runId: Schema.Int });
-const WorkflowCompletion = Schema.Struct({ runId: Schema.Int, conclusion: Schema.String });
-const scope = { partition, ownerId: "review-owner", principal } as const;
-const initialAdmissionKey = Schema.decodeSync(IdempotencyKey)("initial-run");
+const principal = Schema.decodeSync(Principal)('node-subscription-principal')
+const threadId = Schema.decodeSync(ThreadId)('node-subscription-thread')
+const digest = Schema.decodeSync(Digest)('b'.repeat(64))
+const definitions = DefinitionDigests.make({ agent: digest, model: digest, tools: digest })
+const agentId = Schema.decodeSync(AgentId)('node-subscription-agent')
+const workflowSource = { name: 'workflow-completed', version: '1' } as const
+const WorkflowWatch = Schema.Struct({ runId: Schema.Int })
+const WorkflowCompletion = Schema.Struct({ runId: Schema.Int, conclusion: Schema.String })
+const scope = { partition, ownerId: 'review-owner', principal } as const
+const initialAdmissionKey = Schema.decodeSync(IdempotencyKey)('initial-run')
 
 const limits = {
   ...defaultSubscriptionLimits,
@@ -70,14 +59,14 @@ const limits = {
   concurrency: 2,
   retryMillis: 10,
   operationTimeoutMillis: 1_000,
-};
+}
 
 const authorizerLayer = Layer.succeed(SubscriptionAuthorizer)({
   manage: () => Effect.void,
   intake: () => Effect.void,
   reconcile: () => Effect.void,
-  prepare: () => Effect.succeed({ policyId: "node-subscription-policy", decisionId: "allow" }),
-});
+  prepare: () => Effect.succeed({ policyId: 'node-subscription-policy', decisionId: 'allow' }),
+})
 
 const sourceLayer = (calls: Ref.Ref<number>, completed: Ref.Ref<boolean>) =>
   Layer.merge(
@@ -85,7 +74,7 @@ const sourceLayer = (calls: Ref.Ref<number>, completed: Ref.Ref<boolean>) =>
       EventSources,
       makeEventSource({
         source: workflowSource,
-        continuity: "node-workflow-completed-v1",
+        continuity: 'node-workflow-completed-v1',
         event: WorkflowCompletion,
         parameters: WorkflowWatch,
         identity: (event) => `workflow-completed:${event.runId}`,
@@ -95,7 +84,7 @@ const sourceLayer = (calls: Ref.Ref<number>, completed: Ref.Ref<boolean>) =>
         reconcile: ({ runId }) =>
           Ref.update(calls, (count) => count + 1).pipe(
             Effect.andThen(Ref.get(completed)),
-            Effect.map((isCompleted) => (isCompleted ? { runId, conclusion: "success" } : null)),
+            Effect.map((isCompleted) => (isCompleted ? { runId, conclusion: 'success' } : null)),
           ),
       }).pipe(Effect.map((source) => ({ sources: [source] }))),
     ),
@@ -113,7 +102,7 @@ const sourceLayer = (calls: Ref.Ref<number>, completed: Ref.Ref<boolean>) =>
           Effect.succeed({ instruction: context.instruction, conclusion: completion.conclusion }),
       }).pipe(Effect.map((binding) => ({ bindings: [binding] }))),
     ),
-  );
+  )
 
 const subscriptionLayer = (
   filename: string,
@@ -130,78 +119,78 @@ const subscriptionLayer = (
     Layer.provideMerge(
       NodeDurableHost.layerStack({
         filename,
-        deploymentId: "node-subscription-deployment",
-        producerId: "node-subscription-producer",
+        deploymentId: 'node-subscription-deployment',
+        producerId: 'node-subscription-producer',
         wakeScanInterval: 1_000,
         observationPollInterval: 0,
         ...(runtimeFailpoint === undefined ? {} : { runtimeFailpoint }),
       }),
     ),
-  );
+  )
 
-  return NodeSubscriptions.layer({ limits }).pipe(Layer.provideMerge(dependencies));
-};
+  return NodeSubscriptions.layer({ limits }).pipe(Layer.provideMerge(dependencies))
+}
 
 const withTemporaryDatabase = <A, E>(
   use: (filename: string) => Effect.Effect<A, E>,
 ): Effect.Effect<A, E | PlatformError.PlatformError> =>
   Effect.scoped(
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
+    Effect.gen(function*() {
+      const fs = yield* FileSystem.FileSystem
 
       const directory = yield* fs.makeTempDirectoryScoped({
-        prefix: "effect-agent-node-subscription-",
-      });
+        prefix: 'effect-agent-node-subscription-',
+      })
 
-      return yield* use(`${directory}/runtime.sqlite`);
+      return yield* use(`${directory}/runtime.sqlite`)
     }),
-  ).pipe(Effect.provide(NodeFileSystem.layer));
+  ).pipe(Effect.provide(NodeFileSystem.layer))
 
-const subscribe = (subscriptions: Subscriptions["Service"]) =>
+const subscribe = (subscriptions: Subscriptions['Service']) =>
   subscriptions.subscribe(scope, {
-    subscriptionId: "workflow-completion",
+    subscriptionId: 'workflow-completion',
     source: workflowSource,
     parameters: { runId: 101 },
-    context: { instruction: "continue reviewing" },
-    mode: "once",
+    context: { instruction: 'continue reviewing' },
+    mode: 'once',
     expiresAtMillis: 60_000,
-    destination: { _tag: "ExistingThread", threadId },
+    destination: { _tag: 'ExistingThread', threadId },
     deliveryPrincipal: principal,
     agentId,
     definitions,
-  });
+  })
 
-const waitForDelivery = Effect.fnUntraced(function* (
-  subscriptions: Subscriptions["Service"],
+const waitForDelivery = Effect.fnUntraced(function*(
+  subscriptions: Subscriptions['Service'],
   predicate: (delivery: typeof SubscriptionDeliverySnapshot.Type) => boolean,
 ) {
   for (let attempt = 0; attempt < 128; attempt += 1) {
     const page = yield* subscriptions.listDeliveries(scope, {
       partition,
       ownerId: scope.ownerId,
-      subscriptionId: "workflow-completion",
-    });
+      subscriptionId: 'workflow-completion',
+    })
 
-    const item = page.items[0];
+    const item = page.items[0]
 
-    if (item !== undefined && predicate(item)) return item;
-    yield* TestClock.adjust(10);
-    yield* Effect.yieldNow;
+    if (item !== undefined && predicate(item)) return item
+    yield* TestClock.adjust(10)
+    yield* Effect.yieldNow
   }
 
-  return yield* Effect.die("Timed out waiting for subscription delivery");
-});
+  return yield* Effect.die('Timed out waiting for subscription delivery')
+})
 
-const usage = { inputTokens: {}, outputTokens: {} };
+const usage = { inputTokens: {}, outputTokens: {} }
 
 const finalParts = (text: string): ReadonlyArray<Response.StreamPartEncoded> => [
-  { type: "text-start", id: "answer" },
-  { type: "text-delta", id: "answer", delta: text },
-  { type: "text-end", id: "answer" },
-  { type: "finish", reason: "stop", usage },
-];
+  { type: 'text-start', id: 'answer' },
+  { type: 'text-delta', id: 'answer', delta: text },
+  { type: 'text-end', id: 'answer' },
+  { type: 'finish', reason: 'stop', usage },
+]
 
-const initialAgentDefinition = Agent.make("node-subscription-agent", {
+const initialAgentDefinition = Agent.make('node-subscription-agent', {
   input: Schema.Struct({ question: Schema.String }),
   output: Schema.Struct({ answer: Schema.String }),
   instructions: ({ question }) => `Answer ${question} as JSON.`,
@@ -209,15 +198,15 @@ const initialAgentDefinition = Agent.make("node-subscription-agent", {
   policy: AgentPolicy.make({
     maxTurns: 1,
     maxToolCalls: 1,
-    maxDuration: "30 seconds",
+    maxDuration: '30 seconds',
     toolConcurrency: 1,
   }),
-});
+})
 
 const makeInitialAgent = Effect.sync(() => {
   const model = Model.make(
-    "scripted",
-    "node-subscription-initial-run",
+    'scripted',
+    'node-subscription-initial-run',
     Layer.effect(
       LanguageModel.LanguageModel,
       LanguageModel.make({
@@ -225,103 +214,103 @@ const makeInitialAgent = Effect.sync(() => {
         streamText: () => Stream.fromIterable(finalParts('{"answer":"registered"}')),
       }),
     ),
-  );
+  )
 
-  return Agent.withModel(initialAgentDefinition, model);
-});
+  return Agent.withModel(initialAgentDefinition, model)
+})
 
 it.effect(
-  "delivers after a completed Run, restart, missed source event, and lost admission reply",
+  'delivers after a completed Run, restart, missed source event, and lost admission reply',
   () =>
     withTemporaryDatabase((filename) =>
       Effect.scoped(
-        Effect.gen(function* () {
-          const calls = yield* Ref.make(0);
-          const completed = yield* Ref.make(false);
-          const firstScope = yield* Scope.make();
+        Effect.gen(function*() {
+          const calls = yield* Ref.make(0)
+          const completed = yield* Ref.make(false)
+          const firstScope = yield* Scope.make()
 
-          yield* Effect.addFinalizer(() => Scope.close(firstScope, Exit.void));
+          yield* Effect.addFinalizer(() => Scope.close(firstScope, Exit.void))
 
           const firstContext = yield* Layer.build(
             subscriptionLayer(filename, calls, completed),
-          ).pipe(Scope.provide(firstScope));
+          ).pipe(Scope.provide(firstScope))
 
-          const firstSubscriptions = Context.get(firstContext, Subscriptions);
-          const firstHost = Context.get(firstContext, NodeDurableHost);
-          const firstRuntime = Context.get(firstContext, DurableAgentRuntime);
+          const firstSubscriptions = Context.get(firstContext, Subscriptions)
+          const firstHost = Context.get(firstContext, NodeDurableHost)
+          const firstRuntime = Context.get(firstContext, DurableAgentRuntime)
 
-          yield* subscribe(firstSubscriptions);
-          const initialAgent = yield* makeInitialAgent;
+          yield* subscribe(firstSubscriptions)
+          const initialAgent = yield* makeInitialAgent
 
           const initialReceipt = yield* firstHost.submit(
             initialAgent,
-            { question: "is the workflow registered?" },
+            { question: 'is the workflow registered?' },
             { threadId, principal, idempotencyKey: initialAdmissionKey, definitions },
-          );
+          )
 
-          yield* firstRuntime.processThread(initialAgent, threadId);
-          const initialSettlement = yield* firstHost.awaitSettlement(initialReceipt);
+          yield* firstRuntime.processThread(initialAgent, threadId)
+          const initialSettlement = yield* firstHost.awaitSettlement(initialReceipt)
 
-          expect(initialSettlement.outcome).toBe("completed");
+          expect(initialSettlement.outcome).toBe('completed')
 
           for (let attempt = 0; attempt < 128 && (yield* Ref.get(calls)) === 0; attempt += 1) {
-            yield* TestClock.adjust(10);
-            yield* Effect.yieldNow;
+            yield* TestClock.adjust(10)
+            yield* Effect.yieldNow
           }
-          expect(yield* Ref.get(calls)).toBeGreaterThan(0);
+          expect(yield* Ref.get(calls)).toBeGreaterThan(0)
 
-          yield* Scope.close(firstScope, Exit.void);
-          expect(yield* firstHost.admissionOpen).toBe(false);
-          const callsAfterClose = yield* Ref.get(calls);
+          yield* Scope.close(firstScope, Exit.void)
+          expect(yield* firstHost.admissionOpen).toBe(false)
+          const callsAfterClose = yield* Ref.get(calls)
 
-          yield* TestClock.adjust(100);
-          yield* Effect.yieldNow;
-          expect(yield* Ref.get(calls)).toBe(callsAfterClose);
+          yield* TestClock.adjust(100)
+          yield* Effect.yieldNow
+          expect(yield* Ref.get(calls)).toBe(callsAfterClose)
 
-          yield* Ref.set(completed, true);
-          const secondScope = yield* Scope.make();
+          yield* Ref.set(completed, true)
+          const secondScope = yield* Scope.make()
 
-          yield* Effect.addFinalizer(() => Scope.close(secondScope, Exit.void));
+          yield* Effect.addFinalizer(() => Scope.close(secondScope, Exit.void))
 
           const secondContext = yield* Layer.build(
             subscriptionLayer(filename, calls, completed, (location) =>
-              location === "submit:after-admit"
+              location === 'submit:after-admit'
                 ? Effect.fail(DurableRuntimeFailpointError.make({ location }))
-                : Effect.void,
-            ),
-          ).pipe(Scope.provide(secondScope));
+                : Effect.void),
+          ).pipe(Scope.provide(secondScope))
 
-          const secondSubscriptions = Context.get(secondContext, Subscriptions);
+          const secondSubscriptions = Context.get(secondContext, Subscriptions)
 
           yield* waitForDelivery(
             secondSubscriptions,
             (delivery) => delivery.receipt === null && delivery.retry.attempts > 0,
-          );
-          yield* Scope.close(secondScope, Exit.void);
+          )
+          yield* Scope.close(secondScope, Exit.void)
 
-          const thirdScope = yield* Scope.make();
+          const thirdScope = yield* Scope.make()
 
-          yield* Effect.addFinalizer(() => Scope.close(thirdScope, Exit.void));
+          yield* Effect.addFinalizer(() => Scope.close(thirdScope, Exit.void))
 
           const thirdContext = yield* Layer.build(
             subscriptionLayer(filename, calls, completed),
-          ).pipe(Scope.provide(thirdScope));
+          ).pipe(Scope.provide(thirdScope))
 
-          const thirdSubscriptions = Context.get(thirdContext, Subscriptions);
-          const ledger = Context.get(thirdContext, SubmissionLedger);
-          const store = Context.get(thirdContext, SubscriptionStore);
+          const thirdSubscriptions = Context.get(thirdContext, Subscriptions)
+          const ledger = Context.get(thirdContext, SubmissionLedger)
+          const store = Context.get(thirdContext, SubscriptionStore)
 
           const delivered = yield* waitForDelivery(
             thirdSubscriptions,
             (delivery) => delivery.receipt !== null,
-          );
+          )
 
-          expect(delivered.receipt?.threadId).toBe(threadId);
+          expect(delivered.receipt?.threadId).toBe(threadId)
 
-          const delivery = yield* store.delivery(delivered.key);
+          const delivery = yield* store.delivery(delivered.key)
 
-          if (delivery === null)
-            return yield* Effect.die("Expected retained subscription delivery");
+          if (delivery === null) {
+            return yield* Effect.die('Expected retained subscription delivery')
+          }
 
           const admitted = yield* ledger.lookup(
             SubmissionLookupByKey.make({
@@ -329,13 +318,13 @@ it.effect(
               principal,
               idempotencyKey: delivery.admissionKey,
             }),
-          );
+          )
 
-          expect(Option.isSome(admitted)).toBe(true);
+          expect(Option.isSome(admitted)).toBe(true)
 
-          yield* Scope.close(thirdScope, Exit.void);
+          yield* Scope.close(thirdScope, Exit.void)
         }),
-      ),
+      )
     ),
   30_000,
-);
+)

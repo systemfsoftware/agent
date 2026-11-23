@@ -1,19 +1,19 @@
-import * as Context from "effect/Context";
-import type * as Effect from "effect/Effect";
-import * as Schema from "effect/Schema";
+import * as Context from 'effect/Context'
+import type * as Effect from 'effect/Effect'
+import * as Schema from 'effect/Schema'
 
-import { ThreadId } from "../core/Identifiers.ts";
+import { ThreadId } from '../core/Identifiers.ts'
 
 /** Canonical transcript lookup failure. Access to a Thread remains a host authorization decision. */
 export class ContextHistoryError extends Schema.TaggedError<ContextHistoryError>()(
-  "ContextHistoryError",
+  'ContextHistoryError',
   {
-    reason: Schema.Literals(["unavailable", "not-found", "invalid-input", "limit"]),
+    reason: Schema.Literals(['unavailable', 'not-found', 'invalid-input', 'limit']),
     message: Schema.String.check(Schema.isMaxLength(4_096)),
   },
 ) {}
 
-export class ContextHistoryHit extends Schema.Class<ContextHistoryHit>("ContextHistoryHit")({
+export class ContextHistoryHit extends Schema.Class<ContextHistoryHit>('ContextHistoryHit')({
   recordId: Schema.NonEmptyString.check(Schema.isMaxLength(256)),
   windowId: Schema.NonEmptyString.check(Schema.isMaxLength(256)),
   text: Schema.String.check(Schema.isMaxLength(2_000)),
@@ -32,7 +32,7 @@ export class ContextHistoryHit extends Schema.Class<ContextHistoryHit>("ContextH
  * cannot displace matches older than the anchor. Retention and authorization are rechecked.
  */
 export class ContextHistorySearch extends Schema.Class<ContextHistorySearch>(
-  "ContextHistorySearch",
+  'ContextHistorySearch',
 )({
   threadId: ThreadId,
   query: Schema.NonEmptyString.check(Schema.isMaxLength(256)),
@@ -40,14 +40,14 @@ export class ContextHistorySearch extends Schema.Class<ContextHistorySearch>(
   beforeRecordId: Schema.optionalKey(ContextHistoryHit.fields.recordId),
 }) {}
 
-export class ContextHistoryRead extends Schema.Class<ContextHistoryRead>("ContextHistoryRead")({
+export class ContextHistoryRead extends Schema.Class<ContextHistoryRead>('ContextHistoryRead')({
   threadId: ThreadId,
   recordId: Schema.NonEmptyString.check(Schema.isMaxLength(256)),
   offset: Schema.Natural,
   maxChars: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 20_000 })),
 }) {}
 
-export class ContextHistoryPage extends Schema.Class<ContextHistoryPage>("ContextHistoryPage")({
+export class ContextHistoryPage extends Schema.Class<ContextHistoryPage>('ContextHistoryPage')({
   recordId: Schema.NonEmptyString.check(Schema.isMaxLength(256)),
   windowId: Schema.NonEmptyString.check(Schema.isMaxLength(256)),
   text: Schema.String.check(Schema.isMaxLength(20_000)),
@@ -67,9 +67,9 @@ export class ContextHistory extends Context.Service<
   {
     readonly search: (
       request: ContextHistorySearch,
-    ) => Effect.Effect<ReadonlyArray<ContextHistoryHit>, ContextHistoryError>;
+    ) => Effect.Effect<ReadonlyArray<ContextHistoryHit>, ContextHistoryError>
     readonly read: (
       request: ContextHistoryRead,
-    ) => Effect.Effect<ContextHistoryPage, ContextHistoryError>;
+    ) => Effect.Effect<ContextHistoryPage, ContextHistoryError>
   }
->()("@effect-agent/engine/ContextHistory") {}
+>()('@effect-agent/engine/ContextHistory') {}

@@ -1,74 +1,74 @@
-import * as Context from "effect/Context";
-import * as Effect from "effect/Effect";
-import * as Schema from "effect/Schema";
-import * as Struct from "effect/Struct";
+import * as Context from 'effect/Context'
+import * as Effect from 'effect/Effect'
+import * as Schema from 'effect/Schema'
+import * as Struct from 'effect/Struct'
 
-import { AgentId, ThreadId } from "../core/Identifiers.ts";
-import { Receipt } from "../core/Receipt.ts";
-import type { PreparedInputAuthorizationDecision } from "./PreparedInputAdmission.ts";
-import { PreparedInput, PreparedInputRetryReason } from "./PreparedInputAdmission.ts";
-import { DefinitionDigests, Digest, PersistedJson } from "./Records.ts";
-import { AdmissionFence, AdmissionGroup, Principal } from "./SubmissionLedger.ts";
+import { AgentId, ThreadId } from '../core/Identifiers.ts'
+import { Receipt } from '../core/Receipt.ts'
+import type { PreparedInputAuthorizationDecision } from './PreparedInputAdmission.ts'
+import { PreparedInput, PreparedInputRetryReason } from './PreparedInputAdmission.ts'
+import { DefinitionDigests, Digest, PersistedJson } from './Records.ts'
+import { AdmissionFence, AdmissionGroup, Principal } from './SubmissionLedger.ts'
 
 const Name = Schema.NonEmptyString.check(
   Schema.isMaxLength(128),
   Schema.isPattern(/^[^\p{Surrogate}]*$/u),
-);
+)
 
 /** Milliseconds since the Unix epoch, within DateTime's supported range. */
 export const ScheduleInstant = Schema.Int.check(
   Schema.isGreaterThanOrEqualTo(0),
   Schema.isLessThanOrEqualTo(8_640_000_000_000_000),
-);
+)
 
-const Positive = Schema.Int.check(Schema.isGreaterThan(0));
+const Positive = Schema.Int.check(Schema.isGreaterThan(0))
 
-export const ScheduleId = Name.pipe(Schema.brand("@effect-agent/thread/ScheduleId"));
-export type ScheduleId = typeof ScheduleId.Type;
-export const ScheduleOwner = Schema.Struct({ tenantId: Name, ownerId: Name });
-export type ScheduleOwner = typeof ScheduleOwner.Type;
-export const ScheduleKey = Schema.Struct({ owner: ScheduleOwner, scheduleId: ScheduleId });
-export type ScheduleKey = typeof ScheduleKey.Type;
-export const ScheduleScope = Schema.Struct({ owner: ScheduleOwner, principal: Principal });
-export type ScheduleScope = typeof ScheduleScope.Type;
+export const ScheduleId = Name.pipe(Schema.brand('@effect-agent/thread/ScheduleId'))
+export type ScheduleId = typeof ScheduleId.Type
+export const ScheduleOwner = Schema.Struct({ tenantId: Name, ownerId: Name })
+export type ScheduleOwner = typeof ScheduleOwner.Type
+export const ScheduleKey = Schema.Struct({ owner: ScheduleOwner, scheduleId: ScheduleId })
+export type ScheduleKey = typeof ScheduleKey.Type
+export const ScheduleScope = Schema.Struct({ owner: ScheduleOwner, principal: Principal })
+export type ScheduleScope = typeof ScheduleScope.Type
 
-const At = Schema.TaggedStruct("At", { atMillis: ScheduleInstant });
-const After = Schema.TaggedStruct("After", { delayMillis: Positive });
+const At = Schema.TaggedStruct('At', { atMillis: ScheduleInstant })
+const After = Schema.TaggedStruct('After', { delayMillis: Positive })
 
-const Interval = Schema.TaggedStruct("Interval", {
+const Interval = Schema.TaggedStruct('Interval', {
   everyMillis: Positive,
   anchorMillis: ScheduleInstant,
-});
+})
 
-const Cron = Schema.TaggedStruct("Cron", {
+const Cron = Schema.TaggedStruct('Cron', {
   expression: Schema.NonEmptyString.check(Schema.isMaxLength(256)),
   timeZone: Schema.NonEmptyString.check(Schema.isMaxLength(128)),
-});
+})
 
 /** A relative delay is a request value, never a stored unresolved deadline. */
 export const ScheduleTimingRequest = Schema.Union([
   At,
   After,
-  Schema.TaggedStruct("Interval", {
+  Schema.TaggedStruct('Interval', {
     everyMillis: Positive,
     anchorMillis: Schema.optionalKey(ScheduleInstant),
   }),
-  Schema.TaggedStruct("Cron", {
+  Schema.TaggedStruct('Cron', {
     expression: Schema.NonEmptyString.check(Schema.isMaxLength(256)),
     timeZone: Schema.optionalKey(Schema.NonEmptyString.check(Schema.isMaxLength(128))),
   }),
-]);
+])
 
-export type ScheduleTimingRequest = typeof ScheduleTimingRequest.Type;
-export const ScheduleTiming = Schema.Union([At, Interval, Cron]);
-export type ScheduleTiming = typeof ScheduleTiming.Type;
+export type ScheduleTimingRequest = typeof ScheduleTimingRequest.Type
+export const ScheduleTiming = Schema.Union([At, Interval, Cron])
+export type ScheduleTiming = typeof ScheduleTiming.Type
 
 export const ScheduleDestination = Schema.Union([
-  Schema.TaggedStruct("ExistingThread", { threadId: ThreadId }),
-  Schema.TaggedStruct("FreshThread", {}),
-]);
+  Schema.TaggedStruct('ExistingThread', { threadId: ThreadId }),
+  Schema.TaggedStruct('FreshThread', {}),
+])
 
-export type ScheduleDestination = typeof ScheduleDestination.Type;
+export type ScheduleDestination = typeof ScheduleDestination.Type
 
 export const ScheduleConfiguration = Schema.Struct({
   timing: ScheduleTiming,
@@ -80,9 +80,9 @@ export const ScheduleConfiguration = Schema.Struct({
   definitions: DefinitionDigests,
   input: PersistedJson,
   inputDigest: Digest,
-});
+})
 
-export type ScheduleConfiguration = typeof ScheduleConfiguration.Type;
+export type ScheduleConfiguration = typeof ScheduleConfiguration.Type
 
 export const ScheduledEnvelope = Schema.Struct({
   schemaVersion: PreparedInput.fields.schemaVersion,
@@ -92,10 +92,10 @@ export const ScheduledEnvelope = Schema.Struct({
   intendedAtMillis: ScheduleInstant,
   preparedAtMillis: ScheduleInstant,
   occurrenceId: Digest,
-  ...Struct.omit(PreparedInput.fields, ["schemaVersion", "workerAdmission", "messageAdmission"]),
-});
+  ...Struct.omit(PreparedInput.fields, ['schemaVersion', 'workerAdmission', 'messageAdmission']),
+})
 
-export type ScheduledEnvelope = typeof ScheduledEnvelope.Type;
+export type ScheduledEnvelope = typeof ScheduledEnvelope.Type
 
 export const ScheduleRetry = Schema.Struct({
   attempts: Schema.Natural,
@@ -105,29 +105,29 @@ export const ScheduleRetry = Schema.Struct({
   nextAttemptAtMillis: ScheduleInstant,
   lastAttemptAtMillis: Schema.NullOr(ScheduleInstant),
   lastFailure: Schema.NullOr(PreparedInputRetryReason),
-});
+})
 
-export type ScheduleRetry = typeof ScheduleRetry.Type;
-export const SchedulePending = Schema.Struct({ envelope: ScheduledEnvelope, retry: ScheduleRetry });
-export type SchedulePending = typeof SchedulePending.Type;
+export type ScheduleRetry = typeof ScheduleRetry.Type
+export const SchedulePending = Schema.Struct({ envelope: ScheduledEnvelope, retry: ScheduleRetry })
+export type SchedulePending = typeof SchedulePending.Type
 
 export const ScheduleRefusal = Schema.Struct({
   atMillis: ScheduleInstant,
   intendedAtMillis: ScheduleInstant,
   occurrenceId: Schema.NullOr(Digest),
-  phase: Schema.Literals(["preparation", "admission"]),
+  phase: Schema.Literals(['preparation', 'admission']),
   code: Name,
-});
+})
 
-export type ScheduleRefusal = typeof ScheduleRefusal.Type;
+export type ScheduleRefusal = typeof ScheduleRefusal.Type
 
 /** Half-open interval [fromMillis, toMillis); the upper bound is not skipped. */
 export const ScheduleSkippedRange = Schema.Struct({
   fromMillis: ScheduleInstant,
   toMillis: ScheduleInstant,
-});
+})
 
-export type ScheduleSkippedRange = typeof ScheduleSkippedRange.Type;
+export type ScheduleSkippedRange = typeof ScheduleSkippedRange.Type
 
 export const ScheduleRecord = Schema.Struct({
   schemaVersion: Schema.Literal(1),
@@ -140,7 +140,7 @@ export const ScheduleRecord = Schema.Struct({
   configurationRevision: Positive,
   version: Positive,
   configuration: ScheduleConfiguration,
-  state: Schema.Literals(["active", "paused", "cancelled"]),
+  state: Schema.Literals(['active', 'paused', 'cancelled']),
   nextAtMillis: Schema.NullOr(ScheduleInstant),
   pending: Schema.NullOr(SchedulePending),
   lastReceipt: Schema.NullOr(
@@ -153,9 +153,9 @@ export const ScheduleRecord = Schema.Struct({
   ),
   lastRefusal: Schema.NullOr(ScheduleRefusal),
   lastSkippedRange: Schema.NullOr(ScheduleSkippedRange),
-});
+})
 
-export type ScheduleRecord = typeof ScheduleRecord.Type;
+export type ScheduleRecord = typeof ScheduleRecord.Type
 
 export const ScheduleSnapshot = Schema.Struct({
   owner: ScheduleOwner,
@@ -171,7 +171,7 @@ export const ScheduleSnapshot = Schema.Struct({
     admissionFence: Schema.optionalKey(AdmissionFence),
     agentId: AgentId,
   }),
-  state: Schema.Literals(["active", "paused", "cancelled"]),
+  state: Schema.Literals(['active', 'paused', 'cancelled']),
   nextAtMillis: Schema.NullOr(ScheduleInstant),
   pending: Schema.NullOr(
     Schema.Struct({
@@ -195,73 +195,73 @@ export const ScheduleSnapshot = Schema.Struct({
   observedAtMillis: ScheduleInstant,
   pendingAgeMillis: Schema.NullOr(Schema.Natural),
   latenessMillis: Schema.Natural,
-});
+})
 
-export type ScheduleSnapshot = typeof ScheduleSnapshot.Type;
+export type ScheduleSnapshot = typeof ScheduleSnapshot.Type
 
 export const ScheduleSnapshotPage = Schema.Struct({
   items: Schema.Array(ScheduleSnapshot).check(Schema.isMaxLength(100)),
   next: Schema.NullOr(ScheduleId),
-});
+})
 
-export type ScheduleSnapshotPage = typeof ScheduleSnapshotPage.Type;
+export type ScheduleSnapshotPage = typeof ScheduleSnapshotPage.Type
 
 export class ScheduleValidationError extends Schema.TaggedError<ScheduleValidationError>()(
-  "ScheduleValidationError",
+  'ScheduleValidationError',
   { message: Schema.String },
 ) {}
 
-export class ScheduleConflict extends Schema.TaggedError<ScheduleConflict>()("ScheduleConflict", {
-  reason: Schema.Literals(["creation", "revision", "cancelled"]),
+export class ScheduleConflict extends Schema.TaggedError<ScheduleConflict>()('ScheduleConflict', {
+  reason: Schema.Literals(['creation', 'revision', 'cancelled']),
   key: ScheduleKey,
 }) {}
 
-export class ScheduleNotFound extends Schema.TaggedError<ScheduleNotFound>()("ScheduleNotFound", {
+export class ScheduleNotFound extends Schema.TaggedError<ScheduleNotFound>()('ScheduleNotFound', {
   key: ScheduleKey,
 }) {}
 
 export class ScheduleAuthorizationError extends Schema.TaggedError<ScheduleAuthorizationError>()(
-  "ScheduleAuthorizationError",
+  'ScheduleAuthorizationError',
   { code: Name },
 ) {}
 
 export class ScheduleCapacityError extends Schema.TaggedError<ScheduleCapacityError>()(
-  "ScheduleCapacityError",
+  'ScheduleCapacityError',
   { limit: Positive },
 ) {}
 
 export class ScheduleStorageError extends Schema.TaggedError<ScheduleStorageError>()(
-  "ScheduleStorageError",
+  'ScheduleStorageError',
   {
     cause: Schema.optionalKey(Schema.Defect()),
     operation: Schema.String,
-    reason: Schema.Literals(["unavailable", "corrupt"]),
+    reason: Schema.Literals(['unavailable', 'corrupt']),
   },
 ) {}
 
 export type ScheduleManagementOperation =
-  | "create"
-  | "get"
-  | "list"
-  | "update"
-  | "pause"
-  | "resume"
-  | "cancel"
-  | "recover";
+  | 'create'
+  | 'get'
+  | 'list'
+  | 'update'
+  | 'pause'
+  | 'resume'
+  | 'cancel'
+  | 'recover'
 
 export interface ScheduleManagementAuthorization {
-  readonly operation: ScheduleManagementOperation;
-  readonly scope: ScheduleScope;
-  readonly scheduleId?: ScheduleId;
-  readonly configuration?: ScheduleConfiguration;
+  readonly operation: ScheduleManagementOperation
+  readonly scope: ScheduleScope
+  readonly scheduleId?: ScheduleId
+  readonly configuration?: ScheduleConfiguration
 }
 
 export interface ScheduleOccurrenceAuthorization {
-  readonly key: ScheduleKey;
-  readonly configurationRevision: number;
-  readonly configuration: ScheduleConfiguration;
-  readonly intendedAtMillis: number;
-  readonly occurrenceId: Digest;
+  readonly key: ScheduleKey
+  readonly configurationRevision: number
+  readonly configuration: ScheduleConfiguration
+  readonly intendedAtMillis: number
+  readonly occurrenceId: Digest
 }
 
 /** Hosts must supply an explicit authorizer. There is no possession/default allow Layer. */
@@ -270,15 +270,15 @@ export class ScheduleAuthorizer extends Context.Service<
   {
     readonly manage: (
       request: ScheduleManagementAuthorization,
-    ) => Effect.Effect<void, ScheduleAuthorizationError | ScheduleStorageError>;
+    ) => Effect.Effect<void, ScheduleAuthorizationError | ScheduleStorageError>
     readonly prepare: (
       request: ScheduleOccurrenceAuthorization,
     ) => Effect.Effect<
       PreparedInputAuthorizationDecision,
       ScheduleAuthorizationError | ScheduleStorageError
-    >;
+    >
   }
->()("@effect-agent/thread/ScheduleAuthorizer") {}
+>()('@effect-agent/thread/ScheduleAuthorizer') {}
 
 export const SchedulingLimits = Schema.Struct({
   maxSchedulesPerOwner: Positive.check(Schema.isLessThanOrEqualTo(100_000)),
@@ -291,9 +291,9 @@ export const SchedulingLimits = Schema.Struct({
   admissionTimeoutMillis: Positive,
   recoveryPollMillis: Positive,
   maxAutomaticAttempts: Schema.optionalKey(Positive),
-});
+})
 
-export type SchedulingLimits = typeof SchedulingLimits.Type;
+export type SchedulingLimits = typeof SchedulingLimits.Type
 
 export const defaultSchedulingLimits: SchedulingLimits = {
   maxSchedulesPerOwner: 1_000,
@@ -306,55 +306,55 @@ export const defaultSchedulingLimits: SchedulingLimits = {
   admissionTimeoutMillis: 30_000,
   recoveryPollMillis: 30_000,
   maxAutomaticAttempts: 8,
-};
+}
 
 export const SchedulePageRequest = Schema.Struct({
   owner: ScheduleOwner,
   after: Schema.optionalKey(ScheduleId),
   limit: Positive.check(Schema.isLessThanOrEqualTo(100)),
-});
+})
 
-export type SchedulePageRequest = typeof SchedulePageRequest.Type;
+export type SchedulePageRequest = typeof SchedulePageRequest.Type
 
 export const SchedulePage = Schema.Struct({
   items: Schema.Array(ScheduleRecord).check(Schema.isMaxLength(100)),
   next: Schema.NullOr(ScheduleId),
-});
+})
 
-export type SchedulePage = typeof SchedulePage.Type;
+export type SchedulePage = typeof SchedulePage.Type
 
 /** Driver pagination uses the index only; a corrupt record cannot poison an entire page. */
 export const ScheduleDueCursor = Schema.Struct({
   owner: ScheduleOwner,
   scheduleId: ScheduleId,
   deadlineAtMillis: ScheduleInstant,
-});
+})
 
-export type ScheduleDueCursor = typeof ScheduleDueCursor.Type;
+export type ScheduleDueCursor = typeof ScheduleDueCursor.Type
 
 /** Local transaction commands. Admission is deliberately absent from this union. */
 export const ScheduleChange = Schema.Union([
-  Schema.TaggedStruct("Recover", {
+  Schema.TaggedStruct('Recover', {
     expectedGeneration: Schema.Natural,
     expectedRevision: Positive,
     occurrenceId: Digest,
     nowMillis: ScheduleInstant,
   }),
-  Schema.TaggedStruct("Update", {
+  Schema.TaggedStruct('Update', {
     expectedRevision: Positive,
     configuration: ScheduleConfiguration,
     nextAtMillis: Schema.NullOr(ScheduleInstant),
     nowMillis: ScheduleInstant,
   }),
-  Schema.TaggedStruct("Control", {
+  Schema.TaggedStruct('Control', {
     expectedRevision: Positive,
     expectedVersion: Positive,
-    action: Schema.Literals(["pause", "resume", "cancel"]),
+    action: Schema.Literals(['pause', 'resume', 'cancel']),
     nextAtMillis: Schema.NullOr(ScheduleInstant),
     nowMillis: ScheduleInstant,
     skippedRange: Schema.NullOr(ScheduleSkippedRange),
   }),
-  Schema.TaggedStruct("Prepare", {
+  Schema.TaggedStruct('Prepare', {
     expectedRevision: Positive,
     expectedCursor: ScheduleInstant,
     envelope: ScheduledEnvelope,
@@ -362,37 +362,37 @@ export const ScheduleChange = Schema.Union([
     skippedRange: Schema.NullOr(ScheduleSkippedRange),
     nowMillis: ScheduleInstant,
   }),
-  Schema.TaggedStruct("DenyPreparation", {
+  Schema.TaggedStruct('DenyPreparation', {
     expectedRevision: Positive,
     expectedCursor: ScheduleInstant,
     refusal: ScheduleRefusal,
     nowMillis: ScheduleInstant,
   }),
-  Schema.TaggedStruct("Complete", {
+  Schema.TaggedStruct('Complete', {
     occurrenceId: Digest,
     receipt: Receipt,
     nowMillis: ScheduleInstant,
   }),
-  Schema.TaggedStruct("Retry", {
+  Schema.TaggedStruct('Retry', {
     occurrenceId: Digest,
     retry: ScheduleRetry,
     nowMillis: ScheduleInstant,
   }),
-  Schema.TaggedStruct("Refuse", {
+  Schema.TaggedStruct('Refuse', {
     occurrenceId: Digest,
     refusal: ScheduleRefusal,
     nowMillis: ScheduleInstant,
   }),
-]);
+])
 
-export type ScheduleChange = typeof ScheduleChange.Type;
+export type ScheduleChange = typeof ScheduleChange.Type
 
 export type ScheduleStoreFailure =
   | ScheduleStorageError
   | ScheduleConflict
   | ScheduleNotFound
   | ScheduleCapacityError
-  | ScheduleFailpointError;
+  | ScheduleFailpointError
 
 /** Each insert/change is one atomic local transaction, including platform wake changes. */
 export class ScheduleStore extends Context.Service<
@@ -401,45 +401,45 @@ export class ScheduleStore extends Context.Service<
     readonly insert: (
       record: ScheduleRecord,
       ownerLimit: number,
-    ) => Effect.Effect<ScheduleRecord, ScheduleStoreFailure>;
-    readonly get: (key: ScheduleKey) => Effect.Effect<ScheduleRecord | null, ScheduleStorageError>;
+    ) => Effect.Effect<ScheduleRecord, ScheduleStoreFailure>
+    readonly get: (key: ScheduleKey) => Effect.Effect<ScheduleRecord | null, ScheduleStorageError>
     readonly list: (
       request: SchedulePageRequest,
-    ) => Effect.Effect<SchedulePage, ScheduleStorageError>;
+    ) => Effect.Effect<SchedulePage, ScheduleStorageError>
     readonly change: (
       key: ScheduleKey,
       change: ScheduleChange,
       ownerLimit?: number,
-    ) => Effect.Effect<ScheduleRecord, ScheduleStoreFailure>;
+    ) => Effect.Effect<ScheduleRecord, ScheduleStoreFailure>
     /** Internal driver query, not a public management listing. Pending deadlines take precedence. */
     readonly due: (
       nowMillis: number,
       limit: number,
       owner?: ScheduleOwner,
       after?: ScheduleDueCursor,
-    ) => Effect.Effect<ReadonlyArray<ScheduleDueCursor>, ScheduleStorageError>;
+    ) => Effect.Effect<ReadonlyArray<ScheduleDueCursor>, ScheduleStorageError>
     readonly nextDeadline: (
       owner?: ScheduleOwner,
-    ) => Effect.Effect<number | null, ScheduleStorageError>;
+    ) => Effect.Effect<number | null, ScheduleStorageError>
   }
->()("@effect-agent/thread/ScheduleStore") {}
+>()('@effect-agent/thread/ScheduleStore') {}
 
 /** A dropped hint is repaired by the driver's indexed recovery query. */
 export class ScheduleWake extends Context.Service<
   ScheduleWake,
   {
-    readonly notify: Effect.Effect<void>;
-    readonly await: Effect.Effect<void>;
+    readonly notify: Effect.Effect<void>
+    readonly await: Effect.Effect<void>
   }
->()("@effect-agent/thread/ScheduleWake") {}
+>()('@effect-agent/thread/ScheduleWake') {}
 
 export class ScheduleFailpointError extends Schema.TaggedError<ScheduleFailpointError>()(
-  "ScheduleFailpointError",
+  'ScheduleFailpointError',
   { point: Schema.String },
 ) {}
 
 export const ScheduleFailpoint = Context.Reference<{
-  readonly hit: (point: string) => Effect.Effect<void, ScheduleFailpointError>;
-}>("@effect-agent/thread/ScheduleFailpoint", {
+  readonly hit: (point: string) => Effect.Effect<void, ScheduleFailpointError>
+}>('@effect-agent/thread/ScheduleFailpoint', {
   defaultValue: () => ({ hit: () => Effect.void }),
-});
+})

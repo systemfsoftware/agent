@@ -1,21 +1,15 @@
-import {
-  ApprovalDecision,
-  Digest,
-  RecordId,
-  SettlementOutcome,
-  type CanonicalSequence,
-} from "@yielded/agent/records";
+import { ApprovalDecision, type CanonicalSequence, Digest, RecordId, SettlementOutcome } from '@yielded/agent/records'
 import {
   AdmissionGroup,
   ChildReservationStatus,
+  type QueueSequence,
   SubmissionState,
   UnknownResolutionKind,
-  type QueueSequence,
-} from "@yielded/agent/submission-ledger";
-import * as Schema from "effect/Schema";
+} from '@yielded/agent/submission-ledger'
+import * as Schema from 'effect/Schema'
 
-export const BoundedIdentifier = Schema.NonEmptyString.check(Schema.isMaxLength(1024));
-export const BoundedTimestamp = Schema.NonEmptyString.check(Schema.isMaxLength(128));
+export const BoundedIdentifier = Schema.NonEmptyString.check(Schema.isMaxLength(1024))
+export const BoundedTimestamp = Schema.NonEmptyString.check(Schema.isMaxLength(128))
 
 /**
  * Shared ledger row fields with adapter-owned text bounds and native sequence codecs.
@@ -31,9 +25,9 @@ export const makeSubmissionRowFields = <
   queueSequence,
   canonicalSequence,
 }: {
-  readonly storedText: Text;
-  readonly queueSequence: Queue;
-  readonly canonicalSequence: Sequence;
+  readonly storedText: Text
+  readonly queueSequence: Queue
+  readonly canonicalSequence: Sequence
 }) => ({
   submission: {
     submission_id: BoundedIdentifier,
@@ -104,4 +98,4 @@ export const makeSubmissionRowFields = <
     requested_at: BoundedTimestamp,
     canonical_record_id: Schema.NullOr(BoundedIdentifier),
   },
-});
+})

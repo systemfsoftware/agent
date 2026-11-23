@@ -1,25 +1,25 @@
-import * as Prompt from "effect/ai/Prompt";
-import * as Clock from "effect/Clock";
-import * as Context from "effect/Context";
-import * as DateTime from "effect/DateTime";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Schema from "effect/Schema";
-import type * as Scope from "effect/Scope";
-import * as SynchronizedRef from "effect/SynchronizedRef";
+import * as Prompt from 'effect/ai/Prompt'
+import * as Clock from 'effect/Clock'
+import * as Context from 'effect/Context'
+import * as DateTime from 'effect/DateTime'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
+import * as Schema from 'effect/Schema'
+import type * as Scope from 'effect/Scope'
+import * as SynchronizedRef from 'effect/SynchronizedRef'
 
-import { ThreadId, RunId } from "./Identifiers.ts";
-import { utf8ByteLength } from "./internal/utf8.ts";
+import { RunId, ThreadId } from './Identifiers.ts'
+import { utf8ByteLength } from './internal/utf8.ts'
 
 /** Bound applied to one text projection before it can enter a model context. */
-export const ThreadText = Schema.String.check(Schema.isMaxLength(64 * 1024));
-const MAX_MESSAGE_CONTENT_BYTES = 4 * 1024 * 1024;
-const MAX_THREADS = 256;
-const MAX_STORE_CONTENT_BYTES = 64 * 1024 * 1024;
+export const ThreadText = Schema.String.check(Schema.isMaxLength(64 * 1024))
+const MAX_MESSAGE_CONTENT_BYTES = 4 * 1024 * 1024
+const MAX_THREADS = 256
+const MAX_STORE_CONTENT_BYTES = 64 * 1024 * 1024
 
 /** One append-only native Effect AI message in a conversation. */
 export class ThreadMessage extends Schema.Class<ThreadMessage>(
-  "@effect-agent/capabilities/ThreadMessage",
+  '@effect-agent/capabilities/ThreadMessage',
 )({
   threadId: ThreadId,
   sequence: Schema.Natural,
@@ -30,7 +30,7 @@ export class ThreadMessage extends Schema.Class<ThreadMessage>(
 }) {}
 
 /** An identified, ordered conversation snapshot. Storage and execution recovery are separate concerns. */
-export class Thread extends Schema.Class<Thread>("@effect-agent/capabilities/ThreadSnapshot")({
+export class Thread extends Schema.Class<Thread>('@effect-agent/capabilities/ThreadSnapshot')({
   version: Schema.Literal(1),
   threadId: ThreadId,
   nextSequence: Schema.Natural,
@@ -40,32 +40,32 @@ export class Thread extends Schema.Class<Thread>("@effect-agent/capabilities/Thr
 
 /** Portable conversation snapshot. Its format is independent of the durable execution journal. */
 export class ThreadExport extends Schema.Class<ThreadExport>(
-  "@effect-agent/capabilities/ThreadExport",
+  '@effect-agent/capabilities/ThreadExport',
 )({
-  format: Schema.Literal("effect-agent/ephemeral-thread@1"),
+  format: Schema.Literal('effect-agent/ephemeral-thread@1'),
   exportedAt: Schema.DateTimeUtcFromString,
   snapshot: Thread,
 }) {}
 
 /** Native message accepted by the append-only thread. */
 export class ThreadAppend extends Schema.Class<ThreadAppend>(
-  "@effect-agent/capabilities/ThreadAppend",
+  '@effect-agent/capabilities/ThreadAppend',
 )({
   runId: Schema.optionalKey(RunId),
   message: Prompt.Message,
 }) {}
 
 /** The requested Thread has not been created in this store. */
-export class ThreadNotFound extends Schema.TaggedError<ThreadNotFound>()("ThreadNotFound", {
+export class ThreadNotFound extends Schema.TaggedError<ThreadNotFound>()('ThreadNotFound', {
   threadId: ThreadId,
 }) {}
 
 /** A message or the process-local host exceeded capacity; no bound counts a Thread's lifetime. */
 export class ThreadLimitExceeded extends Schema.TaggedError<ThreadLimitExceeded>()(
-  "ThreadLimitExceeded",
+  'ThreadLimitExceeded',
   {
     threadId: ThreadId,
-    limit: Schema.Literals(["content-bytes", "threads", "store-content-bytes"]),
+    limit: Schema.Literals(['content-bytes', 'threads', 'store-content-bytes']),
     limitValue: Schema.Natural,
     observedValue: Schema.Natural,
   },
@@ -73,20 +73,20 @@ export class ThreadLimitExceeded extends Schema.TaggedError<ThreadLimitExceeded>
 
 /** Engine history was not an append-only extension of the official snapshot. */
 export class ThreadHistoryDiverged extends Schema.TaggedError<ThreadHistoryDiverged>()(
-  "ThreadHistoryDiverged",
+  'ThreadHistoryDiverged',
   { threadId: ThreadId, message: Schema.String },
 ) {}
 
 /** Native Prompt encoding failed before a bounded state mutation. */
 export class ThreadEncodingError extends Schema.TaggedError<ThreadEncodingError>()(
-  "ThreadEncodingError",
+  'ThreadEncodingError',
   { threadId: ThreadId, message: Schema.String },
 ) {}
 
 /** A scoped view cannot access another owner's history or be used after closure. */
 export class ThreadOwnershipError extends Schema.TaggedError<ThreadOwnershipError>()(
-  "ThreadOwnershipError",
-  { threadId: ThreadId, reason: Schema.Literals(["closed", "foreign"]), message: Schema.String },
+  'ThreadOwnershipError',
+  { threadId: ThreadId, reason: Schema.Literals(['closed', 'foreign']), message: Schema.String },
 ) {}
 
 export type ThreadError =
@@ -94,11 +94,11 @@ export type ThreadError =
   | ThreadLimitExceeded
   | ThreadHistoryDiverged
   | ThreadEncodingError
-  | ThreadOwnershipError;
+  | ThreadOwnershipError
 
 /** Reconstruct exact Effect AI Prompt history, including tools, reasoning, files, and options. */
 export const toPrompt = (snapshot: Thread): Prompt.Prompt =>
-  Prompt.fromMessages(snapshot.messages.map((entry) => entry.message));
+  Prompt.fromMessages(snapshot.messages.map((entry) => entry.message))
 
 /**
  * Process-local state for conversation history. Updates remain visible even
@@ -114,17 +114,17 @@ interface StoreService {
    * The view rejects foreign IDs and all access after closure. Keep its Scope open through
    * all users, including streams, child Runs, snapshots and history hooks.
    */
-  readonly scoped?: Effect.Effect<StoreService, never, Scope.Scope>;
+  readonly scoped?: Effect.Effect<StoreService, never, Scope.Scope>
   readonly create: (
     threadId: ThreadId,
-  ) => Effect.Effect<Thread, ThreadLimitExceeded | ThreadOwnershipError>;
+  ) => Effect.Effect<Thread, ThreadLimitExceeded | ThreadOwnershipError>
   readonly append: (
     threadId: ThreadId,
     message: ThreadAppend,
   ) => Effect.Effect<
     Thread,
     ThreadNotFound | ThreadLimitExceeded | ThreadEncodingError | ThreadOwnershipError
-  >;
+  >
   /**
    * Record an engine-emitted full history only when it is an append-only
    * extension of the exact official Prompt already stored. The entire
@@ -138,18 +138,18 @@ interface StoreService {
     threadId: ThreadId,
     runId: RunId,
     history: Prompt.Prompt,
-  ) => Effect.Effect<Thread, ThreadError>;
+  ) => Effect.Effect<Thread, ThreadError>
   readonly snapshot: (
     threadId: ThreadId,
-  ) => Effect.Effect<Thread, ThreadNotFound | ThreadOwnershipError>;
+  ) => Effect.Effect<Thread, ThreadNotFound | ThreadOwnershipError>
   readonly export: (
     threadId: ThreadId,
-  ) => Effect.Effect<ThreadExport, ThreadNotFound | ThreadOwnershipError>;
+  ) => Effect.Effect<ThreadExport, ThreadNotFound | ThreadOwnershipError>
 }
 
 /** Process-local conversation store supplied by layerMemory. */
 export class Store extends Context.Service<Store, StoreService>()(
-  "@effect-agent/capabilities/EphemeralThreads",
+  '@effect-agent/capabilities/EphemeralThreads',
 ) {}
 
 const encodeMessage = (
@@ -162,32 +162,32 @@ const encodeMessage = (
       ThreadEncodingError.make({
         threadId,
         message: `Could not encode native Effect AI message: ${error.message}`,
-      }),
+      })
     ),
-  );
+  )
 
 interface Owner {
-  closed: boolean;
-  readonly parent?: Owner;
+  closed: boolean
+  readonly parent?: Owner
 }
 
 interface Entry {
-  readonly snapshot: Thread;
-  readonly owner: Owner;
+  readonly snapshot: Thread
+  readonly owner: Owner
 }
 
 interface State {
-  readonly threads: ReadonlyMap<ThreadId, Entry>;
-  readonly contentBytes: number;
+  readonly threads: ReadonlyMap<ThreadId, Entry>
+  readonly contentBytes: number
 }
 
 const belongsTo = (owner: Owner, ancestor: Owner): boolean => {
   for (let current: Owner | undefined = owner; current !== undefined; current = current.parent) {
-    if (current === ancestor) return true;
+    if (current === ancestor) return true
   }
 
-  return false;
-};
+  return false
+}
 
 const access = (state: State, owner: Owner, threadId: ThreadId) => {
   for (let current: Owner | undefined = owner; current !== undefined; current = current.parent) {
@@ -195,55 +195,54 @@ const access = (state: State, owner: Owner, threadId: ThreadId) => {
       return Effect.fail(
         ThreadOwnershipError.make({
           threadId,
-          reason: "closed",
-          message: "The in-memory conversation owner is closed",
+          reason: 'closed',
+          message: 'The in-memory conversation owner is closed',
         }),
-      );
+      )
     }
   }
-  const entry = state.threads.get(threadId);
+  const entry = state.threads.get(threadId)
 
   return entry !== undefined && entry.owner !== owner
     ? Effect.fail(
-        ThreadOwnershipError.make({
-          threadId,
-          reason: "foreign",
-          message: "The Thread belongs to another in-memory conversation owner",
-        }),
-      )
-    : Effect.succeed(entry?.snapshot);
-};
+      ThreadOwnershipError.make({
+        threadId,
+        reason: 'foreign',
+        message: 'The Thread belongs to another in-memory conversation owner',
+      }),
+    )
+    : Effect.succeed(entry?.snapshot)
+}
 
-const findSnapshot = Effect.fnUntraced(function* (state: State, owner: Owner, threadId: ThreadId) {
-  const snapshot = yield* access(state, owner, threadId);
+const findSnapshot = Effect.fnUntraced(function*(state: State, owner: Owner, threadId: ThreadId) {
+  const snapshot = yield* access(state, owner, threadId)
 
-  return snapshot === undefined ? yield* ThreadNotFound.make({ threadId }) : snapshot;
-});
+  return snapshot === undefined ? yield* ThreadNotFound.make({ threadId }) : snapshot
+})
 
 const put = (state: State, owner: Owner, snapshot: Thread): State => ({
   threads: new Map(state.threads).set(snapshot.threadId, { snapshot, owner }),
-  contentBytes:
-    state.contentBytes +
+  contentBytes: state.contentBytes +
     snapshot.contentBytes -
     (state.threads.get(snapshot.threadId)?.snapshot.contentBytes ?? 0),
-});
+})
 
 const messageSize = (threadId: ThreadId, encoded: string) => {
-  const observedValue = utf8ByteLength(encoded);
+  const observedValue = utf8ByteLength(encoded)
 
   return observedValue <= MAX_MESSAGE_CONTENT_BYTES
     ? Effect.succeed(observedValue)
     : Effect.fail(
-        ThreadLimitExceeded.make({
-          threadId,
-          limit: "content-bytes",
-          limitValue: MAX_MESSAGE_CONTENT_BYTES,
-          observedValue,
-        }),
-      );
-};
+      ThreadLimitExceeded.make({
+        threadId,
+        limit: 'content-bytes',
+        limitValue: MAX_MESSAGE_CONTENT_BYTES,
+        observedValue,
+      }),
+    )
+}
 
-const appendEncoded = Effect.fnUntraced(function* (
+const appendEncoded = Effect.fnUntraced(function*(
   state: State,
   owner: Owner,
   current: Thread,
@@ -251,19 +250,19 @@ const appendEncoded = Effect.fnUntraced(function* (
   encoded: string,
   timestamp: DateTime.Utc,
 ) {
-  const threadId = current.threadId;
+  const threadId = current.threadId
 
-  const messageBytes = yield* messageSize(threadId, encoded);
-  const contentBytes = current.contentBytes + messageBytes;
-  const storeBytes = state.contentBytes + messageBytes;
+  const messageBytes = yield* messageSize(threadId, encoded)
+  const contentBytes = current.contentBytes + messageBytes
+  const storeBytes = state.contentBytes + messageBytes
 
   if (storeBytes > MAX_STORE_CONTENT_BYTES) {
     return yield* ThreadLimitExceeded.make({
       threadId,
-      limit: "store-content-bytes",
+      limit: 'store-content-bytes',
       limitValue: MAX_STORE_CONTENT_BYTES,
       observedValue: storeBytes,
-    });
+    })
   }
 
   const message = ThreadMessage.make({
@@ -273,7 +272,7 @@ const appendEncoded = Effect.fnUntraced(function* (
     message: append.message,
     encodedBytes: messageBytes,
     timestamp,
-  });
+  })
 
   const next = Thread.make({
     version: current.version,
@@ -281,33 +280,33 @@ const appendEncoded = Effect.fnUntraced(function* (
     nextSequence: current.nextSequence + 1,
     contentBytes,
     messages: [...current.messages, message],
-  });
+  })
 
-  return [next, put(state, owner, next)] as const;
-});
+  return [next, put(state, owner, next)] as const
+})
 
 /** In-memory storage shared for the consumer's Scope; it does not survive process loss. */
-export const makeMemoryStore = Effect.gen(function* () {
-  const state = yield* SynchronizedRef.make<State>({ threads: new Map(), contentBytes: 0 });
-  const root: Owner = { closed: false };
+export const makeMemoryStore = Effect.gen(function*() {
+  const state = yield* SynchronizedRef.make<State>({ threads: new Map(), contentBytes: 0 })
+  const root: Owner = { closed: false }
 
   const release = (owner: Owner) =>
     SynchronizedRef.update(state, (current) => {
-      owner.closed = true;
-      const threads = new Map(current.threads);
-      let contentBytes = current.contentBytes;
+      owner.closed = true
+      const threads = new Map(current.threads)
+      let contentBytes = current.contentBytes
 
       for (const [id, entry] of threads) {
         if (belongsTo(entry.owner, owner)) {
-          threads.delete(id);
-          contentBytes -= entry.snapshot.contentBytes;
+          threads.delete(id)
+          contentBytes -= entry.snapshot.contentBytes
         }
       }
 
-      return { threads, contentBytes };
-    });
+      return { threads, contentBytes }
+    })
 
-  yield* Effect.addFinalizer(() => release(root));
+  yield* Effect.addFinalizer(() => release(root))
 
   const view = (owner: Owner): StoreService => ({
     scoped: Effect.acquireRelease(
@@ -317,17 +316,17 @@ export const makeMemoryStore = Effect.gen(function* () {
     create: (threadId) =>
       SynchronizedRef.modifyEffect(
         state,
-        Effect.fnUntraced(function* (threads) {
-          const existing = yield* access(threads, owner, threadId);
+        Effect.fnUntraced(function*(threads) {
+          const existing = yield* access(threads, owner, threadId)
 
-          if (existing !== undefined) return [existing, threads] as const;
+          if (existing !== undefined) return [existing, threads] as const
           if (threads.threads.size >= MAX_THREADS) {
             return yield* ThreadLimitExceeded.make({
               threadId,
-              limit: "threads",
+              limit: 'threads',
               limitValue: MAX_THREADS,
               observedValue: threads.threads.size + 1,
-            });
+            })
           }
 
           const created = Thread.make({
@@ -336,38 +335,40 @@ export const makeMemoryStore = Effect.gen(function* () {
             nextSequence: 0,
             contentBytes: 0,
             messages: [],
-          });
+          })
 
-          return [created, put(threads, owner, created)] as const;
+          return [created, put(threads, owner, created)] as const
         }),
       ),
-    append: Effect.fnUntraced(function* (threadId, message) {
-      const encoded = yield* encodeMessage(threadId, message.message);
-      const timestamp = DateTime.toUtc(DateTime.makeUnsafe(yield* Clock.currentTimeMillis));
+    append: Effect.fnUntraced(function*(threadId, message) {
+      const encoded = yield* encodeMessage(threadId, message.message)
+      const timestamp = DateTime.toUtc(DateTime.makeUnsafe(yield* Clock.currentTimeMillis))
 
       return yield* SynchronizedRef.modifyEffect(
         state,
-        Effect.fnUntraced(function* (threads) {
-          const current = yield* findSnapshot(threads, owner, threadId);
+        Effect.fnUntraced(function*(threads) {
+          const current = yield* findSnapshot(threads, owner, threadId)
 
-          return yield* appendEncoded(threads, owner, current, message, encoded, timestamp);
+          return yield* appendEncoded(threads, owner, current, message, encoded, timestamp)
         }),
-      );
+      )
     }),
-    recordHistory: Effect.fnUntraced(function* (threadId, historyRunId, history) {
-      const incoming = yield* Effect.forEach(history.content, (message) =>
-        encodeMessage(threadId, message).pipe(Effect.map((encoded) => ({ message, encoded }))),
-      );
+    recordHistory: Effect.fnUntraced(function*(threadId, historyRunId, history) {
+      const incoming = yield* Effect.forEach(
+        history.content,
+        (message) => encodeMessage(threadId, message).pipe(Effect.map((encoded) => ({ message, encoded }))),
+      )
 
       // Publish the complete suffix only after verification and every bounded append succeed.
       return yield* SynchronizedRef.modifyEffect(
         state,
-        Effect.fnUntraced(function* (threads) {
-          const current = yield* findSnapshot(threads, owner, threadId);
+        Effect.fnUntraced(function*(threads) {
+          const current = yield* findSnapshot(threads, owner, threadId)
 
-          const currentEncoded = yield* Effect.forEach(current.messages, (entry) =>
-            encodeMessage(threadId, entry.message),
-          );
+          const currentEncoded = yield* Effect.forEach(
+            current.messages,
+            (entry) => encodeMessage(threadId, entry.message),
+          )
 
           if (
             incoming.length < currentEncoded.length ||
@@ -375,32 +376,32 @@ export const makeMemoryStore = Effect.gen(function* () {
           ) {
             return yield* ThreadHistoryDiverged.make({
               threadId,
-              message: "Engine history is not an append-only extension of official history",
-            });
+              message: 'Engine history is not an append-only extension of official history',
+            })
           }
-          const timestamp = DateTime.toUtc(DateTime.makeUnsafe(yield* Clock.currentTimeMillis));
+          const timestamp = DateTime.toUtc(DateTime.makeUnsafe(yield* Clock.currentTimeMillis))
 
-          if (incoming.length === currentEncoded.length) return [current, threads] as const;
+          if (incoming.length === currentEncoded.length) return [current, threads] as const
 
-          const messages = [...current.messages];
-          let contentBytes = current.contentBytes;
-          let storeBytes = threads.contentBytes;
-          let nextSequence = current.nextSequence;
+          const messages = [...current.messages]
+          let contentBytes = current.contentBytes
+          let storeBytes = threads.contentBytes
+          let nextSequence = current.nextSequence
 
           for (const entry of incoming.slice(currentEncoded.length)) {
-            const append = ThreadAppend.make({ runId: historyRunId, message: entry.message });
+            const append = ThreadAppend.make({ runId: historyRunId, message: entry.message })
 
-            const messageBytes = yield* messageSize(threadId, entry.encoded);
+            const messageBytes = yield* messageSize(threadId, entry.encoded)
 
-            contentBytes += messageBytes;
-            storeBytes += messageBytes;
+            contentBytes += messageBytes
+            storeBytes += messageBytes
             if (storeBytes > MAX_STORE_CONTENT_BYTES) {
               return yield* ThreadLimitExceeded.make({
                 threadId,
-                limit: "store-content-bytes",
+                limit: 'store-content-bytes',
                 limitValue: MAX_STORE_CONTENT_BYTES,
                 observedValue: storeBytes,
-              });
+              })
             }
             messages.push(
               ThreadMessage.make({
@@ -411,8 +412,8 @@ export const makeMemoryStore = Effect.gen(function* () {
                 encodedBytes: messageBytes,
                 timestamp,
               }),
-            );
-            nextSequence += 1;
+            )
+            nextSequence += 1
           }
 
           const snapshot = Thread.make({
@@ -421,26 +422,26 @@ export const makeMemoryStore = Effect.gen(function* () {
             nextSequence,
             contentBytes,
             messages,
-          });
+          })
 
-          return [snapshot, put(threads, owner, snapshot)] as const;
+          return [snapshot, put(threads, owner, snapshot)] as const
         }),
-      );
+      )
     }),
     snapshot: (threadId) =>
       SynchronizedRef.get(state).pipe(Effect.flatMap((all) => findSnapshot(all, owner, threadId))),
-    export: Effect.fnUntraced(function* (threadId) {
-      const snapshot = yield* findSnapshot(yield* SynchronizedRef.get(state), owner, threadId);
+    export: Effect.fnUntraced(function*(threadId) {
+      const snapshot = yield* findSnapshot(yield* SynchronizedRef.get(state), owner, threadId)
 
       return ThreadExport.make({
-        format: "effect-agent/ephemeral-thread@1",
+        format: 'effect-agent/ephemeral-thread@1',
         exportedAt: DateTime.toUtc(DateTime.makeUnsafe(yield* Clock.currentTimeMillis)),
         snapshot,
-      });
+      })
     }),
-  });
+  })
 
-  return view(root);
-});
+  return view(root)
+})
 
-export const layerMemory = Layer.effect(Store, makeMemoryStore);
+export const layerMemory = Layer.effect(Store, makeMemoryStore)

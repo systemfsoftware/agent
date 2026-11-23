@@ -2,49 +2,16 @@
   "files": [],
   "references": [
     {
-      "path": "./tooling/cloudflare-memory"
-    },
-    {
       "path": "./packages/effect-agent"
     },
     {
-      "path": "./packages/storage-memory"
+      "path": "./packages/platform-node"
     },
     {
       "path": "./packages/storage-sql"
     },
     {
       "path": "./packages/storage-sqlite"
-    },
-    {
-      "path": "./packages/storage-postgres"
-    },
-    {
-      "path": "./packages/storage-cloudflare"
-    },
-    {
-      "path": "./packages/platform-cloudflare"
-    },
-    {
-      "path": "./packages/pr-review"
-    },
-    {
-      "path": "./packages/testing"
-    },
-    {
-      "path": "./packages/pr-review-action"
-    },
-    {
-      "path": "./tooling/browser-run-worker-proof"
-    },
-    {
-      "path": "./tooling/pr-review-eval"
-    },
-    {
-      "path": "./examples/travel-planner"
-    },
-    {
-      "path": "./packages/ai-decision"
     }
   ]
 }

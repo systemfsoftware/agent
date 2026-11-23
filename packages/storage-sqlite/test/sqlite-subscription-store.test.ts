@@ -1,32 +1,29 @@
-import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
-import * as SqliteClient from "@effect/sql-sqlite-node/SqliteClient";
-import { describe, expect, it } from "@effect/vitest";
-import {
-  SqliteStorageConfig,
-  SqliteStorageConfigValue,
-} from "@yielded/agent-storage-sqlite/sqlite-storage-config";
-import { SqliteStorageFailpoint } from "@yielded/agent-storage-sqlite/sqlite-storage-failpoint";
-import { subscriptionStoreLayer } from "@yielded/agent-storage-sqlite/sqlite-subscription-store";
-import { Digest } from "@yielded/agent/records";
+import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
+import * as SqliteClient from '@effect/sql-sqlite-node/SqliteClient'
+import { describe, expect, it } from '@effect/vitest'
+import { SqliteStorageConfig, SqliteStorageConfigValue } from '@yielded/agent-storage-sqlite/sqlite-storage-config'
+import { SqliteStorageFailpoint } from '@yielded/agent-storage-sqlite/sqlite-storage-failpoint'
+import { subscriptionStoreLayer } from '@yielded/agent-storage-sqlite/sqlite-subscription-store'
+import { Digest } from '@yielded/agent/records'
 import {
   AcceptedEvent,
   defaultSubscriptionLimits,
   subscriptionDeliveryKeyString,
-  SubscriptionStore,
   SubscriptionFailpoint,
   SubscriptionFailpointError,
-} from "@yielded/agent/subscription";
+  SubscriptionStore,
+} from '@yielded/agent/subscription'
 import {
   subscriptionConformancePartition,
   subscriptionStoreConformanceCases,
-} from "@yielded/agent/testing/subscription-store-conformance";
-import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
-import * as Layer from "effect/Layer";
-import type * as PlatformError from "effect/PlatformError";
-import * as Schema from "effect/Schema";
-import * as SqlClientService from "effect/sql/SqlClient";
-import * as TestClock from "effect/testing/TestClock";
+} from '@yielded/agent/testing/subscription-store-conformance'
+import * as Effect from 'effect/Effect'
+import * as FileSystem from 'effect/FileSystem'
+import * as Layer from 'effect/Layer'
+import type * as PlatformError from 'effect/PlatformError'
+import * as Schema from 'effect/Schema'
+import * as SqlClientService from 'effect/sql/SqlClient'
+import * as TestClock from 'effect/testing/TestClock'
 
 const testLayer = (filename: string) =>
   subscriptionStoreLayer(subscriptionConformancePartition).pipe(
@@ -36,7 +33,7 @@ const testLayer = (filename: string) =>
           SqliteStorageConfigValue.make({
             observationPollInterval: 1,
             busyTimeout: 5_000,
-            synchronous: "FULL",
+            synchronous: 'FULL',
             verifyOnOpen: false,
           }),
         ),
@@ -44,72 +41,70 @@ const testLayer = (filename: string) =>
         SqliteClient.layer({ filename }),
       ),
     ),
-  );
+  )
 
 const withTemporaryDatabase = <A, E>(
   use: (filename: string) => Effect.Effect<A, E>,
 ): Effect.Effect<A, E | PlatformError.PlatformError> =>
   Effect.scoped(
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
+    Effect.gen(function*() {
+      const fs = yield* FileSystem.FileSystem
 
       const directory = yield* fs.makeTempDirectoryScoped({
-        prefix: "effect-agent-subscription-sqlite-",
-      });
+        prefix: 'effect-agent-subscription-sqlite-',
+      })
 
-      return yield* use(`${directory}/subscriptions.sqlite`);
+      return yield* use(`${directory}/subscriptions.sqlite`)
     }),
-  ).pipe(Effect.provide(NodeFileSystem.layer));
+  ).pipe(Effect.provide(NodeFileSystem.layer))
 
-describe("SqliteSubscriptionStore", () => {
+describe('SqliteSubscriptionStore', () => {
   for (const testCase of subscriptionStoreConformanceCases) {
     it.effect(
       testCase.name,
-      () =>
-        withTemporaryDatabase((filename) => testCase.run.pipe(Effect.provide(testLayer(filename)))),
+      () => withTemporaryDatabase((filename) => testCase.run.pipe(Effect.provide(testLayer(filename)))),
       30_000,
-    );
+    )
   }
-});
+})
 
 it.effect(
-  "persists bounded retention progress across faults and reopen, preserving corrupt evidence",
+  'persists bounded retention progress across faults and reopen, preserving corrupt evidence',
   () =>
     withTemporaryDatabase((filename) =>
-      Effect.gen(function* () {
-        const partition = subscriptionConformancePartition;
+      Effect.gen(function*() {
+        const partition = subscriptionConformancePartition
 
         const brokenKey = {
-          subscription: { partition, ownerId: "owner", subscriptionId: "broken" },
-          eventId: "malformed",
-        };
+          subscription: { partition, ownerId: 'owner', subscriptionId: 'broken' },
+          eventId: 'malformed',
+        }
 
         const policy = {
           replayHorizonMillis: 10_000,
           completedRetentionMillis: 0,
           maxTombstones: 8,
-        };
+        }
 
-        const limits = { ...defaultSubscriptionLimits, retention: policy };
-        let armed: string | undefined;
+        const limits = { ...defaultSubscriptionLimits, retention: policy }
+        let armed: string | undefined
 
         const failpoints = Layer.succeed(SubscriptionFailpoint)({
-          hit: (point) =>
-            point === armed ? SubscriptionFailpointError.make({ point }) : Effect.void,
-        });
+          hit: (point) => point === armed ? SubscriptionFailpointError.make({ point }) : Effect.void,
+        })
 
         const dependencies = Layer.mergeAll(
           Layer.succeed(SqliteStorageConfig)(
             SqliteStorageConfigValue.make({
               observationPollInterval: 1,
               busyTimeout: 5_000,
-              synchronous: "FULL",
+              synchronous: 'FULL',
               verifyOnOpen: false,
             }),
           ),
           SqliteStorageFailpoint.layer,
           SqliteClient.layer({ filename }),
-        );
+        )
 
         const reopen = <A, E>(
           effect: Effect.Effect<A, E, SubscriptionStore | SqlClientService.SqlClient>,
@@ -121,24 +116,24 @@ it.effect(
                 Layer.provide(failpoints),
               ),
             ),
-          );
+          )
 
-        yield* TestClock.setTime(1_000);
+        yield* TestClock.setTime(1_000)
         yield* reopen(
-          Effect.gen(function* () {
-            const store = yield* SubscriptionStore;
-            const sql = yield* SqlClientService.SqlClient;
+          Effect.gen(function*() {
+            const store = yield* SubscriptionStore
+            const sql = yield* SqlClientService.SqlClient
 
-            for (const eventId of ["a-corrupt", "b-mismatch", "c-reclaim"]) {
+            for (const eventId of ['a-corrupt', 'b-mismatch', 'c-reclaim']) {
               const accepted = yield* store.accept(
                 AcceptedEvent.make({
                   schemaVersion: 1,
                   partition,
                   eventId,
-                  source: { name: "host", version: "1" },
-                  matchingKey: "entity",
+                  source: { name: 'host', version: '1' },
+                  matchingKey: 'entity',
                   payload: null,
-                  payloadDigest: yield* Schema.decodeEffect(Digest)("a".repeat(64)).pipe(
+                  payloadDigest: yield* Schema.decodeEffect(Digest)('a'.repeat(64)).pipe(
                     Effect.orDie,
                   ),
                   occurredAtMillis: 1_000,
@@ -150,56 +145,58 @@ it.effect(
                   nextAttemptAtMillis: 1_000,
                 }),
                 limits,
-              );
+              )
 
-              yield* store.select(accepted, [], 0, true, 1_000, limits);
+              yield* store.select(accepted, [], 0, true, 1_000, limits)
             }
-            yield* sql`UPDATE effect_agent_subscription_events SET record_json='{}' WHERE event_id='a-corrupt'`;
-            yield* sql`UPDATE effect_agent_subscription_events SET record_json=(SELECT record_json FROM effect_agent_subscription_events WHERE event_id='c-reclaim') WHERE event_id='b-mismatch'`;
+            yield* sql`UPDATE effect_agent_subscription_events SET record_json='{}' WHERE event_id='a-corrupt'`
+            yield* sql`UPDATE effect_agent_subscription_events SET record_json=(SELECT record_json FROM effect_agent_subscription_events WHERE event_id='c-reclaim') WHERE event_id='b-mismatch'`
             yield* sql`INSERT INTO effect_agent_subscription_deliveries
               (tenant_id, source_address, owner_id, subscription_id, event_id, delivery_key, state, next_attempt_at_millis, record_json)
-              VALUES (${partition.tenantId}, ${partition.address}, ${brokenKey.subscription.ownerId}, ${brokenKey.subscription.subscriptionId}, ${brokenKey.eventId}, ${subscriptionDeliveryKeyString(brokenKey)}, 'selected', 0, '{')`;
+              VALUES (${partition.tenantId}, ${partition.address}, ${brokenKey.subscription.ownerId}, ${brokenKey.subscription.subscriptionId}, ${brokenKey.eventId}, ${
+              subscriptionDeliveryKeyString(brokenKey)
+            }, 'selected', 0, '{')`
           }),
-        );
-        armed = "subscription:compact:after";
+        )
+        armed = 'subscription:compact:after'
         expect(
           (yield* reopen(
             Effect.flatMap(SubscriptionStore, (store) => store.compact(1_000, policy, 1)),
           ).pipe(Effect.flip))._tag,
-        ).toBe("SubscriptionFailpointError");
-        armed = undefined;
+        ).toBe('SubscriptionFailpointError')
+        armed = undefined
         yield* reopen(
-          Effect.gen(function* () {
-            const store = yield* SubscriptionStore;
-            const sql = yield* SqlClientService.SqlClient;
+          Effect.gen(function*() {
+            const store = yield* SubscriptionStore
+            const sql = yield* SqlClientService.SqlClient
 
             expect(yield* sql`SELECT event_cursor FROM effect_agent_event_retention`).toEqual([
-              { event_cursor: "a-corrupt" },
-            ]);
-            expect(yield* store.compact(1_000, policy, 1)).toBe(0);
-            expect(yield* store.compact(1_000, policy, 1)).toBe(1);
-            expect((yield* store.event("c-reclaim"))?.tombstone).toBe(true);
+              { event_cursor: 'a-corrupt' },
+            ])
+            expect(yield* store.compact(1_000, policy, 1)).toBe(0)
+            expect(yield* store.compact(1_000, policy, 1)).toBe(1)
+            expect((yield* store.event('c-reclaim'))?.tombstone).toBe(true)
             expect(
               yield* sql`SELECT record_json FROM effect_agent_subscription_events WHERE event_id='a-corrupt'`,
-            ).toEqual([{ record_json: "{}" }]);
-            for (const state of ["delivered"]) {
-              yield* sql`UPDATE effect_agent_subscription_deliveries SET state=${state} WHERE event_id=${brokenKey.eventId}`;
-              expect(yield* store.pendingDeliveries(1_000, "", 1)).toEqual([brokenKey]);
-              expect(yield* store.nextDeadline).toBe(0);
-              yield* store.advanceScanCursors({ events: "", deliveries: "", recovery: 0 });
+            ).toEqual([{ record_json: '{}' }])
+            for (const state of ['delivered']) {
+              yield* sql`UPDATE effect_agent_subscription_deliveries SET state=${state} WHERE event_id=${brokenKey.eventId}`
+              expect(yield* store.pendingDeliveries(1_000, '', 1)).toEqual([brokenKey])
+              expect(yield* store.nextDeadline).toBe(0)
+              yield* store.advanceScanCursors({ events: '', deliveries: '', recovery: 0 })
             }
             expect(yield* store.delivery(brokenKey).pipe(Effect.flip)).toMatchObject({
-              reason: "corrupt",
-            });
+              reason: 'corrupt',
+            })
             expect(
               yield* sql`SELECT record_json FROM effect_agent_subscription_deliveries WHERE event_id=${brokenKey.eventId}`,
-            ).toEqual([{ record_json: "{" }]);
+            ).toEqual([{ record_json: '{' }])
             // Remove only the injected fixture after proving it survived compaction and reopen.
-            yield* sql`DELETE FROM effect_agent_subscription_deliveries WHERE event_id=${brokenKey.eventId}`;
-            yield* store.advanceScanCursors({ events: "", deliveries: "", recovery: 0 });
-            expect(yield* store.nextDeadline).toBe(61_000);
+            yield* sql`DELETE FROM effect_agent_subscription_deliveries WHERE event_id=${brokenKey.eventId}`
+            yield* store.advanceScanCursors({ events: '', deliveries: '', recovery: 0 })
+            expect(yield* store.nextDeadline).toBe(61_000)
           }),
-        );
-      }),
+        )
+      })
     ),
-);
+)

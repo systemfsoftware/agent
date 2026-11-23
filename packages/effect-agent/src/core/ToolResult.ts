@@ -1,9 +1,9 @@
-import * as AiError from "effect/ai/AiError";
-import * as Schema from "effect/Schema";
+import * as AiError from 'effect/ai/AiError'
+import * as Schema from 'effect/Schema'
 
-import { ToolCallId } from "./Identifiers.ts";
-import { codePointUtf8Length, utf8ByteLength } from "./internal/utf8.ts";
-import { ToolResultId, ToolResultStorageError } from "./ToolResultStorage.ts";
+import { ToolCallId } from './Identifiers.ts'
+import { codePointUtf8Length, utf8ByteLength } from './internal/utf8.ts'
+import { ToolResultId, ToolResultStorageError } from './ToolResultStorage.ts'
 
 /**
  * Engine-owned evidence that a fresh model call failed parameter validation.
@@ -19,9 +19,9 @@ export const ToolParameterRejection = Schema.Struct({
       reason: AiError.ToolParameterValidationError,
     }),
   ),
-});
+})
 
-export type ToolParameterRejection = typeof ToolParameterRejection.Type;
+export type ToolParameterRejection = typeof ToolParameterRejection.Type
 
 /**
  * The minimal `TruncatedToolResult` envelope (empty head/tail, a 16-digit
@@ -29,10 +29,10 @@ export type ToolParameterRejection = typeof ToolParameterRejection.Type;
  * accepted bound fits the envelope plus some real content, so the bound is a
  * hard resource guard rather than a best-effort one.
  */
-const ENVELOPE_FLOOR_BYTES = 256;
+const ENVELOPE_FLOOR_BYTES = 256
 
 /** Byte bound applied to one encoded application Tool result before it enters history. */
-export class ToolResultBounds extends Schema.Class<ToolResultBounds>("ToolResultBounds")({
+export class ToolResultBounds extends Schema.Class<ToolResultBounds>('ToolResultBounds')({
   maxBytes: Schema.Int.check(Schema.isGreaterThanOrEqualTo(ENVELOPE_FLOOR_BYTES)),
 }) {}
 
@@ -42,7 +42,7 @@ export class ToolResultBounds extends Schema.Class<ToolResultBounds>("ToolResult
  * original encoded JSON text. When fullResultId is present, read_tool_result can
  * retrieve the complete result from the host store. Otherwise the middle is lost.
  */
-export class TruncatedToolResult extends Schema.Class<TruncatedToolResult>("TruncatedToolResult")({
+export class TruncatedToolResult extends Schema.Class<TruncatedToolResult>('TruncatedToolResult')({
   truncatedToolResult: Schema.Literal(true),
   originalBytes: Schema.Natural,
   head: Schema.String,
@@ -59,7 +59,7 @@ export class TruncatedToolResult extends Schema.Class<TruncatedToolResult>("Trun
  * replaces it wholesale rather than passing it through (runtime spec §9).
  */
 export class UnserializableToolResult extends Schema.Class<UnserializableToolResult>(
-  "UnserializableToolResult",
+  'UnserializableToolResult',
 )({
   unserializableToolResult: Schema.Literal(true),
   reason: Schema.String.check(Schema.isMaxLength(256)),
@@ -76,14 +76,14 @@ export class UnserializableToolResult extends Schema.Class<UnserializableToolRes
 export const unserializableToolResult = (
   cause: unknown,
 ): typeof UnserializableToolResult.Encoded => {
-  let reason: string;
+  let reason: string
 
   try {
-    const message = cause instanceof Error ? cause.message : cause;
+    const message = cause instanceof Error ? cause.message : cause
 
-    reason = typeof message === "string" ? message : String(message);
+    reason = typeof message === 'string' ? message : String(message)
   } catch {
-    reason = "unserializable value";
+    reason = 'unserializable value'
   }
 
   const build = (clipped: string): typeof UnserializableToolResult.Encoded =>
@@ -92,57 +92,57 @@ export const unserializableToolResult = (
         unserializableToolResult: true,
         reason: clipped,
       }),
-    );
+    )
 
   // JSON escaping inflates bytes, so shrink by whole code points until the
   // encoded sentinel fits the floor; the empty reason always fits.
-  let clipped = takePrefixWithinBytes(reason, 128);
-  let sentinel = build(clipped);
+  let clipped = takePrefixWithinBytes(reason, 128)
+  let sentinel = build(clipped)
 
   while (clipped.length > 0 && utf8ByteLength(JSON.stringify(sentinel)) > 256) {
-    const last = clipped.codePointAt(clipped.length - 1);
+    const last = clipped.codePointAt(clipped.length - 1)
 
-    clipped = clipped.slice(0, clipped.length - (last !== undefined && last > 0xffff ? 2 : 1));
-    sentinel = build(clipped);
+    clipped = clipped.slice(0, clipped.length - (last !== undefined && last > 0xffff ? 2 : 1))
+    sentinel = build(clipped)
   }
 
-  return sentinel;
-};
+  return sentinel
+}
 
 const takePrefixWithinBytes = (value: string, maxBytes: number): string => {
-  let bytes = 0;
-  let index = 0;
+  let bytes = 0
+  let index = 0
 
   while (index < value.length) {
-    const codePoint = value.codePointAt(index) ?? 0;
-    const width = codePointUtf8Length(codePoint);
+    const codePoint = value.codePointAt(index) ?? 0
+    const width = codePointUtf8Length(codePoint)
 
-    if (bytes + width > maxBytes) break;
-    bytes += width;
-    index += codePoint > 0xffff ? 2 : 1;
+    if (bytes + width > maxBytes) break
+    bytes += width
+    index += codePoint > 0xffff ? 2 : 1
   }
 
-  return value.slice(0, index);
-};
+  return value.slice(0, index)
+}
 
 const takeSuffixWithinBytes = (value: string, maxBytes: number): string => {
-  let bytes = 0;
-  let index = value.length;
+  let bytes = 0
+  let index = value.length
 
   while (index > 0) {
-    const unit = value.charCodeAt(index - 1);
-    const isLowSurrogate = unit >= 0xdc00 && unit <= 0xdfff;
-    const pairStart = isLowSurrogate && index >= 2 ? index - 2 : index - 1;
-    const codePoint = value.codePointAt(pairStart) ?? 0;
-    const width = codePointUtf8Length(codePoint);
+    const unit = value.charCodeAt(index - 1)
+    const isLowSurrogate = unit >= 0xdc00 && unit <= 0xdfff
+    const pairStart = isLowSurrogate && index >= 2 ? index - 2 : index - 1
+    const codePoint = value.codePointAt(pairStart) ?? 0
+    const width = codePointUtf8Length(codePoint)
 
-    if (bytes + width > maxBytes) break;
-    bytes += width;
-    index = pairStart;
+    if (bytes + width > maxBytes) break
+    bytes += width
+    index = pairStart
   }
 
-  return value.slice(index);
-};
+  return value.slice(index)
+}
 
 /**
  * Bound one encoded Tool result to `bounds.maxBytes` UTF-8 bytes.
@@ -162,11 +162,11 @@ const takeSuffixWithinBytes = (value: string, maxBytes: number): string => {
 export const applyToolResultBounds = (
   encodedJson: string,
   bounds: ToolResultBounds,
-  retention: Pick<TruncatedToolResult, "fullResultId" | "fullResultError"> = {},
+  retention: Pick<TruncatedToolResult, 'fullResultId' | 'fullResultError'> = {},
 ): string => {
-  const originalBytes = utf8ByteLength(encodedJson);
+  const originalBytes = utf8ByteLength(encodedJson)
 
-  if (originalBytes <= bounds.maxBytes) return encodedJson;
+  if (originalBytes <= bounds.maxBytes) return encodedJson
 
   const render = (head: string, tail: string): string =>
     JSON.stringify(
@@ -179,26 +179,26 @@ export const applyToolResultBounds = (
           ...retention,
         }),
       ),
-    );
+    )
 
-  const minimal = render("", "");
-  const contentBudget = bounds.maxBytes - utf8ByteLength(minimal);
+  const minimal = render('', '')
+  const contentBudget = bounds.maxBytes - utf8ByteLength(minimal)
 
-  if (contentBudget <= 0) return minimal;
-  let headBudget = Math.floor(contentBudget / 2);
-  let tailBudget = contentBudget - headBudget;
+  if (contentBudget <= 0) return minimal
+  let headBudget = Math.floor(contentBudget / 2)
+  let tailBudget = contentBudget - headBudget
 
   for (;;) {
-    const head = takePrefixWithinBytes(encodedJson, headBudget);
-    const tail = takeSuffixWithinBytes(encodedJson, tailBudget);
-    const output = render(head, tail);
-    const outputBytes = utf8ByteLength(output);
+    const head = takePrefixWithinBytes(encodedJson, headBudget)
+    const tail = takeSuffixWithinBytes(encodedJson, tailBudget)
+    const output = render(head, tail)
+    const outputBytes = utf8ByteLength(output)
 
-    if (outputBytes <= bounds.maxBytes) return output;
-    if (headBudget === 0 && tailBudget === 0) return minimal;
-    const shrink = Math.max(1, Math.ceil((outputBytes - bounds.maxBytes) / 2));
+    if (outputBytes <= bounds.maxBytes) return output
+    if (headBudget === 0 && tailBudget === 0) return minimal
+    const shrink = Math.max(1, Math.ceil((outputBytes - bounds.maxBytes) / 2))
 
-    headBudget = Math.max(0, headBudget - shrink);
-    tailBudget = Math.max(0, tailBudget - shrink);
+    headBudget = Math.max(0, headBudget - shrink)
+    tailBudget = Math.max(0, tailBudget - shrink)
   }
-};
+}

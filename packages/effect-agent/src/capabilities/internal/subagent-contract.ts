@@ -1,14 +1,14 @@
-import * as Duration from "effect/Duration";
-import * as Schema from "effect/Schema";
+import * as Duration from 'effect/Duration'
+import * as Schema from 'effect/Schema'
 
-import * as FailureDiagnostic from "../../core/FailureDiagnostic.ts";
-import { AgentId, DelegationId } from "../../core/Identifiers.ts";
-import type { SubagentPolicy } from "../../core/SubagentContract.ts";
-import { SubagentDelegationCaps, SubagentReservationAmounts } from "../../core/SubagentContract.ts";
+import * as FailureDiagnostic from '../../core/FailureDiagnostic.ts'
+import { AgentId, DelegationId } from '../../core/Identifiers.ts'
+import type { SubagentPolicy } from '../../core/SubagentContract.ts'
+import { SubagentDelegationCaps, SubagentReservationAmounts } from '../../core/SubagentContract.ts'
 
-export { SubagentPolicy, type SubagentPolicyInput } from "../../core/SubagentContract.ts";
+export { SubagentPolicy, type SubagentPolicyInput } from '../../core/SubagentContract.ts'
 
-const BoundedFailureText = Schema.String.check(Schema.isMaxLength(4 * 1024));
+const BoundedFailureText = Schema.String.check(Schema.isMaxLength(4 * 1024))
 
 /**
  * Delegation preflight denied before any child started.
@@ -16,11 +16,11 @@ const BoundedFailureText = Schema.String.check(Schema.isMaxLength(4 * 1024));
  * denied invocation; retry requires a new authorized parent Tool Call.
  */
 export class SubagentPrestartDenied extends Schema.TaggedError<SubagentPrestartDenied>()(
-  "SubagentPrestartDenied",
+  'SubagentPrestartDenied',
   {
     delegationId: DelegationId,
     targetAgentId: AgentId,
-    reason: Schema.Literals(["nested-delegation", "grant-violation", "budget-conflict"]),
+    reason: Schema.Literals(['nested-delegation', 'grant-violation', 'budget-conflict']),
     message: BoundedFailureText,
   },
 ) {}
@@ -31,10 +31,10 @@ export class SubagentPrestartDenied extends Schema.TaggedError<SubagentPrestartD
  * never carries the raw child value.
  */
 export class SubagentProjectionFailure extends Schema.TaggedError<SubagentProjectionFailure>()(
-  "SubagentProjectionFailure",
+  'SubagentProjectionFailure',
   {
     delegationId: DelegationId,
-    stage: Schema.Literals(["input", "result"]),
+    stage: Schema.Literals(['input', 'result']),
     message: BoundedFailureText,
     /** Original validation error; detailed diagnostics are never part of the safe message. */
     cause: Schema.optionalKey(FailureDiagnostic.Value),
@@ -43,13 +43,13 @@ export class SubagentProjectionFailure extends Schema.TaggedError<SubagentProjec
 ) {}
 
 export {
-  SubagentExecutionFailureClassification,
-  SubagentExecutionFailure,
   maxErrorTagLength,
-} from "../../core/SubagentContract.ts";
+  SubagentExecutionFailure,
+  SubagentExecutionFailureClassification,
+} from '../../core/SubagentContract.ts'
 
 const millisOfMaxDuration = (policy: SubagentPolicy): number =>
-  Math.max(1, Math.ceil(Duration.toMillis(policy.maxDuration)));
+  Math.max(1, Math.ceil(Duration.toMillis(policy.maxDuration)))
 
 /**
  * Derive the parent-Run delegation caps registered with
@@ -75,7 +75,7 @@ export const delegationCapsFromPolicy = (policy: SubagentPolicy): SubagentDelega
     ...(policy.maxResultBytes === undefined
       ? {}
       : { maxResultBytes: policy.maxChildren * policy.maxResultBytes }),
-  });
+  })
 
 /** Derive the all-or-nothing per-invocation reservation from one delegation policy. */
 export const delegationAllocationFromPolicy = (
@@ -89,4 +89,4 @@ export const delegationAllocationFromPolicy = (
     outputTokens: policy.maxOutputTokens ?? 0,
     costMicrousd: policy.maxCostMicrousd ?? 0,
     resultBytes: policy.maxResultBytes ?? 0,
-  });
+  })

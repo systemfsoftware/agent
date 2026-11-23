@@ -46,22 +46,22 @@ bun add @yielded/agent@beta effect
 ```
 
 ```ts
-import { Agent, AgentRuntime } from "@yielded/agent";
-import { Schema } from "effect";
-import { Toolkit } from "effect/ai";
+import { Agent, AgentRuntime } from '@yielded/agent'
+import { Schema } from 'effect'
+import { Toolkit } from 'effect/ai'
 
-const triage = Agent.make("triage", {
+const triage = Agent.make('triage', {
   input: Schema.String,
   output: Schema.Struct({
-    severity: Schema.Literals(["low", "medium", "high", "critical"]),
+    severity: Schema.Literals(['low', 'medium', 'high', 'critical']),
     explanation: Schema.String,
   }),
-  instructions: "Classify the bug report and explain the severity in one sentence.",
+  instructions: 'Classify the bug report and explain the severity in one sentence.',
   toolkit: Toolkit.empty,
-  policy: { maxTurns: 2, maxToolCalls: 1, maxDuration: "30 seconds" },
-});
+  policy: { maxTurns: 2, maxToolCalls: 1, maxDuration: '30 seconds' },
+})
 
-const result = AgentRuntime.run(triage, "Users cannot sign in.");
+const result = AgentRuntime.run(triage, 'Users cannot sign in.')
 ```
 
 Supply a model and history Layer to execute the Effect. The
@@ -81,22 +81,14 @@ setup, installation, and an executable entry point.
 [Platforms](https://yielded.dev/agent/platforms/) ·
 [Packages](https://yielded.dev/agent/reference/packages/)
 
-See the [sandbox coding agent](examples/sandbox/), [travel planner](examples/travel-planner/),
-[runnable snippets](docs/snippets/travel-planner/), [durable benchmark](examples/durable-bench/),
-and [cold-start reproduction](examples/cold-start/)
-for complete applications and comparisons.
-
 ## Development
 
-Framework packages live in `packages/*`; runnable applications live in `examples/*`.
-Use Vite+ for repository commands and Bun as the package manager.
+Framework packages live in `packages/*`. pnpm is the package manager.
 
 ```sh
-vp install
-vp run docs:dev
-vp run ready
+pnpm install
+pnpm lint && pnpm typecheck && pnpm test
 ```
 
-Read [AGENTS.md](AGENTS.md), the [glossary](GLOSSARY.md), and the
-[toolchain guide](docs/TOOLCHAIN.md) before contributing. The full gate includes static checks,
-tests, package builds, and the documentation build with link validation.
+Read [AGENTS.md](AGENTS.md) and the [glossary](GLOSSARY.md)
+before contributing. The gate runs format, lint, typecheck, build and test.

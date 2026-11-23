@@ -1,34 +1,31 @@
-import * as Effect from "effect/Effect";
-import * as Schema from "effect/Schema";
+import * as Effect from 'effect/Effect'
+import * as Schema from 'effect/Schema'
 
-import { readMemoryDocument } from "./internal/memory-document.ts";
-import { utf8ByteLength } from "./internal/utf8.ts";
-import type * as MemoryNamespace from "./MemoryNamespace.ts";
-import {
-  MemoryLookup,
-  MemoryPassage,
-  MemoryRecallError,
-  MemoryRecallLimits,
-} from "./MemoryReference.ts";
-import { MemoryKey, MemoryScope } from "./MemoryStore.ts";
+import { readMemoryDocument } from './internal/memory-document.ts'
+import { utf8ByteLength } from './internal/utf8.ts'
+import type * as MemoryNamespace from './MemoryNamespace.ts'
+import { MemoryLookup, MemoryPassage, MemoryRecallError, MemoryRecallLimits } from './MemoryReference.ts'
+import { MemoryKey, MemoryScope } from './MemoryStore.ts'
 
 const RevalidationLimits = Schema.Struct({
   maxInputBytes: MemoryRecallLimits.fields.maxInputBytes,
   maxSourceBytes: MemoryRecallLimits.fields.maxInputBytes,
-});
+})
 
 /** Bind these values in host code. Neither is a model-selectable retrieval parameter. */
 class MemoryAccessWire extends Schema.Class<MemoryAccessWire>(
-  "@effect-agent/capabilities/MemoryAccess",
+  '@effect-agent/capabilities/MemoryAccess',
 )({
   namespace: MemoryKey.Wire.fields.namespace,
   scope: MemoryScope,
 }) {}
 
-export type MemoryAccess<Namespace extends MemoryNamespace.Any = MemoryNamespace.Any> = Omit<
-  MemoryAccessWire,
-  "namespace"
-> & { readonly namespace: Namespace };
+export type MemoryAccess<Namespace extends MemoryNamespace.Any = MemoryNamespace.Any> =
+  & Omit<
+    MemoryAccessWire,
+    'namespace'
+  >
+  & { readonly namespace: Namespace }
 
 export const MemoryAccess = {
   Wire: MemoryAccessWire,
@@ -38,7 +35,7 @@ export const MemoryAccess = {
     Object.assign(Schema.decodeUnknownSync(MemoryAccessWire)(fields), {
       namespace: fields.namespace,
     }),
-};
+}
 
 /**
  * Resolve derivative candidates against the current authoritative source and host-bound access.
@@ -53,107 +50,102 @@ export const MemoryAccess = {
  * successful withdrawal or access revocation exclude that source; an in-flight snapshot can
  * finish, including its same-Turn overflow retry. Original history and prior outputs remain.
  */
-export const revalidateMemoryLookup = Effect.fnUntraced(function* (
+export const revalidateMemoryLookup = Effect.fnUntraced(function*(
   lookup: MemoryLookup,
   access: MemoryAccess,
-  limits: Pick<MemoryRecallLimits, "maxInputBytes"> & { readonly maxSourceBytes?: number } = {},
+  limits: Pick<MemoryRecallLimits, 'maxInputBytes'> & { readonly maxSourceBytes?: number } = {},
 ) {
   const decodedLimits = yield* Schema.decodeEffect(RevalidationLimits)(limits).pipe(
-    Effect.mapError(() =>
-      MemoryRecallError.make({ reason: "invalid-input", message: "Invalid revalidation limits" }),
-    ),
-  );
+    Effect.mapError(() => MemoryRecallError.make({ reason: 'invalid-input', message: 'Invalid revalidation limits' })),
+  )
 
   const decodedAccess = yield* Schema.decodeEffect(MemoryAccess.Wire)(access).pipe(
-    Effect.mapError(() =>
-      MemoryRecallError.make({ reason: "invalid-input", message: "Invalid host memory access" }),
-    ),
-  );
+    Effect.mapError(() => MemoryRecallError.make({ reason: 'invalid-input', message: 'Invalid host memory access' })),
+  )
 
   const decoded = yield* Schema.decodeEffect(MemoryLookup)(lookup).pipe(
-    Effect.mapError(() =>
-      MemoryRecallError.make({ reason: "invalid-input", message: "Malformed memory candidates" }),
-    ),
-  );
+    Effect.mapError(() => MemoryRecallError.make({ reason: 'invalid-input', message: 'Malformed memory candidates' })),
+  )
 
-  if (decoded._tag !== "Found") return decoded;
+  if (decoded._tag !== 'Found') return decoded
 
   const groups = new Map<
     string,
     Array<{ readonly candidate: MemoryPassage; readonly index: number }>
-  >();
+  >()
 
   for (const [index, candidate] of decoded.passages.entries()) {
-    const group = groups.get(candidate.source.id);
+    const group = groups.get(candidate.source.id)
 
-    if (group === undefined) groups.set(candidate.source.id, [{ candidate, index }]);
-    else group.push({ candidate, index });
+    if (group === undefined) groups.set(candidate.source.id, [{ candidate, index }])
+    else group.push({ candidate, index })
   }
-  const passages: Array<{ readonly passage: MemoryPassage; readonly index: number }> = [];
-  const maxInputBytes = decodedLimits.maxInputBytes ?? 16_777_216;
-  let inputBytes = 0;
-  let sourceBytes = 0;
+  const passages: Array<{ readonly passage: MemoryPassage; readonly index: number }> = []
+  const maxInputBytes = decodedLimits.maxInputBytes ?? 16_777_216
+  let inputBytes = 0
+  let sourceBytes = 0
 
   for (const [sourceId, group] of groups) {
-    yield* Effect.yieldNow;
-    const key = MemoryKey.make({ namespace: decodedAccess.namespace, id: sourceId });
+    yield* Effect.yieldNow
+    const key = MemoryKey.make({ namespace: decodedAccess.namespace, id: sourceId })
 
-    const document = yield* readMemoryDocument(key);
+    const document = yield* readMemoryDocument(key)
 
     if (
       document === null ||
-      document._tag === "WithdrawnMemoryDocument" ||
+      document._tag === 'WithdrawnMemoryDocument' ||
       !document.scopes.includes(decodedAccess.scope)
-    )
-      continue;
+    ) {
+      continue
+    }
     if (decodedLimits.maxSourceBytes !== undefined) {
-      sourceBytes += utf8ByteLength(JSON.stringify(document));
-      if (sourceBytes > decodedLimits.maxSourceBytes)
+      sourceBytes += utf8ByteLength(JSON.stringify(document))
+      if (sourceBytes > decodedLimits.maxSourceBytes) {
         return yield* MemoryRecallError.make({
-          reason: "budget",
+          reason: 'budget',
           sourceId,
-          message: "Authoritative memory source byte budget exceeded",
-        });
+          message: 'Authoritative memory source byte budget exceeded',
+        })
+      }
     }
     for (const { candidate, index } of group) {
-      const sameExcerpt =
-        document.source.revision === candidate.source.revision &&
-        document.content.text.includes(candidate.content.text);
+      const sameExcerpt = document.source.revision === candidate.source.revision &&
+        document.content.text.includes(candidate.content.text)
 
       const passage = MemoryPassage.make({
         version: 1,
         authority: decodedAccess.namespace.address,
         source: document.source,
-        passageId: sameExcerpt ? candidate.passageId : "document",
+        passageId: sameExcerpt ? candidate.passageId : 'document',
         content: {
           ...document.content,
           text: sameExcerpt ? candidate.content.text : document.content.text,
         },
-      });
+      })
 
-      const encoded = JSON.stringify(passage);
-      const remaining = maxInputBytes - inputBytes;
+      const encoded = JSON.stringify(passage)
+      const remaining = maxInputBytes - inputBytes
 
-      const encodedBytes = encoded.length <= remaining ? utf8ByteLength(encoded) : undefined;
+      const encodedBytes = encoded.length <= remaining ? utf8ByteLength(encoded) : undefined
 
       if (encodedBytes === undefined || encodedBytes > remaining) {
         return yield* MemoryRecallError.make({
-          reason: "budget",
+          reason: 'budget',
           sourceId,
-          message: "Revalidated memory input encoding budget exceeded",
-        });
+          message: 'Revalidated memory input encoding budget exceeded',
+        })
       }
-      inputBytes += encodedBytes;
-      passages.push({ passage, index });
+      inputBytes += encodedBytes
+      passages.push({ passage, index })
     }
   }
 
   return passages.length === 0
-    ? { _tag: "NoMatch" as const }
+    ? { _tag: 'NoMatch' as const }
     : {
-        _tag: "Found" as const,
-        passages: passages
-          .sort((left, right) => left.index - right.index)
-          .map(({ passage }) => passage),
-      };
-});
+      _tag: 'Found' as const,
+      passages: passages
+        .sort((left, right) => left.index - right.index)
+        .map(({ passage }) => passage),
+    }
+})

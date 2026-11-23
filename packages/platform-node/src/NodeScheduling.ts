@@ -1,98 +1,97 @@
-import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
+import * as NodeCrypto from '@effect/platform-node/NodeCrypto'
 import {
+  defaultSchedulingLimits,
   type ScheduleAuthorizer,
-  type SchedulingLimits,
   ScheduleStorageError,
   ScheduleStore,
   type ScheduleValidationError,
   ScheduleWake,
-  defaultSchedulingLimits,
-} from "@yielded/agent/schedule";
-import { type ScheduleProcessFailure, Scheduling, ScheduleDriver } from "@yielded/agent/scheduling";
-import * as Cause from "effect/Cause";
-import * as Duration from "effect/Duration";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
-import * as PubSub from "effect/PubSub";
-import * as Result from "effect/Result";
+  type SchedulingLimits,
+} from '@yielded/agent/schedule'
+import { ScheduleDriver, type ScheduleProcessFailure, Scheduling } from '@yielded/agent/scheduling'
+import * as Cause from 'effect/Cause'
+import * as Duration from 'effect/Duration'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
+import * as Option from 'effect/Option'
+import * as PubSub from 'effect/PubSub'
+import * as Result from 'effect/Result'
 
-import type { NodeDurableHost } from "./NodeDurableHost.ts";
-import { nodePreparedInputAdmissionLayer } from "./NodeSubscriptions.ts";
+import type { NodeDurableHost } from './NodeDurableHost.ts'
+import { nodePreparedInputAdmissionLayer } from './NodeSubscriptions.ts'
 
 /** One bounded hint slot for the single supported Node scheduler. Indexed polling repairs loss. */
 export const nodeScheduleWakeLayer: Layer.Layer<ScheduleWake> = Layer.effect(
   ScheduleWake,
-  Effect.gen(function* () {
-    const hints = yield* PubSub.sliding<void>(1);
-    const subscription = yield* PubSub.subscribe(hints);
+  Effect.gen(function*() {
+    const hints = yield* PubSub.sliding<void>(1)
+    const subscription = yield* PubSub.subscribe(hints)
 
-    yield* Effect.addFinalizer(() => PubSub.shutdown(hints));
+    yield* Effect.addFinalizer(() => PubSub.shutdown(hints))
 
     return ScheduleWake.of({
       notify: PubSub.publish(hints, undefined).pipe(Effect.asVoid),
       await: PubSub.take(subscription),
-    });
+    })
   }),
-);
+)
 
 const reportPassFailure = (cause: Cause.Cause<ScheduleProcessFailure>): Effect.Effect<boolean> =>
   Cause.hasInterruptsOnly(cause)
     ? Effect.interrupt
-    : Effect.logWarning("Node scheduling pass failed").pipe(
-        Effect.annotateLogs({
-          failureTag: Option.match(Cause.findErrorOption(cause), {
-            onNone: () => "Defect",
-            onSome: (error) => error._tag,
-          }),
+    : Effect.logWarning('Node scheduling pass failed').pipe(
+      Effect.annotateLogs({
+        failureTag: Option.match(Cause.findErrorOption(cause), {
+          onNone: () => 'Defect',
+          onSome: (error) => error._tag,
         }),
-        Effect.as(false),
-      );
+      }),
+      Effect.as(false),
+    )
 
 const nodeSchedulingDriverLayer = (
   limits: SchedulingLimits,
 ): Layer.Layer<never, never, ScheduleDriver | ScheduleStore | ScheduleWake> =>
   Layer.effectDiscard(
-    Effect.gen(function* () {
-      const scheduling = yield* ScheduleDriver;
-      const store = yield* ScheduleStore;
-      const wake = yield* ScheduleWake;
+    Effect.gen(function*() {
+      const scheduling = yield* ScheduleDriver
+      const store = yield* ScheduleStore
+      const wake = yield* ScheduleWake
 
-      const run = Effect.gen(function* () {
+      const run = Effect.gen(function*() {
         while (true) {
           const passSucceeded = yield* scheduling.runDue().pipe(
             Effect.map((pass) => pass.failed === 0),
             Effect.catchCause(reportPassFailure),
-          );
+          )
 
           const deadlineResult = passSucceeded
             ? yield* store.nextDeadline().pipe(Effect.result)
             : Result.fail(
-                ScheduleStorageError.make({ operation: "driver pass", reason: "unavailable" }),
-              );
+              ScheduleStorageError.make({ operation: 'driver pass', reason: 'unavailable' }),
+            )
 
           if (Result.isFailure(deadlineResult) && passSucceeded) {
-            yield* Effect.logWarning("Node scheduling deadline query failed");
+            yield* Effect.logWarning('Node scheduling deadline query failed')
           }
-          const nowMillis = yield* Effect.clockWith((clock) => clock.currentTimeMillis);
+          const nowMillis = yield* Effect.clockWith((clock) => clock.currentTimeMillis)
 
-          const deadlineDelay =
-            Result.isSuccess(deadlineResult) && deadlineResult.success !== null
-              ? Math.max(0, deadlineResult.success - nowMillis)
-              : limits.recoveryPollMillis;
+          const deadlineDelay = Result.isSuccess(deadlineResult) && deadlineResult.success !== null
+            ? Math.max(0, deadlineResult.success - nowMillis)
+            : limits.recoveryPollMillis
 
-          const delay = Math.min(deadlineDelay, limits.recoveryPollMillis);
+          const delay = Math.min(deadlineDelay, limits.recoveryPollMillis)
 
-          yield* Effect.raceFirst(wake.await, Effect.sleep(Duration.millis(delay)));
+          yield* Effect.raceFirst(wake.await, Effect.sleep(Duration.millis(delay)))
         }
-      });
+      })
 
-      yield* Effect.forkScoped(run);
+      yield* Effect.forkScoped(run)
     }),
-  );
+  )
 
 export interface NodeSchedulingOptions {
-  readonly limits?: SchedulingLimits | undefined;
+  readonly limits?: SchedulingLimits | undefined
 }
 
 /**
@@ -107,17 +106,17 @@ export class NodeScheduling {
     ScheduleValidationError,
     NodeDurableHost | ScheduleStore | ScheduleAuthorizer
   > {
-    const limits = options.limits ?? defaultSchedulingLimits;
+    const limits = options.limits ?? defaultSchedulingLimits
 
     const schedulingWithDriver = nodeSchedulingDriverLayer(limits).pipe(
       Layer.provide(ScheduleDriver.layer(limits)),
       Layer.merge(Scheduling.layer(limits)),
-    );
+    )
 
     return schedulingWithDriver.pipe(
       Layer.provide(
         Layer.mergeAll(nodePreparedInputAdmissionLayer, nodeScheduleWakeLayer, NodeCrypto.layer),
       ),
-    );
+    )
   }
 }

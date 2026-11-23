@@ -1,30 +1,30 @@
-import * as Clock from "effect/Clock";
-import type * as CryptoDigest from "effect/crypto/Digest";
-import * as Effect from "effect/Effect";
-import * as Schema from "effect/Schema";
-import type * as Scope from "effect/Scope";
-import * as Stream from "effect/Stream";
+import * as Clock from 'effect/Clock'
+import type * as CryptoDigest from 'effect/crypto/Digest'
+import * as Effect from 'effect/Effect'
+import * as Schema from 'effect/Schema'
+import type * as Scope from 'effect/Scope'
+import * as Stream from 'effect/Stream'
 
 import {
-  ActivityProgress,
   ActivityProcessorKey,
   ActivityProcessorStore,
-  PreparedActivity,
+  ActivityProgress,
   type ActivityStoreFailure,
-} from "./ActivityStore.ts";
-import { digestJson, type DigestError } from "./Digest.ts";
-import { CanonicalRecordEnvelope, CanonicalSequence, PersistedJson } from "./Records.ts";
+  PreparedActivity,
+} from './ActivityStore.ts'
+import { type DigestError, digestJson } from './Digest.ts'
+import { CanonicalRecordEnvelope, CanonicalSequence, PersistedJson } from './Records.ts'
 import {
+  type ThreadNotMaterialized,
   ThreadRead,
   ThreadStore,
+  type ThreadStoreError,
   ThreadTail,
   ThreadTailRequest,
-  type ThreadNotMaterialized,
-  type ThreadStoreError,
-} from "./ThreadStore.ts";
+} from './ThreadStore.ts'
 
 export class ActivityPassLimits extends Schema.Class<ActivityPassLimits>(
-  "@effect-agent/thread/ActivityPassLimits",
+  '@effect-agent/thread/ActivityPassLimits',
 )({
   maxRecords: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 4_096 })),
   pageSize: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 128 })),
@@ -32,15 +32,15 @@ export class ActivityPassLimits extends Schema.Class<ActivityPassLimits>(
 }) {}
 
 export class ActivityProcessingError extends Schema.TaggedError<ActivityProcessingError>()(
-  "ActivityProcessingError",
+  'ActivityProcessingError',
   {
-    reason: Schema.Literals(["invalid-input", "noncontiguous", "timeout"]),
+    reason: Schema.Literals(['invalid-input', 'noncontiguous', 'timeout']),
     message: Schema.String.check(Schema.isMaxLength(1_024)),
   },
 ) {}
 
 export class ActivityPassResult extends Schema.Class<ActivityPassResult>(
-  "@effect-agent/thread/ActivityPassResult",
+  '@effect-agent/thread/ActivityPassResult',
 )({
   key: ActivityProcessorKey,
   capturedTail: CanonicalSequence,
@@ -52,10 +52,10 @@ export class ActivityPassResult extends Schema.Class<ActivityPassResult>(
 }) {}
 
 export interface CommittedActivityProcessor<E = never, R = never, EApply = never, RApply = never> {
-  readonly key: ActivityProcessorKey;
-  readonly limits: ActivityPassLimits;
+  readonly key: ActivityProcessorKey
+  readonly limits: ActivityPassLimits
   /** Select eligibility and encode an application Schema; null can represent no output. */
-  readonly extract: (record: CanonicalRecordEnvelope) => Effect.Effect<PersistedJson, E, R>;
+  readonly extract: (record: CanonicalRecordEnvelope) => Effect.Effect<PersistedJson, E, R>
   /**
    * Must durably reconcile workId before returning, using atomic idempotency and conditional
    * writes. This may run again after any lost acknowledgement. A stale invocation can finish
@@ -63,27 +63,26 @@ export interface CommittedActivityProcessor<E = never, R = never, EApply = never
    * Retain reconciliation evidence for the lifetime of pending work, including any supported
    * backup/restore window. Returning before durable application would permit skipped output.
    */
-  readonly apply: (work: PreparedActivity) => Effect.Effect<void, EApply, RApply>;
+  readonly apply: (work: PreparedActivity) => Effect.Effect<void, EApply, RApply>
 }
 
-const invalid = (message: string) =>
-  ActivityProcessingError.make({ reason: "invalid-input", message });
+const invalid = (message: string) => ActivityProcessingError.make({ reason: 'invalid-input', message })
 
 const contiguous = () =>
   ActivityProcessingError.make({
-    reason: "noncontiguous",
-    message: "Committed activity does not match its captured Thread prefix or pinned record",
-  });
+    reason: 'noncontiguous',
+    message: 'Committed activity does not match its captured Thread prefix or pinned record',
+  })
 
 /** Stable work identity independent of local sessions, retry count, extraction, and clocks. */
 export const activityWorkId = (key: ActivityProcessorKey, sequence: CanonicalSequence) =>
   digestJson([
-    "effect-agent/activity@1",
+    'effect-agent/activity@1',
     key.processorId,
     key.processorVersion,
     key.threadId,
     sequence,
-  ]);
+  ])
 
 /**
  * Process one bounded committed prefix of one application-selected Thread. Nothing runs until
@@ -97,7 +96,7 @@ export const activityWorkId = (key: ActivityProcessorKey, sequence: CanonicalSeq
  * a timeout. Its local session closes with the pass Scope and rejects late mutations;
  * recovery reuses durable progress immediately under the same single-owner routing contract.
  */
-export const processCommittedActivity = Effect.fnUntraced(function* <
+export const processCommittedActivity = Effect.fnUntraced(function*<
   E = never,
   R = never,
   EApply = never,
@@ -116,49 +115,48 @@ export const processCommittedActivity = Effect.fnUntraced(function* <
   ActivityProcessorStore | ThreadStore | CryptoDigest.Digest | Exclude<R | RApply, Scope.Scope>
 > {
   const key = yield* Schema.decodeEffect(ActivityProcessorKey)(processor.key).pipe(
-    Effect.mapError(() => invalid("Invalid activity processor key")),
-  );
+    Effect.mapError(() => invalid('Invalid activity processor key')),
+  )
 
   const limits = yield* Schema.decodeEffect(ActivityPassLimits)(processor.limits).pipe(
-    Effect.mapError(() => invalid("Invalid activity pass limits")),
-  );
+    Effect.mapError(() => invalid('Invalid activity pass limits')),
+  )
 
-  const progress = yield* ActivityProcessorStore;
-  const threads = yield* ThreadStore;
+  const progress = yield* ActivityProcessorStore
+  const threads = yield* ThreadStore
 
   return yield* Effect.scoped(
-    Effect.gen(function* () {
-      const session = yield* progress.acquire(key);
+    Effect.gen(function*() {
+      const session = yield* progress.acquire(key)
 
       let current = yield* Schema.decodeEffect(Schema.toType(ActivityProgress))(
         session.progress,
-      ).pipe(Effect.mapError(() => invalid("Malformed activity progress")));
+      ).pipe(Effect.mapError(() => invalid('Malformed activity progress')))
 
-      if (!Schema.toEquivalence(ActivityProcessorKey)(current.key, key))
-        return yield* invalid("Activity progress identity does not match its request");
-      yield* session.checkActive;
-      const startedAt = yield* Clock.currentTimeMillis;
+      if (!Schema.toEquivalence(ActivityProcessorKey)(current.key, key)) {
+        return yield* invalid('Activity progress identity does not match its request')
+      }
+      yield* session.checkActive
+      const startedAt = yield* Clock.currentTimeMillis
 
       const tail = yield* threads
         .inspectTail(ThreadTailRequest.make({ threadId: key.threadId }))
         .pipe(
-          Effect.flatMap((value) =>
-            Schema.decodeEffect(ThreadTail)(value).pipe(Effect.mapError(contiguous)),
-          ),
-        );
+          Effect.flatMap((value) => Schema.decodeEffect(ThreadTail)(value).pipe(Effect.mapError(contiguous))),
+        )
 
       if (
         tail.threadId !== key.threadId ||
         tail.tailSequence < current.throughSequence ||
         (current.pending !== null && tail.tailSequence < current.pending.sequence)
       ) {
-        return yield* contiguous();
+        return yield* contiguous()
       }
-      const through = Math.min(tail.tailSequence, current.throughSequence + limits.maxRecords);
-      let processed = 0;
+      const through = Math.min(tail.tailSequence, current.throughSequence + limits.maxRecords)
+      let processed = 0
 
       while (current.throughSequence < through) {
-        const limit = Math.min(limits.pageSize, through - current.throughSequence);
+        const limit = Math.min(limits.pageSize, through - current.throughSequence)
 
         const page = yield* threads
           .read(
@@ -168,30 +166,30 @@ export const processCommittedActivity = Effect.fnUntraced(function* <
               limit,
             }),
           )
-          .pipe(Stream.take(limit + 1), Stream.runCollect);
+          .pipe(Stream.take(limit + 1), Stream.runCollect)
 
-        if (page.length !== limit) return yield* contiguous();
+        if (page.length !== limit) return yield* contiguous()
         for (const rawRecord of page) {
           const record = yield* Schema.decodeEffect(Schema.toType(CanonicalRecordEnvelope))(
             rawRecord,
-          ).pipe(Effect.mapError(contiguous));
+          ).pipe(Effect.mapError(contiguous))
 
           if (record.threadId !== key.threadId || record.sequence !== current.throughSequence + 1) {
-            return yield* contiguous();
+            return yield* contiguous()
           }
-          yield* session.checkActive;
-          const workId = yield* activityWorkId(key, record.sequence);
+          yield* session.checkActive
+          const workId = yield* activityWorkId(key, record.sequence)
 
-          let work = current.pending;
+          let work = current.pending
 
           if (work === null) {
             const output = yield* Effect.scoped(processor.extract(record)).pipe(
               Effect.flatMap((value) =>
                 Schema.decodeEffect(PersistedJson)(value).pipe(
-                  Effect.mapError(() => invalid("Malformed activity output")),
-                ),
+                  Effect.mapError(() => invalid('Malformed activity output')),
+                )
               ),
-            );
+            )
 
             work = yield* session.prepare(
               PreparedActivity.make({
@@ -202,41 +200,43 @@ export const processCommittedActivity = Effect.fnUntraced(function* <
                 recordId: record.record.recordId,
                 output,
               }),
-            );
+            )
           }
 
           const prepared = yield* Schema.decodeEffect(PreparedActivity)(work).pipe(
-            Effect.mapError(() => invalid("Malformed prepared activity")),
-          );
+            Effect.mapError(() => invalid('Malformed prepared activity')),
+          )
 
           if (
             !Schema.toEquivalence(ActivityProcessorKey)(prepared.key, key) ||
             prepared.sequence !== record.sequence ||
             prepared.workId !== workId ||
             prepared.recordId !== record.record.recordId
-          )
-            return yield* contiguous();
-          yield* session.checkActive;
-          yield* Effect.scoped(processor.apply(prepared));
+          ) {
+            return yield* contiguous()
+          }
+          yield* session.checkActive
+          yield* Effect.scoped(processor.apply(prepared))
 
           const next = yield* session
             .advance(workId)
             .pipe(
               Effect.flatMap((value) =>
                 Schema.decodeEffect(Schema.toType(ActivityProgress))(value).pipe(
-                  Effect.mapError(() => invalid("Malformed activity progress")),
-                ),
+                  Effect.mapError(() => invalid('Malformed activity progress')),
+                )
               ),
-            );
+            )
 
           if (
             !Schema.toEquivalence(ActivityProcessorKey)(next.key, key) ||
             next.throughSequence !== record.sequence ||
             next.pending !== null
-          )
-            return yield* invalid("Activity progress advanced outside the prepared record");
-          current = next;
-          processed += 1;
+          ) {
+            return yield* invalid('Activity progress advanced outside the prepared record')
+          }
+          current = next
+          processed += 1
         }
       }
 
@@ -248,15 +248,15 @@ export const processCommittedActivity = Effect.fnUntraced(function* <
         pendingRecords: tail.tailSequence - current.throughSequence,
         startedAt,
         finishedAt: yield* Clock.currentTimeMillis,
-      });
+      })
     }),
   ).pipe(
     Effect.timeoutOrElse({
       duration: limits.timeoutMillis,
       orElse: () =>
         Effect.fail(
-          ActivityProcessingError.make({ reason: "timeout", message: "Activity pass timed out" }),
+          ActivityProcessingError.make({ reason: 'timeout', message: 'Activity pass timed out' }),
         ),
     }),
-  );
-});
+  )
+})

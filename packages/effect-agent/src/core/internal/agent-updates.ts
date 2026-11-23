@@ -1,44 +1,42 @@
-import * as Tool from "effect/ai/Tool";
-import * as Toolkit from "effect/ai/Toolkit";
-import * as Schema from "effect/Schema";
+import * as Tool from 'effect/ai/Tool'
+import * as Toolkit from 'effect/ai/Toolkit'
+import * as Schema from 'effect/Schema'
 
-import { Emitter, UpdateError } from "../AgentUpdates.ts";
-import type { RunId } from "../Identifiers.ts";
-import { ToolExecutionClass } from "./tool-execution.ts";
+import { Emitter, UpdateError } from '../AgentUpdates.ts'
+import type { RunId } from '../Identifiers.ts'
+import { ToolExecutionClass } from './tool-execution.ts'
 
 /** Stable native acceptance identity, shared by execution and recovery. */
-export const nativeUpdateId = (runId: RunId, toolCallId: string): string =>
-  `tool:${runId}:${toolCallId}`;
+export const nativeUpdateId = (runId: RunId, toolCallId: string): string => `tool:${runId}:${toolCallId}`
 
 /** Definition-owned native Tool. Runtime supplies its handler under the same identity. */
 export const updateTool = <S extends Schema.Top>(schema: S) =>
-  Tool.make("emit_update", {
-    description:
-      "Emit a structured intermediate update. Success acknowledges acceptance by this Run; " +
-      "parent delivery and processing are separate. This does not complete the task.",
+  Tool.make('emit_update', {
+    description: 'Emit a structured intermediate update. Success acknowledges acceptance by this Run; ' +
+      'parent delivery and processing are separate. This does not complete the task.',
     parameters: Schema.Struct({ value: schema }),
     success: Schema.Struct({ emitted: Schema.Literal(true) }),
     failure: UpdateError,
-    failureMode: "return",
+    failureMode: 'return',
   })
     .addDependency(Emitter)
-    .annotate(ToolExecutionClass, "idempotent");
+    .annotate(ToolExecutionClass, 'idempotent')
 
 export type UpdateToolkit<
   T extends Toolkit.Any,
   S extends Schema.Top | undefined,
-> = S extends Schema.Top
-  ? Toolkit.Toolkit<T["tools"] & { readonly emit_update: ReturnType<typeof updateTool<S>> }>
-  : T;
+> = S extends Schema.Top ? Toolkit.Toolkit<T['tools'] & { readonly emit_update: ReturnType<typeof updateTool<S>> }>
+  : T
 
 export const withUpdateTool = (
   toolkit: Toolkit.Any,
   schema: Schema.Top | undefined,
 ): Toolkit.Any => {
-  if (schema === undefined) return toolkit;
-  if (Object.hasOwn(toolkit.tools, "emit_update"))
+  if (schema === undefined) return toolkit
+  if (Object.hasOwn(toolkit.tools, 'emit_update')) {
     // oxlint-disable-next-line effect/no-untyped-throw, effect/no-native-error -- Agent.make synchronously rejects a toolkit that occupies the reserved update Tool name.
-    throw new TypeError("emit_update is reserved for Agent updates");
+    throw new TypeError('emit_update is reserved for Agent updates')
+  }
 
-  return Toolkit.make(...Object.values(toolkit.tools), updateTool(schema));
-};
+  return Toolkit.make(...Object.values(toolkit.tools), updateTool(schema))
+}

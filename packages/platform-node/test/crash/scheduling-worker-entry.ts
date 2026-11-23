@@ -1,5 +1,5 @@
-import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
+import * as NodeRuntime from '@effect/platform-node/NodeRuntime'
 
-import { schedulingCrashWorker } from "./scheduling-worker.ts";
+import { schedulingCrashWorker } from './scheduling-worker.ts'
 
-NodeRuntime.runMain(schedulingCrashWorker, { disableErrorReporting: true });
+NodeRuntime.runMain(schedulingCrashWorker, { disableErrorReporting: true })

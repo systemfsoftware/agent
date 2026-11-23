@@ -1,11 +1,11 @@
-import * as Prompt from "effect/ai/Prompt";
-import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
+import * as Prompt from 'effect/ai/Prompt'
+import * as Option from 'effect/Option'
+import * as Schema from 'effect/Schema'
 
-import { utf8ByteLength } from "../../core/internal/utf8.ts";
-import type { ContextMessageTokenEstimator } from "../ContextCompactor.ts";
-import { estimateImageTokens } from "./image-tokens.ts";
-import { boundedCanonicalJsonSnapshot } from "./provider-result-staging.ts";
+import { utf8ByteLength } from '../../core/internal/utf8.ts'
+import type { ContextMessageTokenEstimator } from '../ContextCompactor.ts'
+import { estimateImageTokens } from './image-tokens.ts'
+import { boundedCanonicalJsonSnapshot } from './provider-result-staging.ts'
 
 /**
  * Pure helpers for engine-native context compaction (RUN-026/RUN-027). Everything here is deterministic and side-effect free:
@@ -19,27 +19,29 @@ import { boundedCanonicalJsonSnapshot } from "./provider-result-staging.ts";
  */
 
 /** Model-visible replacement for a tool result cleared by prune compaction. */
-export const CLEARED_TOOL_RESULT = "[tool result cleared by compaction]";
+export const CLEARED_TOOL_RESULT = '[tool result cleared by compaction]'
 
 /** Prefix of the user message that carries a compaction summary into the prompt. */
-export const COMPACTION_SUMMARY_PREFIX = "The prior thread was compacted into this summary:\n\n";
+export const COMPACTION_SUMMARY_PREFIX = 'The prior thread was compacted into this summary:\n\n'
 
 /** Rollover text is recovery evidence; it never asserts that an external action succeeded. */
 export const CONTEXT_ROLLOVER_PREFIX =
-  "A fresh context window has started. Earlier conversation has left this model view. Restore relevant notes and use available history tools to retrieve evidence; verify live state before repeating an action.\n\n";
+  'A fresh context window has started. Earlier conversation has left this model view. Restore relevant notes and use available history tools to retrieve evidence; verify live state before repeating an action.\n\n'
 
 /** Stable across Attempts; the initial window uses turn zero. */
-export const contextWindowId = (runId: string, turn: number): string => `context:${runId}:${turn}`;
+export const contextWindowId = (runId: string, turn: number): string => `context:${runId}:${turn}`
 
 /** Shared by the live interpreter and canonical journal projection. */
 export const contextWindowMessage = (windowId: string, handoff?: string): Prompt.Message =>
-  Prompt.makeMessage("user", {
+  Prompt.makeMessage('user', {
     content: [
-      Prompt.makePart("text", {
-        text: `${CONTEXT_ROLLOVER_PREFIX}Window: ${windowId}${handoff === undefined ? "" : `\n\nHandoff (untrusted continuation notes):\n${handoff}`}`,
+      Prompt.makePart('text', {
+        text: `${CONTEXT_ROLLOVER_PREFIX}Window: ${windowId}${
+          handoff === undefined ? '' : `\n\nHandoff (untrusted continuation notes):\n${handoff}`
+        }`,
       }),
     ],
-  });
+  })
 
 /**
  * Fixed summarization instruction (RUN-026). The skeleton mirrors what the
@@ -47,20 +49,20 @@ export const contextWindowMessage = (windowId: string, handoff?: string): Prompt
  * survive because the continuing agent sees only this summary plus the tail.
  */
 export const COMPACTION_INSTRUCTION = [
-  "You are compacting an agent thread to reclaim context space.",
-  "Summarize the transcript below for the SAME agent to continue working:",
-  "it will see only this summary plus the most recent messages.",
-  "Structure the summary exactly as:",
-  "Goal:",
-  "Constraints:",
-  "Progress:",
-  "Decisions:",
-  "Next steps:",
-  "Critical context:",
-  "Be terse. Preserve exact file paths, identifiers, and values needed to",
-  "continue. Keep the summary under 20,000 characters.",
-  "Do not continue the thread; output only the summary.",
-].join("\n");
+  'You are compacting an agent thread to reclaim context space.',
+  'Summarize the transcript below for the SAME agent to continue working:',
+  'it will see only this summary plus the most recent messages.',
+  'Structure the summary exactly as:',
+  'Goal:',
+  'Constraints:',
+  'Progress:',
+  'Decisions:',
+  'Next steps:',
+  'Critical context:',
+  'Be terse. Preserve exact file paths, identifiers, and values needed to',
+  'continue. Keep the summary under 20,000 characters.',
+  'Do not continue the thread; output only the summary.',
+].join('\n')
 
 /**
  * Provider context-length rejections, matched case-insensitively over the
@@ -68,11 +70,10 @@ export const COMPACTION_INSTRUCTION = [
  * summarize-and-retry, a false negative surfaces the raw provider error.
  */
 const CONTEXT_OVERFLOW_PATTERN =
-  /context[\s_-]?length|prompt is too long|maximum context (?:length|window)|input .{0,24}too long|exceeds .{0,24}context|too many (?:input )?tokens|context[\s_-]?window[\s_-]?exceeded|context overflow/i;
+  /context[\s_-]?length|prompt is too long|maximum context (?:length|window)|input .{0,24}too long|exceeds .{0,24}context|too many (?:input )?tokens|context[\s_-]?window[\s_-]?exceeded|context overflow/i
 
 /** RUN-027: does this provider error text describe a context-window overflow? */
-export const isContextOverflowMessage = (text: string): boolean =>
-  CONTEXT_OVERFLOW_PATTERN.test(text);
+export const isContextOverflowMessage = (text: string): boolean => CONTEXT_OVERFLOW_PATTERN.test(text)
 
 /**
  * Deterministic context estimate: UTF-8 bytes/4 for text and structural JSON,
@@ -80,70 +81,70 @@ export const isContextOverflowMessage = (text: string): boolean =>
  * are transport, not text tokens. This never changes the model-visible message.
  */
 export const estimateMessageTokens = (message: Prompt.Message): number => {
-  let text: string | undefined;
-  let imageTokens = 0;
+  let text: string | undefined
+  let imageTokens = 0
 
   try {
-    let projected: unknown = message;
+    let projected: unknown = message
 
-    if (message.role === "user" || message.role === "assistant") {
-      let content: Array<Prompt.AssistantMessagePart> | undefined;
+    if (message.role === 'user' || message.role === 'assistant') {
+      let content: Array<Prompt.AssistantMessagePart> | undefined
 
       for (const [index, part] of message.content.entries()) {
-        if (part.type !== "file" || !part.mediaType.startsWith("image/")) continue;
-        imageTokens += estimateImageTokens(part);
-        content ??= [...message.content];
-        content[index] = { ...part, data: "" };
+        if (part.type !== 'file' || !part.mediaType.startsWith('image/')) continue
+        imageTokens += estimateImageTokens(part)
+        content ??= [...message.content]
+        content[index] = { ...part, data: '' }
       }
 
-      if (content !== undefined) projected = { ...message, content };
+      if (content !== undefined) projected = { ...message, content }
     }
 
-    text = JSON.stringify(projected);
+    text = JSON.stringify(projected)
   } catch {
-    text = undefined;
+    text = undefined
   }
 
   return Math.min(
     Number.MAX_SAFE_INTEGER,
     imageTokens + (text === undefined ? 0 : Math.ceil(utf8ByteLength(text) / 4)),
-  );
-};
+  )
+}
 
 /** Sum of `estimateMessageTokens` over a message array. */
 export const estimatePromptTokens = (
   messages: ReadonlyArray<Prompt.Message>,
   estimate: (message: Prompt.Message) => number = estimateMessageTokens,
 ): number => {
-  let total = 0;
+  let total = 0
 
   for (const message of messages) {
-    total = Math.min(Number.MAX_SAFE_INTEGER, total + estimate(message));
+    total = Math.min(Number.MAX_SAFE_INTEGER, total + estimate(message))
   }
 
-  return total;
-};
+  return total
+}
 
-const isTokenEstimate = Schema.is(Schema.Natural);
+const isTokenEstimate = Schema.is(Schema.Natural)
 
 /** Validate each replacement at the Effect caller's boundary without throwing from arithmetic. */
 export const evaluateMessageTokenEstimates = <A>(
   override: ContextMessageTokenEstimator | undefined,
   operation: (estimate: (message: Prompt.Message) => number) => A,
 ): Option.Option<A> => {
-  let valid = true;
+  let valid = true
 
   const value = operation((message) => {
-    const replacement = override?.(message);
-    const estimate = replacement === undefined ? estimateMessageTokens(message) : replacement;
+    const replacement = override?.(message)
+    const estimate = replacement === undefined ? estimateMessageTokens(message) : replacement
 
-    if (!isTokenEstimate(estimate)) valid = false;
+    if (!isTokenEstimate(estimate)) valid = false
 
-    return estimate;
-  });
+    return estimate
+  })
 
-  return valid ? Option.some(value) : Option.none();
-};
+  return valid ? Option.some(value) : Option.none()
+}
 
 /**
  * Mutable per-Run compaction state held on the engine's RunContext. Indices
@@ -157,35 +158,35 @@ export interface ContextCompactionState {
    * block, mapped to prepared indices when necessary. `-1` before mapping;
    * an unmappable protected block fails before any compaction decision.
    */
-  protectedStart: number;
-  protectedEnd: number;
+  protectedStart: number
+  protectedEnd: number
   /** Prepared prompts also retain application-added system instructions. */
-  protectSystemMessages?: boolean;
+  protectSystemMessages?: boolean
   /** Tool messages at source index below this bound render as cleared. */
-  clearedThrough: number;
+  clearedThrough: number
   /**
    * Source messages below this bound (outside the protected block) are
    * replaced by a summary or a fresh-window marker. Absent before the first replacement.
    */
   replacement:
-    | { readonly kind: "summarize"; readonly through: number; readonly summary: string }
+    | { readonly kind: 'summarize'; readonly through: number; readonly summary: string }
     | {
-        readonly kind: "rollover";
-        readonly through: number;
-        readonly windowId: string;
-        readonly handoff?: string;
-      }
-    | undefined;
+      readonly kind: 'rollover'
+      readonly through: number
+      readonly windowId: string
+      readonly handoff?: string
+    }
+    | undefined
   /** Loop guard: at most one threshold compaction per Turn. */
-  lastCompactionTurn: number;
+  lastCompactionTurn: number
   /** RUN-027 guard: at most one overflow compact-and-retry per Turn. */
-  overflowRetryTurn: number;
+  overflowRetryTurn: number
   /**
    * View length at the last model call, the base of the provider-anchored
    * estimate. `-1` invalidates it (fresh Run or just compacted), forcing a
    * full-view estimate.
    */
-  lastViewLength: number;
+  lastViewLength: number
 }
 
 /** Fresh compaction state for a new Run. */
@@ -197,54 +198,53 @@ export const initialCompactionState = (): ContextCompactionState => ({
   lastCompactionTurn: 0,
   overflowRetryTurn: 0,
   lastViewLength: -1,
-});
+})
 
 const isProtected = (
   state: ContextCompactionState,
   source: ReadonlyArray<Prompt.Message>,
   index: number,
 ): boolean => {
-  if (state.protectSystemMessages && source[index]?.role === "system") return true;
+  if (state.protectSystemMessages && source[index]?.role === 'system') return true
   if (state.protectedStart >= 0) {
-    return index >= state.protectedStart && index < state.protectedEnd;
+    return index >= state.protectedStart && index < state.protectedEnd
   }
 
-  return source[index]?.role === "system";
-};
+  return source[index]?.role === 'system'
+}
 
 const clearedToolMessage = (message: Prompt.Message): Prompt.Message => {
-  if (message.role !== "tool" || typeof message.content === "string") {
-    return message;
+  if (message.role !== 'tool' || typeof message.content === 'string') {
+    return message
   }
 
   // Structural rebuild keeps the message's pairing identity (same part ids
   // and names) while replacing only the result payloads the model would see.
-  return Prompt.makeMessage("tool", {
+  return Prompt.makeMessage('tool', {
     content: message.content.map((part) =>
-      part.type === "tool-result"
-        ? Prompt.makePart("tool-result", {
-            id: part.id,
-            name: part.name,
-            result: CLEARED_TOOL_RESULT,
-            isFailure: part.isFailure,
-            providerExecuted: part.providerExecuted,
-          })
-        : part,
+      part.type === 'tool-result'
+        ? Prompt.makePart('tool-result', {
+          id: part.id,
+          name: part.name,
+          result: CLEARED_TOOL_RESULT,
+          isFailure: part.isFailure,
+          providerExecuted: part.providerExecuted,
+        })
+        : part
     ),
-  });
-};
+  })
+}
 
 const renderMessage = (
   state: ContextCompactionState,
   message: Prompt.Message,
   index: number,
-): Prompt.Message =>
-  index < state.clearedThrough && message.role === "tool" ? clearedToolMessage(message) : message;
+): Prompt.Message => index < state.clearedThrough && message.role === 'tool' ? clearedToolMessage(message) : message
 
 const summaryMessage = (summary: string): Prompt.Message =>
-  Prompt.makeMessage("user", {
-    content: [Prompt.makePart("text", { text: `${COMPACTION_SUMMARY_PREFIX}${summary}` })],
-  });
+  Prompt.makeMessage('user', {
+    content: [Prompt.makePart('text', { text: `${COMPACTION_SUMMARY_PREFIX}${summary}` })],
+  })
 
 /**
  * Build the model-visible view of the source prompt under the current
@@ -257,55 +257,53 @@ export const buildCompactedView = (
   state: ContextCompactionState,
 ): ReadonlyArray<Prompt.Message> => {
   if (state.replacement === undefined && state.clearedThrough === 0) {
-    return source;
+    return source
   }
-  const view: Array<Prompt.Message> = [];
+  const view: Array<Prompt.Message> = []
 
   if (state.replacement !== undefined && state.replacement.through > 0) {
-    const protectedStart =
-      state.protectedStart >= 0 && !state.protectSystemMessages ? state.protectedStart : 0;
+    const protectedStart = state.protectedStart >= 0 && !state.protectSystemMessages ? state.protectedStart : 0
 
-    const protectedEnd =
-      state.protectedStart >= 0 && !state.protectSystemMessages
-        ? state.protectedEnd
-        : (state.replacement?.through ?? 0);
+    const protectedEnd = state.protectedStart >= 0 && !state.protectSystemMessages
+      ? state.protectedEnd
+      : (state.replacement?.through ?? 0)
 
     for (
       let index = protectedStart;
       index < Math.min(protectedEnd, state.replacement?.through ?? 0, source.length);
       index += 1
     ) {
-      const message = source[index];
+      const message = source[index]
 
       if (message !== undefined && isProtected(state, source, index)) {
-        view.push(renderMessage(state, message, index));
+        view.push(renderMessage(state, message, index))
       }
     }
     view.push(
-      state.replacement.kind === "summarize"
+      state.replacement.kind === 'summarize'
         ? summaryMessage(state.replacement.summary)
         : contextWindowMessage(state.replacement.windowId, state.replacement.handoff),
-    );
+    )
     for (let index = state.replacement?.through ?? 0; index < source.length; index += 1) {
-      const message = source[index];
+      const message = source[index]
 
       if (message !== undefined) {
-        view.push(renderMessage(state, message, index));
+        view.push(renderMessage(state, message, index))
       }
     }
 
-    return view;
+    return view
   }
   for (let index = 0; index < source.length; index += 1) {
-    const message = source[index];
+    const message = source[index]
 
     if (message !== undefined) {
-      view.push(renderMessage(state, message, index));
+      view.push(renderMessage(state, message, index))
     }
   }
 
-  return view;
-};
+  return view
+}
 
 /**
  * Prune selection: the new `clearedThrough` bound. Walks tool messages
@@ -322,71 +320,70 @@ export const choosePruneBound = (
   targetTokens?: number,
   estimate: (message: Prompt.Message) => number = estimateMessageTokens,
 ): number => {
-  const toolIndices: Array<number> = [];
+  const toolIndices: Array<number> = []
 
   for (let index = 0; index < source.length; index += 1) {
     if (
       index >= (state.replacement?.through ?? 0) &&
-      source[index]?.role === "tool" &&
+      source[index]?.role === 'tool' &&
       !isProtected(state, source, index)
     ) {
-      toolIndices.push(index);
+      toolIndices.push(index)
     }
   }
   if (toolIndices.length <= 1) {
-    return state.clearedThrough;
+    return state.clearedThrough
   }
-  let budget = keepRecentTokens;
-  let newestCleared = -1;
+  let budget = keepRecentTokens
+  let newestCleared = -1
 
   for (let position = toolIndices.length - 1; position >= 0; position -= 1) {
-    const index = toolIndices[position];
+    const index = toolIndices[position]
 
-    if (index === undefined) continue;
-    const message = source[index];
+    if (index === undefined) continue
+    const message = source[index]
 
-    if (message === undefined) continue;
+    if (message === undefined) continue
     if (position === toolIndices.length - 1) {
-      budget -= estimate(message);
-      continue;
+      budget -= estimate(message)
+      continue
     }
-    const cost = estimate(message);
+    const cost = estimate(message)
 
     if (budget - cost >= 0 && index >= state.clearedThrough) {
-      budget -= cost;
-      continue;
+      budget -= cost
+      continue
     }
-    newestCleared = index;
-    break;
+    newestCleared = index
+    break
   }
 
-  let through =
-    newestCleared === -1 ? state.clearedThrough : Math.max(state.clearedThrough, newestCleared + 1);
+  let through = newestCleared === -1 ? state.clearedThrough : Math.max(state.clearedThrough, newestCleared + 1)
 
-  if (targetTokens === undefined) return through;
+  if (targetTokens === undefined) return through
 
   let estimated = estimatePromptTokens(
     buildCompactedView(source, { ...state, clearedThrough: through }),
     estimate,
-  );
+  )
 
   for (
     let position = 0;
     position < toolIndices.length - 1 && estimated > targetTokens;
     position += 1
   ) {
-    const index = toolIndices[position];
+    const index = toolIndices[position]
 
-    if (index === undefined || index < through) continue;
-    const message = source[index];
+    if (index === undefined || index < through) continue
+    const message = source[index]
 
-    if (message === undefined) continue;
-    through = index + 1;
-    estimated -= estimate(message) - estimate(clearedToolMessage(message));
+    if (message === undefined) continue
+    through = index + 1
+    estimated -= estimate(message) - estimate(clearedToolMessage(message))
   }
 
-  return through;
-};
+  return through
+}
 
 /**
  * Summarize selection: the source cut index `C` — messages `[0, C)` outside
@@ -401,31 +398,31 @@ export const chooseSummarizeCut = (
   keepRecentTokens: number,
   estimate: (message: Prompt.Message) => number = estimateMessageTokens,
 ): number => {
-  let kept = 0;
-  let cut = 0;
+  let kept = 0
+  let cut = 0
 
   for (let index = source.length - 1; index >= 0; index -= 1) {
-    const message = source[index];
+    const message = source[index]
 
-    if (message === undefined) continue;
-    kept += estimate(renderMessage(state, message, index));
+    if (message === undefined) continue
+    kept += estimate(renderMessage(state, message, index))
     if (kept >= keepRecentTokens) {
-      cut = index;
-      break;
+      cut = index
+      break
     }
   }
   // Durable responses commit pending input and the assistant reply together.
   while (
     cut > 0 &&
-    (source[cut]?.role === "tool" ||
-      source[cut - 1]?.role === "user" ||
-      source[cut - 1]?.role === "system")
+    (source[cut]?.role === 'tool' ||
+      source[cut - 1]?.role === 'user' ||
+      source[cut - 1]?.role === 'system')
   ) {
-    cut -= 1;
+    cut -= 1
   }
 
-  return Math.max(cut, state.replacement?.through ?? 0);
-};
+  return Math.max(cut, state.replacement?.through ?? 0)
+}
 
 /**
  * The messages a cut NEWLY covers — from the prior replacement boundary to the
@@ -438,86 +435,86 @@ export const collectCoveredMessages = (
   state: ContextCompactionState,
   cut: number,
 ): ReadonlyArray<Prompt.Message> => {
-  const covered: Array<Prompt.Message> = [];
+  const covered: Array<Prompt.Message> = []
 
   for (
     let index = Math.max(0, state.replacement?.through ?? 0);
     index < cut && index < source.length;
     index += 1
   ) {
-    const message = source[index];
+    const message = source[index]
 
     if (message !== undefined && !isProtected(state, source, index)) {
-      covered.push(message);
+      covered.push(message)
     }
   }
 
-  return covered;
-};
+  return covered
+}
 
-const SUMMARY_TOOL_RESULT_CLIP = 2_000;
+const SUMMARY_TOOL_RESULT_CLIP = 2_000
 
 const jsonPreview = (value: unknown, limit: number): string => {
-  if (typeof value === "string") return JSON.stringify(value.slice(0, limit)).slice(0, limit);
-  const snapshot = boundedCanonicalJsonSnapshot(value, limit);
+  if (typeof value === 'string') return JSON.stringify(value.slice(0, limit)).slice(0, limit)
+  const snapshot = boundedCanonicalJsonSnapshot(value, limit)
 
   return snapshot === undefined
-    ? "[omitted oversized or unsupported JSON]"
-    : JSON.stringify(snapshot.value);
-};
+    ? '[omitted oversized or unsupported JSON]'
+    : JSON.stringify(snapshot.value)
+}
 
-const partText = (part: Prompt.Message["content"][number] | string): string => {
-  if (typeof part === "string") return part;
+const partText = (part: Prompt.Message['content'][number] | string): string => {
+  if (typeof part === 'string') return part
   switch (part.type) {
-    case "text": {
-      return part.text;
+    case 'text': {
+      return part.text
     }
-    case "reasoning": {
-      return "";
+    case 'reasoning': {
+      return ''
     }
-    case "tool-call": {
-      return `[tool call ${part.name.slice(0, 500)} ${jsonPreview(part.params, 500)}]`;
+    case 'tool-call': {
+      return `[tool call ${part.name.slice(0, 500)} ${jsonPreview(part.params, 500)}]`
     }
-    case "tool-result": {
-      return `[tool result ${part.name.slice(0, 500)}: ${jsonPreview(part.result, SUMMARY_TOOL_RESULT_CLIP)}]`;
+    case 'tool-result': {
+      return `[tool result ${part.name.slice(0, 500)}: ${jsonPreview(part.result, SUMMARY_TOOL_RESULT_CLIP)}]`
     }
     default: {
-      return `[${part.type}]`;
+      return `[${part.type}]`
     }
   }
-};
+}
 
 /**
  * Character budget for the complete default summarizer request, including
  * its instruction, transcript delimiters, previous summary, and elision marker.
  */
-export const SUMMARY_INPUT_BUDGET = 80_000;
-export const SUMMARY_MAX_LENGTH = 65_536;
-export const SUMMARY_REQUEST_PREFIX = `${COMPACTION_INSTRUCTION}\n\n<transcript>\n`;
-export const SUMMARY_REQUEST_SUFFIX = "\n</transcript>";
+export const SUMMARY_INPUT_BUDGET = 80_000
+export const SUMMARY_MAX_LENGTH = 65_536
+export const SUMMARY_REQUEST_PREFIX = `${COMPACTION_INSTRUCTION}\n\n<transcript>\n`
+export const SUMMARY_REQUEST_SUFFIX = '\n</transcript>'
 
-const SUMMARY_MESSAGE_CLIP = 2_000;
-const SUMMARY_ELISION_RESERVE = 128;
+const SUMMARY_MESSAGE_CLIP = 2_000
+const SUMMARY_ELISION_RESERVE = 128
 
 const summaryBlock = (message: Prompt.Message): string => {
-  let text = "";
+  let text = ''
 
-  if (typeof message.content === "string") {
-    text = message.content.slice(0, SUMMARY_MESSAGE_CLIP + 1);
+  if (typeof message.content === 'string') {
+    text = message.content.slice(0, SUMMARY_MESSAGE_CLIP + 1)
   } else {
     for (const part of message.content) {
-      const piece = partText(part);
+      const piece = partText(part)
 
-      if (piece.length === 0) continue;
-      if (text.length > 0) text += "\n";
-      text += piece.slice(0, SUMMARY_MESSAGE_CLIP + 1 - text.length);
-      if (text.length > SUMMARY_MESSAGE_CLIP) break;
+      if (piece.length === 0) continue
+      if (text.length > 0) text += '\n'
+      text += piece.slice(0, SUMMARY_MESSAGE_CLIP + 1 - text.length)
+      if (text.length > SUMMARY_MESSAGE_CLIP) break
     }
   }
-  if (text.length === 0) return "";
+  if (text.length === 0) return ''
 
-  return `[${message.role}]\n${text.length > SUMMARY_MESSAGE_CLIP ? `${text.slice(0, SUMMARY_MESSAGE_CLIP)}…` : text}`;
-};
+  return `[${message.role}]\n${text.length > SUMMARY_MESSAGE_CLIP ? `${text.slice(0, SUMMARY_MESSAGE_CLIP)}…` : text}`
+}
 
 /**
  * Deterministic emergency input record, not a progress summary. Keep recent user inputs and
@@ -534,70 +531,70 @@ export const buildRolloverHandoff = (
   const protectedTokens = estimatePromptTokens(
     source.filter((_, index) => index >= through || isProtected(state, source, index)),
     estimate,
-  );
+  )
 
   const maxChars = Math.min(
     5_000,
     Math.max(0, Math.floor(((targetTokens ?? 10_000) - protectedTokens - 200) * 2)),
-  );
+  )
 
-  if (maxChars < 160) return undefined;
-  const blocks: Array<string> = [];
-  let length = 0;
-  const start = state.replacement?.through ?? 0;
+  if (maxChars < 160) return undefined
+  const blocks: Array<string> = []
+  let length = 0
+  const start = state.replacement?.through ?? 0
 
   const lastTool = source.findLastIndex(
-    (message, index) => index < through && message.role === "tool",
-  );
+    (message, index) => index < through && message.role === 'tool',
+  )
 
-  const unconsumed =
-    lastTool >= start &&
-    !source.slice(lastTool + 1, through).some((message) => message.role === "assistant");
+  const unconsumed = lastTool >= start &&
+    !source.slice(lastTool + 1, through).some((message) => message.role === 'assistant')
 
-  let lastAssistant = lastTool;
+  let lastAssistant = lastTool
 
-  while (lastAssistant >= start && source[lastAssistant]?.role !== "assistant") lastAssistant -= 1;
+  while (lastAssistant >= start && source[lastAssistant]?.role !== 'assistant') lastAssistant -= 1
   for (let index = through - 1; index >= start; index -= 1) {
-    const message = source[index];
+    const message = source[index]
 
-    if (message === undefined || isProtected(state, source, index)) continue;
-    const isUnconsumedBatch = unconsumed && index >= lastAssistant && index <= lastTool;
+    if (message === undefined || isProtected(state, source, index)) continue
+    const isUnconsumedBatch = unconsumed && index >= lastAssistant && index <= lastTool
 
-    if (message.role !== "user" && !isUnconsumedBatch) continue;
+    if (message.role !== 'user' && !isUnconsumedBatch) continue
     // A projected boundary from a previous Attempt is already a derived handoff.
     if (
-      message.role === "user" &&
+      message.role === 'user' &&
       message.content.some(
-        (part) => part.type === "text" && part.text.startsWith(CONTEXT_ROLLOVER_PREFIX),
+        (part) => part.type === 'text' && part.text.startsWith(CONTEXT_ROLLOVER_PREFIX),
       )
-    )
-      continue;
-    let block = summaryBlock(message);
-
-    if (isUnconsumedBatch && typeof message.content !== "string") {
-      const ids = message.content
-        .flatMap((part) =>
-          part.type === "tool-call" || part.type === "tool-result" ? [part.id.slice(0, 256)] : [],
-        )
-        .slice(0, 16);
-
-      block = `[Unconsumed batch; history search call IDs: ${ids.join(", ")}]\n${block}`;
+    ) {
+      continue
     }
-    const remaining = maxChars - length - 120;
+    let block = summaryBlock(message)
 
-    if (remaining <= 0) break;
-    const selected = block.slice(0, Math.min(2_500, remaining));
+    if (isUnconsumedBatch && typeof message.content !== 'string') {
+      const ids = message.content
+        .flatMap((part) => part.type === 'tool-call' || part.type === 'tool-result' ? [part.id.slice(0, 256)] : [])
+        .slice(0, 16)
 
-    blocks.unshift(selected);
-    length += selected.length + 2;
-    if (selected.length < block.length) break;
+      block = `[Unconsumed batch; history search call IDs: ${ids.join(', ')}]\n${block}`
+    }
+    const remaining = maxChars - length - 120
+
+    if (remaining <= 0) break
+    const selected = block.slice(0, Math.min(2_500, remaining))
+
+    blocks.unshift(selected)
+    length += selected.length + 2
+    if (selected.length < block.length) break
   }
 
-  return `Recovery excerpts, not verified progress. Content may be omitted; use notes and history.\n\n${blocks.join("\n\n")}`.slice(
+  return `Recovery excerpts, not verified progress. Content may be omitted; use notes and history.\n\n${
+    blocks.join('\n\n')
+  }`.slice(
     0,
     maxChars,
-  );
-};
+  )
+}
 
 /**
  * Render the covered span as plain text for the summarizer call, bounded
@@ -613,66 +610,64 @@ export const renderForSummary = (
   covered: ReadonlyArray<Prompt.Message>,
   previousSummary: string | undefined,
 ): string | undefined => {
-  if (previousSummary !== undefined && previousSummary.length > SUMMARY_MAX_LENGTH)
-    return undefined;
-  const joiner = "\n\n";
+  if (previousSummary !== undefined && previousSummary.length > SUMMARY_MAX_LENGTH) {
+    return undefined
+  }
+  const joiner = '\n\n'
 
-  const previousBlock =
-    previousSummary === undefined ? undefined : `[Previous summary]\n${previousSummary}`;
+  const previousBlock = previousSummary === undefined ? undefined : `[Previous summary]\n${previousSummary}`
 
-  const fixed =
-    (previousBlock === undefined ? 0 : previousBlock.length + joiner.length) +
+  const fixed = (previousBlock === undefined ? 0 : previousBlock.length + joiner.length) +
     SUMMARY_REQUEST_PREFIX.length +
-    SUMMARY_REQUEST_SUFFIX.length;
+    SUMMARY_REQUEST_SUFFIX.length
 
-  const budget = SUMMARY_INPUT_BUDGET - fixed - SUMMARY_ELISION_RESERVE;
-  const head: Array<string> = [];
-  const tail: Array<string> = [];
-  let length = 0;
-  let start = 0;
-  let end = covered.length - 1;
-  let boundaryBlock: string | undefined;
+  const budget = SUMMARY_INPUT_BUDGET - fixed - SUMMARY_ELISION_RESERVE
+  const head: Array<string> = []
+  const tail: Array<string> = []
+  let length = 0
+  let start = 0
+  let end = covered.length - 1
+  let boundaryBlock: string | undefined
 
   while (start <= end) {
-    const message = covered[start];
-    const block = message === undefined ? "" : summaryBlock(message);
+    const message = covered[start]
+    const block = message === undefined ? '' : summaryBlock(message)
 
     if (block.length > 0 && length + block.length + joiner.length > Math.floor(budget / 2)) {
-      boundaryBlock = block;
-      break;
+      boundaryBlock = block
+      break
     }
     if (block.length > 0) {
-      head.push(block);
-      length += block.length + joiner.length;
+      head.push(block)
+      length += block.length + joiner.length
     }
-    start += 1;
+    start += 1
   }
   while (end >= start) {
-    const message = covered[end];
+    const message = covered[end]
 
-    const block =
-      end === start && boundaryBlock !== undefined
-        ? boundaryBlock
-        : message === undefined
-          ? ""
-          : summaryBlock(message);
+    const block = end === start && boundaryBlock !== undefined
+      ? boundaryBlock
+      : message === undefined
+      ? ''
+      : summaryBlock(message)
 
-    if (block.length > 0 && length + block.length + joiner.length > budget) break;
+    if (block.length > 0 && length + block.length + joiner.length > budget) break
     if (block.length > 0) {
-      tail.push(block);
-      length += block.length + joiner.length;
+      tail.push(block)
+      length += block.length + joiner.length
     }
-    end -= 1;
+    end -= 1
   }
-  const omitted = end - start + 1;
-  const lines: Array<string> = [];
+  const omitted = end - start + 1
+  const lines: Array<string> = []
 
   if (previousBlock !== undefined) {
-    lines.push(previousBlock);
+    lines.push(previousBlock)
   }
-  lines.push(...head);
-  if (omitted > 0) lines.push(`[… ${omitted} messages omitted from summary input …]`);
-  lines.push(...tail.reverse());
+  lines.push(...head)
+  if (omitted > 0) lines.push(`[… ${omitted} messages omitted from summary input …]`)
+  lines.push(...tail.reverse())
 
-  return lines.join(joiner);
-};
+  return lines.join(joiner)
+}

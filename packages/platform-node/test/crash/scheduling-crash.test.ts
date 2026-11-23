@@ -1,85 +1,81 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
-import * as SqliteClient from "@effect/sql-sqlite-node/SqliteClient";
-import { expect, it } from "@effect/vitest";
-import { NodeDurableHost } from "@yielded/agent-platform-node/node-durable-host";
-import { NodeScheduling } from "@yielded/agent-platform-node/node-scheduling";
-import {
-  ScheduleAuthorizer,
-  ScheduleRecord,
-  defaultSchedulingLimits,
-} from "@yielded/agent/schedule";
-import { Scheduling } from "@yielded/agent/scheduling";
-import * as Context from "effect/Context";
-import * as Duration from "effect/Duration";
-import * as Effect from "effect/Effect";
-import * as Fiber from "effect/Fiber";
-import * as FileSystem from "effect/FileSystem";
-import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
-import * as ChildProcess from "effect/process/ChildProcess";
-import type * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
-import * as Result from "effect/Result";
-import * as Schema from "effect/Schema";
-import * as SqlClientService from "effect/sql/SqlClient";
-import * as Stream from "effect/Stream";
+import * as NodeServices from '@effect/platform-node/NodeServices'
+import * as SqliteClient from '@effect/sql-sqlite-node/SqliteClient'
+import { expect, it } from '@effect/vitest'
+import { NodeDurableHost } from '@yielded/agent-platform-node/node-durable-host'
+import { NodeScheduling } from '@yielded/agent-platform-node/node-scheduling'
+import { defaultSchedulingLimits, ScheduleAuthorizer, ScheduleRecord } from '@yielded/agent/schedule'
+import { Scheduling } from '@yielded/agent/scheduling'
+import * as Context from 'effect/Context'
+import * as Duration from 'effect/Duration'
+import * as Effect from 'effect/Effect'
+import * as Fiber from 'effect/Fiber'
+import * as FileSystem from 'effect/FileSystem'
+import * as Layer from 'effect/Layer'
+import * as Option from 'effect/Option'
+import * as ChildProcess from 'effect/process/ChildProcess'
+import type * as ChildProcessSpawner from 'effect/process/ChildProcessSpawner'
+import * as Result from 'effect/Result'
+import * as Schema from 'effect/Schema'
+import * as SqlClientService from 'effect/sql/SqlClient'
+import * as Stream from 'effect/Stream'
 
 import {
-  type SchedulingCrashBoundary,
-  SchedulingCrashMarker,
   schedulingCrashAgent,
+  type SchedulingCrashBoundary,
   schedulingCrashCreateOptions,
+  SchedulingCrashMarker,
   schedulingCrashScheduleId,
   schedulingCrashScope,
-} from "./scheduling-worker.ts";
+} from './scheduling-worker.ts'
 
-class CountRow extends Schema.Class<CountRow>("SchedulingCrashTest/CountRow")({
+class CountRow extends Schema.Class<CountRow>('SchedulingCrashTest/CountRow')({
   row_count: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
 }) {}
 
 class StoredScheduleRow extends Schema.Class<StoredScheduleRow>(
-  "SchedulingCrashTest/StoredScheduleRow",
+  'SchedulingCrashTest/StoredScheduleRow',
 )({
   record_json: Schema.String,
 }) {}
 
 class SubmissionStateRow extends Schema.Class<SubmissionStateRow>(
-  "SchedulingCrashTest/SubmissionStateRow",
+  'SchedulingCrashTest/SubmissionStateRow',
 )({
   state: Schema.String,
 }) {}
 
 interface ExpectedCrashState {
-  readonly scheduleCount: 0 | 1;
-  readonly submissionCount: 0 | 1;
-  readonly pending: boolean | null;
-  readonly receipt: boolean | null;
+  readonly scheduleCount: 0 | 1
+  readonly submissionCount: 0 | 1
+  readonly pending: boolean | null
+  readonly receipt: boolean | null
 }
 
 const cases: ReadonlyArray<
   readonly [boundary: SchedulingCrashBoundary, expected: ExpectedCrashState]
 > = [
   [
-    "schedule:insert:after",
+    'schedule:insert:after',
     { scheduleCount: 1, submissionCount: 0, pending: false, receipt: false },
   ],
   [
-    "schedule:prepare:after",
+    'schedule:prepare:after',
     { scheduleCount: 1, submissionCount: 0, pending: true, receipt: false },
   ],
   [
-    "schedule:admission:after",
+    'schedule:admission:after',
     { scheduleCount: 1, submissionCount: 1, pending: true, receipt: false },
   ],
   [
-    "schedule:complete:after",
+    'schedule:complete:after',
     { scheduleCount: 1, submissionCount: 1, pending: false, receipt: true },
   ],
-];
+]
 
 const authorizerLayer = Layer.succeed(ScheduleAuthorizer)({
   manage: () => Effect.void,
-  prepare: () => Effect.succeed({ policyId: "node-crash-policy", decisionId: "allowed" }),
-});
+  prepare: () => Effect.succeed({ policyId: 'node-crash-policy', decisionId: 'allowed' }),
+})
 
 const recoveryLayer = (filename: string) =>
   NodeScheduling.layer({
@@ -88,63 +84,64 @@ const recoveryLayer = (filename: string) =>
     Layer.provideMerge(
       NodeDurableHost.layerStack({
         filename,
-        deploymentId: "node-scheduling-crash-deployment",
-        producerId: "node-scheduling-crash-recovery",
+        deploymentId: 'node-scheduling-crash-deployment',
+        producerId: 'node-scheduling-crash-recovery',
         wakeScanInterval: 1_000,
       }),
     ),
     Layer.provide(authorizerLayer),
-  );
+  )
 
 const decodeRows = <A, I>(schema: Schema.Codec<A, I, never>, rows: ReadonlyArray<unknown>) =>
-  Schema.decodeUnknownEffect(schema)(rows);
+  Schema.decodeUnknownEffect(schema)(rows)
 
 const inspectDatabase = (filename: string) =>
   Effect.scoped(
-    Effect.gen(function* () {
-      const sql = yield* SqlClientService.SqlClient;
+    Effect.gen(function*() {
+      const sql = yield* SqlClientService.SqlClient
 
       const scheduleCounts = yield* sql<Record<string, unknown>>`
         SELECT COUNT(*) AS row_count FROM effect_agent_schedules
-      `;
+      `
 
       const submissionCounts = yield* sql<Record<string, unknown>>`
         SELECT COUNT(*) AS row_count FROM effect_agent_submissions
-      `;
+      `
 
       const scheduleRows = yield* sql<Record<string, unknown>>`
         SELECT record_json FROM effect_agent_schedules
-      `;
+      `
 
       const submissionRows = yield* sql<Record<string, unknown>>`
         SELECT state FROM effect_agent_submissions
-      `;
+      `
 
-      const decodedScheduleCounts = yield* decodeRows(Schema.Array(CountRow), scheduleCounts);
-      const decodedSubmissionCounts = yield* decodeRows(Schema.Array(CountRow), submissionCounts);
-      const decodedSchedules = yield* decodeRows(Schema.Array(StoredScheduleRow), scheduleRows);
+      const decodedScheduleCounts = yield* decodeRows(Schema.Array(CountRow), scheduleCounts)
+      const decodedSubmissionCounts = yield* decodeRows(Schema.Array(CountRow), submissionCounts)
+      const decodedSchedules = yield* decodeRows(Schema.Array(StoredScheduleRow), scheduleRows)
 
       const decodedSubmissions = yield* decodeRows(
         Schema.Array(SubmissionStateRow),
         submissionRows,
-      );
+      )
 
       const records = yield* Effect.forEach(decodedSchedules, (row) =>
-        Schema.decodeEffect(Schema.fromJsonString(ScheduleRecord))(row.record_json),
-      );
+        Schema.decodeEffect(Schema.fromJsonString(ScheduleRecord))(row.record_json))
 
       if (decodedScheduleCounts.length !== 1 || decodedSubmissionCounts.length !== 1) {
-        return yield* Effect.die("SQLite count query returned an invalid shape");
+        return yield* Effect.die('SQLite count query returned an invalid shape')
       }
 
       return {
         scheduleCount: decodedScheduleCounts[0].row_count,
         submissionCount: decodedSubmissionCounts[0].row_count,
         records,
-        submissionStates: decodedSubmissions.map((row) => row.state),
-      };
+        submissionStates: decodedSubmissions.map((row) =>
+          row.state
+        ),
+      }
     }),
-  ).pipe(Effect.provide(SqliteClient.layer({ filename })));
+  ).pipe(Effect.provide(SqliteClient.layer({ filename })))
 
 const awaitMarker = (
   child: ChildProcessSpawner.ChildProcessHandle,
@@ -153,9 +150,7 @@ const awaitMarker = (
   child.stdout.pipe(
     Stream.decodeText(),
     Stream.splitLines,
-    Stream.mapEffect((line) =>
-      Schema.decodeEffect(Schema.fromJsonString(SchedulingCrashMarker))(line),
-    ),
+    Stream.mapEffect((line) => Schema.decodeEffect(Schema.fromJsonString(SchedulingCrashMarker))(line)),
     Stream.runHead,
     Effect.timeout(Duration.seconds(10)),
     Effect.flatMap(
@@ -167,41 +162,41 @@ const awaitMarker = (
             : Effect.die(`Child reached ${marker.boundary} instead of ${boundary}`),
       }),
     ),
-  );
+  )
 
 const waitForCompletion = Effect.fnUntraced(
-  function* (scheduling: Scheduling["Service"]) {
+  function*(scheduling: Scheduling['Service']) {
     while (true) {
-      const snapshot = yield* scheduling.get(schedulingCrashScope, schedulingCrashScheduleId);
+      const snapshot = yield* scheduling.get(schedulingCrashScope, schedulingCrashScheduleId)
 
-      if (snapshot.pending === null && snapshot.lastReceipt !== null) return snapshot;
-      yield* Effect.yieldNow;
+      if (snapshot.pending === null && snapshot.lastReceipt !== null) return snapshot
+      yield* Effect.yieldNow
     }
   },
   (effect) => effect.pipe(Effect.timeoutOption(Duration.seconds(10))),
-);
+)
 
 it.live(
-  "recovers scheduling commit boundaries after a real SIGKILL",
+  'recovers scheduling commit boundaries after a real SIGKILL',
   () =>
     Effect.scoped(
-      Effect.gen(function* () {
-        const fs = yield* FileSystem.FileSystem;
+      Effect.gen(function*() {
+        const fs = yield* FileSystem.FileSystem
 
         const directory = yield* fs.makeTempDirectoryScoped({
-          prefix: "effect-agent-node-scheduling-crash-",
-        });
+          prefix: 'effect-agent-node-scheduling-crash-',
+        })
 
-        const childCwd = (yield* fs.exists("test/crash/scheduling-worker-entry.ts"))
-          ? "."
-          : "packages/platform-node";
+        const childCwd = (yield* fs.exists('test/crash/scheduling-worker-entry.ts'))
+          ? '.'
+          : 'packages/platform-node'
 
         for (const [boundary, expected] of cases) {
-          const filename = `${directory}/${boundary.replaceAll(":", "-")}.sqlite`;
+          const filename = `${directory}/${boundary.replaceAll(':', '-')}.sqlite`
 
           const child = yield* ChildProcess.make(
             process.execPath,
-            ["test/crash/scheduling-worker-entry.ts"],
+            ['test/crash/scheduling-worker-entry.ts'],
             {
               cwd: childCwd,
               env: {
@@ -209,25 +204,25 @@ it.live(
                 EFFECT_AGENT_SCHEDULE_BOUNDARY: boundary,
               },
               extendEnv: true,
-              stdin: "ignore",
-              stdout: "pipe",
-              stderr: "pipe",
+              stdin: 'ignore',
+              stdout: 'pipe',
+              stderr: 'pipe',
             },
-          );
+          )
 
           const stderrFiber = yield* Effect.forkScoped(
             Stream.mkString(Stream.decodeText(child.stderr)),
-          );
+          )
 
-          yield* awaitMarker(child, boundary);
-          yield* child.kill({ killSignal: "SIGKILL" });
-          const exit = yield* child.exitCode.pipe(Effect.result);
+          yield* awaitMarker(child, boundary)
+          yield* child.kill({ killSignal: 'SIGKILL' })
+          const exit = yield* child.exitCode.pipe(Effect.result)
 
-          yield* Fiber.join(stderrFiber);
-          expect({ boundary, killed: Result.isFailure(exit) }).toEqual({ boundary, killed: true });
+          yield* Fiber.join(stderrFiber)
+          expect({ boundary, killed: Result.isFailure(exit) }).toEqual({ boundary, killed: true })
 
-          const crashed = yield* inspectDatabase(filename);
-          const crashedRecord = crashed.records[0];
+          const crashed = yield* inspectDatabase(filename)
+          const crashedRecord = crashed.records[0]
 
           expect({
             boundary,
@@ -242,31 +237,31 @@ it.live(
             scheduleCount: expected.scheduleCount,
             submissionCount: expected.submissionCount,
             recordCount: expected.scheduleCount,
-            submissionStates: expected.submissionCount === 0 ? [] : ["ready"],
+            submissionStates: expected.submissionCount === 0 ? [] : ['ready'],
             pending: expected.pending,
             receipt: expected.receipt,
-          });
+          })
 
           yield* Effect.scoped(
-            Effect.gen(function* () {
-              const context = yield* Layer.build(recoveryLayer(filename));
-              const scheduling = Context.get(context, Scheduling);
+            Effect.gen(function*() {
+              const context = yield* Layer.build(recoveryLayer(filename))
+              const scheduling = Context.get(context, Scheduling)
 
               yield* scheduling.create(
                 schedulingCrashAgent,
-                { question: "survive SIGKILL" },
+                { question: 'survive SIGKILL' },
                 schedulingCrashCreateOptions,
-              );
-              const completedOption = yield* waitForCompletion(scheduling);
+              )
+              const completedOption = yield* waitForCompletion(scheduling)
 
               expect({ boundary, completed: Option.isSome(completedOption) }).toEqual({
                 boundary,
                 completed: true,
-              });
+              })
             }),
-          );
+          )
 
-          const recovered = yield* inspectDatabase(filename);
+          const recovered = yield* inspectDatabase(filename)
 
           expect({
             boundary,
@@ -284,9 +279,9 @@ it.live(
             recordCount: 1,
             pending: true,
             receipt: true,
-          });
+          })
         }
       }),
     ).pipe(Effect.provide(NodeServices.layer)),
   120_000,
-);
+)

@@ -1,39 +1,39 @@
-import * as Tool from "effect/ai/Tool";
-import * as Toolkit from "effect/ai/Toolkit";
-import * as Cause from "effect/Cause";
-import * as Context from "effect/Context";
-import * as Duration from "effect/Duration";
-import * as Effect from "effect/Effect";
-import * as Exit from "effect/Exit";
-import type * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
-import type * as Scope from "effect/Scope";
+import * as Tool from 'effect/ai/Tool'
+import * as Toolkit from 'effect/ai/Toolkit'
+import * as Cause from 'effect/Cause'
+import * as Context from 'effect/Context'
+import * as Duration from 'effect/Duration'
+import * as Effect from 'effect/Effect'
+import * as Exit from 'effect/Exit'
+import type * as Layer from 'effect/Layer'
+import * as Option from 'effect/Option'
+import * as Schema from 'effect/Schema'
+import type * as Scope from 'effect/Scope'
 
-import { utf8ByteLength } from "../core/internal/utf8.ts";
-import { AdditionalToolCatalog, IncludesCatalogDocumentation } from "../core/ToolExposure.ts";
+import { utf8ByteLength } from '../core/internal/utf8.ts'
+import { AdditionalToolCatalog, IncludesCatalogDocumentation } from '../core/ToolExposure.ts'
 import {
-  type ToolBrokerConfigurationError,
-  type ToolBrokerUnavailableError,
-  ToolBroker,
   type ProgrammaticCallOutcome,
-  type ToolBrokerPass,
   ProgrammaticCallRecord,
-} from "../engine/ToolBroker.ts";
-import { CurrentToolCatalog } from "../engine/ToolExposure.ts";
+  ToolBroker,
+  type ToolBrokerConfigurationError,
+  type ToolBrokerPass,
+  type ToolBrokerUnavailableError,
+} from '../engine/ToolBroker.ts'
+import { CurrentToolCatalog } from '../engine/ToolExposure.ts'
 import {
   type CodeExecutionError,
   CodeExecutionHost,
   CodeExecutionLimits,
   CodeExecutionNamespace,
   CodeExecutionRequest,
-  CodeExecutor,
-  JsIdentifier,
   type CodeExecutionResult,
+  CodeExecutor,
   type CodeHostCall,
   type CodeHostCallResult,
-} from "../sandbox/CodeExecutor.ts";
-import { NetworkDisabled } from "../sandbox/Sandbox.ts";
+  JsIdentifier,
+} from '../sandbox/CodeExecutor.ts'
+import { NetworkDisabled } from '../sandbox/Sandbox.ts'
 
 /**
  * Code Mode (D-035, ADR-0017; capability spec §9.1): one native Effect AI
@@ -46,42 +46,42 @@ import { NetworkDisabled } from "../sandbox/Sandbox.ts";
  * (CAP-014). Deployment class `E` only.
  */
 
-const maxFailureTextLength = 4 * 1024;
-const BoundedFailureText = Schema.String.check(Schema.isMaxLength(maxFailureTextLength));
-const BoundedErrorTag = Schema.NonEmptyString.check(Schema.isMaxLength(256));
-const BoundedLogLine = Schema.String.check(Schema.isMaxLength(16 * 1024));
-const BoundedLogs = Schema.Array(BoundedLogLine).check(Schema.isMaxLength(4_096));
-const BoundedCode = Schema.NonEmptyString.check(Schema.isMaxLength(512 * 1024));
+const maxFailureTextLength = 4 * 1024
+const BoundedFailureText = Schema.String.check(Schema.isMaxLength(maxFailureTextLength))
+const BoundedErrorTag = Schema.NonEmptyString.check(Schema.isMaxLength(256))
+const BoundedLogLine = Schema.String.check(Schema.isMaxLength(16 * 1024))
+const BoundedLogs = Schema.Array(BoundedLogLine).check(Schema.isMaxLength(4_096))
+const BoundedCode = Schema.NonEmptyString.check(Schema.isMaxLength(512 * 1024))
 
 /** A pass-local report, available to the host even when the caller interrupts execution. */
 export const CodeModePassReport = Schema.Struct({
-  status: Schema.Literals(["completed", "failed", "interrupted", "defect"]),
+  status: Schema.Literals(['completed', 'failed', 'interrupted', 'defect']),
   calls: Schema.Array(ProgrammaticCallRecord),
-});
+})
 
-export type CodeModePassReport = typeof CodeModePassReport.Type;
+export type CodeModePassReport = typeof CodeModePassReport.Type
 
 const encodedJsonByteLength = (value: unknown): number | undefined => {
   try {
-    const encoded = JSON.stringify(value);
+    const encoded = JSON.stringify(value)
 
-    return encoded === undefined ? undefined : utf8ByteLength(encoded);
+    return encoded === undefined ? undefined : utf8ByteLength(encoded)
   } catch {
-    return undefined;
+    return undefined
   }
-};
+}
 
 /** Model-decoded Code Mode parameters: one async function expression. */
 export const CodeModeParameters = Schema.Struct({
   code: BoundedCode,
-});
+})
 
 /**
  * The bounded model-visible success: the program's JSON result plus captured
  * logs, both already passed through the aggregate egress budget (CAP-016).
  */
 export class CodeModeSuccess extends Schema.Class<CodeModeSuccess>(
-  "@effect-agent/capabilities/CodeModeSuccess",
+  '@effect-agent/capabilities/CodeModeSuccess',
 )({
   result: Schema.Json,
   logs: BoundedLogs,
@@ -94,7 +94,7 @@ export class CodeModeSuccess extends Schema.Class<CodeModeSuccess>(
  * plus the bounded thrown value where one exists, all inside the same
  * aggregate egress budget (CAP-016).
  */
-export class CodeModeFailure extends Schema.TaggedError<CodeModeFailure>()("CodeModeFailure", {
+export class CodeModeFailure extends Schema.TaggedError<CodeModeFailure>()('CodeModeFailure', {
   errorTag: BoundedErrorTag,
   message: BoundedFailureText,
   logs: BoundedLogs,
@@ -106,14 +106,14 @@ export class CodeModeFailure extends Schema.TaggedError<CodeModeFailure>()("Code
 
 /** A selective documentation request is invalid or cannot fit its declared byte budget. */
 export class CodeModeDescriptionError extends Schema.TaggedError<CodeModeDescriptionError>()(
-  "CodeModeDescriptionError",
+  'CodeModeDescriptionError',
   {
     reason: Schema.Literals([
-      "invalid-selection",
-      "unknown-method",
-      "invalid-bound",
-      "invalid-schema",
-      "limit-exceeded",
+      'invalid-selection',
+      'unknown-method',
+      'invalid-bound',
+      'invalid-schema',
+      'limit-exceeded',
     ]),
     message: BoundedFailureText,
   },
@@ -123,14 +123,14 @@ const DescriptionMethods = Schema.Array(Schema.NonEmptyString.check(Schema.isMax
   Schema.isMinLength(1),
   Schema.isMaxLength(64),
   Schema.isUnique(),
-);
+)
 
 const DescriptionByteLimit = Schema.Int.check(
   Schema.isBetween({ minimum: 1, maximum: 256 * 1024 }),
-);
+)
 
 /** The namespace-record shape accepted by `CodeMode.make`. */
-export type CodeModeNamespaces = Record<string, Record<string, Tool.Any>>;
+export type CodeModeNamespaces = Record<string, Record<string, Tool.Any>>
 
 /**
  * Union of every Tool selected across all namespaces, computed distributively
@@ -138,13 +138,13 @@ export type CodeModeNamespaces = Record<string, Record<string, Tool.Any>>;
  * keys would erase every Tool once two namespaces have disjoint methods.
  */
 export type CodeModeSelectedTool<Namespaces extends CodeModeNamespaces> = {
-  [Namespace in keyof Namespaces]: Namespaces[Namespace][keyof Namespaces[Namespace]];
-}[keyof Namespaces];
+  [Namespace in keyof Namespaces]: Namespaces[Namespace][keyof Namespaces[Namespace]]
+}[keyof Namespaces]
 
 /** The selected Tools re-keyed by their own Tool names. */
 export type CodeModeSelectedRecord<Namespaces extends CodeModeNamespaces> = {
-  readonly [T in CodeModeSelectedTool<Namespaces> as T["name"]]: T;
-};
+  readonly [T in CodeModeSelectedTool<Namespaces> as T['name']]: T
+}
 
 /**
  * The native Effect AI Tool created by `CodeMode.make` (CAP-014). Its only
@@ -155,18 +155,18 @@ export type CodeModeSelectedRecord<Namespaces extends CodeModeNamespaces> = {
 export type CodeModeTool<Name extends string> = Tool.Tool<
   Name,
   {
-    readonly parameters: typeof CodeModeParameters;
-    readonly success: typeof CodeModeSuccess;
-    readonly failure: typeof CodeModeFailure;
-    readonly failureMode: "return";
+    readonly parameters: typeof CodeModeParameters
+    readonly success: typeof CodeModeSuccess
+    readonly failure: typeof CodeModeFailure
+    readonly failureMode: 'return'
   },
   ToolBroker
->;
+>
 
 /** Singleton Tool record provided by one Code Mode handler Layer. */
 export type CodeModeTools<Name extends string> = {
-  readonly [Key in Name]: CodeModeTool<Name>;
-};
+  readonly [Key in Name]: CodeModeTool<Name>
+}
 
 /** Construction requirements of the Code Mode handler Layer. */
 export type CodeModeLayerRequirements<
@@ -176,28 +176,28 @@ export type CodeModeLayerRequirements<
   | CodeExecutor
   | Exclude<RedactionRequirements, Scope.Scope>
   | Tool.HandlersFor<CodeModeSelectedRecord<Namespaces>>
-  | Tool.HandlerServices<CodeModeSelectedTool<Namespaces>>;
+  | Tool.HandlerServices<CodeModeSelectedTool<Namespaces>>
 
 export interface CodeModeOptions<
   Namespaces extends CodeModeNamespaces,
   RedactionRequirements = never,
 > {
   /** Model-visible description; the builder appends the sandbox contract. */
-  readonly description: string;
+  readonly description: string
   /** Include all sandbox declarations in the model-facing description. Defaults to true. */
-  readonly includeDeclarations?: boolean | undefined;
+  readonly includeDeclarations?: boolean | undefined
   /**
    * Explicit allowlist: namespace name → method name → native Effect AI
    * Tool. Reads and mutations are allowed; calls requiring additional approval fail closed.
    */
-  readonly tools: Namespaces;
+  readonly tools: Namespaces
   /** Executor limits for one pass; a bounded default applies when omitted. */
-  readonly limits?: CodeExecutionLimits | undefined;
+  readonly limits?: CodeExecutionLimits | undefined
   /**
    * Aggregate model-visible egress budget in UTF-8 bytes across the final
    * result, captured logs, and any thrown value (CAP-016). Default 65536.
    */
-  readonly maxEgressBytes?: number | undefined;
+  readonly maxEgressBytes?: number | undefined
   /**
    * Host-only ephemeral report after executor resources and invocation fibers close, including
    * failure, defect, and interruption. It contains no arguments/results and is never a checkpoint.
@@ -205,7 +205,7 @@ export interface CodeModeOptions<
    */
   readonly onPassExit?:
     | ((report: CodeModePassReport) => Effect.Effect<void, never, RedactionRequirements>)
-    | undefined;
+    | undefined
   /**
    * Optional aggregate redaction pass applied to the model-visible egress
    * before the byte budget. Its services are acquired with the handler Layer;
@@ -214,17 +214,17 @@ export interface CodeModeOptions<
    */
   readonly redactEgress?:
     | ((egress: {
-        readonly result: Schema.Json;
-        readonly logs: ReadonlyArray<string>;
-      }) => Effect.Effect<
-        {
-          readonly result: Schema.Json;
-          readonly logs: ReadonlyArray<string>;
-        },
-        never,
-        RedactionRequirements
-      >)
-    | undefined;
+      readonly result: Schema.Json
+      readonly logs: ReadonlyArray<string>
+    }) => Effect.Effect<
+      {
+        readonly result: Schema.Json
+        readonly logs: ReadonlyArray<string>
+      },
+      never,
+      RedactionRequirements
+    >)
+    | undefined
 }
 
 /**
@@ -238,11 +238,11 @@ export interface CodeModeDefinition<
   Namespaces extends CodeModeNamespaces,
   RedactionRequirements = never,
 > {
-  readonly name: Name;
+  readonly name: Name
   /** The assembled model-facing description, optionally including all declarations. */
-  readonly description: string;
+  readonly description: string
   /** Lazily rendered TypeScript documentation; throws if an encoded schema cannot be rendered. */
-  readonly declarations: string;
+  readonly declarations: string
   /**
    * Render complete encoded-schema declarations for 1–64 unique, exact namespace.method names.
    * The UTF-8 byte limit defaults to 16384 and must be an integer from 1 through 262144.
@@ -253,19 +253,19 @@ export interface CodeModeDefinition<
   readonly describe: (
     methods: ReadonlyArray<string>,
     options?: { readonly maxBytes?: number | undefined },
-  ) => Effect.Effect<string, CodeModeDescriptionError>;
+  ) => Effect.Effect<string, CodeModeDescriptionError>
   /** The executor-facing namespace catalog derived from the allowlist. */
-  readonly namespaces: ReadonlyArray<CodeExecutionNamespace>;
-  readonly limits: CodeExecutionLimits;
-  readonly maxEgressBytes: number;
+  readonly namespaces: ReadonlyArray<CodeExecutionNamespace>
+  readonly limits: CodeExecutionLimits
+  readonly maxEgressBytes: number
   /** The ordinary Effect AI Tool to include in the model-facing Toolkit. */
-  readonly tool: CodeModeTool<Name>;
+  readonly tool: CodeModeTool<Name>
   /** Handler Layer; selected handler requirements stay visible in `R`. */
   readonly handlers: Layer.Layer<
     Tool.HandlersFor<CodeModeTools<Name>>,
     never,
     CodeModeLayerRequirements<Namespaces, RedactionRequirements>
-  >;
+  >
 }
 
 const defaultLimits = CodeExecutionLimits.make({
@@ -276,9 +276,9 @@ const defaultLimits = CodeExecutionLimits.make({
   maxHostCalls: 64,
   maxHostCallArgumentBytes: 256 * 1024,
   maxHostCallResultBytes: 1024 * 1024,
-});
+})
 
-const defaultMaxEgressBytes = 64 * 1024;
+const defaultMaxEgressBytes = 64 * 1024
 
 // ---------------------------------------------------------------------------
 // Declaration rendering (capability spec §9.1): the encoded side of each
@@ -288,10 +288,10 @@ const defaultMaxEgressBytes = 64 * 1024;
 // its declaration is requested rather than degrading to `unknown`.
 // ---------------------------------------------------------------------------
 
-const MAX_RENDER_DEPTH = 24;
+const MAX_RENDER_DEPTH = 24
 
 const isJsonSchemaRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
+  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const renderJsonSchemaType = (
   schema: unknown,
@@ -301,165 +301,166 @@ const renderJsonSchemaType = (
 ): string => {
   if (depth > MAX_RENDER_DEPTH) {
     // oxlint-disable-next-line effect/no-untyped-throw, effect/no-native-error -- CodeMode.make synchronously bounds recursive Schema declaration rendering before creating the Tool.
-    throw new Error("Code Mode declaration rendering exceeded its depth bound");
+    throw new Error('Code Mode declaration rendering exceeded its depth bound')
   }
   if (!isJsonSchemaRecord(schema)) {
     // oxlint-disable-next-line effect/no-untyped-throw, effect/no-native-error -- CodeMode.make synchronously rejects unsupported JSON Schema declaration fragments.
-    throw new Error(`Code Mode cannot render the JSON schema fragment ${JSON.stringify(schema)}`);
+    throw new Error(`Code Mode cannot render the JSON schema fragment ${JSON.stringify(schema)}`)
   }
   // An empty schema is explicitly unconstrained, including Schema.Json's array items.
   // This is a faithful declaration; unrecognized nonempty fragments still fail below.
-  if (Object.keys(schema).length === 0) return "unknown";
-  const reference = schema.$ref;
+  if (Object.keys(schema).length === 0) return 'unknown'
+  const reference = schema.$ref
 
-  if (typeof reference === "string") {
-    const match = /^#\/\$defs\/(.+)$/.exec(reference);
+  if (typeof reference === 'string') {
+    const match = /^#\/\$defs\/(.+)$/.exec(reference)
     // JSON-pointer tokens escape `/` as `~1` and `~` as `~0`.
-    const key = match === null ? undefined : match[1].replaceAll("~1", "/").replaceAll("~0", "~");
-    const resolved = key === undefined ? undefined : defs[key];
+    const key = match === null ? undefined : match[1].replaceAll('~1', '/').replaceAll('~0', '~')
+    const resolved = key === undefined ? undefined : defs[key]
 
     if (resolved === undefined) {
       // oxlint-disable-next-line effect/no-untyped-throw, effect/no-native-error -- CodeMode.make synchronously rejects unresolved declaration references.
-      throw new Error(`Code Mode cannot resolve the JSON schema reference ${reference}`);
+      throw new Error(`Code Mode cannot resolve the JSON schema reference ${reference}`)
     }
 
-    return renderJsonSchemaType(resolved, defs, depth + 1, indent);
+    return renderJsonSchemaType(resolved, defs, depth + 1, indent)
   }
   if (Array.isArray(schema.enum)) {
-    return schema.enum.map((value) => JSON.stringify(value)).join(" | ");
+    return schema.enum.map((value) => JSON.stringify(value)).join(' | ')
   }
-  if ("const" in schema) {
-    return JSON.stringify(schema.const);
+  if ('const' in schema) {
+    return JSON.stringify(schema.const)
   }
-  const union = schema.anyOf ?? schema.oneOf;
+  const union = schema.anyOf ?? schema.oneOf
 
   if (Array.isArray(union)) {
-    return union.map((member) => renderJsonSchemaType(member, defs, depth + 1, indent)).join(" | ");
+    return union.map((member) => renderJsonSchemaType(member, defs, depth + 1, indent)).join(' | ')
   }
-  const type = schema.type;
+  const type = schema.type
 
   if (Array.isArray(type)) {
     return type
       .map((member) => renderJsonSchemaType({ ...schema, type: member }, defs, depth + 1, indent))
-      .join(" | ");
+      .join(' | ')
   }
   switch (type) {
-    case "string": {
-      return "string";
+    case 'string': {
+      return 'string'
     }
-    case "number":
-    case "integer": {
-      return "number";
+    case 'number':
+    case 'integer': {
+      return 'number'
     }
-    case "boolean": {
-      return "boolean";
+    case 'boolean': {
+      return 'boolean'
     }
-    case "null": {
-      return "null";
+    case 'null': {
+      return 'null'
     }
-    case "array": {
-      if (!("items" in schema)) {
+    case 'array': {
+      if (!('items' in schema)) {
         // oxlint-disable-next-line effect/no-untyped-throw, effect/no-native-error -- CodeMode.make synchronously requires item schemas for array declarations.
-        throw new Error("Code Mode cannot render an array schema without items");
+        throw new Error('Code Mode cannot render an array schema without items')
       }
 
-      return `ReadonlyArray<${renderJsonSchemaType(schema.items, defs, depth + 1, indent)}>`;
+      return `ReadonlyArray<${renderJsonSchemaType(schema.items, defs, depth + 1, indent)}>`
     }
-    case "object":
+    case 'object':
     case undefined: {
       if (isJsonSchemaRecord(schema.properties)) {
-        const required = Array.isArray(schema.required) ? schema.required : [];
-        const inner = `${indent}  `;
+        const required = Array.isArray(schema.required) ? schema.required : []
+        const inner = `${indent}  `
 
         const fields = Object.entries(schema.properties).map(([key, property]) => {
-          const optional = required.includes(key) ? "" : "?";
+          const optional = required.includes(key) ? '' : '?'
           // A JSON property name need not be a TypeScript identifier.
-          const rendered = /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(key) ? key : JSON.stringify(key);
+          const rendered = /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(key) ? key : JSON.stringify(key)
 
-          return `${inner}readonly ${rendered}${optional}: ${renderJsonSchemaType(property, defs, depth + 1, inner)};`;
-        });
+          return `${inner}readonly ${rendered}${optional}: ${renderJsonSchemaType(property, defs, depth + 1, inner)};`
+        })
 
-        return fields.length === 0 ? "{}" : `{\n${fields.join("\n")}\n${indent}}`;
+        return fields.length === 0 ? '{}' : `{\n${fields.join('\n')}\n${indent}}`
       }
       if (isJsonSchemaRecord(schema.additionalProperties)) {
-        return `Record<string, ${renderJsonSchemaType(schema.additionalProperties, defs, depth + 1, indent)}>`;
+        return `Record<string, ${renderJsonSchemaType(schema.additionalProperties, defs, depth + 1, indent)}>`
       }
       // Schema.Record(Schema.String, Schema.Never) accepts only an empty object.
       if (
-        type === "object" &&
-        !("properties" in schema) &&
-        !("patternProperties" in schema) &&
+        type === 'object' &&
+        !('properties' in schema) &&
+        !('patternProperties' in schema) &&
         schema.additionalProperties === false
       ) {
-        return "Record<string, never>";
+        return 'Record<string, never>'
       }
       // A bare `{ "type": "object" }` states "any JSON object" (Schema.Json's
       // object member derives to exactly this); rendering it as an
       // unconstrained record is faithful, not a deriver degradation.
-      if (type === "object" && !("properties" in schema) && !("additionalProperties" in schema)) {
-        return "Record<string, unknown>";
+      if (type === 'object' && !('properties' in schema) && !('additionalProperties' in schema)) {
+        return 'Record<string, unknown>'
       }
-      break;
+      break
     }
     default: {
-      break;
+      break
     }
   }
   // oxlint-disable-next-line effect/no-untyped-throw, effect/no-native-error -- CodeMode.make synchronously rejects declaration schemas it cannot faithfully render.
   throw new Error(
-    `Code Mode cannot render the JSON schema fragment ${JSON.stringify(schema).slice(0, 200)}; fix or simplify the Tool's Schema`,
-  );
-};
+    `Code Mode cannot render the JSON schema fragment ${
+      JSON.stringify(schema).slice(0, 200)
+    }; fix or simplify the Tool's Schema`,
+  )
+}
 
 const renderTopLevel = (jsonSchema: unknown, indent: string): string => {
-  const defs =
-    isJsonSchemaRecord(jsonSchema) && isJsonSchemaRecord(jsonSchema.$defs)
-      ? jsonSchema.$defs
-      : ({} as Record<string, unknown>);
+  const defs = isJsonSchemaRecord(jsonSchema) && isJsonSchemaRecord(jsonSchema.$defs)
+    ? jsonSchema.$defs
+    : ({} as Record<string, unknown>)
 
-  return renderJsonSchemaType(jsonSchema, defs, 0, indent);
-};
+  return renderJsonSchemaType(jsonSchema, defs, 0, indent)
+}
 
-const decodeIdentifier = Schema.decodeUnknownOption(JsIdentifier);
+const decodeIdentifier = Schema.decodeUnknownOption(JsIdentifier)
 
 interface ResolvedMethod {
-  readonly namespace: string;
-  readonly method: string;
-  readonly tool: Tool.Any;
+  readonly namespace: string
+  readonly method: string
+  readonly tool: Tool.Any
   /** Private cache populated only when this method's documentation is requested. */
-  declaration: string | undefined;
+  declaration: string | undefined
 }
 
 /** Render one encoded Tool signature; the definition caches it on first request. */
 const renderMethodDeclaration = (method: string, tool: Tool.Any): string => {
-  const parameters = renderTopLevel(Tool.getJsonSchema(tool), "  ");
-  const success = renderTopLevel(Tool.getJsonSchemaFromSchema(tool.successSchema), "  ");
+  const parameters = renderTopLevel(Tool.getJsonSchema(tool), '  ')
+  const success = renderTopLevel(Tool.getJsonSchemaFromSchema(tool.successSchema), '  ')
 
   // A description is arbitrary text: newlines and comment terminators
   // must not be able to break out of the documentation comment.
-  const safeDescription = tool.description?.replaceAll("*/", "*\\/").replaceAll(/\s*\n\s*/g, " ");
+  const safeDescription = tool.description?.replaceAll('*/', '*\\/').replaceAll(/\s*\n\s*/g, ' ')
 
-  const description = safeDescription === undefined ? "" : `  /** ${safeDescription} */\n`;
+  const description = safeDescription === undefined ? '' : `  /** ${safeDescription} */\n`
 
-  return `${description}  ${method}(input: ${parameters}): Promise<${success}>;`;
-};
+  return `${description}  ${method}(input: ${parameters}): Promise<${success}>;`
+}
 
 const renderDeclarations = (methods: ReadonlyArray<ResolvedMethod>): string => {
-  const namespaces = new Map<string, Array<string>>();
+  const namespaces = new Map<string, Array<string>>()
 
   for (const method of methods) {
-    const existing = namespaces.get(method.namespace) ?? [];
+    const existing = namespaces.get(method.namespace) ?? []
 
-    existing.push((method.declaration ??= renderMethodDeclaration(method.method, method.tool)));
-    namespaces.set(method.namespace, existing);
+    existing.push(method.declaration ??= renderMethodDeclaration(method.method, method.tool))
+    namespaces.set(method.namespace, existing)
   }
 
   const blocks = [...namespaces.entries()].map(
-    ([namespace, lines]) => `declare const ${namespace}: {\n${lines.join("\n")}\n};`,
-  );
+    ([namespace, lines]) => `declare const ${namespace}: {\n${lines.join('\n')}\n};`,
+  )
 
-  return blocks.join("\n\n");
-};
+  return blocks.join('\n\n')
+}
 
 // ---------------------------------------------------------------------------
 // Aggregate model-visible egress (CAP-016): the final result, captured logs,
@@ -468,8 +469,8 @@ const renderDeclarations = (methods: ReadonlyArray<ResolvedMethod>): string => {
 // failure rather than silent truncation.
 // ---------------------------------------------------------------------------
 
-const truncationMarker = "… logs truncated by the egress budget";
-const MAX_EGRESS_LOG_LINE_CHARACTERS = 16_000;
+const truncationMarker = '… logs truncated by the egress budget'
+const MAX_EGRESS_LOG_LINE_CHARACTERS = 16_000
 
 /**
  * Budget charge of one log line as it actually crosses to the model: the
@@ -478,95 +479,94 @@ const MAX_EGRESS_LOG_LINE_CHARACTERS = 16_000;
  */
 const encodedLogLineBytes = (line: string): number => {
   try {
-    return utf8ByteLength(JSON.stringify(line)) + 1;
+    return utf8ByteLength(JSON.stringify(line)) + 1
   } catch {
-    return Number.MAX_SAFE_INTEGER;
+    return Number.MAX_SAFE_INTEGER
   }
-};
+}
 
 const budgetedLogs = (
   logs: ReadonlyArray<string>,
   remainingBytes: number,
 ): ReadonlyArray<string> => {
-  const kept: Array<string> = [];
-  let used = 0;
-  let truncated = false;
+  const kept: Array<string> = []
+  let used = 0
+  let truncated = false
 
   for (const raw of logs) {
     // Per-line cap keeps every kept line inside the BoundedLogLine schema.
-    const line =
-      raw.length > MAX_EGRESS_LOG_LINE_CHARACTERS
-        ? `${raw.slice(0, MAX_EGRESS_LOG_LINE_CHARACTERS - 1)}…`
-        : raw;
+    const line = raw.length > MAX_EGRESS_LOG_LINE_CHARACTERS
+      ? `${raw.slice(0, MAX_EGRESS_LOG_LINE_CHARACTERS - 1)}…`
+      : raw
 
-    const bytes = encodedLogLineBytes(line);
+    const bytes = encodedLogLineBytes(line)
 
     if (kept.length >= 4_096 || used + bytes > remainingBytes) {
-      truncated = true;
-      break;
+      truncated = true
+      break
     }
-    kept.push(line);
-    used += bytes;
+    kept.push(line)
+    used += bytes
   }
   if (truncated) {
     // Truncation is never silent: drop kept lines from the end until the
     // marker itself fits inside the budget.
-    const markerBytes = encodedLogLineBytes(truncationMarker);
+    const markerBytes = encodedLogLineBytes(truncationMarker)
 
     while (kept.length > 0 && used + markerBytes > remainingBytes) {
-      used -= encodedLogLineBytes(kept.pop() ?? "");
+      used -= encodedLogLineBytes(kept.pop() ?? '')
     }
     if (markerBytes <= remainingBytes) {
-      kept.push(truncationMarker);
+      kept.push(truncationMarker)
     }
   }
 
-  return kept;
-};
+  return kept
+}
 
-const boundedMessage = (message: string): string => message.slice(0, maxFailureTextLength);
+const boundedMessage = (message: string): string => message.slice(0, maxFailureTextLength)
 
 const executionFailureMessage = (error: CodeExecutionError): string => {
   switch (error._tag) {
-    case "CodeExecutionTimeoutError": {
-      return `The program exceeded its ${Duration.format(error.maxWallTime)} ${error.kind} budget`;
+    case 'CodeExecutionTimeoutError': {
+      return `The program exceeded its ${Duration.format(error.maxWallTime)} ${error.kind} budget`
     }
-    case "CodeOutputLimitError": {
-      return `The ${error.surface} limit of ${error.limit} bytes was exceeded (${error.observed} bytes observed)`;
+    case 'CodeOutputLimitError': {
+      return `The ${error.surface} limit of ${error.limit} bytes was exceeded (${error.observed} bytes observed)`
     }
-    case "CodeHostCallLimitError": {
-      return `The pass exceeded its executor cap of ${error.limit} host calls`;
+    case 'CodeHostCallLimitError': {
+      return `The pass exceeded its executor cap of ${error.limit} host calls`
     }
     default: {
-      return error.message;
+      return error.message
     }
   }
-};
+}
 
 /** UTF-8-aware truncation so a message can never exceed the aggregate budget. */
 const truncateToUtf8Bytes = (value: string, maxBytes: number): string => {
   if (utf8ByteLength(value) <= maxBytes) {
-    return value;
+    return value
   }
-  let output = "";
-  let used = 0;
+  let output = ''
+  let used = 0
 
   for (const character of value) {
-    const bytes = utf8ByteLength(character);
+    const bytes = utf8ByteLength(character)
 
     if (used + bytes + 3 > maxBytes) {
-      break;
+      break
     }
-    output += character;
-    used += bytes;
+    output += character
+    used += bytes
   }
 
-  return `${output}…`;
-};
+  return `${output}…`
+}
 
 type EgressRedactor<Requirements = never> = NonNullable<
-  CodeModeOptions<CodeModeNamespaces, Requirements>["redactEgress"]
->;
+  CodeModeOptions<CodeModeNamespaces, Requirements>['redactEgress']
+>
 
 // ---------------------------------------------------------------------------
 // Builder
@@ -580,8 +580,8 @@ const make = <
   name: Name,
   options: CodeModeOptions<Namespaces, RedactionRequirements>,
 ): CodeModeDefinition<Name, Namespaces, RedactionRequirements> => {
-  const limits = options.limits ?? defaultLimits;
-  const maxEgressBytes = options.maxEgressBytes ?? defaultMaxEgressBytes;
+  const limits = options.limits ?? defaultLimits
+  const maxEgressBytes = options.maxEgressBytes ?? defaultMaxEgressBytes
 
   // Fail closed on an invalid egress bound: NaN would make every size
   // comparison false and Infinity would remove the bound entirely.
@@ -592,123 +592,124 @@ const make = <
   ) {
     // oxlint-disable-next-line effect/no-untyped-throw, effect/no-native-error -- CodeMode.make synchronously rejects invalid egress bounds before creating the Tool.
     throw new Error(
-      `Code Mode maxEgressBytes must be an integer between 256 and ${4 * 1024 * 1024}; received ${String(maxEgressBytes)}`,
-    );
+      `Code Mode maxEgressBytes must be an integer between 256 and ${4 * 1024 * 1024}; received ${
+        String(maxEgressBytes)
+      }`,
+    )
   }
 
   // Construction-time fail-closed validation (CAP-014).
-  const methods: Array<ResolvedMethod> = [];
-  const toolsByName = new Map<string, Tool.Any>();
-  const methodToTool = new Map<string, string>();
+  const methods: Array<ResolvedMethod> = []
+  const toolsByName = new Map<string, Tool.Any>()
+  const methodToTool = new Map<string, string>()
 
   for (const [namespace, namespaceMethods] of Object.entries(options.tools)) {
     if (Option.isNone(decodeIdentifier(namespace))) {
       // oxlint-disable-next-line effect/no-untyped-throw, effect/no-native-error -- CodeMode.make synchronously requires valid JavaScript namespace identifiers.
-      throw new Error(`Code Mode namespace ${namespace} is not a valid JavaScript identifier`);
+      throw new Error(`Code Mode namespace ${namespace} is not a valid JavaScript identifier`)
     }
-    const entries = Object.entries(namespaceMethods);
+    const entries = Object.entries(namespaceMethods)
 
     if (entries.length === 0) {
       // oxlint-disable-next-line effect/no-untyped-throw, effect/no-native-error -- CodeMode.make synchronously rejects namespaces without callable methods.
-      throw new Error(`Code Mode namespace ${namespace} declares no methods`);
+      throw new Error(`Code Mode namespace ${namespace} declares no methods`)
     }
     for (const [method, tool] of entries) {
       if (Option.isNone(decodeIdentifier(method))) {
         // oxlint-disable-next-line effect/no-untyped-throw, effect/no-native-error -- CodeMode.make synchronously requires valid JavaScript method identifiers.
         throw new Error(
           `Code Mode method ${namespace}.${method} is not a valid JavaScript identifier`,
-        );
+        )
       }
-      const approval = tool.needsApproval;
+      const approval = tool.needsApproval
 
       if (approval !== undefined && approval !== false) {
         // oxlint-disable-next-line effect/no-untyped-throw, effect/no-native-error -- CodeMode.make synchronously rejects approval-requiring Tools from its programmatic allowlist.
         throw new Error(
           `Code Mode rejects Tool ${tool.name} (${namespace}.${method}): approval-requiring Tools cannot be invoked programmatically in the ephemeral slice`,
-        );
+        )
       }
-      const existing = toolsByName.get(tool.name);
+      const existing = toolsByName.get(tool.name)
 
       if (existing !== undefined && existing !== tool) {
         // oxlint-disable-next-line effect/no-untyped-throw, effect/no-native-error -- CodeMode.make synchronously rejects conflicting Tools sharing one name.
         throw new Error(
           `Code Mode selected two different Tools named ${tool.name}; Tool names must identify one Tool`,
-        );
+        )
       }
-      toolsByName.set(tool.name, tool);
-      methodToTool.set(`${namespace}.${method}`, tool.name);
-      methods.push({ namespace, method, tool, declaration: undefined });
+      toolsByName.set(tool.name, tool)
+      methodToTool.set(`${namespace}.${method}`, tool.name)
+      methods.push({ namespace, method, tool, declaration: undefined })
     }
   }
   if (methods.length === 0) {
     // oxlint-disable-next-line effect/no-untyped-throw, effect/no-native-error -- CodeMode.make synchronously requires a nonempty Tool allowlist.
-    throw new Error("Code Mode requires at least one allowlisted Tool");
+    throw new Error('Code Mode requires at least one allowlisted Tool')
   }
 
-  let declarations =
-    options.includeDeclarations === false ? undefined : renderDeclarations(methods);
+  let declarations = options.includeDeclarations === false ? undefined : renderDeclarations(methods)
 
   const methodsByPath = new Map(
     methods.map((method) => [`${method.namespace}.${method.method}`, method]),
-  );
+  )
 
-  const describe = Effect.fnUntraced(function* (
+  const describe = Effect.fnUntraced(function*(
     selected: ReadonlyArray<string>,
     options?: { readonly maxBytes?: number | undefined },
   ) {
     const paths = yield* Schema.decodeEffect(DescriptionMethods)(selected).pipe(
       Effect.mapError(() =>
         CodeModeDescriptionError.make({
-          reason: "invalid-selection",
-          message:
-            "Select between 1 and 64 unique namespace.method names, each at most 257 characters",
-        }),
+          reason: 'invalid-selection',
+          message: 'Select between 1 and 64 unique namespace.method names, each at most 257 characters',
+        })
       ),
-    );
+    )
 
     const maxBytes = yield* Schema.decodeEffect(DescriptionByteLimit)(
       options?.maxBytes ?? 16 * 1024,
     ).pipe(
       Effect.mapError(() =>
         CodeModeDescriptionError.make({
-          reason: "invalid-bound",
-          message: "The documentation byte limit must be an integer between 1 and 262144",
-        }),
+          reason: 'invalid-bound',
+          message: 'The documentation byte limit must be an integer between 1 and 262144',
+        })
       ),
-    );
+    )
 
-    const selectedMethods: Array<ResolvedMethod> = [];
+    const selectedMethods: Array<ResolvedMethod> = []
 
     for (const path of paths) {
-      const method = methodsByPath.get(path);
+      const method = methodsByPath.get(path)
 
       if (method === undefined) {
         return yield* CodeModeDescriptionError.make({
-          reason: "unknown-method",
-          message: "The selection contains a method outside this Code Mode allowlist",
-        });
+          reason: 'unknown-method',
+          message: 'The selection contains a method outside this Code Mode allowlist',
+        })
       }
-      selectedMethods.push(method);
+      selectedMethods.push(method)
     }
 
     const documentation = yield* Effect.try({
       try: () => renderDeclarations(selectedMethods),
       catch: () =>
         CodeModeDescriptionError.make({
-          reason: "invalid-schema",
-          message: "A selected method cannot be documented as TypeScript",
+          reason: 'invalid-schema',
+          message: 'A selected method cannot be documented as TypeScript',
         }),
-    });
+    })
 
     if (utf8ByteLength(documentation) > maxBytes) {
       return yield* CodeModeDescriptionError.make({
-        reason: "limit-exceeded",
-        message: `The selected declarations exceed the ${maxBytes}-byte documentation limit; select fewer methods or raise the limit`,
-      });
+        reason: 'limit-exceeded',
+        message:
+          `The selected declarations exceed the ${maxBytes}-byte documentation limit; select fewer methods or raise the limit`,
+      })
     }
 
-    return documentation;
-  });
+    return documentation
+  })
 
   const namespaces = [...new Set(methods.map((method) => method.namespace))].map((namespace) =>
     CodeExecutionNamespace.make({
@@ -716,26 +717,26 @@ const make = <
       methods: methods
         .filter((method) => method.namespace === namespace)
         .map((method) => method.method),
-    }),
-  );
+    })
+  )
 
   const description = [
     options.description,
-    "",
-    "The `code` argument must be one JavaScript async function expression; the sandbox invokes it exactly once with no arguments. It runs isolated with no ambient network, filesystem, environment, or secrets. Return one JSON value. `console.log` output is captured within a bounded budget and returned alongside the result.",
-    "Namespace methods return Promises. An expected Tool failure rejects with a JSON envelope carrying a stable `_tag`; catch it to branch. Use Promise.all for independent calls; the host bounds concurrency. Await every call you need. Writes may complete before a failure: inspect call outcomes and never blindly retry a program.",
-    ...(declarations === undefined ? [] : ["", "Sandbox globals:", "```ts", declarations, "```"]),
-  ].join("\n");
+    '',
+    'The `code` argument must be one JavaScript async function expression; the sandbox invokes it exactly once with no arguments. It runs isolated with no ambient network, filesystem, environment, or secrets. Return one JSON value. `console.log` output is captured within a bounded budget and returned alongside the result.',
+    'Namespace methods return Promises. An expected Tool failure rejects with a JSON envelope carrying a stable `_tag`; catch it to branch. Use Promise.all for independent calls; the host bounds concurrency. Await every call you need. Writes may complete before a failure: inspect call outcomes and never blindly retry a program.',
+    ...(declarations === undefined ? [] : ['', 'Sandbox globals:', '```ts', declarations, '```']),
+  ].join('\n')
 
   const tool = Tool.make(name, {
     description,
     parameters: CodeModeParameters,
     success: CodeModeSuccess,
     failure: CodeModeFailure,
-    failureMode: "return",
+    failureMode: 'return',
   })
     .annotate(Tool.Readonly, false)
-    .annotate(ToolExecutionClassAnnotation, "uncertain")
+    .annotate(ToolExecutionClassAnnotation, 'uncertain')
     .annotate(IncludesCatalogDocumentation, options.includeDeclarations !== false)
     .annotate(
       AdditionalToolCatalog,
@@ -743,9 +744,9 @@ const make = <
         methods.map(({ namespace, method, tool }) => Object.freeze({ namespace, method, tool })),
       ),
     )
-    .addDependency(ToolBroker) as CodeModeTool<Name>;
+    .addDependency(ToolBroker) as CodeModeTool<Name>
 
-  const outerToolkit = Toolkit.make(tool);
+  const outerToolkit = Toolkit.make(tool)
 
   /**
    * The nested namespace record collapses into one Toolkit keyed by exact
@@ -755,124 +756,121 @@ const make = <
    */
   const selectedToolkit = Toolkit.make(...toolsByName.values()) as unknown as Toolkit.Toolkit<
     CodeModeSelectedRecord<Namespaces>
-  >;
+  >
 
   const executionRequest = (
     code: string,
     visibleNamespaces: ReadonlyArray<CodeExecutionNamespace>,
   ): CodeExecutionRequest =>
     CodeExecutionRequest.make({
-      language: "javascript",
+      language: 'javascript',
       source: code,
       namespaces: visibleNamespaces,
       network: NetworkDisabled.make({}),
       limits,
-    });
+    })
 
   const routeHostCall = (
     pass: ToolBrokerPass,
     hostCall: CodeHostCall,
     visiblePaths: ReadonlySet<string> | undefined,
   ): Effect.Effect<CodeHostCallResult> =>
-    Effect.gen(function* () {
-      const path = `${hostCall.namespace}.${hostCall.method}`;
+    Effect.gen(function*() {
+      const path = `${hostCall.namespace}.${hostCall.method}`
 
-      const toolName =
-        visiblePaths === undefined || visiblePaths.has(path) ? methodToTool.get(path) : undefined;
+      const toolName = visiblePaths === undefined || visiblePaths.has(path) ? methodToTool.get(path) : undefined
 
       if (toolName === undefined) {
         return {
-          _tag: "CodeHostCallFailure",
+          _tag: 'CodeHostCallFailure',
           error: {
-            _tag: "UnknownCodeModeMethod",
-            message: "The requested method is not available in this pass",
+            _tag: 'UnknownCodeModeMethod',
+            message: 'The requested method is not available in this pass',
           },
-        } as const;
+        } as const
       }
 
       const outcome: ProgrammaticCallOutcome = yield* pass.invoke({
         toolName,
         encodedArguments: hostCall.argument,
-      });
+      })
 
       switch (outcome._tag) {
-        case "ProgrammaticCallSuccess": {
-          const value = decodeBrokerJson(outcome.encodedResult);
+        case 'ProgrammaticCallSuccess': {
+          const value = decodeBrokerJson(outcome.encodedResult)
 
           return Option.isSome(value)
-            ? ({ _tag: "CodeHostCallSuccess", value: value.value } as const)
-            : ({ _tag: "CodeHostCallFailure", error: brokerProtocolEnvelope } as const);
+            ? ({ _tag: 'CodeHostCallSuccess', value: value.value } as const)
+            : ({ _tag: 'CodeHostCallFailure', error: brokerProtocolEnvelope } as const)
         }
-        case "ProgrammaticCallFailure": {
-          const value = decodeBrokerJson(outcome.encodedResult);
+        case 'ProgrammaticCallFailure': {
+          const value = decodeBrokerJson(outcome.encodedResult)
 
           return {
-            _tag: "CodeHostCallFailure",
+            _tag: 'CodeHostCallFailure',
             error: Option.isSome(value) ? value.value : brokerProtocolEnvelope,
-          } as const;
+          } as const
         }
-        case "ProgrammaticCallError": {
+        case 'ProgrammaticCallError': {
           return {
-            _tag: "CodeHostCallFailure",
+            _tag: 'CodeHostCallFailure',
             error: { _tag: outcome.errorTag, message: outcome.message },
-          } as const;
+          } as const
         }
       }
-    });
+    })
 
-  const build = Effect.gen(function* () {
-    const captured =
-      yield* Effect.context<
-        Tool.HandlerServices<
-          CodeModeSelectedRecord<Namespaces>[keyof CodeModeSelectedRecord<Namespaces>]
-        >
-      >();
+  const build = Effect.gen(function*() {
+    const captured = yield* Effect.context<
+      Tool.HandlerServices<
+        CodeModeSelectedRecord<Namespaces>[keyof CodeModeSelectedRecord<Namespaces>]
+      >
+    >()
 
-    const redactionServices = yield* Effect.context<Exclude<RedactionRequirements, Scope.Scope>>();
-    const configuredRedactor = options.redactEgress;
+    const redactionServices = yield* Effect.context<Exclude<RedactionRequirements, Scope.Scope>>()
+    const configuredRedactor = options.redactEgress
 
-    const redact: EgressRedactor | undefined =
-      configuredRedactor === undefined
-        ? undefined
-        : (egress) =>
-            Effect.scoped(configuredRedactor(egress)).pipe(
-              // Merge invocation-local services before opening the redaction Scope.
-              // The inner Scope shadows any Scope retained in the construction context.
-              Effect.updateContext((current: Context.Context<never>) =>
-                Context.merge(current, redactionServices),
-              ),
-            );
+    const redact: EgressRedactor | undefined = configuredRedactor === undefined
+      ? undefined
+      : (egress) =>
+        Effect.scoped(configuredRedactor(egress)).pipe(
+          // Merge invocation-local services before opening the redaction Scope.
+          // The inner Scope shadows any Scope retained in the construction context.
+          Effect.updateContext((current: Context.Context<never>) => Context.merge(current, redactionServices)),
+        )
 
-    const withHandler = yield* selectedToolkit;
-    const executor = yield* CodeExecutor;
+    const withHandler = yield* selectedToolkit
+    const executor = yield* CodeExecutor
 
     const successEgress = (
       execution: CodeExecutionResult,
     ): Effect.Effect<CodeModeSuccess, CodeModeFailure> =>
-      Effect.gen(function* () {
+      Effect.gen(function*() {
         let egress: { readonly result: Schema.Json; readonly logs: ReadonlyArray<string> } = {
           result: execution.value,
           logs: execution.logs,
-        };
+        }
 
         if (redact !== undefined) {
-          egress = yield* redact(egress);
+          egress = yield* redact(egress)
         }
-        const resultBytes = encodedJsonByteLength(egress.result);
+        const resultBytes = encodedJsonByteLength(egress.result)
 
         if (resultBytes === undefined || resultBytes > maxEgressBytes) {
           return yield* CodeModeFailure.make({
-            errorTag: "CodeModeEgressExceeded",
-            message: `The program result of ${resultBytes ?? "unencodable"} bytes exceeds the ${maxEgressBytes}-byte model-visible egress budget; return a smaller value`,
+            errorTag: 'CodeModeEgressExceeded',
+            message: `The program result of ${
+              resultBytes ?? 'unencodable'
+            } bytes exceeds the ${maxEgressBytes}-byte model-visible egress budget; return a smaller value`,
             logs: budgetedLogs(egress.logs, Math.max(0, maxEgressBytes - 256)),
-          });
+          })
         }
 
         return CodeModeSuccess.make({
           result: egress.result,
           logs: budgetedLogs(egress.logs, maxEgressBytes - resultBytes),
-        });
-      });
+        })
+      })
 
     /**
      * The failure half of the aggregate egress policy (CAP-016): the configured
@@ -883,136 +881,131 @@ const make = <
     const failureEgress = (
       error: CodeExecutionError | ToolBrokerUnavailableError | ToolBrokerConfigurationError,
     ): Effect.Effect<CodeModeFailure> =>
-      Effect.gen(function* () {
+      Effect.gen(function*() {
         if (
-          error._tag === "ToolBrokerUnavailableError" ||
-          error._tag === "ToolBrokerConfigurationError"
+          error._tag === 'ToolBrokerUnavailableError' ||
+          error._tag === 'ToolBrokerConfigurationError'
         ) {
           return CodeModeFailure.make({
             errorTag: error._tag,
             message: truncateToUtf8Bytes(boundedMessage(error.message), maxEgressBytes),
             logs: [],
-          });
+          })
         }
-        let logs: ReadonlyArray<string> = "logs" in error ? error.logs : [];
-        let candidateThrown = error._tag === "CodeProgramFailedError" ? error.thrown : undefined;
+        let logs: ReadonlyArray<string> = 'logs' in error ? error.logs : []
+        let candidateThrown = error._tag === 'CodeProgramFailedError' ? error.thrown : undefined
 
         if (redact !== undefined) {
-          const redacted = yield* redact({ result: candidateThrown ?? null, logs });
+          const redacted = yield* redact({ result: candidateThrown ?? null, logs })
 
-          logs = redacted.logs;
-          candidateThrown = candidateThrown === undefined ? undefined : redacted.result;
+          logs = redacted.logs
+          candidateThrown = candidateThrown === undefined ? undefined : redacted.result
         }
 
         const message = truncateToUtf8Bytes(
           boundedMessage(executionFailureMessage(error)),
           maxEgressBytes,
-        );
+        )
 
-        const messageBytes = utf8ByteLength(message);
+        const messageBytes = utf8ByteLength(message)
 
         // `thrown` is included only when it fits TOGETHER with the message inside
         // the aggregate budget, and it reduces the log allowance only when it is
         // actually included.
-        const candidateBytes =
-          candidateThrown === undefined ? undefined : encodedJsonByteLength(candidateThrown);
+        const candidateBytes = candidateThrown === undefined ? undefined : encodedJsonByteLength(candidateThrown)
 
-        const includeThrown =
-          candidateThrown !== undefined &&
+        const includeThrown = candidateThrown !== undefined &&
           candidateBytes !== undefined &&
-          messageBytes + candidateBytes <= maxEgressBytes;
+          messageBytes + candidateBytes <= maxEgressBytes
 
         const remaining = Math.max(
           0,
           maxEgressBytes - messageBytes - (includeThrown ? (candidateBytes ?? 0) : 0),
-        );
+        )
 
         return CodeModeFailure.make({
           errorTag: error._tag,
           message,
           logs: budgetedLogs(logs, remaining),
           ...(includeThrown ? { thrown: candidateThrown } : {}),
-        });
-      });
+        })
+      })
 
-    const invoke = Effect.fnUntraced(function* (parameters: { readonly code: string }) {
-      const broker = yield* ToolBroker;
+    const invoke = Effect.fnUntraced(function*(parameters: { readonly code: string }) {
+      const broker = yield* ToolBroker
       // Resolve invocation authority before restoring captured construction services. A Layer
       // built under an older Run must not restore that Run's catalogue or hidden method names.
-      const catalogue = yield* Effect.serviceOption(CurrentToolCatalog);
+      const catalogue = yield* Effect.serviceOption(CurrentToolCatalog)
 
       const visiblePaths = Option.isNone(catalogue)
         ? undefined
         : new Set(
-            catalogue.value.entries.flatMap((entry) =>
-              entry.kind === "code-mode" &&
+          catalogue.value.entries.flatMap((entry) =>
+            entry.kind === 'code-mode' &&
               entry.nativeToolName === name &&
               methodsByPath.get(`${entry.namespace}.${entry.method}`)?.tool.name === entry.tool.name
-                ? [`${entry.namespace}.${entry.method}`]
-                : [],
-            ),
-          );
+              ? [`${entry.namespace}.${entry.method}`]
+              : []
+          ),
+        )
 
-      const visibleNamespaces =
-        visiblePaths === undefined
-          ? namespaces
-          : namespaces.flatMap((namespace) => {
-              const allowed = namespace.methods.filter((method) =>
-                visiblePaths.has(`${namespace.name}.${method}`),
-              );
+      const visibleNamespaces = visiblePaths === undefined
+        ? namespaces
+        : namespaces.flatMap((namespace) => {
+          const allowed = namespace.methods.filter((method) => visiblePaths.has(`${namespace.name}.${method}`))
 
-              return allowed.length === 0
-                ? []
-                : [CodeExecutionNamespace.make({ name: namespace.name, methods: allowed })];
-            });
+          return allowed.length === 0
+            ? []
+            : [CodeExecutionNamespace.make({ name: namespace.name, methods: allowed })]
+        })
 
-      let calls: ReadonlyArray<ProgrammaticCallRecord> = [];
+      let calls: ReadonlyArray<ProgrammaticCallRecord> = []
 
-      const execution = Effect.gen(function* () {
+      const execution = Effect.gen(function*() {
         const pass = yield* broker.openPass(withHandler, {
           maxResultBytes: limits.maxHostCallResultBytes,
           concurrency: limits.maxHostCallConcurrency ?? 4,
-        });
+        })
 
         const host = CodeExecutionHost.of({
           call: (hostCall) => routeHostCall(pass, hostCall, visiblePaths),
-        });
+        })
 
         return yield* executor.execute(executionRequest(parameters.code, visibleNamespaces)).pipe(
           Effect.provideService(CodeExecutionHost, host),
           Effect.scoped,
           Effect.onExit((exit) =>
-            Effect.gen(function* () {
-              calls = yield* pass.snapshot;
+            Effect.gen(function*() {
+              calls = yield* pass.snapshot
               if (options.onPassExit !== undefined) {
                 yield* Effect.scoped(
                   options.onPassExit({
                     status: Exit.isSuccess(exit)
-                      ? "completed"
+                      ? 'completed'
                       : Cause.hasInterrupts(exit.cause)
-                        ? "interrupted"
-                        : Cause.hasDies(exit.cause)
-                          ? "defect"
-                          : "failed",
+                      ? 'interrupted'
+                      : Cause.hasDies(exit.cause)
+                      ? 'defect'
+                      : 'failed',
                     calls,
                   }),
-                ).pipe(Effect.provideContext(redactionServices));
+                ).pipe(Effect.provideContext(redactionServices))
               }
-            }),
+            })
           ),
-        );
+        )
       }).pipe(
         Effect.scoped,
         // Keep invocation authority innermost while restoring the declared handler services.
         Effect.provideService(ToolBroker, broker),
         Effect.updateContext((current: Context.Context<never>) => Context.merge(current, captured)),
-      );
+      )
 
       return yield* execution.pipe(
         Effect.catch((error) => failureEgress(error).pipe(Effect.flatMap(Effect.fail))),
         Effect.flatMap(successEgress),
         Effect.mapError((failure) => {
-          if (calls.length === 0) return failure;
+          if (calls.length === 0) return failure
 
           const complete = CodeModeFailure.make({
             errorTag: failure.errorTag,
@@ -1021,41 +1014,41 @@ const make = <
             ...(failure.thrown === undefined ? {} : { thrown: failure.thrown }),
             calls,
             omittedCalls: 0,
-          });
+          })
 
-          if ((encodedJsonByteLength(complete) ?? Infinity) <= maxEgressBytes) return complete;
+          if ((encodedJsonByteLength(complete) ?? Infinity) <= maxEgressBytes) return complete
 
           // Evidence takes priority over logs and thrown values. Never silently omit calls.
           const base = {
             errorTag: failure.errorTag,
             message: truncateToUtf8Bytes(failure.message, Math.min(256, maxEgressBytes / 4)),
             logs: [],
-          };
+          }
 
-          const kept: Array<ProgrammaticCallRecord> = [];
+          const kept: Array<ProgrammaticCallRecord> = []
 
           for (const call of calls) {
             const candidate = CodeModeFailure.make({
               ...base,
               calls: [...kept, call],
               omittedCalls: calls.length - kept.length - 1,
-            });
+            })
 
-            if ((encodedJsonByteLength(candidate) ?? Infinity) > maxEgressBytes) break;
-            kept.push(call);
+            if ((encodedJsonByteLength(candidate) ?? Infinity) > maxEgressBytes) break
+            kept.push(call)
           }
 
           return CodeModeFailure.make({
             ...base,
             calls: kept,
             omittedCalls: calls.length - kept.length,
-          });
+          })
         }),
-      );
-    });
+      )
+    })
 
-    return { [name]: invoke } as unknown as Toolkit.HandlersFrom<CodeModeTools<Name>>;
-  });
+    return { [name]: invoke } as unknown as Toolkit.HandlersFrom<CodeModeTools<Name>>
+  })
 
   /**
    * TypeScript cannot unify the two spellings of the singleton Tool record
@@ -1071,15 +1064,15 @@ const make = <
       | CodeExecutor
       | Tool.HandlersFor<CodeModeSelectedRecord<Namespaces>>
       | Tool.HandlerServices<
-          CodeModeSelectedRecord<Namespaces>[keyof CodeModeSelectedRecord<Namespaces>]
-        >
+        CodeModeSelectedRecord<Namespaces>[keyof CodeModeSelectedRecord<Namespaces>]
+      >
       | Exclude<RedactionRequirements, Scope.Scope>
     >,
   ) as unknown as Layer.Layer<
     Tool.HandlersFor<CodeModeTools<Name>>,
     never,
     CodeModeLayerRequirements<Namespaces, RedactionRequirements>
-  >;
+  >
 
   if (declarations !== undefined) {
     return Object.freeze({
@@ -1092,14 +1085,14 @@ const make = <
       maxEgressBytes,
       tool,
       handlers,
-    });
+    })
   }
 
   return Object.freeze({
     name,
     description,
     get declarations() {
-      return (declarations ??= renderDeclarations(methods));
+      return (declarations ??= renderDeclarations(methods))
     },
     describe,
     namespaces,
@@ -1107,8 +1100,8 @@ const make = <
     maxEgressBytes,
     tool,
     handlers,
-  });
-};
+  })
+}
 
 /**
  * Fail-closed JSON boundary for broker outcomes: hostile values can throw
@@ -1117,20 +1110,20 @@ const make = <
  */
 const decodeBrokerJson = (value: unknown): Option.Option<Schema.Json> => {
   try {
-    return Schema.decodeUnknownOption(Schema.Json)(value);
+    return Schema.decodeUnknownOption(Schema.Json)(value)
   } catch {
-    return Option.none();
+    return Option.none()
   }
-};
+}
 
 const brokerProtocolEnvelope: Schema.Json = {
-  _tag: "CodeModeProtocolError",
-  message: "The broker returned a value outside the JSON surface",
-};
+  _tag: 'CodeModeProtocolError',
+  message: 'The broker returned a value outside the JSON surface',
+}
 
 // The engine annotation is imported under a local alias to keep the builder
 // readable next to Effect AI's own `Tool.Readonly` annotation.
-import { ToolExecutionClass as ToolExecutionClassAnnotation } from "../engine/DurableStep.ts";
+import { ToolExecutionClass as ToolExecutionClassAnnotation } from '../engine/DurableStep.ts'
 
 /** Code Mode builder namespace (capability spec §9.1). */
-export { make };
+export { make }

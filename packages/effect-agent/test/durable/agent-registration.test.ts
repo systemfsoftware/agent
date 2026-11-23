@@ -1,112 +1,112 @@
-import { expect, it } from "@effect/vitest";
-import * as Toolkit from "effect/ai/Toolkit";
-import * as Context from "effect/Context";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
-import * as Tracer from "effect/Tracer";
+import { expect, it } from '@effect/vitest'
+import * as Toolkit from 'effect/ai/Toolkit'
+import * as Context from 'effect/Context'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
+import * as Option from 'effect/Option'
+import * as Schema from 'effect/Schema'
+import * as Tracer from 'effect/Tracer'
 
-import * as Agent from "../../src/core/Agent.ts";
-import { AttemptId, SubmissionId, ThreadId } from "../../src/core/Identifiers.ts";
-import { DurableWorkerBinding } from "../../src/durable/AgentRegistration.ts";
-import { DefinitionDigests, Digest } from "../../src/durable/Records.ts";
-import { Claim } from "../../src/durable/SubmissionLedger.ts";
+import * as Agent from '../../src/core/Agent.ts'
+import { AttemptId, SubmissionId, ThreadId } from '../../src/core/Identifiers.ts'
+import { DurableWorkerBinding } from '../../src/durable/AgentRegistration.ts'
+import { DefinitionDigests, Digest } from '../../src/durable/Records.ts'
+import { Claim } from '../../src/durable/SubmissionLedger.ts'
 
-class Dependency extends Context.Service<Dependency, string>()("test/registered-dependency") {}
+class Dependency extends Context.Service<Dependency, string>()('test/registered-dependency') {}
 
 // Registration captures dependencies while each Attempt inherits its current trace and sampling.
 it.effect(
-  "registered attempts use the current trace and sampling without losing dependencies",
+  'registered attempts use the current trace and sampling without losing dependencies',
   () =>
-    Effect.gen(function* () {
-      const definition = Agent.make("traced-registration", {
+    Effect.gen(function*() {
+      const definition = Agent.make('traced-registration', {
         input: Schema.String,
         output: Schema.String,
-        instructions: "Answer",
+        instructions: 'Answer',
         toolkit: Toolkit.empty,
-      });
+      })
 
-      const digest = Digest.make("a".repeat(64));
+      const digest = Digest.make('a'.repeat(64))
 
       const model = Layer.effectContext<Agent.ModelServices, never, never>(
-        Effect.die("No model is invoked"),
-      );
+        Effect.die('No model is invoked'),
+      )
 
-      const registrationSpans: Array<Tracer.Span> = [];
+      const registrationSpans: Array<Tracer.Span> = []
 
       const registrationTracer = Tracer.make({
         span: (options) => {
-          const span = new Tracer.NativeSpan(options);
+          const span = new Tracer.NativeSpan(options)
 
-          registrationSpans.push(span);
+          registrationSpans.push(span)
 
-          return span;
+          return span
         },
-      });
+      })
 
       const binding = yield* DurableWorkerBinding.make(
         Agent.withModel(definition, model),
         DefinitionDigests.make({ agent: digest, model: digest, tools: digest }),
       ).pipe(
-        Effect.withSpan("registration", { root: true, sampled: true }),
+        Effect.withSpan('registration', { root: true, sampled: true }),
         Effect.annotateSpans({ registrationOnly: true }),
         Effect.withTracer(registrationTracer),
-        Effect.provideService(Dependency, "retained"),
-      );
+        Effect.provideService(Dependency, 'retained'),
+      )
 
-      const registration = registrationSpans[0]!;
+      const registration = registrationSpans[0]!
 
-      expect(registration.status._tag).toBe("Ended");
-      const traceIds = new Set<string>();
+      expect(registration.status._tag).toBe('Ended')
+      const traceIds = new Set<string>()
 
       for (const sampled of [false, true]) {
-        const attemptSpans: Array<Tracer.Span> = [];
+        const attemptSpans: Array<Tracer.Span> = []
 
         const tracer = Tracer.make({
           span: (options) => {
-            const span = new Tracer.NativeSpan(options);
+            const span = new Tracer.NativeSpan(options)
 
-            attemptSpans.push(span);
+            attemptSpans.push(span)
 
-            return span;
+            return span
           },
-        });
+        })
 
-        yield* Effect.gen(function* () {
-          const parent = yield* Effect.currentSpan;
+        yield* Effect.gen(function*() {
+          const parent = yield* Effect.currentSpan
 
-          traceIds.add(parent.traceId);
+          traceIds.add(parent.traceId)
           yield* binding.attempt(
             () =>
-              Effect.gen(function* () {
-                const span = yield* Effect.currentSpan.pipe(Effect.orDie);
+              Effect.gen(function*() {
+                const span = yield* Effect.currentSpan.pipe(Effect.orDie)
 
-                expect(span.traceId).toBe(parent.traceId);
-                expect(span.traceId).not.toBe(registration.traceId);
-                expect(span.sampled).toBe(sampled);
-                expect(Option.getOrUndefined(span.parent)?.spanId).toBe(parent.spanId);
-                expect(span.attributes.get("registrationOnly")).toBeUndefined();
-                expect(span.attributes.get("currentInvocation")).toBe(true);
-                expect(yield* Effect.serviceOption(Dependency)).toEqual(Option.some("retained"));
+                expect(span.traceId).toBe(parent.traceId)
+                expect(span.traceId).not.toBe(registration.traceId)
+                expect(span.sampled).toBe(sampled)
+                expect(Option.getOrUndefined(span.parent)?.spanId).toBe(parent.spanId)
+                expect(span.attributes.get('registrationOnly')).toBeUndefined()
+                expect(span.attributes.get('currentInvocation')).toBe(true)
+                expect(yield* Effect.serviceOption(Dependency)).toEqual(Option.some('retained'))
 
-                return Option.none();
-              }).pipe(Effect.withSpan("attempt-body")),
-            ThreadId.make("trace-test"),
+                return Option.none()
+              }).pipe(Effect.withSpan('attempt-body')),
+            ThreadId.make('trace-test'),
             Claim.make({
-              submissionId: SubmissionId.make("submission"),
-              attemptId: AttemptId.make("attempt"),
-              inputPayload: "input",
+              submissionId: SubmissionId.make('submission'),
+              attemptId: AttemptId.make('attempt'),
+              inputPayload: 'input',
             }),
-          );
+          )
         }).pipe(
-          Effect.withSpan("invocation", { root: true, sampled }),
+          Effect.withSpan('invocation', { root: true, sampled }),
           Effect.annotateSpans({ currentInvocation: true }),
           Effect.withTracer(tracer),
-        );
-        expect(attemptSpans.map((span) => span.name)).toEqual(["invocation", "attempt-body"]);
+        )
+        expect(attemptSpans.map((span) => span.name)).toEqual(['invocation', 'attempt-body'])
       }
-      expect(traceIds.size).toBe(2);
-      expect(registrationSpans.map((span) => span.name)).toEqual(["registration"]);
+      expect(traceIds.size).toBe(2)
+      expect(registrationSpans.map((span) => span.name)).toEqual(['registration'])
     }),
-);
+)

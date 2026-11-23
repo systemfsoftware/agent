@@ -1,13 +1,8 @@
 node_modules
 dist
 .worktrees
-.bundle-base
-.bundle-report
-.context-continuity-eval
 coverage
-.vite
 .playwright-cli/
-docs/.astro
 *.tsbuildinfo
 .DS_Store
 .env
@@ -21,17 +16,11 @@ docs/.astro
 .wrangler
 .dev-kit
 .repos
-# alchemy local state (ALCHEMY_LOCAL_STATE=true dry runs)
-.alchemy
 # Generated declarations that leak into package src when a build follows a
 # cross-package relative source import (e.g. the C4 conformance worker). No
 # .d.ts under src is hand-written; source is always .ts.
 packages/*/src/**/*.d.ts
 scripts/**/*.d.ts
 test/fixtures/*.d.ts
-oxlint/plugin-exports.d.ts
-.performance-base/
-.performance-report/
-.release-build/
-.checkout-proof/
 .vitest/
+.pack/

@@ -1,48 +1,48 @@
-import * as Tool from "effect/ai/Tool";
-import * as Context from "effect/Context";
-import * as CryptoDigest from "effect/crypto/Digest";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
-import * as References from "effect/References";
-import * as Schema from "effect/Schema";
-import * as Scope from "effect/Scope";
-import * as Tracer from "effect/Tracer";
+import * as Tool from 'effect/ai/Tool'
+import * as Context from 'effect/Context'
+import * as CryptoDigest from 'effect/crypto/Digest'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
+import * as Option from 'effect/Option'
+import * as References from 'effect/References'
+import * as Schema from 'effect/Schema'
+import * as Scope from 'effect/Scope'
+import * as Tracer from 'effect/Tracer'
 
-import type * as Agent from "../../core/Agent.ts";
+import type * as Agent from '../../core/Agent.ts'
 import {
   type InputPromptSource,
   type InstructionSource,
   type ModelServices,
   type RunDispositionDeclaration,
-} from "../../core/Agent.ts";
-import { type ThreadId, AgentId } from "../../core/Identifiers.ts";
-import { getToolExecutionKind } from "../../core/SubagentContract.ts";
+} from '../../core/Agent.ts'
+import { AgentId, type ThreadId } from '../../core/Identifiers.ts'
+import { getToolExecutionKind } from '../../core/SubagentContract.ts'
 import {
   AdditionalToolCatalog,
   DiscoveryTool,
   IncludesCatalogDocumentation,
   PinnedTool,
   ToolNamespace,
-} from "../../core/ToolExposure.ts";
-import { type RuntimeBinding } from "../../engine/AgentRuntime.ts";
-import { ContextRolloverTool } from "../../engine/ContextWindow.ts";
-import { getToolExecutionClass } from "../../engine/DurableStep.ts";
-import { withAttempt as withProvisionalTextAttempt } from "../../engine/internal/provisional-text.ts";
-import { WorkerReportPreparationFailure, type WorkerReporting } from "../../engine/SubagentHost.ts";
-import { digestDefinitions, digestJson, DigestError } from "../Digest.ts";
-import type { DurableWorkerFailure, DurableWorkerRequirements } from "../DurableAgentRuntime.ts";
-import type { DefinitionDigestInput, Digest, PersistedJson } from "../Records.ts";
-import { DefinitionDigests, ReplayContract } from "../Records.ts";
-import type { Claim, Settlement, SubmissionSnapshot } from "../SubmissionLedger.ts";
+} from '../../core/ToolExposure.ts'
+import { type RuntimeBinding } from '../../engine/AgentRuntime.ts'
+import { ContextRolloverTool } from '../../engine/ContextWindow.ts'
+import { getToolExecutionClass } from '../../engine/DurableStep.ts'
+import { withAttempt as withProvisionalTextAttempt } from '../../engine/internal/provisional-text.ts'
+import { type WorkerReporting, WorkerReportPreparationFailure } from '../../engine/SubagentHost.ts'
+import { digestDefinitions, DigestError, digestJson } from '../Digest.ts'
+import type { DurableWorkerFailure, DurableWorkerRequirements } from '../DurableAgentRuntime.ts'
+import type { DefinitionDigestInput, Digest, PersistedJson } from '../Records.ts'
+import { DefinitionDigests, ReplayContract } from '../Records.ts'
+import type { Claim, Settlement, SubmissionSnapshot } from '../SubmissionLedger.ts'
 
 /** No unique current Binding can execute the stable Agent identity or decode its accepted input. */
 export class BindingUnavailable extends Schema.TaggedError<BindingUnavailable>()(
-  "BindingUnavailable",
+  'BindingUnavailable',
   { agentId: AgentId, message: Schema.String },
 ) {}
 
-export type DurableBindingFailure = BindingUnavailable;
+export type DurableBindingFailure = BindingUnavailable
 
 /**
  * Submission execution/recovery routing for stable identities shared by current Definitions.
@@ -50,7 +50,7 @@ export type DurableBindingFailure = BindingUnavailable;
  */
 export interface BindingSelection {
   /** Change when routing changes, so hosts can retry parked work without rewriting admission. */
-  readonly key: string;
+  readonly key: string
   /**
    * Select an exact registered Definition using the canonical Submission and authoritative host
    * state. Undefined retains unique-identity resolution. Never grant authority or mutate here;
@@ -58,14 +58,14 @@ export interface BindingSelection {
    */
   readonly select: (
     submission: SubmissionSnapshot,
-  ) => Effect.Effect<Agent.AnyDefinition | undefined, DurableWorkerFailure | BindingUnavailable>;
+  ) => Effect.Effect<Agent.AnyDefinition | undefined, DurableWorkerFailure | BindingUnavailable>
 }
 
 /** Captured at runtime construction; callers cannot replace routing during an Attempt. */
 export const CurrentBindingSelection = Context.Reference<BindingSelection | undefined>(
-  "@effect-agent/thread/CurrentBindingSelection",
+  '@effect-agent/thread/CurrentBindingSelection',
   { defaultValue: () => undefined },
-);
+)
 
 /** Exact immutable admission, lineage and delivery evidence; never an executable-code gate. */
 export const definitionDigestsEqual = (
@@ -75,7 +75,7 @@ export const definitionDigestsEqual = (
   left.agent === right.agent &&
   left.model === right.model &&
   left.tools === right.tools &&
-  Schema.toEquivalence(Schema.UndefinedOr(ReplayContract))(left.replay, right.replay);
+  Schema.toEquivalence(Schema.UndefinedOr(ReplayContract))(left.replay, right.replay)
 
 /**
  * Explicit versions must cover every current Tool. Change a version when handler meaning,
@@ -83,53 +83,51 @@ export const definitionDigestsEqual = (
  * or child/report protocols change. JSON Schema cannot detect handler or codec-transform changes.
  */
 export interface ReplayVersions {
-  readonly tools: Readonly<Record<string, PersistedJson>>;
+  readonly tools: Readonly<Record<string, PersistedJson>>
 }
 
 // These are immutable declaration projections, never model or admission contexts.
-const replaySchemaProjections = new WeakMap<Schema.Top, Schema.Json>();
+const replaySchemaProjections = new WeakMap<Schema.Top, Schema.Json>()
 
 type CachedFallbackContracts = {
-  readonly tools: ReadonlyArray<Tool.Any>;
-  readonly completionTool: string | undefined;
-  readonly version: PersistedJson;
-  readonly contracts: Record<string, Digest>;
-};
+  readonly tools: ReadonlyArray<Tool.Any>
+  readonly completionTool: string | undefined
+  readonly version: PersistedJson
+  readonly contracts: Record<string, Digest>
+}
 
 const fallbackContracts = new WeakMap<
-  CryptoDigest.Digest["Service"],
+  CryptoDigest.Digest['Service'],
   WeakMap<object, CachedFallbackContracts>
->();
+>()
 
 /** Hash current operation contracts; no historical definitions or schemas are retained. */
-export const toolReplayContracts = Effect.fnUntraced(function* (
+export const toolReplayContracts = Effect.fnUntraced(function*(
   definition: Agent.AnyDefinition,
   versions?: ReplayVersions,
   fallbackVersion: PersistedJson = null,
 ) {
   // Optional lookup preserves validation before a missing-service defect. A
   // different host Digest service must never inherit another host's digest map.
-  const crypto = Option.getOrUndefined(yield* Effect.serviceOption(CryptoDigest.Digest));
+  const crypto = Option.getOrUndefined(yield* Effect.serviceOption(CryptoDigest.Digest))
 
   const invalidContracts = () =>
     DigestError.make({
-      message: "Operation contracts require serializable codecs and a version for every Tool",
-    });
+      message: 'Operation contracts require serializable codecs and a version for every Tool',
+    })
 
   const prepared = yield* Effect.try({
     try: () => {
-      const tools = Object.values(definition.toolkit.tools);
-      const completionTool = definition.completion?.tool;
+      const tools = Object.values(definition.toolkit.tools)
+      const completionTool = definition.completion?.tool
       // Object-valued versions may be mutable caller data. Only primitive fallback
       // versions can reuse a result, and only one result is retained per toolkit.
 
-      const cacheable =
-        versions === undefined && (fallbackVersion === null || typeof fallbackVersion !== "object");
+      const cacheable = versions === undefined && (fallbackVersion === null || typeof fallbackVersion !== 'object')
 
-      const cached =
-        cacheable && crypto !== undefined
-          ? fallbackContracts.get(crypto)?.get(definition.toolkit.tools)
-          : undefined;
+      const cached = cacheable && crypto !== undefined
+        ? fallbackContracts.get(crypto)?.get(definition.toolkit.tools)
+        : undefined
 
       if (
         cached !== undefined &&
@@ -137,57 +135,58 @@ export const toolReplayContracts = Effect.fnUntraced(function* (
         cached.completionTool === completionTool &&
         cached.tools.length === tools.length &&
         cached.tools.every((tool, index) => tool === tools[index])
-      )
-        return { _tag: "Cached" as const, contracts: { ...cached.contracts } };
+      ) {
+        return { _tag: 'Cached' as const, contracts: { ...cached.contracts } }
+      }
 
       const jsonSchema = (schema: Schema.Top) => {
-        const cached = replaySchemaProjections.get(schema);
+        const cached = replaySchemaProjections.get(schema)
 
-        if (cached !== undefined) return cached;
+        if (cached !== undefined) return cached
 
         const projection = Schema.decodeUnknownSync(Schema.Json)(
           Tool.getJsonSchemaFromSchema(schema),
-        );
+        )
 
-        replaySchemaProjections.set(schema, projection);
+        replaySchemaProjections.set(schema, projection)
 
-        return projection;
-      };
+        return projection
+      }
 
       return {
-        _tag: "Compile" as const,
+        _tag: 'Compile' as const,
         jsonSchema,
         cacheable,
         tools,
         completionTool,
-      };
+      }
     },
     catch: () =>
       DigestError.make({
-        message: "Operation contracts require serializable codecs and a version for every Tool",
+        message: 'Operation contracts require serializable codecs and a version for every Tool',
       }),
-  });
+  })
 
-  if (prepared._tag === "Cached") return prepared.contracts;
+  if (prepared._tag === 'Cached') return prepared.contracts
 
   const declarations = yield* Effect.forEach(
     prepared.tools,
-    Effect.fnUntraced(function* (tool) {
+    Effect.fnUntraced(function*(tool) {
       const { version, present } = yield* Effect.try({
         try: () => ({
           version: versions === undefined ? fallbackVersion : versions.tools[tool.name],
           present: versions === undefined || Object.hasOwn(versions.tools, tool.name),
         }),
         catch: invalidContracts,
-      });
+      })
 
-      if (version === undefined || !present) return yield* invalidContracts();
+      if (version === undefined || !present) return yield* invalidContracts()
 
       const providerArgs = Tool.isProviderDefined(tool)
         ? yield* Schema.decodeUnknownEffect(Schema.Json)(tool.args ?? null).pipe(
-            Effect.mapError(invalidContracts),
-          )
-        : undefined;
+          Effect.mapError(invalidContracts),
+        )
+        : undefined
 
       return yield* Effect.try({
         try: () => ({
@@ -196,21 +195,20 @@ export const toolReplayContracts = Effect.fnUntraced(function* (
             version,
             ...(Tool.isProviderDefined(tool)
               ? {
-                  provider: {
-                    id: tool.id,
-                    providerName: tool.providerName,
-                    args: providerArgs ?? null,
-                    requiresHandler: tool.requiresHandler,
-                  },
-                  readonly: Context.get(tool.annotations, Tool.Readonly),
-                }
+                provider: {
+                  id: tool.id,
+                  providerName: tool.providerName,
+                  args: providerArgs ?? null,
+                  requiresHandler: tool.requiresHandler,
+                },
+                readonly: Context.get(tool.annotations, Tool.Readonly),
+              }
               : {}),
             parameters: prepared.jsonSchema(tool.parametersSchema),
             success: prepared.jsonSchema(tool.successSchema),
             failure: prepared.jsonSchema(tool.failureSchema),
             failureMode: tool.failureMode,
-            needsApproval:
-              typeof tool.needsApproval === "function" ? "dynamic" : (tool.needsApproval ?? false),
+            needsApproval: typeof tool.needsApproval === 'function' ? 'dynamic' : (tool.needsApproval ?? false),
             executionClass: getToolExecutionClass(tool),
             executionKind: getToolExecutionKind(tool.annotations),
             contextRollover: Context.get(tool.annotations, ContextRolloverTool),
@@ -218,58 +216,59 @@ export const toolReplayContracts = Effect.fnUntraced(function* (
           },
         }),
         catch: invalidContracts,
-      });
+      })
     }),
-  );
+  )
 
   const contracts = Object.fromEntries(
-    yield* Effect.forEach(declarations, ({ name, contract }) =>
-      digestJson(contract).pipe(Effect.map((digest) => [name, digest] as const)),
+    yield* Effect.forEach(
+      declarations,
+      ({ name, contract }) => digestJson(contract).pipe(Effect.map((digest) => [name, digest] as const)),
     ),
-  );
+  )
 
   if (prepared.cacheable && crypto !== undefined) {
-    const cache = fallbackContracts.get(crypto) ?? new WeakMap<object, CachedFallbackContracts>();
+    const cache = fallbackContracts.get(crypto) ?? new WeakMap<object, CachedFallbackContracts>()
 
     cache.set(definition.toolkit.tools, {
       tools: prepared.tools,
       completionTool: prepared.completionTool,
       version: fallbackVersion,
       contracts: { ...contracts },
-    });
-    fallbackContracts.set(crypto, cache);
+    })
+    fallbackContracts.set(crypto, cache)
   }
 
-  return contracts;
-});
+  return contracts
+})
 
 /** Compile current metadata without acquiring executable services. */
-export const compileBindingContracts = Effect.fnUntraced(function* (
+export const compileBindingContracts = Effect.fnUntraced(function*(
   definition: Agent.AnyDefinition,
   definitions: DefinitionDigestInput,
   versions?: ReplayVersions,
-): Effect.fn.Return<Pick<ResolvedBinding, "digests">, DigestError, CryptoDigest.Digest> {
-  const digests = yield* digestDefinitions(definitions);
-  const tools = yield* toolReplayContracts(definition, versions, definitions.tools);
+): Effect.fn.Return<Pick<ResolvedBinding, 'digests'>, DigestError, CryptoDigest.Digest> {
+  const digests = yield* digestDefinitions(definitions)
+  const tools = yield* toolReplayContracts(definition, versions, definitions.tools)
 
   return {
     digests: DefinitionDigests.make({
       ...digests,
       replay: ReplayContract.make({ agent: digests.agent, tools }),
     }),
-  };
-});
+  }
+})
 
 type ExecutableDefinition = Agent.AnyDefinition & {
-  readonly instructions: InstructionSource<never, unknown, unknown>;
-  readonly inputPrompt?: InputPromptSource<never, unknown, unknown> | undefined;
-};
+  readonly instructions: InstructionSource<never, unknown, unknown>
+  readonly inputPrompt?: InputPromptSource<never, unknown, unknown> | undefined
+}
 
 /** Executable model Binding accepted by durable registration descriptors. */
 export type ExecutableAgentBinding = {
-  readonly definition: ExecutableDefinition;
-  readonly model: Layer.Layer<ModelServices, never, unknown>;
-};
+  readonly definition: ExecutableDefinition
+  readonly model: Layer.Layer<ModelServices, never, unknown>
+}
 
 /**
  * Internal coordinator entry point for one fenced Attempt over an already-granted claim.
@@ -285,9 +284,9 @@ type ResolvedAttemptDriver = <
   InstructionError,
   InstructionRequirements,
   RunDispositionValue extends
-    | RunDispositionDeclaration<OutputSchema["Type"], Schema.Top>
+    | RunDispositionDeclaration<OutputSchema['Type'], Schema.Top>
     | undefined,
-  InputPromptValue extends InputPromptSource<InputSchema["Type"], unknown, unknown> | undefined,
+  InputPromptValue extends InputPromptSource<InputSchema['Type'], unknown, unknown> | undefined,
   UpdatesSchema extends Schema.Top | undefined,
 >(
   agent: RuntimeBinding<
@@ -324,7 +323,7 @@ type ResolvedAttemptDriver = <
     >,
     InstructionRequirements
   >
->;
+>
 
 type CapturedAttempt<A extends ExecutableAgentBinding> = (
   agent: A,
@@ -334,23 +333,23 @@ type CapturedAttempt<A extends ExecutableAgentBinding> = (
   Option.Option<Settlement>,
   DurableWorkerFailure | DurableBindingFailure,
   DurableWorkerRequirements<A>
->;
+>
 
 /**
  * An Agent with its worker services captured, ready to drive a fenced Attempt.
  * Concrete Schema and model types stay inside this closure when registrations are collected.
  */
 interface CapturedBinding {
-  readonly agentId: AgentId;
+  readonly agentId: AgentId
   /** Exact immutable definition whose codecs and behavior the worker captured. */
-  readonly definition: Agent.AnyDefinition;
+  readonly definition: Agent.AnyDefinition
   /** Captured independently from per-Attempt services: report preparation has no fenced Claim. */
-  readonly reporting?: ReadonlyArray<WorkerReporting<WorkerReportPreparationFailure>>;
+  readonly reporting?: ReadonlyArray<WorkerReporting<WorkerReportPreparationFailure>>
   readonly attempt: (
     driver: ResolvedAttemptDriver,
     threadId: ThreadId,
     claim: Claim,
-  ) => Effect.Effect<Option.Option<Settlement>, DurableWorkerFailure | DurableBindingFailure>;
+  ) => Effect.Effect<Option.Option<Settlement>, DurableWorkerFailure | DurableBindingFailure>
 }
 
 // Registrations outlive their construction span. Dependencies remain captured,
@@ -371,12 +370,12 @@ const omitTraceContext = Context.omit(
   References.CurrentStackFrame,
   References.CurrentLogAnnotations,
   References.CurrentLogSpans,
-);
+)
 
 // R describes captured application services; ParentSpan is supplied by the
 // live invocation rather than stored as a registration dependency.
 const withoutTraceContext = <R>(context: Context.Context<R>): Context.Context<R> =>
-  omitTraceContext(context) as Context.Context<R>;
+  omitTraceContext(context) as Context.Context<R>
 
 const captureReporting = <E, R>(reports: ReadonlyArray<WorkerReporting<E, R>>) =>
   Effect.map(
@@ -390,22 +389,22 @@ const captureReporting = <E, R>(reports: ReadonlyArray<WorkerReporting<E, R>>) =
             Effect.mapError((error) =>
               Schema.is(WorkerReportPreparationFailure)(error)
                 ? error
-                : WorkerReportPreparationFailure.make({ stage: "preparation" }),
+                : WorkerReportPreparationFailure.make({ stage: 'preparation' })
             ),
           ),
       })),
-  );
+  )
 
 /** One exact executable registration used by durable claim-time resolution. */
 export interface ResolvedBinding extends CapturedBinding {
-  readonly digests: DefinitionDigests;
+  readonly digests: DefinitionDigests
 }
 
 /** Trusted claim identity for resolving per-Attempt application services. Not model input. */
 export interface AgentAttemptContext {
-  readonly threadId: ThreadId;
-  readonly submissionId: Claim["submissionId"];
-  readonly attemptId: Claim["attemptId"];
+  readonly threadId: ThreadId
+  readonly submissionId: Claim['submissionId']
+  readonly attemptId: Claim['attemptId']
 }
 
 const capture = <A extends ExecutableAgentBinding, Requires>(
@@ -428,31 +427,28 @@ const capture = <A extends ExecutableAgentBinding, Requires>(
         // Registration closes one concrete Binding before heterogeneous registrations are
         // collected. TypeScript cannot instantiate the higher-rank RuntimeBinding parameters
         // from the intentionally erased public shape, so specialize the driver back to A here.
-        const run = driver as unknown as CapturedAttempt<A>;
+        const run = driver as unknown as CapturedAttempt<A>
 
         const execute = withProvisionalTextAttempt(
           run(agent, threadId, claim),
           threadId,
           claim.submissionId,
           claim.attemptId,
-        );
+        )
 
         return prepare(execute, {
           threadId,
           submissionId: claim.submissionId,
           attemptId: claim.attemptId,
-        }).pipe(Effect.provide(context));
+        }).pipe(Effect.provide(context))
       },
     }),
-  );
+  )
 
 const captureWithAttemptLayer = <A extends ExecutableAgentBinding, Provides, Requires>(
   agent: A,
   attemptLayer: (context: AgentAttemptContext) => Layer.Layer<Provides, never, Requires>,
-) =>
-  capture(agent, (execute, context) =>
-    execute.pipe(Effect.provide(Layer.fresh(attemptLayer(context)))),
-  );
+) => capture(agent, (execute, context) => execute.pipe(Effect.provide(Layer.fresh(attemptLayer(context)))))
 
 /**
  * Build one exact worker registration from an executable Agent Binding and
@@ -474,171 +470,166 @@ export const DurableWorkerBinding = {
     // Infer report services from descriptors, not an enclosing Effect collection's context.
     DurableWorkerRequirements<A> | Exclude<NoInfer<R>, Scope.Scope>
   > =>
-    Effect.gen(function* () {
-      const binding = yield* capture(agent, (execute) => execute);
-      const reporting = yield* captureReporting(reports);
+    Effect.gen(function*() {
+      const binding = yield* capture(agent, (execute) => execute)
+      const reporting = yield* captureReporting(reports)
 
-      return { ...binding, digests, reporting };
+      return { ...binding, digests, reporting }
     }),
-} as const;
+} as const
 
 /** INTERNAL identity-only capture retained for the legacy direct worker path. */
 export const makeLegacyWorkerBinding = <A extends ExecutableAgentBinding>(agent: A) =>
-  capture(agent, (execute) => execute);
+  capture(agent, (execute) => execute)
 
-export const resolveWorkerBinding = Effect.fnUntraced(function* (
+export const resolveWorkerBinding = Effect.fnUntraced(function*(
   bindings: ReadonlyArray<ResolvedBinding>,
   submission: SubmissionSnapshot,
 ) {
-  const selection = yield* CurrentBindingSelection;
-  const definition = selection === undefined ? undefined : yield* selection.select(submission);
+  const selection = yield* CurrentBindingSelection
+  const definition = selection === undefined ? undefined : yield* selection.select(submission)
 
   const registered = bindings.filter(
     (binding) =>
       binding.agentId === submission.agentId &&
       (definition === undefined || Object.is(binding.definition, definition)),
-  );
+  )
 
-  const binding = registered[0];
+  const binding = registered[0]
 
-  if (registered.length !== 1 || binding === undefined)
+  if (registered.length !== 1 || binding === undefined) {
     return yield* BindingUnavailable.make({
       agentId: submission.agentId,
-      message: "Exactly one current Agent Binding must match the accepted Submission",
-    });
+      message: 'Exactly one current Agent Binding must match the accepted Submission',
+    })
+  }
 
-  return binding;
-});
+  return binding
+})
 
 /** Resolve authoring-time admission through exact host registration, never by identity alone. */
 export const resolveDefinitionBinding = (
   bindings: ReadonlyArray<ResolvedBinding>,
-  definition: Pick<Agent.AnyDefinition, "id">,
+  definition: Pick<Agent.AnyDefinition, 'id'>,
 ): Effect.Effect<ResolvedBinding, BindingUnavailable> => {
   const candidates = bindings.filter(
     (binding) => binding.agentId === definition.id && Object.is(binding.definition, definition),
-  );
+  )
 
-  const binding = candidates[0];
+  const binding = candidates[0]
 
   return candidates.length === 1 && binding !== undefined
     ? Effect.succeed(binding)
     : Effect.fail(
-        BindingUnavailable.make({
-          agentId: definition.id,
-          message:
-            "Registered admission requires exactly one registration of the exact Agent Definition",
-        }),
-      );
-};
+      BindingUnavailable.make({
+        agentId: definition.id,
+        message: 'Registered admission requires exactly one registration of the exact Agent Definition',
+      }),
+    )
+}
 
 /** Application versions and a model Layer, supplied directly or through an existing Binding. */
-export type AgentRegistration<A extends ExecutableAgentBinding = ExecutableAgentBinding> = (
-  | { readonly agent: A; readonly model?: never; readonly definitions: DefinitionDigestInput }
-  | {
-      readonly agent: A["definition"];
-      readonly model: A["model"];
-      readonly definitions: DefinitionDigestInput;
+export type AgentRegistration<A extends ExecutableAgentBinding = ExecutableAgentBinding> =
+  & (
+    | { readonly agent: A; readonly model?: never; readonly definitions: DefinitionDigestInput }
+    | {
+      readonly agent: A['definition']
+      readonly model: A['model']
+      readonly definitions: DefinitionDigestInput
     }
-) & {
-  /** Parent-owned completion/update projections; services are captured independently of attempts. */
-  readonly reporting?: ReadonlyArray<WorkerReporting<unknown, unknown>>;
-  /** Explicit operation versions let unchanged unfinished handlers survive toolbox changes. */
-  readonly continuity?: {
-    readonly versions: ReplayVersions;
-  };
-  /**
-   * Build fresh services for exactly one fenced Attempt, across all its Tool/model turns.
-   * Finalizes on completion, suspension, failure and interruption. Never reused after eviction.
-   * Resolve invocation authority from the trusted claim identity, not captured caller state.
-   * Keep fallible resource acquisition lazy in typed Tool operations; this Layer cannot fail.
-   * Provide DurableApprovalSuspension here when resources need retention before approval waits.
-   */
-  readonly attemptLayer?: (context: AgentAttemptContext) => Layer.Layer<never, never, unknown>;
-};
+  )
+  & {
+    /** Parent-owned completion/update projections; services are captured independently of attempts. */
+    readonly reporting?: ReadonlyArray<WorkerReporting<unknown, unknown>>
+    /** Explicit operation versions let unchanged unfinished handlers survive toolbox changes. */
+    readonly continuity?: {
+      readonly versions: ReplayVersions
+    }
+    /**
+     * Build fresh services for exactly one fenced Attempt, across all its Tool/model turns.
+     * Finalizes on completion, suspension, failure and interruption. Never reused after eviction.
+     * Resolve invocation authority from the trusted claim identity, not captured caller state.
+     * Keep fallible resource acquisition lazy in typed Tool operations; this Layer cannot fail.
+     * Provide DurableApprovalSuspension here when resources need retention before approval waits.
+     */
+    readonly attemptLayer?: (context: AgentAttemptContext) => Layer.Layer<never, never, unknown>
+  }
 
 type EntryWorkerRequirements<Entry> = Entry extends {
-  readonly agent: infer A extends ExecutableAgentBinding;
-}
-  ? DurableWorkerRequirements<A>
+  readonly agent: infer A extends ExecutableAgentBinding
+} ? DurableWorkerRequirements<A>
   : Entry extends {
-        readonly agent: infer D extends ExecutableDefinition;
-        readonly model: infer M extends ExecutableAgentBinding["model"];
-      }
-    ? DurableWorkerRequirements<{ readonly definition: D; readonly model: M }>
-    : never;
+    readonly agent: infer D extends ExecutableDefinition
+    readonly model: infer M extends ExecutableAgentBinding['model']
+  } ? DurableWorkerRequirements<{ readonly definition: D; readonly model: M }>
+  : never
 
 type AttemptLayerRequirements<Requirements, AttemptLayer> = AttemptLayer extends (
   context: AgentAttemptContext,
-) => Layer.Layer<infer Provides, never, infer Requires>
-  ? Exclude<Requirements, Provides> | Requires
-  : Requirements;
+) => Layer.Layer<infer Provides, never, infer Requires> ? Exclude<Requirements, Provides> | Requires
+  : Requirements
 
 // Conditional options retain every service they may consume. An absent attempt Layer
 // still needs the original worker services; only a definite Layer can remove them.
-type EntryRequirements<Entry> = Entry extends unknown
-  ?
-      | ReportingRequirements<"reporting" extends keyof Entry ? Entry["reporting"] : undefined>
-      | AttemptLayerRequirements<
-          EntryWorkerRequirements<Entry>,
-          "attemptLayer" extends keyof Entry ? Entry["attemptLayer"] : undefined
-        >
-  : never;
+type EntryRequirements<Entry> = Entry extends unknown ?
+    | ReportingRequirements<'reporting' extends keyof Entry ? Entry['reporting'] : undefined>
+    | AttemptLayerRequirements<
+      EntryWorkerRequirements<Entry>,
+      'attemptLayer' extends keyof Entry ? Entry['attemptLayer'] : undefined
+    >
+  : never
 
-type ReportingRequirements<Reports> =
-  Reports extends ReadonlyArray<WorkerReporting<infer _E, infer R>>
-    ? Exclude<R, Scope.Scope>
-    : never;
+type ReportingRequirements<Reports> = Reports extends ReadonlyArray<WorkerReporting<infer _E, infer R>>
+  ? Exclude<R, Scope.Scope>
+  : never
 
 type RegistrationRequirements<Entries extends ReadonlyArray<AgentRegistration>> = EntryRequirements<
   Entries[number]
->;
+>
 
 const registrationDefinitions = (entry: AgentRegistration): DefinitionDigestInput => {
-  const definition = entry.model === undefined ? entry.agent.definition : entry.agent;
-  const reports = entry.reporting ?? [];
+  const definition = entry.model === undefined ? entry.agent.definition : entry.agent
+  const reports = entry.reporting ?? []
 
-  const declaredDefinitions =
-    definition.updates === undefined
-      ? entry.definitions
-      : {
-          ...entry.definitions,
-          agent: {
-            declaration: entry.definitions.agent,
-            updates: Schema.decodeUnknownSync(Schema.Json)(
-              Tool.getJsonSchemaFromSchema(definition.updates),
-            ),
-            updateProtocol: { schemaVersion: 1, tool: "emit_update" },
-          },
-        };
+  const declaredDefinitions = definition.updates === undefined
+    ? entry.definitions
+    : {
+      ...entry.definitions,
+      agent: {
+        declaration: entry.definitions.agent,
+        updates: Schema.decodeUnknownSync(Schema.Json)(
+          Tool.getJsonSchemaFromSchema(definition.updates),
+        ),
+        updateProtocol: { schemaVersion: 1, tool: 'emit_update' },
+      },
+    }
 
-  const definitions =
-    reports.length === 0
-      ? declaredDefinitions
-      : {
-          ...declaredDefinitions,
-          agent: {
-            declaration: declaredDefinitions.agent,
-            backgroundReporting: reports.map((report) => ({
-              delegationId: report.delegationId,
-              targetAgentId: report.target.id,
-              mode: "standard",
-              // Preserve the fingerprint of existing standard registrations.
-              destinationDelegationId: null,
-            })),
-          },
-        };
+  const definitions = reports.length === 0
+    ? declaredDefinitions
+    : {
+      ...declaredDefinitions,
+      agent: {
+        declaration: declaredDefinitions.agent,
+        backgroundReporting: reports.map((report) => ({
+          delegationId: report.delegationId,
+          targetAgentId: report.target.id,
+          mode: 'standard',
+          // Preserve the fingerprint of existing standard registrations.
+          destinationDelegationId: null,
+        })),
+      },
+    }
 
-  const exposure = definition.toolExposure;
+  const exposure = definition.toolExposure
 
   if (
     exposure === undefined &&
     !Object.values(definition.toolkit.tools).some(
-      (tool) =>
-        Context.get(tool.annotations, DiscoveryTool) || Context.get(tool.annotations, PinnedTool),
+      (tool) => Context.get(tool.annotations, DiscoveryTool) || Context.get(tool.annotations, PinnedTool),
     )
-  )
-    return definitions;
+  ) {
+    return definitions
+  }
 
   return {
     ...definitions,
@@ -663,40 +654,39 @@ const registrationDefinitions = (entry: AgentRegistration): DefinitionDigestInpu
         })),
       },
     },
-  };
-};
+  }
+}
 
 // The public signature distributes over descriptors, including optional attempt Layers.
 // The implementation consumes their erased union and captures the selected Layer's context.
 function compileRegistration<Entry extends AgentRegistration>(
   entry: Entry,
-): Effect.Effect<ResolvedBinding, DigestError, CryptoDigest.Digest | EntryRequirements<Entry>>;
+): Effect.Effect<ResolvedBinding, DigestError, CryptoDigest.Digest | EntryRequirements<Entry>>
 function compileRegistration(entry: AgentRegistration) {
   return Effect.flatMap(
     Effect.try({
       try: () => registrationDefinitions(entry),
-      catch: () =>
-        DigestError.make({ message: "Agent update schema has no serializable wire contract" }),
+      catch: () => DigestError.make({ message: 'Agent update schema has no serializable wire contract' }),
     }),
     (definitions) =>
-      Effect.gen(function* () {
+      Effect.gen(function*() {
         const agent =
           // The heterogeneous descriptor erases model services; the overload retains EntryRequirements.
           // @effect-diagnostics-next-line anyUnknownInErrorContext:off
-          entry.model === undefined ? entry.agent : { definition: entry.agent, model: entry.model };
+          entry.model === undefined ? entry.agent : { definition: entry.agent, model: entry.model }
 
         // Omitted attempt services need no Layer construction or provisioning scope.
         const binding = yield* entry.attemptLayer === undefined
-          ? // Capture closes the erased requirements over the registration's actual Context.
-            // @effect-diagnostics-next-line anyUnknownInErrorContext:off
-            capture(agent, (execute) => execute)
-          : // The selected Layer discharges its services before the remaining Context is captured.
-            // @effect-diagnostics-next-line anyUnknownInErrorContext:off
-            captureWithAttemptLayer(agent, entry.attemptLayer);
+          // Capture closes the erased requirements over the registration's actual Context.
+          // @effect-diagnostics-next-line anyUnknownInErrorContext:off
+          ? capture(agent, (execute) => execute)
+          // The selected Layer discharges its services before the remaining Context is captured.
+          // @effect-diagnostics-next-line anyUnknownInErrorContext:off
+          : captureWithAttemptLayer(agent, entry.attemptLayer)
 
         // The descriptor erases projection services; EntryRequirements retains them for callers.
         // @effect-diagnostics-next-line anyUnknownInErrorContext:off
-        const reporting = yield* captureReporting(entry.reporting ?? []);
+        const reporting = yield* captureReporting(entry.reporting ?? [])
 
         return {
           ...binding,
@@ -706,9 +696,9 @@ function compileRegistration(entry: AgentRegistration) {
             entry.continuity?.versions,
           )),
           reporting,
-        };
+        }
       }),
-  );
+  )
 }
 
 /** Compile heterogeneous Agent descriptors into exact, dependency-closed worker registrations. */
@@ -719,5 +709,5 @@ export const compileRegistrations = <const Entries extends ReadonlyArray<AgentRe
   DigestError,
   CryptoDigest.Digest | RegistrationRequirements<Entries>
 > => {
-  return Effect.forEach(entries, compileRegistration<Entries[number]>);
-};
+  return Effect.forEach(entries, compileRegistration<Entries[number]>)
+}

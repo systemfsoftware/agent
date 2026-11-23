@@ -1,33 +1,28 @@
-import * as DateTime from "effect/DateTime";
-import * as Effect from "effect/Effect";
-import * as Schema from "effect/Schema";
+import * as DateTime from 'effect/DateTime'
+import * as Effect from 'effect/Effect'
+import * as Schema from 'effect/Schema'
 
-import { ThreadId, SubmissionId, ToolCallId } from "../core/Identifiers.ts";
-import {
-  CanonicalSequence,
-  SettlementOutcome,
-  DeclaredToolCall,
-  ToolCallUnknown,
-} from "./Records.ts";
+import { SubmissionId, ThreadId, ToolCallId } from '../core/Identifiers.ts'
+import { CanonicalSequence, DeclaredToolCall, SettlementOutcome, ToolCallUnknown } from './Records.ts'
 import {
   OpenDelegationCallEvidence,
   OpenToolCallEvidence,
   PendingApprovalEvidence,
   RecoveryDecision,
-} from "./Recovery.ts";
+} from './Recovery.ts'
 import {
-  AbortIntent,
   AbortCommand,
+  AbortIntent,
   ApprovalDecisionIntent,
   ChildAttachmentSnapshot,
   JoinSnapshot,
   ParentLinkage,
   QueueSequence,
+  type RecoverySnapshot,
   SubmissionState,
   SuspensionSnapshot,
   UnknownResolutionIntent,
-  type RecoverySnapshot,
-} from "./SubmissionLedger.ts";
+} from './SubmissionLedger.ts'
 
 /**
  * Pure report logic for the P7 administrative operations (plan §3): the Schema classes carried
@@ -36,10 +31,10 @@ import {
  * no clocks, no writes — so hosts, CLIs, and wire envelopes share one report vocabulary.
  */
 
-const BoundedDetail = Schema.String.check(Schema.isMaxLength(4_096));
+const BoundedDetail = Schema.String.check(Schema.isMaxLength(4_096))
 
 /** Non-negative whole seconds derived from the Effect Clock. */
-const AgeSeconds = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0));
+const AgeSeconds = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))
 
 // ---------------------------------------------------------------------------
 // explain — RecoveryExplanation
@@ -49,12 +44,12 @@ const AgeSeconds = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0));
  * The disposition family of `RecoveryReport`, reused verbatim so an explanation predicts exactly
  * what `runRecovery`/`retry` would report for the same decision.
  */
-export const RecoveryDisposition = Schema.Literals(["repaired", "deferred", "none", "unknown"]);
-export type RecoveryDisposition = typeof RecoveryDisposition.Type;
+export const RecoveryDisposition = Schema.Literals(['repaired', 'deferred', 'none', 'unknown'])
+export type RecoveryDisposition = typeof RecoveryDisposition.Type
 
 /** Submission identity, lane position, and Clock-derived ages (DUR-017 obligation visibility). */
 export class ExplainedSubmission extends Schema.Class<ExplainedSubmission>(
-  "@effect-agent/thread/ExplainedSubmission",
+  '@effect-agent/thread/ExplainedSubmission',
 )({
   submissionId: SubmissionId,
   threadId: ThreadId,
@@ -71,7 +66,7 @@ export class ExplainedSubmission extends Schema.Class<ExplainedSubmission>(
 
 /** One durable Unknown Outcome and whether its result is canonical (DUR-017). */
 export class ExplainedUnknownCall extends Schema.Class<ExplainedUnknownCall>(
-  "@effect-agent/thread/ExplainedUnknownCall",
+  '@effect-agent/thread/ExplainedUnknownCall',
 )({
   toolCallId: ToolCallId,
   toolName: ToolCallUnknown.fields.toolName,
@@ -87,7 +82,7 @@ export class ExplainedUnknownCall extends Schema.Class<ExplainedUnknownCall>(
  * observation — assembling this value performs zero writes.
  */
 export class ExplainedEvidence extends Schema.Class<ExplainedEvidence>(
-  "@effect-agent/thread/ExplainedEvidence",
+  '@effect-agent/thread/ExplainedEvidence',
 )({
   threadMaterialized: Schema.Boolean,
   inputRecorded: Schema.Boolean,
@@ -126,7 +121,7 @@ export class ExplainedEvidence extends Schema.Class<ExplainedEvidence>(
  * meaning, and the disposition the recovery pass would report for it.
  */
 export class RecoveryExplanation extends Schema.Class<RecoveryExplanation>(
-  "@effect-agent/thread/RecoveryExplanation",
+  '@effect-agent/thread/RecoveryExplanation',
 )({
   submission: ExplainedSubmission,
   evidence: ExplainedEvidence,
@@ -149,67 +144,66 @@ export class RecoveryExplanation extends Schema.Class<RecoveryExplanation>(
  * rendering). Exhaustive over `RecoveryDecision` — adding a decision without a meaning is a
  * compile error here.
  */
-export const RECOVERY_DECISION_MEANINGS: Readonly<Record<RecoveryDecision["_tag"], string>> = {
+export const RECOVERY_DECISION_MEANINGS: Readonly<Record<RecoveryDecision['_tag'], string>> = {
   CompleteMaterialization:
-    "Ledger admission committed but the Thread is not durable: recovery finishes materialization, appends ThreadCreated, and marks readiness.",
+    'Ledger admission committed but the Thread is not durable: recovery finishes materialization, appends ThreadCreated, and marks readiness.',
   RepairReadiness:
-    "The Thread is durable but the readiness marker is missing: recovery replays the idempotent markReady.",
+    'The Thread is durable but the readiness marker is missing: recovery replays the idempotent markReady.',
   ApplyInput:
-    "No canonical input record exists yet: recovery appends the deterministic UserInputRecorded record and marks it applied.",
+    'No canonical input record exists yet: recovery appends the deterministic UserInputRecorded record and marks it applied.',
   RepairInputMarker:
-    "The canonical input record exists but the ledger marker was lost: recovery repairs the marker from history, never the reverse (DUR-015).",
+    'The canonical input record exists but the ledger marker was lost: recovery repairs the marker from history, never the reverse (DUR-015).',
   ResumeFromTurnBoundary:
-    "Input is applied and no terminal outcome is canonical: a claiming worker resumes the Run from the last committed Turn boundary; the model may be re-invoked and any duplicate cost is observable (durability §9).",
+    'Input is applied and no terminal outcome is canonical: a claiming worker resumes the Run from the last committed Turn boundary; the model may be re-invoked and any duplicate cost is observable (durability §9).',
   FinalizeLedgerFromHistory:
-    "The canonical settlement record exists: recovery rebuilds/finalizes the ledger from history and never rewrites history from the cached ledger status (DUR-011, DUR-015).",
+    'The canonical settlement record exists: recovery rebuilds/finalizes the ledger from history and never rewrites history from the cached ledger status (DUR-011, DUR-015).',
   SettleAborted:
-    "A durable abort intent exists with no canonical terminal outcome and no open attached-child obligation: recovery settles aborted, first recording ToolCallUnknown audits for open ordinary calls — abort never asserts external rollback (durability §13).",
+    'A durable abort intent exists with no canonical terminal outcome and no open attached-child obligation: recovery settles aborted, first recording ToolCallUnknown audits for open ordinary calls — abort never asserts external rollback (durability §13).',
   MarkUnknown:
-    "Declared ordinary Tool Calls have no canonical outcome: recovery reconciles each open call and marks the remainder Unknown — never an automatic replay (DUR-009/DUR-017).",
+    'Declared ordinary Tool Calls have no canonical outcome: recovery reconciles each open call and marks the remainder Unknown — never an automatic replay (DUR-009/DUR-017).',
   ResumePendingToolBatch:
-    "A committed tool-declaring response has unfinished calls whose original operation contracts permit replay: a claiming worker resumes those calls without model re-invocation; unresolved ordinary mutating calls require reconciliation.",
+    'A committed tool-declaring response has unfinished calls whose original operation contracts permit replay: a claiming worker resumes those calls without model re-invocation; unresolved ordinary mutating calls require reconciliation.',
   AwaitApprovalDecision:
-    "Canonically requested approvals lack decisions: the lane waits durably for the authorized resolveApproval path (recovery repairs a lost suspend transition from history).",
+    'Canonically requested approvals lack decisions: the lane waits durably for the authorized resolveApproval path (recovery repairs a lost suspend transition from history).',
   ResumeSuspended:
-    "Every pending approval has a durable decision: a claiming worker resumes the declared batch, appending the canonical ToolApprovalDecided records first.",
+    'Every pending approval has a durable decision: a claiming worker resumes the declared batch, appending the canonical ToolApprovalDecided records first.',
   AwaitUnknownResolution:
-    "Unknown Outcomes lack covering resolutions: this Submission stays parked awaiting the authorized DUR-017 resolveUnknown path; later eligible input may run, and the original obligation stays visible.",
+    'Unknown Outcomes lack covering resolutions: this Submission stays parked awaiting the authorized DUR-017 resolveUnknown path; later eligible input may run, and the original obligation stays visible.',
   ApplyUnknownResolutions:
-    "Durable resolution intents cover every open call: recovery wakes the original Submission when required retry contracts are supported; its next claim applies canonical outcomes.",
+    'Durable resolution intents cover every open call: recovery wakes the original Submission when required retry contracts are supported; its next claim applies canonical outcomes.',
   RevertJoining:
-    "The Submission is joining without a canonical input record: recovery reverts it to ready — the input was never consumed and will be delivered exactly once later (DUR-016).",
+    'The Submission is joining without a canonical input record: recovery reverts it to ready — the input was never consumed and will be delivered exactly once later (DUR-016).',
   RepairJoinMarker:
-    "The canonical joined input exists but the joined marker was lost: recovery repairs the marker only; the input reattaches, never duplicates (DUR-015/DUR-016).",
+    'The canonical joined input exists but the joined marker was lost: recovery repairs the marker only; the input reattaches, never duplicates (DUR-015/DUR-016).',
   SettleJoinedWithHost:
-    "The host Run settled canonically: recovery settles this joined Submission with the host outcome — each joined Submission is owed its own settlement (DUR-002).",
+    'The host Run settled canonically: recovery settles this joined Submission with the host outcome — each joined Submission is owed its own settlement (DUR-002).',
   AwaitHostSettlement:
     "The Submission is joined and its host Run is still live: nothing to repair — the input reattaches through the host's resume and the Submission settles with the host.",
   CompleteChildAdmission:
-    "A canonical SubagentRequested exists and the authoritative lookup proved not-admitted: recovery idempotently admits the intended child from the canonical request payload alone.",
+    'A canonical SubagentRequested exists and the authoritative lookup proved not-admitted: recovery idempotently admits the intended child from the canonical request payload alone.',
   AwaitChildAdmissionResolution:
-    "The authoritative child-admission lookup answered indeterminate (or was not performed): recovery waits and retries the authoritative owner; a second admission never occurs (SUB-031).",
+    'The authoritative child-admission lookup answered indeterminate (or was not performed): recovery waits and retries the authoritative owner; a second admission never occurs (SUB-031).',
   RepairSubagentStartLink:
     "The child is admitted but the parent's SubagentStarted link (or reservation attachment) is missing: recovery resolves the SAME child by its deterministic key and appends the exact link (SUB-016/SUB-017).",
   EnsureWaitingForChild:
-    "Children are established and at least one is nonterminal while the parent lane is not durably suspended: recovery restores the waitingForChild suspension; it reattaches the one existing child and never spawns a replacement (SUB-018/SUB-030).",
+    'Children are established and at least one is nonterminal while the parent lane is not durably suspended: recovery restores the waitingForChild suspension; it reattaches the one existing child and never spawns a replacement (SUB-018/SUB-030).',
   AwaitChildSettlement:
     "The parent is durably suspended waitingForChild and a listed child is not yet provably settled: the lane stays dormant, consumes no worker permit, and the child's Settlement wakes it durably (SUB-021/SUB-030).",
   ResumeWaitingParent:
     "Every relevant child is provably settled but the parent has not joined: recovery replays the idempotent wake so a claiming worker resumes the declared batch and joins each child's canonical Settlement.",
   ApplyJoinAccounting:
-    "The canonical SubagentJoined record exists but the reservation release is incomplete: recovery replays the accounting decision FROM the canonical record — budget stays unavailable until repair, never available twice (DUR-015).",
+    'The canonical SubagentJoined record exists but the reservation release is incomplete: recovery replays the accounting decision FROM the canonical record — budget stays unavailable until repair, never available twice (DUR-015).',
   PropagateChildAbort:
     "Parent abort is canonical while attached children are nonterminal: recovery idempotently issues each child's durable abort command and keeps the parent waiting for the joins — request-abort-and-join is the only close behavior.",
   ReleaseOrphanChildReservation:
-    "A child budget reservation can no longer bind a child: recovery freezes the deterministic zero-consumed accounting decision and releases the unused allocation exactly once.",
+    'A child budget reservation can no longer bind a child: recovery freezes the deterministic zero-consumed accounting decision and releases the unused allocation exactly once.',
   AwaitParentEstablishment:
     "The Submission is a parent-linked child whose Thread lacks the canonical lineage record: the child lane defers its own readiness repair — the parent's idempotent establishment completes it, so a child never runs a Turn before its lineage is canonical (P7 §7(a), SUB-016).",
-  NoAction: "The Submission is settled; nothing is owed.",
-};
+  NoAction: 'The Submission is settled; nothing is owed.',
+}
 
 /** The operator meaning of one recovery decision tag. */
-export const recoveryDecisionMeaning = (tag: RecoveryDecision["_tag"]): string =>
-  RECOVERY_DECISION_MEANINGS[tag];
+export const recoveryDecisionMeaning = (tag: RecoveryDecision['_tag']): string => RECOVERY_DECISION_MEANINGS[tag]
 
 /**
  * The disposition the recovery executor reports for a decision when its repair executes without
@@ -223,117 +217,127 @@ export const predictRecoveryDisposition = (
   snapshot: RecoverySnapshot,
 ): RecoveryDisposition => {
   switch (decision._tag) {
-    case "NoAction":
-      return "none";
-    case "AwaitUnknownResolution":
-    case "MarkUnknown":
-      return "unknown";
-    case "ResumeFromTurnBoundary":
-    case "ResumePendingToolBatch":
-    case "ResumeSuspended":
-    case "AwaitHostSettlement":
-    case "AwaitChildAdmissionResolution":
-    case "AwaitChildSettlement":
-    case "AwaitParentEstablishment":
-      return "deferred";
-    case "AwaitApprovalDecision":
-      return snapshot.submission.state === "suspended" ? "deferred" : "repaired";
+    case 'NoAction':
+      return 'none'
+    case 'AwaitUnknownResolution':
+    case 'MarkUnknown':
+      return 'unknown'
+    case 'ResumeFromTurnBoundary':
+    case 'ResumePendingToolBatch':
+    case 'ResumeSuspended':
+    case 'AwaitHostSettlement':
+    case 'AwaitChildAdmissionResolution':
+    case 'AwaitChildSettlement':
+    case 'AwaitParentEstablishment':
+      return 'deferred'
+    case 'AwaitApprovalDecision':
+      return snapshot.submission.state === 'suspended' ? 'deferred' : 'repaired'
     default:
-      return "repaired";
+      return 'repaired'
   }
-};
+}
 
-const formatUtc = (value: DateTime.Utc): string => DateTime.formatIso(value);
+const formatUtc = (value: DateTime.Utc): string => DateTime.formatIso(value)
 
 /** Pure operator text for one explanation (the CLI's `explain` output body). */
 export const renderRecoveryExplanation = (explanation: RecoveryExplanation): string => {
-  const submission = explanation.submission;
-  const evidence = explanation.evidence;
+  const submission = explanation.submission
+  const evidence = explanation.evidence
 
   const lines: Array<string> = [
     `Submission ${submission.submissionId} (thread ${submission.threadId})`,
     `  state: ${submission.state}  queue: ${submission.queueSequence}  age: ${submission.ageSeconds}s`,
     `  admitted: ${formatUtc(submission.createdAt)}${
-      submission.readyAt === undefined ? "" : `  ready: ${formatUtc(submission.readyAt)}`
+      submission.readyAt === undefined ? '' : `  ready: ${formatUtc(submission.readyAt)}`
     }`,
-  ];
+  ]
 
   if (submission.parentLinkage !== undefined) {
     lines.push(
       `  attached child of ${submission.parentLinkage.parentSubmissionId} (tool call ${submission.parentLinkage.parentToolCallId})`,
-    );
+    )
   }
   lines.push(
-    `  evidence: input=${evidence.inputRecorded ? "recorded" : "missing"}` +
-      ` settlement=${evidence.recordedSettlementOutcome ?? "none"}` +
-      ` abort=${evidence.abortRecorded ? "recorded" : "none"}` +
-      ` materialized=${evidence.threadMaterialized ? "yes" : "no"}`,
-  );
+    `  evidence: input=${evidence.inputRecorded ? 'recorded' : 'missing'}` +
+      ` settlement=${evidence.recordedSettlementOutcome ?? 'none'}` +
+      ` abort=${evidence.abortRecorded ? 'recorded' : 'none'}` +
+      ` materialized=${evidence.threadMaterialized ? 'yes' : 'no'}`,
+  )
   if (evidence.openToolCalls.length > 0) {
     lines.push(
-      `  open ordinary tool calls: ${evidence.openToolCalls
-        .map((call) => `${call.toolName}#${call.toolCallId}`)
-        .join(", ")}`,
-    );
+      `  open ordinary tool calls: ${
+        evidence.openToolCalls
+          .map((call) => `${call.toolName}#${call.toolCallId}`)
+          .join(', ')
+      }`,
+    )
   }
   if (evidence.openDelegationCalls.length > 0) {
     lines.push(
-      `  open delegation calls: ${evidence.openDelegationCalls
-        .map(
-          (call) =>
-            `${call.toolName}#${call.toolCallId}(requested=${call.requested} started=${call.started} joined=${call.joined})`,
-        )
-        .join(", ")}`,
-    );
+      `  open delegation calls: ${
+        evidence.openDelegationCalls
+          .map(
+            (call) =>
+              `${call.toolName}#${call.toolCallId}(requested=${call.requested} started=${call.started} joined=${call.joined})`,
+          )
+          .join(', ')
+      }`,
+    )
   }
   if (evidence.approvalsPending.length > 0) {
     lines.push(
-      `  approvals pending: ${evidence.approvalsPending
-        .map((pending) => pending.toolCallId)
-        .join(", ")}`,
-    );
+      `  approvals pending: ${
+        evidence.approvalsPending
+          .map((pending) => pending.toolCallId)
+          .join(', ')
+      }`,
+    )
   }
   for (const unknown of evidence.unknownCalls) {
     lines.push(
       `  unknown outcome: ${unknown.toolName}#${unknown.toolCallId} recorded ${formatUtc(unknown.recordedAt)} ${
-        unknown.resolved ? "(resolution intent recorded)" : "(awaiting resolveUnknown)"
+        unknown.resolved ? '(resolution intent recorded)' : '(awaiting resolveUnknown)'
       }`,
-    );
+    )
   }
   if (evidence.childAttachments.length > 0) {
     lines.push(
-      `  attached children: ${evidence.childAttachments
-        .map((child) => `${child.childSubmissionId}(${child.childState})`)
-        .join(", ")}`,
-    );
+      `  attached children: ${
+        evidence.childAttachments
+          .map((child) => `${child.childSubmissionId}(${child.childState})`)
+          .join(', ')
+      }`,
+    )
   }
   if (evidence.joins.length > 0) {
     lines.push(
-      `  joined members: ${evidence.joins
-        .map((join) => `${join.submissionId}(${join.state})`)
-        .join(", ")}`,
-    );
+      `  joined members: ${
+        evidence.joins
+          .map((join) => `${join.submissionId}(${join.state})`)
+          .join(', ')
+      }`,
+    )
   }
   if (evidence.hostSubmissionId !== undefined) {
-    lines.push(`  joined to host: ${evidence.hostSubmissionId}`);
+    lines.push(`  joined to host: ${evidence.hostSubmissionId}`)
   }
   if (evidence.suspension !== undefined) {
     lines.push(
       `  suspended (${evidence.suspension.reason._tag}) since ${formatUtc(evidence.suspension.suspendedAt)}`,
-    );
+    )
   }
   if (evidence.abortIntent !== undefined) {
     lines.push(
       `  abort intent by ${evidence.abortIntent.author} at ${formatUtc(evidence.abortIntent.requestedAt)}`,
-    );
+    )
   }
   lines.push(
     `  decision: ${explanation.decision._tag} → disposition ${explanation.disposition}`,
     `  meaning: ${explanation.decisionMeaning}`,
-  );
+  )
 
-  return lines.join("\n");
-};
+  return lines.join('\n')
+}
 
 // ---------------------------------------------------------------------------
 // verify — IntegrityReport
@@ -342,36 +346,36 @@ export const renderRecoveryExplanation = (explanation: RecoveryExplanation): str
 /** The named integrity checks `verifyThreadInvariants` performs. */
 export const IntegrityCheckName = Schema.Literals([
   /** Every exported envelope round-trips its canonical Schema. */
-  "schema-round-trip",
+  'schema-round-trip',
   /** No canonical record identity appears twice (DUR-007). */
-  "record-identity",
+  'record-identity',
   /** Canonical sequences are gap-free from 1 through the exported tail. */
-  "sequence-contiguity",
+  'sequence-contiguity',
   /** Every retained Run fact is addressable independently of the disposable Run directory.
    * Current execution references and original context must agree with retained history;
    * discarded checkpoint revisions and their historical counters are not reconstructed. */
-  "continuation-evidence",
+  'continuation-evidence',
   /** Canonical `input:{sid}` records follow the admitted FIFO order (DUR-004). */
-  "fifo-input-order",
+  'fifo-input-order',
   /** Canonical settlement records follow the admitted FIFO order (DUR-004); aborted
    * settlements of never-run work are exempt by design (P7 §7(c)). */
-  "input-before-settlement",
+  'input-before-settlement',
   /** At most one canonical terminal record per Submission; exactly one per settled row (DUR-002). */
-  "terminal-uniqueness",
+  'terminal-uniqueness',
   /** Ledger terminal state agrees with the canonical settlement record (DUR-015). */
-  "ledger-canonical-agreement",
+  'ledger-canonical-agreement',
   /** Convergence mode only: every known Submission is settled. */
-  "all-settled",
-]);
+  'all-settled',
+])
 
-export type IntegrityCheckName = typeof IntegrityCheckName.Type;
+export type IntegrityCheckName = typeof IntegrityCheckName.Type
 
-export const IntegrityCheckStatus = Schema.Literals(["passed", "failed", "skipped"]);
-export type IntegrityCheckStatus = typeof IntegrityCheckStatus.Type;
+export const IntegrityCheckStatus = Schema.Literals(['passed', 'failed', 'skipped'])
+export type IntegrityCheckStatus = typeof IntegrityCheckStatus.Type
 
 /** One typed check result; `detail` explains a failure or the honest reason for a skip. */
 export class IntegrityCheck extends Schema.Class<IntegrityCheck>(
-  "@effect-agent/thread/IntegrityCheck",
+  '@effect-agent/thread/IntegrityCheck',
 )({
   name: IntegrityCheckName,
   status: IntegrityCheckStatus,
@@ -384,7 +388,7 @@ export class IntegrityCheck extends Schema.Class<IntegrityCheck>(
  * honest scope statements, not silent passes.
  */
 export class IntegrityReport extends Schema.Class<IntegrityReport>(
-  "@effect-agent/thread/IntegrityReport",
+  '@effect-agent/thread/IntegrityReport',
 )({
   threadId: ThreadId,
   tailSequence: CanonicalSequence,
@@ -404,21 +408,21 @@ export class IntegrityReport extends Schema.Class<IntegrityReport>(
  * measurable and alertable.
  */
 export const ObligationBlockedOn = Schema.Literals([
-  "unknown",
-  "approval",
-  "waitingForChild",
-  "ready-aged",
-  "running-aged",
-]);
+  'unknown',
+  'approval',
+  'waitingForChild',
+  'ready-aged',
+  'running-aged',
+])
 
-export type ObligationBlockedOn = typeof ObligationBlockedOn.Type;
+export type ObligationBlockedOn = typeof ObligationBlockedOn.Type
 
-export const ObligationSeverity = Schema.Literals(["ok", "aging", "overdue"]);
-export type ObligationSeverity = typeof ObligationSeverity.Type;
+export const ObligationSeverity = Schema.Literals(['ok', 'aging', 'overdue'])
+export type ObligationSeverity = typeof ObligationSeverity.Type
 
 /** Host-supplied age thresholds; the framework deliberately does not own the alert loop. */
 export class ObligationThresholds extends Schema.Class<ObligationThresholds>(
-  "@effect-agent/thread/ObligationThresholds",
+  '@effect-agent/thread/ObligationThresholds',
 )({
   /** Age (whole seconds) at which an obligation is reported `aging`. */
   agingSeconds: AgeSeconds,
@@ -428,7 +432,7 @@ export class ObligationThresholds extends Schema.Class<ObligationThresholds>(
 
 /** One nonterminal accepted-work obligation with its age and severity. */
 export class ObligationEntry extends Schema.Class<ObligationEntry>(
-  "@effect-agent/thread/ObligationEntry",
+  '@effect-agent/thread/ObligationEntry',
 )({
   submissionId: SubmissionId,
   threadId: ThreadId,
@@ -446,7 +450,7 @@ export class ObligationEntry extends Schema.Class<ObligationEntry>(
  * `ToolCallUnknown` record's `createdAt`).
  */
 export class ObligationReport extends Schema.Class<ObligationReport>(
-  "@effect-agent/thread/ObligationReport",
+  '@effect-agent/thread/ObligationReport',
 )({
   thresholds: ObligationThresholds,
   entries: Schema.Array(ObligationEntry),
@@ -459,10 +463,10 @@ export const obligationSeverityOf = (
   thresholds: ObligationThresholds,
 ): ObligationSeverity =>
   ageSeconds >= thresholds.overdueSeconds
-    ? "overdue"
+    ? 'overdue'
     : ageSeconds >= thresholds.agingSeconds
-      ? "aging"
-      : "ok";
+    ? 'aging'
+    : 'ok'
 
 // ---------------------------------------------------------------------------
 // retry — typed command and refusals
@@ -474,7 +478,7 @@ export const obligationSeverityOf = (
  * operator and decision are logged. A repair with a claim also appends a best-effort
  * `RepairAnnotated` attempt using that claim's epoch; state-only repairs do not append audits.
  */
-export class RetryCommand extends Schema.Class<RetryCommand>("@effect-agent/thread/RetryCommand")({
+export class RetryCommand extends Schema.Class<RetryCommand>('@effect-agent/thread/RetryCommand')({
   submissionId: SubmissionId,
   author: AbortCommand.fields.author,
   reason: AbortCommand.fields.reason,
@@ -483,21 +487,21 @@ export class RetryCommand extends Schema.Class<RetryCommand>("@effect-agent/thre
 /** Why a retry was refused without executing anything. */
 export const RetryRefusalReason = Schema.Literals([
   /** The Submission is settled; terminal outcomes are never revisited (DUR-002). */
-  "settled",
+  'settled',
   /** The Submission is parked on Unknown Outcomes; use `resolveUnknown` (DUR-017). */
-  "await-unknown-resolution",
+  'await-unknown-resolution',
   /** The lane is durably waiting for approval decisions; use `resolveApproval`. */
-  "await-approval-decision",
-]);
+  'await-approval-decision',
+])
 
-export type RetryRefusalReason = typeof RetryRefusalReason.Type;
+export type RetryRefusalReason = typeof RetryRefusalReason.Type
 
 /**
  * Typed refusal of `retry` (plan §3): Submissions waiting on `AwaitUnknownResolution` or
  * `AwaitApprovalDecision` have their own authorized operations, and settled work is never
  * re-driven. The refusal names the classifier decision so the operator sees WHY.
  */
-export class RetryRefused extends Schema.TaggedError<RetryRefused>()("RetryRefused", {
+export class RetryRefused extends Schema.TaggedError<RetryRefused>()('RetryRefused', {
   submissionId: SubmissionId,
   refusal: RetryRefusalReason,
   decisionTag: Schema.String.check(Schema.isMaxLength(256)),

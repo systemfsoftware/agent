@@ -1,69 +1,69 @@
-import * as Effect from "effect/Effect";
-import * as Schema from "effect/Schema";
-import * as Stream from "effect/Stream";
+import * as Effect from 'effect/Effect'
+import * as Schema from 'effect/Schema'
+import * as Stream from 'effect/Stream'
 
-import type { RunId, ThreadId } from "../core/Identifiers.ts";
-import { IntegrityCheck, IntegrityReport, type IntegrityCheckName } from "./Admin.ts";
-import { recordEncoding } from "./internal/record-encoding.ts";
-import { CanonicalSequence, type CanonicalRecordEnvelope, type RecordId } from "./Records.ts";
-import { canonicalRunIds, verifyRunContinuations } from "./RunContinuation.ts";
+import type { RunId, ThreadId } from '../core/Identifiers.ts'
+import { IntegrityCheck, type IntegrityCheckName, IntegrityReport } from './Admin.ts'
+import { recordEncoding } from './internal/record-encoding.ts'
+import { type CanonicalRecordEnvelope, CanonicalSequence, type RecordId } from './Records.ts'
+import { canonicalRunIds, verifyRunContinuations } from './RunContinuation.ts'
 import {
   submissionInputRecordId,
   submissionSettlementRecordId,
-  workerTerminalFromRecord,
   type SubmissionSnapshot,
-} from "./SubmissionLedger.ts";
+  workerTerminalFromRecord,
+} from './SubmissionLedger.ts'
 import {
-  ThreadArchive,
+  finishThreadImport,
   makeThreadImportProgress,
   prepareImportPage,
-  finishThreadImport,
   rebuildImportedSubmission,
-  verifyImportedReferences,
-  verifyImportedInputOrder,
-  ThreadImportRejected,
+  ThreadArchive,
   ThreadImportReader,
+  ThreadImportRejected,
   validateImportedExecution,
   validateImportedRunExecution,
-} from "./ThreadImport.ts";
-import { ThreadExport, ThreadStoreError, type ExecutionCheckpoint } from "./ThreadStore.ts";
+  verifyImportedInputOrder,
+  verifyImportedReferences,
+} from './ThreadImport.ts'
+import { type ExecutionCheckpoint, ThreadExport, ThreadStoreError } from './ThreadStore.ts'
 
 /** All reads share the export snapshot. No lifetime identity sets or materialization. */
 export interface ThreadInvariantInput<E = ThreadStoreError, R = never> {
-  readonly threadId: ThreadId;
-  readonly pages: Stream.Stream<ThreadExport, E, R>;
+  readonly threadId: ThreadId
+  readonly pages: Stream.Stream<ThreadExport, E, R>
   /** Complete directory, including settled rows, ordered by queueSequence. */
-  readonly submissions: Stream.Stream<SubmissionSnapshot, E, R>;
-  readonly runs: Stream.Stream<RunId, E, R>;
+  readonly submissions: Stream.Stream<SubmissionSnapshot, E, R>
+  readonly runs: Stream.Stream<RunId, E, R>
   /** Includes orphan active rows; never obtained through idle-only public export. */
-  readonly executions: Stream.Stream<ExecutionCheckpoint, E, R>;
-  readonly requireAllSettled?: boolean;
+  readonly executions: Stream.Stream<ExecutionCheckpoint, E, R>
+  readonly requireAllSettled?: boolean
 }
 
 /** Indexed streaming verification; bounded Run evidence is the only retained selection. */
-export const verifyThreadInvariants = Effect.fnUntraced(function* <E, R>(
+export const verifyThreadInvariants = Effect.fnUntraced(function*<E, R>(
   input: ThreadInvariantInput<E, R>,
 ) {
-  const reader = yield* ThreadImportReader;
-  const failures = new Map<IntegrityCheckName, string>();
+  const reader = yield* ThreadImportReader
+  const failures = new Map<IntegrityCheckName, string>()
 
   const fail = (name: IntegrityCheckName, detail: string) => {
-    if (!failures.has(name)) failures.set(name, detail.slice(0, 4096));
-  };
+    if (!failures.has(name)) failures.set(name, detail.slice(0, 4096))
+  }
 
-  const progress = makeThreadImportProgress();
+  const progress = makeThreadImportProgress()
 
   // Canonical pages, not the disposable Run directory, determine which retained facts to check.
   // Retain only one bounded selection; interleaved Runs may require another explicit read.
   let verifiedRun:
     | { readonly runId: RunId; readonly records: ReadonlyMap<RecordId, CanonicalRecordEnvelope> }
-    | undefined;
+    | undefined
 
-  const readVerifiedRun = Effect.fnUntraced(function* (runId: RunId) {
-    if (verifiedRun?.runId === runId) return verifiedRun.records;
-    verifiedRun = undefined;
-    const records = yield* reader.runRecords(runId);
-    let after = 0;
+  const readVerifiedRun = Effect.fnUntraced(function*(runId: RunId) {
+    if (verifiedRun?.runId === runId) return verifiedRun.records
+    verifiedRun = undefined
+    const records = yield* reader.runRecords(runId)
+    let after = 0
 
     for (const entry of records) {
       if (
@@ -71,52 +71,55 @@ export const verifyThreadInvariants = Effect.fnUntraced(function* <E, R>(
         entry.sequence <= after ||
         entry.sequence > (progress.manifest?.tailSequence ?? 0) ||
         !canonicalRunIds(entry.record).includes(runId)
-      )
+      ) {
         return yield* ThreadStoreError.make({
-          operation: "verify Run continuation",
-          message: "Run evidence has foreign ownership or invalid canonical ordering",
-        });
-      after = entry.sequence;
+          operation: 'verify Run continuation',
+          message: 'Run evidence has foreign ownership or invalid canonical ordering',
+        })
+      }
+      after = entry.sequence
     }
-    yield* verifyRunContinuations(records, { verifyContext: false });
+    yield* verifyRunContinuations(records, { verifyContext: false })
     yield* validateImportedRunExecution(
       input.threadId,
       runId,
       progress.manifest?.tailSequence ?? CanonicalSequence.make(0),
-    );
-    const byId = new Map(records.map((entry) => [entry.record.recordId, entry]));
+    )
+    const byId = new Map(records.map((entry) => [entry.record.recordId, entry]))
 
-    verifiedRun = { runId, records: byId };
+    verifiedRun = { runId, records: byId }
 
-    return byId;
-  });
+    return byId
+  })
 
-  let lastInputQueue = -1;
+  let lastInputQueue = -1
 
   yield* Stream.runForEach(input.pages, (page) =>
-    Effect.gen(function* () {
-      if (page.threadId !== input.threadId)
-        fail("record-identity", "Export belongs to another Thread");
+    Effect.gen(function*() {
+      if (page.threadId !== input.threadId) {
+        fail('record-identity', 'Export belongs to another Thread')
+      }
 
       const prepared = yield* Schema.encodeEffect(ThreadExport)(page).pipe(
         Effect.flatMap(Schema.decodeUnknownEffect(ThreadArchive)),
         Effect.flatMap((archive) => prepareImportPage(progress, archive, { verification: true })),
         Effect.match({
           onFailure: (e) => {
-            for (const name of ["schema-round-trip", "sequence-contiguity"] as const)
-              fail(name, e.message);
+            for (const name of ['schema-round-trip', 'sequence-contiguity'] as const) {
+              fail(name, e.message)
+            }
 
-            return undefined;
+            return undefined
           },
           onSuccess: (p) => p,
         }),
-      );
+      )
 
-      if (prepared === undefined) return;
+      if (prepared === undefined) return
       for (const entry of prepared.records) {
-        yield* Effect.gen(function* () {
+        yield* Effect.gen(function*() {
           for (const runId of canonicalRunIds(entry.record)) {
-            const selected = (yield* readVerifiedRun(runId)).get(entry.record.recordId);
+            const selected = (yield* readVerifiedRun(runId)).get(entry.record.recordId)
 
             if (
               selected === undefined ||
@@ -124,67 +127,70 @@ export const verifyThreadInvariants = Effect.fnUntraced(function* <E, R>(
               selected.batchId !== entry.batchId ||
               (yield* Effect.fromResult(recordEncoding(selected.record))).json !==
                 (yield* Effect.fromResult(recordEncoding(entry.record))).json
-            )
+            ) {
               fail(
-                "continuation-evidence",
+                'continuation-evidence',
                 `Canonical record ${entry.record.recordId} is missing or differs from retained Run evidence`,
-              );
+              )
+            }
           }
         }).pipe(
           Effect.match({
             onSuccess: () => undefined,
-            onFailure: (e) => fail("continuation-evidence", e.message),
+            onFailure: (e) => fail('continuation-evidence', e.message),
           }),
-        );
+        )
         yield* verifyImportedReferences(entry).pipe(
           Effect.match({
             onSuccess: () => undefined,
-            onFailure: (e) => fail("continuation-evidence", e.message),
+            onFailure: (e) => fail('continuation-evidence', e.message),
           }),
-        );
-        const exact = yield* reader.record(entry.record.recordId);
+        )
+        const exact = yield* reader.record(entry.record.recordId)
 
         if (
           exact === undefined ||
           exact.sequence !== entry.sequence ||
           exact.threadId !== entry.threadId ||
           exact.batchId !== entry.batchId
-        )
+        ) {
           fail(
-            "record-identity",
+            'record-identity',
             `Record ${entry.record.recordId} has conflicting indexed identity`,
-          );
-        const payload = entry.record.payload;
+          )
+        }
+        const payload = entry.record.payload
 
-        if (payload._tag === "UserInputRecorded" && payload.submissionId !== undefined) {
-          const admission = yield* reader.admission(payload.submissionId);
+        if (payload._tag === 'UserInputRecorded' && payload.submissionId !== undefined) {
+          const admission = yield* reader.admission(payload.submissionId)
 
           if (
             admission === undefined ||
             entry.record.recordId !== submissionInputRecordId(payload.submissionId)
-          )
-            fail("ledger-canonical-agreement", "Canonical input has no exact immutable admission");
-          else if (admission.queueSequence <= lastInputQueue)
-            fail("fifo-input-order", "Canonical inputs violate immutable admission order");
-          else lastInputQueue = admission.queueSequence;
+          ) {
+            fail('ledger-canonical-agreement', 'Canonical input has no exact immutable admission')
+          } else if (admission.queueSequence <= lastInputQueue) {
+            fail('fifo-input-order', 'Canonical inputs violate immutable admission order')
+          } else lastInputQueue = admission.queueSequence
         }
-        if (payload._tag === "SubmissionSettled") {
-          if (entry.record.recordId !== submissionSettlementRecordId(payload.submissionId))
-            fail("terminal-uniqueness", "Settlement has a noncanonical identity");
-          if ((yield* reader.admission(payload.submissionId)) === undefined)
-            fail("ledger-canonical-agreement", "Settlement has no immutable admission");
+        if (payload._tag === 'SubmissionSettled') {
+          if (entry.record.recordId !== submissionSettlementRecordId(payload.submissionId)) {
+            fail('terminal-uniqueness', 'Settlement has a noncanonical identity')
+          }
+          if ((yield* reader.admission(payload.submissionId)) === undefined) {
+            fail('ledger-canonical-agreement', 'Settlement has no immutable admission')
+          }
         }
       }
-    }),
-  );
+    }))
   yield* finishThreadImport(progress).pipe(
     Effect.match({
       onSuccess: () => undefined,
       onFailure: (e) => {
-        fail("sequence-contiguity", e.message);
+        fail('sequence-contiguity', e.message)
       },
     }),
-  );
+  )
   yield* Stream.runForEach(input.executions, (checkpoint) =>
     validateImportedExecution(
       input.threadId,
@@ -193,103 +199,107 @@ export const verifyThreadInvariants = Effect.fnUntraced(function* <E, R>(
     ).pipe(
       Effect.match({
         onSuccess: () => undefined,
-        onFailure: (e) => fail("continuation-evidence", e.message),
+        onFailure: (e) => fail('continuation-evidence', e.message),
       }),
-    ),
-  );
+    ))
   yield* Stream.runForEach(input.runs, (runId) =>
     readVerifiedRun(runId).pipe(
       Effect.match({
         onSuccess: () => undefined,
-        onFailure: (e) => fail("continuation-evidence", e.message),
+        onFailure: (e) => fail('continuation-evidence', e.message),
       }),
-    ),
-  );
-  verifiedRun = undefined;
-  let submissionCount = 0;
-  const workerSeal = progress.manifest?.workerSeal;
-  let sealTerminalEvidence = workerSeal?.terminal === undefined;
-  let lastQueue = -1;
+    ))
+  verifiedRun = undefined
+  let submissionCount = 0
+  const workerSeal = progress.manifest?.workerSeal
+  let sealTerminalEvidence = workerSeal?.terminal === undefined
+  let lastQueue = -1
 
   yield* Stream.runForEach(input.submissions, (row) =>
-    Effect.gen(function* () {
-      submissionCount++;
-      if (row.threadId !== input.threadId || row.queueSequence <= lastQueue)
-        fail("record-identity", "Admission directory is not unique and ordered");
-      lastQueue = row.queueSequence;
-      const admission = yield* reader.admission(row.submissionId);
+    Effect.gen(function*() {
+      submissionCount++
+      if (row.threadId !== input.threadId || row.queueSequence <= lastQueue) {
+        fail('record-identity', 'Admission directory is not unique and ordered')
+      }
+      lastQueue = row.queueSequence
+      const admission = yield* reader.admission(row.submissionId)
 
       if (admission === undefined) {
-        fail("ledger-canonical-agreement", "Ledger row has no immutable admission");
+        fail('ledger-canonical-agreement', 'Ledger row has no immutable admission')
 
-        return;
+        return
       }
       yield* rebuildImportedSubmission(admission).pipe(
         Effect.match({
           onFailure: (e) => {
-            fail("ledger-canonical-agreement", e.message);
+            fail('ledger-canonical-agreement', e.message)
 
-            return undefined;
+            return undefined
           },
           onSuccess: (s) => s,
         }),
-      );
-      const settlement = yield* reader.record(submissionSettlementRecordId(row.submissionId));
+      )
+      const settlement = yield* reader.record(submissionSettlementRecordId(row.submissionId))
 
       if (
-        row.state === "settled" &&
+        row.state === 'settled' &&
         settlement !== undefined &&
         workerTerminalFromRecord(row, settlement.record) === workerSeal?.terminal
-      )
-        sealTerminalEvidence = true;
-      const payload = settlement?.record.payload;
+      ) {
+        sealTerminalEvidence = true
+      }
+      const payload = settlement?.record.payload
 
-      if (row.state === "settled" && payload?._tag !== "SubmissionSettled")
-        fail("terminal-uniqueness", "Settled ledger row has no canonical settlement");
+      if (row.state === 'settled' && payload?._tag !== 'SubmissionSettled') {
+        fail('terminal-uniqueness', 'Settled ledger row has no canonical settlement')
+      }
       if (
-        row.state === "settled" &&
-        (payload?._tag !== "SubmissionSettled" || row.settledOutcome !== payload.outcome)
-      )
+        row.state === 'settled' &&
+        (payload?._tag !== 'SubmissionSettled' || row.settledOutcome !== payload.outcome)
+      ) {
         fail(
-          "ledger-canonical-agreement",
-          "Ledger input or terminal projection differs from canonical evidence",
-        );
-      if (input.requireAllSettled && row.state !== "settled")
-        fail("all-settled", `Submission ${row.submissionId} is ${row.state}`);
+          'ledger-canonical-agreement',
+          'Ledger input or terminal projection differs from canonical evidence',
+        )
+      }
+      if (input.requireAllSettled && row.state !== 'settled') {
+        fail('all-settled', `Submission ${row.submissionId} is ${row.state}`)
+      }
       yield* verifyImportedInputOrder(row).pipe(
         Effect.catchIf(Schema.is(ThreadImportRejected), (e) =>
-          Effect.sync(() => fail("input-before-settlement", e.message)),
-        ),
-      );
-    }),
-  );
-  if (submissionCount !== progress.counts.admissions)
-    fail("ledger-canonical-agreement", "Admission directory differs from the captured fact count");
-  if (!sealTerminalEvidence)
-    fail("ledger-canonical-agreement", "Worker seal terminal has no exact settled worker evidence");
-  if (input.requireAllSettled && submissionCount === 0)
-    fail("all-settled", "No submissions are known");
+          Effect.sync(() => fail('input-before-settlement', e.message))),
+      )
+    }))
+  if (submissionCount !== progress.counts.admissions) {
+    fail('ledger-canonical-agreement', 'Admission directory differs from the captured fact count')
+  }
+  if (!sealTerminalEvidence) {
+    fail('ledger-canonical-agreement', 'Worker seal terminal has no exact settled worker evidence')
+  }
+  if (input.requireAllSettled && submissionCount === 0) {
+    fail('all-settled', 'No submissions are known')
+  }
 
   const names: Array<IntegrityCheckName> = [
-    "schema-round-trip",
-    "record-identity",
-    "sequence-contiguity",
-    "continuation-evidence",
-    "fifo-input-order",
-    "input-before-settlement",
-    "terminal-uniqueness",
-    "ledger-canonical-agreement",
-  ];
+    'schema-round-trip',
+    'record-identity',
+    'sequence-contiguity',
+    'continuation-evidence',
+    'fifo-input-order',
+    'input-before-settlement',
+    'terminal-uniqueness',
+    'ledger-canonical-agreement',
+  ]
 
-  if (input.requireAllSettled) names.push("all-settled");
+  if (input.requireAllSettled) names.push('all-settled')
 
   const checks = names.map((name) =>
     IntegrityCheck.make({
       name,
-      status: failures.has(name) ? "failed" : "passed",
+      status: failures.has(name) ? 'failed' : 'passed',
       ...(failures.has(name) ? { detail: failures.get(name) } : {}),
-    }),
-  );
+    })
+  )
 
   return IntegrityReport.make({
     threadId: input.threadId,
@@ -298,5 +308,5 @@ export const verifyThreadInvariants = Effect.fnUntraced(function* <E, R>(
     submissionCount,
     checks,
     ok: failures.size === 0,
-  });
-});
+  })
+})

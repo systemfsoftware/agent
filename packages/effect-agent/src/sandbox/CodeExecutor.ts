@@ -1,41 +1,35 @@
-import * as Context from "effect/Context";
-import * as Duration from "effect/Duration";
-import type * as Effect from "effect/Effect";
-import * as Schema from "effect/Schema";
-import type * as Scope from "effect/Scope";
+import * as Context from 'effect/Context'
+import * as Duration from 'effect/Duration'
+import type * as Effect from 'effect/Effect'
+import * as Schema from 'effect/Schema'
+import type * as Scope from 'effect/Scope'
 
-import {
-  SANDBOX_DIAGNOSTIC_MAX_LENGTH,
-  SandboxImplementation,
-  SandboxNetworkPolicy,
-} from "./Sandbox.ts";
+import { SANDBOX_DIAGNOSTIC_MAX_LENGTH, SandboxImplementation, SandboxNetworkPolicy } from './Sandbox.ts'
 
 // Schema `isMaxLength` counts UTF-16 string elements: these caps are
 // transport sanity bounds, not byte budgets. The authoritative byte budgets
 // are the `CodeExecutionLimits` fields, which every adapter enforces on the
 // UTF-8 encoded values (CAP-015); a multibyte payload therefore hits its
 // configured byte limit well before any of these element-count caps.
-const BoundedLogLine = Schema.String.check(Schema.isMaxLength(16 * 1024));
-const BoundedMessage = Schema.String.check(Schema.isMaxLength(SANDBOX_DIAGNOSTIC_MAX_LENGTH));
-const BoundedLogs = Schema.Array(BoundedLogLine).check(Schema.isMaxLength(4_096));
-const BoundedSourceText = Schema.String.check(Schema.isMaxLength(4 * 1024 * 1024));
-const PositiveInt = Schema.Int.check(Schema.isGreaterThan(0));
+const BoundedLogLine = Schema.String.check(Schema.isMaxLength(16 * 1024))
+const BoundedMessage = Schema.String.check(Schema.isMaxLength(SANDBOX_DIAGNOSTIC_MAX_LENGTH))
+const BoundedLogs = Schema.Array(BoundedLogLine).check(Schema.isMaxLength(4_096))
+const BoundedSourceText = Schema.String.check(Schema.isMaxLength(4 * 1024 * 1024))
+const PositiveInt = Schema.Int.check(Schema.isGreaterThan(0))
 
 const FinitePositiveDuration = Schema.Duration.pipe(
   Schema.refine(
-    (duration): duration is Duration.Duration =>
-      Duration.isFinite(duration) && Duration.isPositive(duration),
-    { expected: "a finite positive duration" },
+    (duration): duration is Duration.Duration => Duration.isFinite(duration) && Duration.isPositive(duration),
+    { expected: 'a finite positive duration' },
   ),
-);
+)
 
 const FiniteNonNegativeDuration = Schema.Duration.pipe(
   Schema.refine(
-    (duration): duration is Duration.Duration =>
-      Duration.isFinite(duration) && !Duration.isNegative(duration),
-    { expected: "a finite non-negative duration" },
+    (duration): duration is Duration.Duration => Duration.isFinite(duration) && !Duration.isNegative(duration),
+    { expected: 'a finite non-negative duration' },
   ),
-);
+)
 
 /**
  * ECMAScript reserved words are rejected up front: a namespace or method that
@@ -43,55 +37,55 @@ const FiniteNonNegativeDuration = Schema.Duration.pipe(
  * instead of failing closed at the Schema boundary.
  */
 const reservedIdentifiers = new Set([
-  "arguments",
-  "await",
-  "break",
-  "case",
-  "catch",
-  "class",
-  "const",
-  "continue",
-  "debugger",
-  "default",
-  "delete",
-  "do",
-  "else",
-  "enum",
-  "eval",
-  "export",
-  "extends",
-  "false",
-  "finally",
-  "for",
-  "function",
-  "if",
-  "implements",
-  "import",
-  "in",
-  "instanceof",
-  "interface",
-  "let",
-  "new",
-  "null",
-  "package",
-  "private",
-  "protected",
-  "public",
-  "return",
-  "static",
-  "super",
-  "switch",
-  "this",
-  "throw",
-  "true",
-  "try",
-  "typeof",
-  "var",
-  "void",
-  "while",
-  "with",
-  "yield",
-]);
+  'arguments',
+  'await',
+  'break',
+  'case',
+  'catch',
+  'class',
+  'const',
+  'continue',
+  'debugger',
+  'default',
+  'delete',
+  'do',
+  'else',
+  'enum',
+  'eval',
+  'export',
+  'extends',
+  'false',
+  'finally',
+  'for',
+  'function',
+  'if',
+  'implements',
+  'import',
+  'in',
+  'instanceof',
+  'interface',
+  'let',
+  'new',
+  'null',
+  'package',
+  'private',
+  'protected',
+  'public',
+  'return',
+  'static',
+  'super',
+  'switch',
+  'this',
+  'throw',
+  'true',
+  'try',
+  'typeof',
+  'var',
+  'void',
+  'while',
+  'with',
+  'yield',
+])
 
 /** A JavaScript identifier safe to bind as a sandbox global or method name. */
 export const JsIdentifier = Schema.NonEmptyString.check(
@@ -99,15 +93,15 @@ export const JsIdentifier = Schema.NonEmptyString.check(
   Schema.isPattern(/^[A-Za-z_$][A-Za-z0-9_$]*$/),
 ).pipe(
   Schema.refine((value): value is string => !reservedIdentifiers.has(value), {
-    expected: "a JavaScript identifier that is not a reserved word",
+    expected: 'a JavaScript identifier that is not a reserved word',
   }),
-);
+)
 
-export type JsIdentifier = typeof JsIdentifier.Type;
+export type JsIdentifier = typeof JsIdentifier.Type
 
 /** One callable namespace exposed to the generated program as a typed global. */
 export class CodeExecutionNamespace extends Schema.Class<CodeExecutionNamespace>(
-  "CodeExecutionNamespace",
+  'CodeExecutionNamespace',
 )({
   name: JsIdentifier,
   methods: Schema.Array(JsIdentifier).check(Schema.isMaxLength(64), Schema.isMinLength(1)),
@@ -117,7 +111,7 @@ export class CodeExecutionNamespace extends Schema.Class<CodeExecutionNamespace>
  * Limits an executor must either enforce or reject (CAP-015). Byte bounds are
  * measured on UTF-8 encoded JSON at the sandbox boundary.
  */
-export class CodeExecutionLimits extends Schema.Class<CodeExecutionLimits>("CodeExecutionLimits")({
+export class CodeExecutionLimits extends Schema.Class<CodeExecutionLimits>('CodeExecutionLimits')({
   maxSourceBytes: PositiveInt.check(Schema.isLessThanOrEqualTo(4 * 1024 * 1024)),
   maxWallTime: FinitePositiveDuration,
   cpuMillis: Schema.optionalKey(PositiveInt.check(Schema.isLessThanOrEqualTo(5 * 60 * 1000))),
@@ -136,9 +130,9 @@ export class CodeExecutionLimits extends Schema.Class<CodeExecutionLimits>("Code
  * harness invokes it exactly once with no arguments (ADR-0017 decision 5).
  */
 export class CodeExecutionRequest extends Schema.Class<CodeExecutionRequest>(
-  "CodeExecutionRequest",
+  'CodeExecutionRequest',
 )({
-  language: Schema.Literals(["javascript"]),
+  language: Schema.Literals(['javascript']),
   source: BoundedSourceText,
   namespaces: Schema.Array(CodeExecutionNamespace).check(Schema.isMaxLength(32)),
   network: SandboxNetworkPolicy,
@@ -146,7 +140,7 @@ export class CodeExecutionRequest extends Schema.Class<CodeExecutionRequest>(
 }) {}
 
 /** One host invocation from generated code. Data only: the broker owns identity. */
-export class CodeHostCall extends Schema.Class<CodeHostCall>("CodeHostCall")({
+export class CodeHostCall extends Schema.Class<CodeHostCall>('CodeHostCall')({
   namespace: JsIdentifier,
   method: JsIdentifier,
   argument: Schema.Json,
@@ -154,7 +148,7 @@ export class CodeHostCall extends Schema.Class<CodeHostCall>("CodeHostCall")({
 
 /** A host call settled with the encoded Tool success value. */
 export class CodeHostCallSuccess extends Schema.TaggedClass<CodeHostCallSuccess>()(
-  "CodeHostCallSuccess",
+  'CodeHostCallSuccess',
   {
     value: Schema.Json,
   },
@@ -168,15 +162,15 @@ export class CodeHostCallSuccess extends Schema.TaggedClass<CodeHostCallSuccess>
  * without changing the enumerable fields returned or rethrown by the program.
  */
 export class CodeHostCallFailure extends Schema.TaggedClass<CodeHostCallFailure>()(
-  "CodeHostCallFailure",
+  'CodeHostCallFailure',
   {
     error: Schema.Json,
   },
 ) {}
 
 /** Outcome of one host call as data; transport failures stay executor errors. */
-export const CodeHostCallResult = Schema.Union([CodeHostCallSuccess, CodeHostCallFailure]);
-export type CodeHostCallResult = typeof CodeHostCallResult.Type;
+export const CodeHostCallResult = Schema.Union([CodeHostCallSuccess, CodeHostCallFailure])
+export type CodeHostCallResult = typeof CodeHostCallResult.Type
 
 /**
  * The per-pass host capability: the only authority generated code has over the
@@ -188,13 +182,13 @@ export type CodeHostCallResult = typeof CodeHostCallResult.Type;
 export class CodeExecutionHost extends Context.Service<
   CodeExecutionHost,
   {
-    readonly call: (call: CodeHostCall) => Effect.Effect<CodeHostCallResult>;
+    readonly call: (call: CodeHostCall) => Effect.Effect<CodeHostCallResult>
   }
->()("@effect-agent/sandbox/CodeExecutionHost") {}
+>()('@effect-agent/sandbox/CodeExecutionHost') {}
 
 /** Accounting one executor observed for one pass. */
 export class CodeExecutionResourceUse extends Schema.Class<CodeExecutionResourceUse>(
-  "CodeExecutionResourceUse",
+  'CodeExecutionResourceUse',
 )({
   wallTime: FiniteNonNegativeDuration,
   hostCalls: Schema.Natural,
@@ -208,7 +202,7 @@ export class CodeExecutionResourceUse extends Schema.Class<CodeExecutionResource
  * executor capture; the aggregate model-visible egress budget and redaction
  * pass are owned by the Code Mode capability, not the executor (CAP-016).
  */
-export class CodeExecutionResult extends Schema.Class<CodeExecutionResult>("CodeExecutionResult")({
+export class CodeExecutionResult extends Schema.Class<CodeExecutionResult>('CodeExecutionResult')({
   implementation: SandboxImplementation,
   value: Schema.Json,
   logs: BoundedLogs,
@@ -216,24 +210,24 @@ export class CodeExecutionResult extends Schema.Class<CodeExecutionResult>("Code
 }) {}
 
 /** The source is not one async function expression the executor can run. */
-export class CodeSourceError extends Schema.TaggedError<CodeSourceError>()("CodeSourceError", {
+export class CodeSourceError extends Schema.TaggedError<CodeSourceError>()('CodeSourceError', {
   implementation: SandboxImplementation,
-  reason: Schema.Literals(["invalid", "oversized", "not-a-function"]),
+  reason: Schema.Literals(['invalid', 'oversized', 'not-a-function']),
   message: BoundedMessage,
 }) {}
 
 /** The executor cannot honestly enforce one requested feature, limit, or policy. */
 export class CodeExecutorUnsupportedError extends Schema.TaggedError<CodeExecutorUnsupportedError>()(
-  "CodeExecutorUnsupportedError",
+  'CodeExecutorUnsupportedError',
   {
     implementation: SandboxImplementation,
     feature: Schema.Literals([
-      "language",
-      "network",
-      "cpu-limit",
-      "namespaces",
-      "wall-clock",
-      "host-calls",
+      'language',
+      'network',
+      'cpu-limit',
+      'namespaces',
+      'wall-clock',
+      'host-calls',
     ]),
     message: BoundedMessage,
   },
@@ -241,7 +235,7 @@ export class CodeExecutorUnsupportedError extends Schema.TaggedError<CodeExecuto
 
 /** The executor could not start the isolated pass. */
 export class CodeExecutorStartError extends Schema.TaggedError<CodeExecutorStartError>()(
-  "CodeExecutorStartError",
+  'CodeExecutorStartError',
   {
     implementation: SandboxImplementation,
     message: BoundedMessage,
@@ -251,10 +245,10 @@ export class CodeExecutorStartError extends Schema.TaggedError<CodeExecutorStart
 
 /** The pass exceeded its CPU or wall-clock budget and was terminated. */
 export class CodeExecutionTimeoutError extends Schema.TaggedError<CodeExecutionTimeoutError>()(
-  "CodeExecutionTimeoutError",
+  'CodeExecutionTimeoutError',
   {
     implementation: SandboxImplementation,
-    kind: Schema.Literals(["cpu", "wall-clock"]),
+    kind: Schema.Literals(['cpu', 'wall-clock']),
     maxWallTime: FinitePositiveDuration,
     logs: BoundedLogs,
   },
@@ -262,10 +256,10 @@ export class CodeExecutionTimeoutError extends Schema.TaggedError<CodeExecutionT
 
 /** A bounded surface (logs, result, or a per-call byte bound) was exceeded. */
 export class CodeOutputLimitError extends Schema.TaggedError<CodeOutputLimitError>()(
-  "CodeOutputLimitError",
+  'CodeOutputLimitError',
   {
     implementation: SandboxImplementation,
-    surface: Schema.Literals(["logs", "result", "host-call-argument", "host-call-result"]),
+    surface: Schema.Literals(['logs', 'result', 'host-call-argument', 'host-call-result']),
     limit: PositiveInt,
     observed: Schema.Natural,
     logs: BoundedLogs,
@@ -274,7 +268,7 @@ export class CodeOutputLimitError extends Schema.TaggedError<CodeOutputLimitErro
 
 /** The pass issued more host calls than its executor-owned cap allows. */
 export class CodeHostCallLimitError extends Schema.TaggedError<CodeHostCallLimitError>()(
-  "CodeHostCallLimitError",
+  'CodeHostCallLimitError',
   {
     implementation: SandboxImplementation,
     limit: Schema.Natural,
@@ -288,10 +282,10 @@ export class CodeHostCallLimitError extends Schema.TaggedError<CodeHostCallLimit
  * capture flow back so a model can correct the program without a blind retry.
  */
 export class CodeProgramFailedError extends Schema.TaggedError<CodeProgramFailedError>()(
-  "CodeProgramFailedError",
+  'CodeProgramFailedError',
   {
     implementation: SandboxImplementation,
-    reason: Schema.Literals(["threw", "rejected", "non-json-result"]),
+    reason: Schema.Literals(['threw', 'rejected', 'non-json-result']),
     thrown: Schema.Json,
     message: BoundedMessage,
     logs: BoundedLogs,
@@ -300,7 +294,7 @@ export class CodeProgramFailedError extends Schema.TaggedError<CodeProgramFailed
 
 /** The executor or its transport produced a value outside the protocol Schemas. */
 export class CodeExecutionProtocolError extends Schema.TaggedError<CodeExecutionProtocolError>()(
-  "CodeExecutionProtocolError",
+  'CodeExecutionProtocolError',
   {
     implementation: SandboxImplementation,
     message: BoundedMessage,
@@ -312,7 +306,7 @@ export class CodeExecutionProtocolError extends Schema.TaggedError<CodeExecution
  * with no terminal program result. No result is fabricated.
  */
 export class CodeExecutorTerminatedError extends Schema.TaggedError<CodeExecutorTerminatedError>()(
-  "CodeExecutorTerminatedError",
+  'CodeExecutorTerminatedError',
   {
     implementation: SandboxImplementation,
     message: BoundedMessage,
@@ -330,9 +324,9 @@ export const CodeExecutionError = Schema.Union([
   CodeProgramFailedError,
   CodeExecutionProtocolError,
   CodeExecutorTerminatedError,
-]);
+])
 
-export type CodeExecutionError = typeof CodeExecutionError.Type;
+export type CodeExecutionError = typeof CodeExecutionError.Type
 
 /**
  * Callback-capable isolated execution port for Code Mode (ADR-0017), a sibling
@@ -348,11 +342,11 @@ export class CodeExecutor extends Context.Service<
   {
     readonly execute: (
       request: CodeExecutionRequest,
-    ) => Effect.Effect<CodeExecutionResult, CodeExecutionError, Scope.Scope | CodeExecutionHost>;
+    ) => Effect.Effect<CodeExecutionResult, CodeExecutionError, Scope.Scope | CodeExecutionHost>
   }
->()("@effect-agent/sandbox/CodeExecutor") {}
+>()('@effect-agent/sandbox/CodeExecutor') {}
 
 /** Type helper for implementations that preserve the public CodeExecutor contract. */
 export type CodeExecutorExecute = (
   request: CodeExecutionRequest,
-) => Effect.Effect<CodeExecutionResult, CodeExecutionError, Scope.Scope | CodeExecutionHost>;
+) => Effect.Effect<CodeExecutionResult, CodeExecutionError, Scope.Scope | CodeExecutionHost>

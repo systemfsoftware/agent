@@ -1,42 +1,38 @@
-import type * as LanguageModel from "effect/ai/LanguageModel";
-import * as Tool from "effect/ai/Tool";
-import * as Context from "effect/Context";
-import * as Effect from "effect/Effect";
-import * as Schema from "effect/Schema";
+import type * as LanguageModel from 'effect/ai/LanguageModel'
+import * as Tool from 'effect/ai/Tool'
+import * as Context from 'effect/Context'
+import * as Effect from 'effect/Effect'
+import * as Schema from 'effect/Schema'
 
-import type { AnyDefinition } from "../../core/Agent.ts";
-import { ModelProtocolError } from "../../core/AgentError.ts";
-import { utf8ByteLength } from "../../core/internal/utf8.ts";
-import {
-  getToolExecutionKind,
-  isSubagentToolAllowed,
-  type SubagentGrant,
-} from "../../core/SubagentContract.ts";
+import type { AnyDefinition } from '../../core/Agent.ts'
+import { ModelProtocolError } from '../../core/AgentError.ts'
+import { utf8ByteLength } from '../../core/internal/utf8.ts'
+import { getToolExecutionKind, isSubagentToolAllowed, type SubagentGrant } from '../../core/SubagentContract.ts'
 import {
   AdditionalToolCatalog,
-  IncludesCatalogDocumentation,
   DiscoveryTool,
+  IncludesCatalogDocumentation,
   Limits,
   PinnedTool,
   Selection,
   Snapshot,
   ToolNames,
   ToolNamespace,
-} from "../../core/ToolExposure.ts";
-import { ContextRolloverTool } from "../ContextWindow.ts";
-import { getToolExecutionClass } from "../DurableStep.ts";
-import { RunToolVisibility, type CatalogEntry, type VisibilityRequest } from "../ToolExposure.ts";
+} from '../../core/ToolExposure.ts'
+import { ContextRolloverTool } from '../ContextWindow.ts'
+import { getToolExecutionClass } from '../DurableStep.ts'
+import { type CatalogEntry, RunToolVisibility, type VisibilityRequest } from '../ToolExposure.ts'
 
-const invalid = (message: string) => ModelProtocolError.make({ message });
+const invalid = (message: string) => ModelProtocolError.make({ message })
 
 export const decodeSelection = (value: unknown) =>
   Schema.decodeUnknownEffect(Selection)(value).pipe(
-    Effect.mapError(() => invalid("Invalid Tool exposure selection")),
-  );
+    Effect.mapError(() => invalid('Invalid Tool exposure selection')),
+  )
 
 export const decodeSnapshot = (value: unknown) =>
   Schema.decodeUnknownEffect(Snapshot)(value).pipe(
-    Effect.mapError(() => invalid("Invalid recorded Tool exposure snapshot")),
+    Effect.mapError(() => invalid('Invalid recorded Tool exposure snapshot')),
     Effect.map((snapshot) =>
       Object.freeze(
         Snapshot.make({
@@ -44,61 +40,61 @@ export const decodeSnapshot = (value: unknown) =>
           ...(snapshot.selection === undefined
             ? {}
             : {
-                selection: Object.freeze(
-                  Selection.make({ toolNames: Object.freeze([...snapshot.selection.toolNames]) }),
-                ),
-              }),
+              selection: Object.freeze(
+                Selection.make({ toolNames: Object.freeze([...snapshot.selection.toolNames]) }),
+              ),
+            }),
         }),
-      ),
+      )
     ),
-  );
+  )
 
-export const eligibleCatalog = Effect.fnUntraced(function* (
+export const eligibleCatalog = Effect.fnUntraced(function*(
   definition: AnyDefinition,
-  request: Omit<VisibilityRequest, "toolNames">,
+  request: Omit<VisibilityRequest, 'toolNames'>,
   grant: SubagentGrant | undefined,
   depth: number,
 ) {
-  const visibility = yield* RunToolVisibility;
-  const entries: Array<CatalogEntry> = [];
+  const visibility = yield* RunToolVisibility
+  const entries: Array<CatalogEntry> = []
 
   for (const tool of Object.values(definition.toolkit.tools)) {
     if (
       Context.get(tool.annotations, DiscoveryTool) &&
-      (getToolExecutionKind(tool.annotations) !== "ordinary" ||
-        getToolExecutionClass(tool) !== "readonly")
-    )
-      return yield* invalid("Discovery requires ordinary readonly Tools");
-    const namespace = Context.get(tool.annotations, ToolNamespace);
+      (getToolExecutionKind(tool.annotations) !== 'ordinary' ||
+        getToolExecutionClass(tool) !== 'readonly')
+    ) {
+      return yield* invalid('Discovery requires ordinary readonly Tools')
+    }
+    const namespace = Context.get(tool.annotations, ToolNamespace)
 
     entries.push({
-      kind: "native",
+      kind: 'native',
       tool,
       nativeToolName: tool.name,
       ...(namespace === undefined ? {} : { namespace }),
-    });
+    })
     for (const extra of Context.get(tool.annotations, AdditionalToolCatalog)) {
-      entries.push({ kind: "code-mode", ...extra, nativeToolName: tool.name });
+      entries.push({ kind: 'code-mode', ...extra, nativeToolName: tool.name })
     }
   }
-  const names = [...new Set(entries.map((entry) => entry.tool.name))];
+  const names = [...new Set(entries.map((entry) => entry.tool.name))]
 
-  const visible =
-    visibility === undefined ? names : yield* visibility.visible({ ...request, toolNames: names });
+  const visible = visibility === undefined ? names : yield* visibility.visible({ ...request, toolNames: names })
 
-  const checked =
-    visibility === undefined
-      ? visible
-      : yield* Schema.decodeEffect(ToolNames)(visible).pipe(
-          Effect.mapError(() => invalid("Host Tool visibility returned invalid names")),
-        );
+  const checked = visibility === undefined
+    ? visible
+    : yield* Schema.decodeEffect(ToolNames)(visible).pipe(
+      Effect.mapError(() => invalid('Host Tool visibility returned invalid names')),
+    )
 
-  if (checked.some((name) => !names.includes(name)))
-    return yield* invalid("Host Tool visibility returned an unregistered name");
-  const allowed = new Set(checked);
+  if (checked.some((name) => !names.includes(name))) {
+    return yield* invalid('Host Tool visibility returned an unregistered name')
+  }
+  const allowed = new Set(checked)
 
   const permits = (tool: Tool.Any) =>
-    allowed.has(tool.name) && isSubagentToolAllowed(grant, depth, tool.name, tool.annotations);
+    allowed.has(tool.name) && isSubagentToolAllowed(grant, depth, tool.name, tool.annotations)
 
   for (const outer of Object.values(definition.toolkit.tools)) {
     if (
@@ -107,125 +103,126 @@ export const eligibleCatalog = Effect.fnUntraced(function* (
       Context.get(outer.annotations, AdditionalToolCatalog).some((entry) => !permits(entry.tool))
     ) {
       return yield* invalid(
-        "A Tool description includes hidden catalogue declarations; configure includeDeclarations: false",
-      );
+        'A Tool description includes hidden catalogue declarations; configure includeDeclarations: false',
+      )
     }
   }
 
   return Object.freeze(
     entries
       .filter((entry) => {
-        const outer = definition.toolkit.tools[entry.nativeToolName];
+        const outer = definition.toolkit.tools[entry.nativeToolName]
 
-        return outer !== undefined && permits(outer) && permits(entry.tool);
+        return outer !== undefined && permits(outer) && permits(entry.tool)
       })
       .map((entry) => Object.freeze(entry)),
-  );
-});
+  )
+})
 
-export const validateSelection = Effect.fnUntraced(function* (
+export const validateSelection = Effect.fnUntraced(function*(
   value: unknown,
   definition: AnyDefinition,
   entries: ReadonlyArray<CatalogEntry>,
   requireEligible = true,
 ) {
-  const selection = yield* decodeSelection(value);
+  const selection = yield* decodeSelection(value)
 
   const eligible = new Set(
-    entries.filter((entry) => entry.kind === "native").map((entry) => entry.nativeToolName),
-  );
+    entries.filter((entry) => entry.kind === 'native').map((entry) => entry.nativeToolName),
+  )
 
   if (
     selection.toolNames.some(
-      (name) =>
-        !Object.hasOwn(definition.toolkit.tools, name) || (requireEligible && !eligible.has(name)),
+      (name) => !Object.hasOwn(definition.toolkit.tools, name) || (requireEligible && !eligible.has(name)),
     )
   ) {
-    return yield* invalid("Tool selection names a Tool outside the eligible registered toolkit");
+    return yield* invalid('Tool selection names a Tool outside the eligible registered toolkit')
   }
 
-  return Selection.make({ toolNames: Object.freeze([...selection.toolNames]) });
-});
+  return Selection.make({ toolNames: Object.freeze([...selection.toolNames]) })
+})
 
-export const exposureSnapshot = Effect.fnUntraced(function* (
+export const exposureSnapshot = Effect.fnUntraced(function*(
   definition: AnyDefinition,
   selection: Selection | undefined,
   entries: ReadonlyArray<CatalogEntry>,
   transformer?: LanguageModel.CodecTransformer,
   only?: ReadonlyArray<string>,
 ) {
-  const native = entries.filter((entry) => entry.kind === "native").map((entry) => entry.tool);
-  const progressive = definition.toolExposure !== undefined || selection !== undefined;
+  const native = entries.filter((entry) => entry.kind === 'native').map((entry) => entry.tool)
+  const progressive = definition.toolExposure !== undefined || selection !== undefined
 
   const mandatory = Object.values(definition.toolkit.tools).filter(
     (tool) =>
       Context.get(tool.annotations, DiscoveryTool) ||
       Context.get(tool.annotations, ContextRolloverTool) ||
       definition.completion?.tool === tool.name,
-  );
+  )
 
   if (
     progressive &&
     mandatory.some((tool) => !native.some((candidate) => candidate.name === tool.name))
   ) {
-    return yield* invalid("A mandatory Tool is excluded by host visibility or the inherited grant");
+    return yield* invalid('A mandatory Tool is excluded by host visibility or the inherited grant')
   }
 
   // Explicit pins affect selection, never eligibility. Hosts may disable a common action
   // without disabling the Run; protocol-required Tools still fail closed above.
   const pinned = native.filter(
     (tool) => Context.get(tool.annotations, PinnedTool) || mandatory.includes(tool),
-  );
+  )
 
-  if (selection !== undefined) yield* validateSelection(selection, definition, entries, false);
-  const selected = selection === undefined ? undefined : new Set(selection.toolNames);
+  if (selection !== undefined) yield* validateSelection(selection, definition, entries, false)
+  const selected = selection === undefined ? undefined : new Set(selection.toolNames)
 
   const names = native
     .filter((tool) => selected === undefined || selected.has(tool.name) || pinned.includes(tool))
     .map((tool) => tool.name)
-    .filter((name) => only === undefined || only.includes(name));
+    .filter((name) => only === undefined || only.includes(name))
 
   if (progressive) {
     const limits = yield* Schema.decodeEffect(Limits)({
       maxTools: definition.toolExposure?.maxTools ?? 64,
       maxSchemaBytes: definition.toolExposure?.maxSchemaBytes ?? 262_144,
-    }).pipe(Effect.mapError(() => invalid("Invalid Tool exposure bounds")));
+    }).pipe(Effect.mapError(() => invalid('Invalid Tool exposure bounds')))
 
-    if (names.length > limits.maxTools)
-      return yield* invalid("Tool exposure exceeds the configured Tool count bound");
+    if (names.length > limits.maxTools) {
+      return yield* invalid('Tool exposure exceeds the configured Tool count bound')
+    }
 
-    const declarations: Array<unknown> = [];
+    const declarations: Array<unknown> = []
 
     for (const name of names) {
-      const tool = definition.toolkit.tools[name];
+      const tool = definition.toolkit.tools[name]
 
-      if (tool === undefined) return yield* invalid("A selected Tool schema cannot be rendered");
+      if (tool === undefined) return yield* invalid('A selected Tool schema cannot be rendered')
       declarations.push(
         yield* Effect.try({
           try: () =>
             Tool.isProviderDefined(tool)
               ? { type: tool.providerName, args: tool.args }
               : {
-                  name,
-                  description: Tool.getDescription(tool),
-                  parameters: Tool.getJsonSchema(tool, { transformer }),
-                },
-          catch: () => invalid("A selected Tool schema cannot be rendered"),
+                name,
+                description: Tool.getDescription(tool),
+                parameters: Tool.getJsonSchema(tool, { transformer }),
+              },
+          catch: () => invalid('A selected Tool schema cannot be rendered'),
         }),
-      );
+      )
     }
 
     const bytes = yield* Effect.try({
       try: () => utf8ByteLength(JSON.stringify(declarations)),
-      catch: () => invalid("A selected Tool schema cannot be rendered"),
-    });
+      catch: () => invalid('A selected Tool schema cannot be rendered'),
+    })
 
-    if (bytes > limits.maxSchemaBytes)
-      return yield* invalid("Tool exposure exceeds the configured schema byte bound");
+    if (bytes > limits.maxSchemaBytes) {
+      return yield* invalid('Tool exposure exceeds the configured schema byte bound')
+    }
   }
 
   return yield* decodeSnapshot({
     exposedToolNames: names,
     ...(selection === undefined ? {} : { selection }),
-  });
-});
+  })
+})

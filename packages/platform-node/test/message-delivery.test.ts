@@ -1,111 +1,105 @@
-import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
-import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
-import { describe, expect, it } from "@effect/vitest";
-import { NodeDurableAgentRuntime } from "@yielded/agent-platform-node/node-durable-agent-runtime";
-import * as NodeHost from "@yielded/agent-platform-node/node-durable-host";
-import { NodeDurableHost } from "@yielded/agent-platform-node/node-durable-host";
-import * as Agent from "@yielded/agent/agent";
-import { digestDefinitions, digestJson } from "@yielded/agent/digest";
-import { DurableAgentRuntime } from "@yielded/agent/durable-agent-runtime";
-import { DurableRuntimeFailpointError } from "@yielded/agent/durable-failpoint";
-import { AgentId, ThreadId } from "@yielded/agent/identifiers";
+import * as NodeCrypto from '@effect/platform-node/NodeCrypto'
+import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
+import { describe, expect, it } from '@effect/vitest'
+import { NodeDurableAgentRuntime } from '@yielded/agent-platform-node/node-durable-agent-runtime'
+import * as NodeHost from '@yielded/agent-platform-node/node-durable-host'
+import { NodeDurableHost } from '@yielded/agent-platform-node/node-durable-host'
+import * as Agent from '@yielded/agent/agent'
+import { digestDefinitions, digestJson } from '@yielded/agent/digest'
+import { DurableAgentRuntime } from '@yielded/agent/durable-agent-runtime'
+import { DurableRuntimeFailpointError } from '@yielded/agent/durable-failpoint'
+import { AgentId, ThreadId } from '@yielded/agent/identifiers'
 import {
-  MessageDeliveryStore,
-  prepareMessageDelivery,
   type MessageDeliveryKey,
   type MessageDeliveryRecord,
-} from "@yielded/agent/message-delivery";
-import { DefinitionDigestInput, type DefinitionDigests } from "@yielded/agent/records";
-import {
-  IdempotencyKey,
-  Principal,
-  SubmissionLedger,
-  SubmissionLookupByKey,
-} from "@yielded/agent/submission-ledger";
-import * as LanguageModel from "effect/ai/LanguageModel";
-import * as Model from "effect/ai/Model";
-import type * as Response from "effect/ai/Response";
-import * as Toolkit from "effect/ai/Toolkit";
-import * as Clock from "effect/Clock";
-import * as Context from "effect/Context";
-import * as Deferred from "effect/Deferred";
-import * as Effect from "effect/Effect";
-import * as Exit from "effect/Exit";
-import * as Fiber from "effect/Fiber";
-import * as FileSystem from "effect/FileSystem";
-import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
-import type * as PlatformError from "effect/PlatformError";
-import * as Schema from "effect/Schema";
-import * as Scope from "effect/Scope";
-import * as Stream from "effect/Stream";
-import * as TestClock from "effect/testing/TestClock";
+  MessageDeliveryStore,
+  prepareMessageDelivery,
+} from '@yielded/agent/message-delivery'
+import { DefinitionDigestInput, type DefinitionDigests } from '@yielded/agent/records'
+import { IdempotencyKey, Principal, SubmissionLedger, SubmissionLookupByKey } from '@yielded/agent/submission-ledger'
+import * as LanguageModel from 'effect/ai/LanguageModel'
+import * as Model from 'effect/ai/Model'
+import type * as Response from 'effect/ai/Response'
+import * as Toolkit from 'effect/ai/Toolkit'
+import * as Clock from 'effect/Clock'
+import * as Context from 'effect/Context'
+import * as Deferred from 'effect/Deferred'
+import * as Effect from 'effect/Effect'
+import * as Exit from 'effect/Exit'
+import * as Fiber from 'effect/Fiber'
+import * as FileSystem from 'effect/FileSystem'
+import * as Layer from 'effect/Layer'
+import * as Option from 'effect/Option'
+import type * as PlatformError from 'effect/PlatformError'
+import * as Schema from 'effect/Schema'
+import * as Scope from 'effect/Scope'
+import * as Stream from 'effect/Stream'
+import * as TestClock from 'effect/testing/TestClock'
 
-const sourceThreadId = Schema.decodeSync(ThreadId)("node-message-source-thread");
-const destinationThreadId = Schema.decodeSync(ThreadId)("node-message-destination-thread");
-const principal = Schema.decodeSync(Principal)("node-message-principal");
-const recipientId = Schema.decodeSync(AgentId)("node-message-recipient");
+const sourceThreadId = Schema.decodeSync(ThreadId)('node-message-source-thread')
+const destinationThreadId = Schema.decodeSync(ThreadId)('node-message-destination-thread')
+const principal = Schema.decodeSync(Principal)('node-message-principal')
+const recipientId = Schema.decodeSync(AgentId)('node-message-recipient')
 
 const messageKey: MessageDeliveryKey = {
   ownerThreadId: sourceThreadId,
-  messageId: Schema.decodeSync(IdempotencyKey)("node-message"),
-};
+  messageId: Schema.decodeSync(IdempotencyKey)('node-message'),
+}
 
-const declarations = DefinitionDigestInput.make({ agent: "v1", model: "v1", tools: "v1" });
+const declarations = DefinitionDigestInput.make({ agent: 'v1', model: 'v1', tools: 'v1' })
 
 const options = (filename: string) => ({
   filename,
-  deploymentId: "message-deployment",
-  producerId: "message-producer",
+  deploymentId: 'message-deployment',
+  producerId: 'message-producer',
   wakeScanInterval: 10,
   workerConcurrency: 1,
   settlementPollInterval: 10,
-});
+})
 
 const finalParts: ReadonlyArray<Response.StreamPartEncoded> = [
-  { type: "text-start", id: "answer" },
-  { type: "text-delta", id: "answer", delta: '{"answer":"done"}' },
-  { type: "text-end", id: "answer" },
-  { type: "finish", reason: "stop", usage: { inputTokens: {}, outputTokens: {} } },
-];
+  { type: 'text-start', id: 'answer' },
+  { type: 'text-delta', id: 'answer', delta: '{"answer":"done"}' },
+  { type: 'text-end', id: 'answer' },
+  { type: 'finish', reason: 'stop', usage: { inputTokens: {}, outputTokens: {} } },
+]
 
 const makeAgent = (id: string, beforeReply: Effect.Effect<void> = Effect.void) =>
   Agent.withModel(
     Agent.make(id, {
       input: Schema.Struct({ question: Schema.String }),
       output: Schema.Struct({ answer: Schema.String }),
-      instructions: "Answer as JSON.",
+      instructions: 'Answer as JSON.',
       toolkit: Toolkit.empty,
     }),
     Model.make(
-      "scripted",
-      "node-message-model",
+      'scripted',
+      'node-message-model',
       Layer.effect(
         LanguageModel.LanguageModel,
         LanguageModel.make({
           generateText: () => Effect.succeed([]),
-          streamText: () =>
-            Stream.unwrap(beforeReply.pipe(Effect.as(Stream.fromIterable(finalParts)))),
+          streamText: () => Stream.unwrap(beforeReply.pipe(Effect.as(Stream.fromIterable(finalParts)))),
         }),
       ),
     ),
-  );
+  )
 
 const withTemporaryDatabase = <A, E>(
   use: (filename: string) => Effect.Effect<A, E>,
 ): Effect.Effect<A, E | PlatformError.PlatformError> =>
   Effect.scoped(
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "effect-agent-node-message-" });
+    Effect.gen(function*() {
+      const fs = yield* FileSystem.FileSystem
+      const directory = yield* fs.makeTempDirectoryScoped({ prefix: 'effect-agent-node-message-' })
 
-      return yield* use(`${directory}/runtime.sqlite`);
+      return yield* use(`${directory}/runtime.sqlite`)
     }),
-  ).pipe(Effect.provide(NodeFileSystem.layer));
+  ).pipe(Effect.provide(NodeFileSystem.layer))
 
-const prepare = Effect.fn("NodeMessageTest.prepare")(function* (definitions: DefinitionDigests) {
-  const input = { question: "continue after the source has settled" };
-  const nowMillis = yield* Clock.currentTimeMillis;
+const prepare = Effect.fn('NodeMessageTest.prepare')(function*(definitions: DefinitionDigests) {
+  const input = { question: 'continue after the source has settled' }
+  const nowMillis = yield* Clock.currentTimeMillis
 
   return yield* prepareMessageDelivery({
     key: messageKey,
@@ -126,171 +120,171 @@ const prepare = Effect.fn("NodeMessageTest.prepare")(function* (definitions: Def
       definitions,
       input,
       inputDigest: yield* digestJson(input),
-      admissionKey: yield* Schema.decodeEffect(IdempotencyKey)("message-admission").pipe(
+      admissionKey: yield* Schema.decodeEffect(IdempotencyKey)('message-admission').pipe(
         Effect.orDie,
       ),
-      authorization: { policyId: "host", decisionId: "allow" },
+      authorization: { policyId: 'host', decisionId: 'allow' },
     },
-  });
-});
+  })
+})
 
-const waitFor = Effect.fn("NodeMessageTest.waitFor")(function* (
-  store: MessageDeliveryStore["Service"],
+const waitFor = Effect.fn('NodeMessageTest.waitFor')(function*(
+  store: MessageDeliveryStore['Service'],
   predicate: (record: MessageDeliveryRecord) => boolean,
 ) {
   for (let attempt = 0; attempt < 200; attempt += 1) {
-    const record = yield* store.get(messageKey);
+    const record = yield* store.get(messageKey)
 
-    if (record !== null && predicate(record)) return record;
-    yield* TestClock.adjust(10);
-    yield* Effect.yieldNow;
+    if (record !== null && predicate(record)) return record
+    yield* TestClock.adjust(10)
+    yield* Effect.yieldNow
   }
 
-  return yield* Effect.die("Message delivery did not reach the expected state");
-});
+  return yield* Effect.die('Message delivery did not reach the expected state')
+})
 
-describe("Node message delivery recovery", () => {
-  for (const pool of ["managed"] as const) {
+describe('Node message delivery recovery', () => {
+  for (const pool of ['managed'] as const) {
     it.effect(
       `rediscovers source-owned work after restart with no live source or wake hint in a ${pool} pool`,
       () =>
         withTemporaryDatabase((filename) =>
           Effect.scoped(
-            Effect.gen(function* () {
+            Effect.gen(function*() {
               const definitions = yield* digestDefinitions(declarations).pipe(
                 Effect.provide(NodeCrypto.layer),
-              );
+              )
 
-              const firstScope = yield* Scope.make();
+              const firstScope = yield* Scope.make()
 
-              yield* Effect.addFinalizer(() => Scope.close(firstScope, Exit.void));
+              yield* Effect.addFinalizer(() => Scope.close(firstScope, Exit.void))
 
               const firstContext = yield* Layer.build(
                 NodeDurableHost.layerStack(options(filename)),
-              ).pipe(Scope.provide(firstScope));
+              ).pipe(Scope.provide(firstScope))
 
-              const source = makeAgent("node-message-source");
-              const firstHost = Context.get(firstContext, NodeDurableHost);
-              const runtime = Context.get(firstContext, DurableAgentRuntime);
+              const source = makeAgent('node-message-source')
+              const firstHost = Context.get(firstContext, NodeDurableHost)
+              const runtime = Context.get(firstContext, DurableAgentRuntime)
 
               const sourceReceipt = yield* firstHost.submit(
                 source,
-                { question: "finish source" },
+                { question: 'finish source' },
                 {
                   threadId: sourceThreadId,
                   principal,
-                  idempotencyKey: yield* Schema.decodeEffect(IdempotencyKey)("source").pipe(
+                  idempotencyKey: yield* Schema.decodeEffect(IdempotencyKey)('source').pipe(
                     Effect.orDie,
                   ),
                   definitions,
                 },
-              );
+              )
 
-              yield* runtime.processThread(source, sourceThreadId);
-              expect((yield* firstHost.awaitSettlement(sourceReceipt)).outcome).toBe("completed");
+              yield* runtime.processThread(source, sourceThreadId)
+              expect((yield* firstHost.awaitSettlement(sourceReceipt)).outcome).toBe('completed')
               expect(
                 yield* Stream.runCollect(
                   Context.get(firstContext, SubmissionLedger).scanNonterminal,
                 ),
-              ).toEqual([]);
-              const frozen = yield* prepare(definitions).pipe(Effect.provide(NodeCrypto.layer));
+              ).toEqual([])
+              const frozen = yield* prepare(definitions).pipe(Effect.provide(NodeCrypto.layer))
 
-              yield* Context.get(firstContext, MessageDeliveryStore).insert(frozen);
-              yield* Scope.close(firstScope, Exit.void);
+              yield* Context.get(firstContext, MessageDeliveryStore).insert(frozen)
+              yield* Scope.close(firstScope, Exit.void)
 
-              const release = yield* Deferred.make<void>();
-              const recipient = makeAgent(recipientId, Deferred.await(release));
-              const secondScope = yield* Scope.make();
+              const release = yield* Deferred.make<void>()
+              const recipient = makeAgent(recipientId, Deferred.await(release))
+              const secondScope = yield* Scope.make()
 
-              yield* Effect.addFinalizer(() => Scope.close(secondScope, Exit.void));
+              yield* Effect.addFinalizer(() => Scope.close(secondScope, Exit.void))
 
               const live = NodeHost.layer(
                 [{ agent: recipient, definitions: declarations }],
                 options(filename),
-              );
+              )
 
-              const secondContext = yield* Layer.build(live).pipe(Scope.provide(secondScope));
-              const host = Context.get(secondContext, NodeDurableHost);
-              const store = Context.get(secondContext, MessageDeliveryStore);
+              const secondContext = yield* Layer.build(live).pipe(Scope.provide(secondScope))
+              const host = Context.get(secondContext, NodeDurableHost)
+              const store = Context.get(secondContext, MessageDeliveryStore)
 
-              expect(host.startupRecovery).toEqual([]);
-              const accepted = yield* waitFor(store, (record) => record.status === "parked");
+              expect(host.startupRecovery).toEqual([])
+              const accepted = yield* waitFor(store, (record) => record.status === 'parked')
 
-              expect(accepted.receipt?.threadId).toBe(destinationThreadId);
-              expect(accepted.settlement).toBeNull();
-              expect(accepted.envelope).toEqual(frozen.envelope);
-              yield* Deferred.succeed(release, undefined);
+              expect(accepted.receipt?.threadId).toBe(destinationThreadId)
+              expect(accepted.settlement).toBeNull()
+              expect(accepted.envelope).toEqual(frozen.envelope)
+              yield* Deferred.succeed(release, undefined)
 
               // Generic host envelopes have no native source provenance. The host
               // acknowledges the retained receipt, rather than polling its status.
-              if (accepted.receipt === null) return yield* Effect.die("Expected retained receipt");
+              if (accepted.receipt === null) return yield* Effect.die('Expected retained receipt')
 
               const terminal = yield* host
                 .awaitSettlement(accepted.receipt)
-                .pipe(Effect.forkScoped);
+                .pipe(Effect.forkScoped)
 
-              yield* TestClock.adjust(2_000);
-              const settlement = yield* Fiber.join(terminal);
+              yield* TestClock.adjust(2_000)
+              const settlement = yield* Fiber.join(terminal)
 
               yield* store.change(messageKey, {
-                _tag: "Complete",
+                _tag: 'Complete',
                 receipt: accepted.receipt!,
                 settlement,
                 admissionKey: frozen.envelope.admissionKey,
                 inputDigest: frozen.envelope.inputDigest,
                 nowMillis: yield* Clock.currentTimeMillis,
-              });
-              const processed = yield* waitFor(store, (record) => record.status === "processed");
+              })
+              const processed = yield* waitFor(store, (record) => record.status === 'processed')
 
-              expect(processed.receipt).toEqual(accepted.receipt);
-              expect(processed.settlement?.outcome).toBe("completed");
-              yield* Scope.close(secondScope, Exit.void);
-              expect(yield* host.admissionOpen).toBe(false);
+              expect(processed.receipt).toEqual(accepted.receipt)
+              expect(processed.settlement?.outcome).toBe('completed')
+              yield* Scope.close(secondScope, Exit.void)
+              expect(yield* host.admissionOpen).toBe(false)
             }),
-          ),
+          )
         ),
       15_000,
-    );
+    )
   }
 
   it.effect(
-    "preserves one receiver admission after a lost acknowledgement and another host restart",
+    'preserves one receiver admission after a lost acknowledgement and another host restart',
     () =>
       withTemporaryDatabase((filename) =>
         Effect.scoped(
-          Effect.gen(function* () {
+          Effect.gen(function*() {
             const definitions = yield* digestDefinitions(declarations).pipe(
               Effect.provide(NodeCrypto.layer),
-            );
+            )
 
-            const seed = yield* prepare(definitions).pipe(Effect.provide(NodeCrypto.layer));
+            const seed = yield* prepare(definitions).pipe(Effect.provide(NodeCrypto.layer))
 
-            yield* Effect.gen(function* () {
-              yield* (yield* MessageDeliveryStore).insert(seed);
-            }).pipe(Effect.provide(NodeDurableAgentRuntime.layer(options(filename))));
-            const secondScope = yield* Scope.make();
+            yield* Effect.gen(function*() {
+              yield* (yield* MessageDeliveryStore).insert(seed)
+            }).pipe(Effect.provide(NodeDurableAgentRuntime.layer(options(filename))))
+            const secondScope = yield* Scope.make()
 
-            yield* Effect.addFinalizer(() => Scope.close(secondScope, Exit.void));
+            yield* Effect.addFinalizer(() => Scope.close(secondScope, Exit.void))
 
             const secondContext = yield* Layer.build(
               NodeDurableHost.layerStack({
                 ...options(filename),
                 runtimeFailpoint: (location) =>
-                  location === "submit:after-admit"
+                  location === 'submit:after-admit'
                     ? Effect.fail(DurableRuntimeFailpointError.make({ location }))
                     : Effect.void,
               }),
-            ).pipe(Scope.provide(secondScope));
+            ).pipe(Scope.provide(secondScope))
 
-            const host = Context.get(secondContext, NodeDurableHost);
+            const host = Context.get(secondContext, NodeDurableHost)
 
             yield* Effect.forkScoped(host.runWorkers(Effect.never)).pipe(
               Scope.provide(secondScope),
-            );
+            )
             yield* waitFor(
               Context.get(secondContext, MessageDeliveryStore),
               (record) => record.retry.attempts > 0 && record.retry.lastFailure !== null,
-            );
+            )
 
             const admitted = yield* Context.get(secondContext, SubmissionLedger).lookup(
               SubmissionLookupByKey.make({
@@ -298,42 +292,43 @@ describe("Node message delivery recovery", () => {
                 principal,
                 idempotencyKey: seed.envelope.admissionKey,
               }),
-            );
+            )
 
-            expect(Option.isSome(admitted)).toBe(true);
-            if (Option.isNone(admitted))
-              return yield* Effect.die("Expected an admitted receiver submission");
-            yield* Scope.close(secondScope, Exit.void);
+            expect(Option.isSome(admitted)).toBe(true)
+            if (Option.isNone(admitted)) {
+              return yield* Effect.die('Expected an admitted receiver submission')
+            }
+            yield* Scope.close(secondScope, Exit.void)
 
-            const thirdScope = yield* Scope.make();
+            const thirdScope = yield* Scope.make()
 
-            yield* Effect.addFinalizer(() => Scope.close(thirdScope, Exit.void));
+            yield* Effect.addFinalizer(() => Scope.close(thirdScope, Exit.void))
 
             const thirdContext = yield* Layer.build(
               NodeDurableHost.layerStack(options(filename)),
-            ).pipe(Scope.provide(thirdScope));
+            ).pipe(Scope.provide(thirdScope))
 
             yield* Effect.forkScoped(
               Context.get(thirdContext, NodeDurableHost).runWorkers(Effect.never),
-            ).pipe(Scope.provide(thirdScope));
+            ).pipe(Scope.provide(thirdScope))
 
             const accepted = yield* waitFor(
               Context.get(thirdContext, MessageDeliveryStore),
-              (record) => record.status === "parked",
-            );
+              (record) => record.status === 'parked',
+            )
 
-            expect(accepted.receipt?.receiptId).toBe(admitted.value.receiptId);
-            expect(accepted.receipt?.submissionId).toBe(admitted.value.submissionId);
-            expect(accepted.envelope).toEqual(seed.envelope);
+            expect(accepted.receipt?.receiptId).toBe(admitted.value.receiptId)
+            expect(accepted.receipt?.submissionId).toBe(admitted.value.submissionId)
+            expect(accepted.envelope).toEqual(seed.envelope)
             expect(
               (yield* Stream.runCollect(
                 Context.get(thirdContext, SubmissionLedger).scanNonterminal,
               )).length,
-            ).toBe(1);
-            yield* Scope.close(thirdScope, Exit.void);
+            ).toBe(1)
+            yield* Scope.close(thirdScope, Exit.void)
           }),
-        ),
+        )
       ),
     15_000,
-  );
-});
+  )
+})

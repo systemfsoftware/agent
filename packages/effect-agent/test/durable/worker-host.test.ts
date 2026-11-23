@@ -1,64 +1,58 @@
-import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
-import { expect, layer } from "@effect/vitest";
-import * as Agent from "@yielded/agent/agent";
-import { AgentPolicy } from "@yielded/agent/agent-policy";
-import {
-  DelegationId,
-  ReceiptId,
-  RunId,
-  SubmissionId,
-  ThreadId,
-  ToolCallId,
-} from "@yielded/agent/identifiers";
-import { IdempotencyKey, QueueSequence, Receipt } from "@yielded/agent/receipt";
-import * as Subagent from "@yielded/agent/subagent";
+import * as NodeCrypto from '@effect/platform-node/NodeCrypto'
+import { expect, layer } from '@effect/vitest'
+import * as Agent from '@yielded/agent/agent'
+import { AgentPolicy } from '@yielded/agent/agent-policy'
+import { DelegationId, ReceiptId, RunId, SubmissionId, ThreadId, ToolCallId } from '@yielded/agent/identifiers'
+import { IdempotencyKey, QueueSequence, Receipt } from '@yielded/agent/receipt'
+import * as Subagent from '@yielded/agent/subagent'
 import {
   SubagentDelegationCaps,
   SubagentGrant,
   SubagentParentLink,
   SubagentReservationAmounts,
-} from "@yielded/agent/subagent-contract";
+} from '@yielded/agent/subagent-contract'
 import {
-  SubagentHost,
-  WorkerReportPreparationFailure,
   type StartWorkerRequest,
+  SubagentHost,
   type WorkerReporting,
-} from "@yielded/agent/subagent-host";
-import { ToolResultBounds } from "@yielded/agent/tool-result";
-import { WorkerCompletion, WorkerError, WorkerUpdate } from "@yielded/agent/worker";
-import * as Toolkit from "effect/ai/Toolkit";
-import * as Clock from "effect/Clock";
-import * as CryptoDigest from "effect/crypto/Digest";
-import * as DateTime from "effect/DateTime";
-import * as Deferred from "effect/Deferred";
-import * as Duration from "effect/Duration";
-import * as Effect from "effect/Effect";
-import * as Fiber from "effect/Fiber";
-import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
-import * as Semaphore from "effect/Semaphore";
-import * as Stream from "effect/Stream";
-import * as TestClock from "effect/testing/TestClock";
+  WorkerReportPreparationFailure,
+} from '@yielded/agent/subagent-host'
+import { ToolResultBounds } from '@yielded/agent/tool-result'
+import { WorkerCompletion, WorkerError, WorkerUpdate } from '@yielded/agent/worker'
+import * as Toolkit from 'effect/ai/Toolkit'
+import * as Clock from 'effect/Clock'
+import * as CryptoDigest from 'effect/crypto/Digest'
+import * as DateTime from 'effect/DateTime'
+import * as Deferred from 'effect/Deferred'
+import * as Duration from 'effect/Duration'
+import * as Effect from 'effect/Effect'
+import * as Fiber from 'effect/Fiber'
+import * as Option from 'effect/Option'
+import * as Schema from 'effect/Schema'
+import * as Semaphore from 'effect/Semaphore'
+import * as Stream from 'effect/Stream'
+import * as TestClock from 'effect/testing/TestClock'
 
 import {
   DurableRuntimeFailpoint,
   DurableRuntimeFailpointError,
   type DurableRuntimeFailpointLocation,
-} from "../../src/durable/DurableFailpoint.ts";
-import { makeAgentUpdateRuntime } from "../../src/durable/internal/agent-updates.ts";
-import { makeWorkerRuntime, WorkerInputControl } from "../../src/durable/internal/worker-host.ts";
-import { WorkerRuntime } from "../../src/durable/internal/worker-runtime.ts";
+} from '../../src/durable/DurableFailpoint.ts'
+import { makeAgentUpdateRuntime } from '../../src/durable/internal/agent-updates.ts'
+import { makeWorkerRuntime, WorkerInputControl } from '../../src/durable/internal/worker-host.ts'
+import { WorkerRuntime } from '../../src/durable/internal/worker-runtime.ts'
 import {
-  MessageDeliveryStore,
-  defaultMessageDeliveryStoreLimits,
   applyMessageDeliveryChange,
-  prepareCanonicalMessageDeliveries,
+  defaultMessageDeliveryStoreLimits,
   type MessageDeliveryRecord,
-} from "../../src/durable/MessageDelivery.ts";
+  MessageDeliveryStore,
+  prepareCanonicalMessageDeliveries,
+} from '../../src/durable/MessageDelivery.ts'
 import {
   BatchId,
   CanonicalBatch,
   CanonicalRecordEnvelope,
+  type CanonicalRecordPayload,
   CanonicalSequence,
   DefinitionDigests,
   DeploymentId,
@@ -67,93 +61,88 @@ import {
   ProducerId,
   RecordEnvelope,
   RunStartedRecord,
+  SubagentLineageRecorded,
   SubmissionSettled,
   SubmissionSettledRecord,
-  SubagentLineageRecorded,
   ThreadCreated,
   UserInputRecorded,
-  type CanonicalRecordPayload,
-} from "../../src/durable/Records.ts";
-import {
-  CurrentRunWriter,
-  canonicalRunIds,
-  makeProgressWriter,
-} from "../../src/durable/RunContinuation.ts";
-import { subagentLineageRecordId, workerOriginRecordId } from "../../src/durable/RunJournal.ts";
-import { StorageOwner, makeStorageOwner, makeRunWriter } from "../../src/durable/RunStorage.ts";
+} from '../../src/durable/Records.ts'
+import { canonicalRunIds, CurrentRunWriter, makeProgressWriter } from '../../src/durable/RunContinuation.ts'
+import { subagentLineageRecordId, workerOriginRecordId } from '../../src/durable/RunJournal.ts'
+import { makeRunWriter, makeStorageOwner, StorageOwner } from '../../src/durable/RunStorage.ts'
 import {
   AbortIntent,
-  AdmissionPolicyError,
-  LedgerError,
-  AdmissionNotAdmitted,
   AdmissionAdmitted,
+  AdmissionNotAdmitted,
+  AdmissionPolicyError,
   FundingOwner,
+  LedgerError,
   Principal,
   Settlement,
-  SubmissionSnapshot,
   SubmissionLedger,
   submissionSettlementId,
-} from "../../src/durable/SubmissionLedger.ts";
-import { PendingSubmission, SettledSubmission } from "../../src/durable/SubmissionStatus.ts";
+  SubmissionSnapshot,
+} from '../../src/durable/SubmissionLedger.ts'
+import { PendingSubmission, SettledSubmission } from '../../src/durable/SubmissionStatus.ts'
 import {
   AppendConflict,
   AppendResult,
   type ExecutionCheckpoint,
   ThreadIdentity,
   ThreadNotMaterialized,
+  ThreadReader,
+  type ThreadReadRequest,
+  ThreadStore,
+  ThreadStoreError,
   ThreadTail,
   ThreadWorkerCapacity,
-  ThreadStore,
-  ThreadReader,
-  ThreadStoreError,
-  type ThreadReadRequest,
-} from "../../src/durable/ThreadStore.ts";
-import { ThreadWorkEntry, workId } from "../../src/durable/ThreadWork.ts";
-import { WakeScheduler } from "../../src/durable/WakeScheduler.ts";
+} from '../../src/durable/ThreadStore.ts'
+import { ThreadWorkEntry, workId } from '../../src/durable/ThreadWork.ts'
+import { WakeScheduler } from '../../src/durable/WakeScheduler.ts'
 import {
   WorkerBudgetAuthorizer,
   WorkerConcurrencyResolver,
   WorkerHostAuthorizer,
   WorkerHostConfig,
   WorkerPolicyResolver,
-} from "../../src/durable/WorkerHost.ts";
+} from '../../src/durable/WorkerHost.ts'
 
-const sourceId = Schema.decodeSync(ThreadId)("source");
-const principal = Schema.decodeSync(Principal)("owner");
-const digest = Schema.decodeSync(Digest)("a".repeat(64));
-const definitions = DefinitionDigests.make({ agent: digest, model: digest, tools: digest });
+const sourceId = Schema.decodeSync(ThreadId)('source')
+const principal = Schema.decodeSync(Principal)('owner')
+const digest = Schema.decodeSync(Digest)('a'.repeat(64))
+const definitions = DefinitionDigests.make({ agent: digest, model: digest, tools: digest })
 
 const policy = AgentPolicy.make({
   maxTurns: 2,
   maxToolCalls: 2,
-  maxDuration: "1 second",
+  maxDuration: '1 second',
   toolConcurrency: 2,
   toolResultBounds: ToolResultBounds.make({ maxBytes: 1_024 }),
-});
+})
 
-const target = Agent.make("worker-target", {
+const target = Agent.make('worker-target', {
   input: Schema.Struct({ text: Schema.String }),
   output: Schema.String,
-  instructions: "Answer",
+  instructions: 'Answer',
   toolkit: Toolkit.empty,
   policy,
-});
+})
 
-const sourceAgent = Agent.make("source-agent", {
+const sourceAgent = Agent.make('source-agent', {
   input: Schema.String,
   output: Schema.String,
-  instructions: "Delegate",
+  instructions: 'Delegate',
   toolkit: Toolkit.empty,
   policy: AgentPolicy.make({
     ...policy,
     maxTurns: 20,
     maxToolCalls: 20,
-    maxDuration: "10 seconds",
+    maxDuration: '10 seconds',
   }),
-});
+})
 
 const request = (key: string): StartWorkerRequest => ({
-  delegationId: Schema.decodeSync(DelegationId)("research"),
+  delegationId: Schema.decodeSync(DelegationId)('research'),
   target,
   idempotencyKey: Schema.decodeSync(IdempotencyKey)(key),
   encodedInput: { text: key },
@@ -178,57 +167,57 @@ const request = (key: string): StartWorkerRequest => ({
     }),
   },
   encodedGrant: SubagentGrant.make({ allowedToolNames: [], maxDepth: 1 }),
-});
+})
 
-const reportDeclaration = Subagent.make("research", {
+const reportDeclaration = Subagent.make('research', {
   target,
   parameters: Schema.Struct({ note: Schema.String }),
   prepareInput: ({ note }) => Effect.succeed({ text: note }),
-});
+})
 
-const rawReport = Subagent.reporting(reportDeclaration);
+const rawReport = Subagent.reporting(reportDeclaration)
 
 const standardReport: WorkerReporting<WorkerReportPreparationFailure> = {
   ...rawReport,
   prepare: (report) =>
     rawReport
       .prepare(report)
-      .pipe(Effect.mapError(() => WorkerReportPreparationFailure.make({ stage: "projection" }))),
-};
+      .pipe(Effect.mapError(() => WorkerReportPreparationFailure.make({ stage: 'projection' }))),
+}
 
 const reportWith = (
-  prepare: WorkerReporting<WorkerReportPreparationFailure>["prepare"] = standardReport.prepare,
-): WorkerReporting<WorkerReportPreparationFailure> => ({ ...standardReport, prepare });
+  prepare: WorkerReporting<WorkerReportPreparationFailure>['prepare'] = standardReport.prepare,
+): WorkerReporting<WorkerReportPreparationFailure> => ({ ...standardReport, prepare })
 
-const harness = Effect.fn("workerHostHarness")(function* (
+const harness = Effect.fn('workerHostHarness')(function*(
   options: {
-    readonly independentBudget?: boolean;
-    readonly limits?: Partial<typeof WorkerHostConfig.Service>;
-    readonly authorize?: (typeof WorkerHostAuthorizer.Service)["authorize"];
-    readonly beforeRead?: (request: ThreadReadRequest) => Effect.Effect<void, ThreadStoreError>;
-    readonly afterIdentity?: (snapshot: ThreadIdentity) => Effect.Effect<void, ThreadStoreError>;
-    readonly sourceReports?: ReadonlyArray<WorkerReporting<WorkerReportPreparationFailure>>;
-    readonly targetReports?: ReadonlyArray<WorkerReporting<WorkerReportPreparationFailure>>;
+    readonly independentBudget?: boolean
+    readonly limits?: Partial<typeof WorkerHostConfig.Service>
+    readonly authorize?: (typeof WorkerHostAuthorizer.Service)['authorize']
+    readonly beforeRead?: (request: ThreadReadRequest) => Effect.Effect<void, ThreadStoreError>
+    readonly afterIdentity?: (snapshot: ThreadIdentity) => Effect.Effect<void, ThreadStoreError>
+    readonly sourceReports?: ReadonlyArray<WorkerReporting<WorkerReportPreparationFailure>>
+    readonly targetReports?: ReadonlyArray<WorkerReporting<WorkerReportPreparationFailure>>
   } = {},
 ) {
-  const now = yield* Clock.currentTimeMillis;
-  const crypto = yield* CryptoDigest.Digest;
-  const logs = new Map<ThreadId, Array<CanonicalRecordEnvelope>>();
-  const executions = new Map<RunId, ExecutionCheckpoint>();
-  const rejectedAppends = { tail: 0 };
-  const deliveries = new Map<string, MessageDeliveryRecord>();
-  const submissions = new Map<SubmissionId, SubmissionSnapshot>();
-  const settlements = new Map<SubmissionId, Settlement>();
-  const stopped = new Set<ThreadId>();
-  const fundingOwners = new Map<SubmissionId, SubmissionId>();
-  let rejectAdmission = false;
-  let failpoint: DurableRuntimeFailpointLocation | undefined;
-  let denied: "read" | "send" | "report" | "control" | undefined;
+  const now = yield* Clock.currentTimeMillis
+  const crypto = yield* CryptoDigest.Digest
+  const logs = new Map<ThreadId, Array<CanonicalRecordEnvelope>>()
+  const executions = new Map<RunId, ExecutionCheckpoint>()
+  const rejectedAppends = { tail: 0 }
+  const deliveries = new Map<string, MessageDeliveryRecord>()
+  const submissions = new Map<SubmissionId, SubmissionSnapshot>()
+  const settlements = new Map<SubmissionId, Settlement>()
+  const stopped = new Set<ThreadId>()
+  const fundingOwners = new Map<SubmissionId, SubmissionId>()
+  let rejectAdmission = false
+  let failpoint: DurableRuntimeFailpointLocation | undefined
+  let denied: 'read' | 'send' | 'report' | 'control' | undefined
 
-  let sequence = 0;
+  let sequence = 0
 
   const push = (threadId: ThreadId, payload: CanonicalRecordPayload, id: string, batchId = id) => {
-    const records = logs.get(threadId) ?? [];
+    const records = logs.get(threadId) ?? []
 
     records.push(
       CanonicalRecordEnvelope.make({
@@ -239,64 +228,65 @@ const harness = Effect.fn("workerHostHarness")(function* (
         record: RecordEnvelope.make({
           recordId: Schema.decodeSync(RecordEnvelope.fields.recordId)(id),
           schemaVersion: 1,
-          family: "thread",
+          family: 'thread',
           createdAt: DateTime.makeUnsafe(now),
-          deploymentId: Schema.decodeSync(DeploymentId)("test"),
+          deploymentId: Schema.decodeSync(DeploymentId)('test'),
           payload,
         }),
       }),
-    );
-    logs.set(threadId, records);
-  };
+    )
+    logs.set(threadId, records)
+  }
 
-  push(sourceId, ThreadCreated.make({ agentId: sourceAgent.id, definitions }), "source-created");
-  const lookup = (id: SubmissionId) => Option.fromNullishOr(submissions.get(id));
+  push(sourceId, ThreadCreated.make({ agentId: sourceAgent.id, definitions }), 'source-created')
+  const lookup = (id: SubmissionId) => Option.fromNullishOr(submissions.get(id))
 
-  const status: WorkerInputControl["Service"]["status"] = (receipt) =>
+  const status: WorkerInputControl['Service']['status'] = (receipt) =>
     Effect.sync(() => {
-      const settlement = settlements.get(receipt.submissionId);
+      const settlement = settlements.get(receipt.submissionId)
 
       return settlement === undefined
         ? PendingSubmission.make({})
-        : SettledSubmission.make({ settlement });
-    });
+        : SettledSubmission.make({ settlement })
+    })
 
-  let runtime: Effect.Success<ReturnType<typeof makeWorkerRuntime>>;
+  let runtime: Effect.Success<ReturnType<typeof makeWorkerRuntime>>
 
   const liveInputs = (threadId: ThreadId) => {
-    const all = logs.get(threadId) ?? [];
+    const all = logs.get(threadId) ?? []
 
     return all.filter((entry) => {
-      const request = entry.record.payload;
+      const request = entry.record.payload
 
       return (
-        request._tag === "WorkerInputRequested" &&
+        request._tag === 'WorkerInputRequested' &&
         !all.some(
           ({ record: { payload } }) =>
-            (payload._tag === "WorkerInputCompleted" &&
+            (payload._tag === 'WorkerInputCompleted' &&
               payload.effectsResolved === true &&
               payload.messageId === request.admission.messageId) ||
-            (payload._tag === "WorkerInputRefused" &&
+            (payload._tag === 'WorkerInputRefused' &&
               payload.reservation.recordId === entry.record.recordId),
         )
-      );
-    });
-  };
+      )
+    })
+  }
 
-  const owner = yield* makeStorageOwner(Semaphore.makeUnsafe(1).withPermits(1));
+  const owner = yield* makeStorageOwner(Semaphore.makeUnsafe(1).withPermits(1))
 
   const fixtureStore = ThreadStore.of({
-    readPrompt: () => Stream.die("Worker control requires full canonical evidence"),
+    readPrompt: () => Stream.die('Worker control requires full canonical evidence'),
     readWorkerCapacity: (request) =>
       Effect.suspend(() => {
-        const all = logs.get(request.threadId) ?? [];
+        const all = logs.get(request.threadId) ?? []
 
-        if (all.length !== request.expectedTailSequence)
-          return ThreadStoreError.make({ operation: "worker capacity", message: "Tail changed" });
+        if (all.length !== request.expectedTailSequence) {
+          return ThreadStoreError.make({ operation: 'worker capacity', message: 'Tail changed' })
+        }
 
         const rows = liveInputs(request.threadId).flatMap(({ record: { payload } }) =>
-          payload._tag === "WorkerInputRequested" ? [payload.admission] : [],
-        );
+          payload._tag === 'WorkerInputRequested' ? [payload.admission] : []
+        )
 
         return Effect.succeed(
           ThreadWorkerCapacity.make({
@@ -311,55 +301,57 @@ const harness = Effect.fn("workerHostHarness")(function* (
               rows.filter(
                 (row) =>
                   row.origin.worker.threadId === request.workerThreadId &&
-                  (row.reportKind === "update") === request.update,
+                  (row.reportKind === 'update') === request.update,
               ).length,
               request.pendingLimit + 1,
             ),
           }),
-        );
+        )
       }),
     work: {
-      threads: () => Effect.die("Worker fixture does not enumerate global owners"),
-      rebuild: () => Effect.die("Worker fixture has no disposable persisted index"),
+      threads: () => Effect.die('Worker fixture does not enumerate global owners'),
+      rebuild: () => Effect.die('Worker fixture has no disposable persisted index'),
       page: ({ threadId, limit }) =>
         Effect.sync(() => ({
           entries: [...deliveries.values()]
             .filter(
               (row) =>
                 row.key.ownerThreadId === threadId &&
-                row.status !== "processed" &&
-                row.status !== "refused",
+                row.status !== 'processed' &&
+                row.status !== 'refused',
             )
             .slice(0, limit)
             .map((row) =>
               Schema.decodeSync(ThreadWorkEntry)({
-                id: workId("delivery", row.key.messageId),
-                owner: { _tag: "Delivery", messageId: row.key.messageId },
+                id: workId('delivery', row.key.messageId),
+                owner: { _tag: 'Delivery', messageId: row.key.messageId },
                 stateReference: {
-                  _tag: "Delivery",
+                  _tag: 'Delivery',
                   messageId: row.key.messageId,
                   version: row.version,
                 },
-                state: "ready",
-                partition:
-                  row.envelope.workerAdmission?.reportKind === "update" ? "update" : "ordinary",
-              }),
+                state: 'ready',
+                partition: row.envelope.workerAdmission?.reportKind === 'update' ? 'update' : 'ordinary',
+              })
             ),
         })),
     },
-    readIdentity: Effect.fnUntraced(function* ({ threadId }) {
-      const records = logs.get(threadId);
+    readIdentity: Effect.fnUntraced(function*({ threadId }) {
+      const records = logs.get(threadId)
 
-      if (records === undefined) return yield* ThreadNotMaterialized.make({ threadId });
+      if (records === undefined) return yield* ThreadNotMaterialized.make({ threadId })
 
-      const selected: Array<CanonicalRecordEnvelope> = [];
+      const selected: Array<CanonicalRecordEnvelope> = []
 
-      for (const entry of [
-        records[0],
-        records.find(({ record }) => record.recordId === workerOriginRecordId(threadId)),
-        records.find(({ record }) => record.recordId === subagentLineageRecordId(threadId)),
-      ])
-        if (entry !== undefined && !selected.includes(entry)) selected.push(entry);
+      for (
+        const entry of [
+          records[0],
+          records.find(({ record }) => record.recordId === workerOriginRecordId(threadId)),
+          records.find(({ record }) => record.recordId === subagentLineageRecordId(threadId)),
+        ]
+      ) {
+        if (entry !== undefined && !selected.includes(entry)) selected.push(entry)
+      }
 
       const snapshot = ThreadIdentity.make({
         hasAdmissions: [...submissions.values()].some((row) => row.threadId === threadId),
@@ -368,178 +360,181 @@ const harness = Effect.fn("workerHostHarness")(function* (
           Effect.orDie,
         ),
         records: selected,
-      });
+      })
 
-      yield* options.afterIdentity?.(snapshot) ?? Effect.void;
+      yield* options.afterIdentity?.(snapshot) ?? Effect.void
 
-      return snapshot;
+      return snapshot
     }),
     readExecution: ({ runId }) => Effect.sync(() => Option.fromNullishOr(executions.get(runId))),
     read: (request) =>
       Stream.suspend(() => {
-        const all = logs.get(request.threadId) ?? [];
-        const selection = "selection" in request ? request.selection : undefined;
-        let records = all;
+        const all = logs.get(request.threadId) ?? []
+        const selection = 'selection' in request ? request.selection : undefined
+        let records = all
 
-        if (selection?._tag === "RecordId") {
-          records = all.filter((entry) => entry.record.recordId === selection.recordId);
-        } else if (selection?._tag === "WorkerExecution") {
-          records = ["UserInputRecorded", "SubmissionSettled"]
+        if (selection?._tag === 'RecordId') {
+          records = all.filter((entry) => entry.record.recordId === selection.recordId)
+        } else if (selection?._tag === 'WorkerExecution') {
+          records = ['UserInputRecorded', 'SubmissionSettled']
             .flatMap((tag) =>
               all
                 .filter(
                   ({ record: { payload } }) =>
-                    payload._tag === tag && "runId" in payload && payload.runId !== undefined,
+                    payload._tag === tag && 'runId' in payload && payload.runId !== undefined,
                 )
-                .slice(-1),
+                .slice(-1)
             )
-            .sort((a, b) => a.sequence - b.sequence);
-        } else if (selection?._tag === "RunInput") {
+            .sort((a, b) => a.sequence - b.sequence)
+        } else if (selection?._tag === 'RunInput') {
           records = all.filter(
             ({ record: { payload } }) =>
-              payload._tag === "UserInputRecorded" &&
-              payload.kind === "user" &&
+              payload._tag === 'UserInputRecorded' &&
+              payload.kind === 'user' &&
               payload.runId === selection.runId,
-          );
-        } else if (selection?._tag === "WorkerState") {
+          )
+        } else if (selection?._tag === 'WorkerState') {
           const reservations = all.flatMap(({ record: { payload } }) =>
-            payload._tag === "SubtreeBudgetReserved" &&
-            selection.sourceSubmissionId !== undefined &&
-            payload.sourceSubmissionId === selection.sourceSubmissionId
+            payload._tag === 'SubtreeBudgetReserved' &&
+              selection.sourceSubmissionId !== undefined &&
+              payload.sourceSubmissionId === selection.sourceSubmissionId
               ? [payload.reservationId]
-              : [],
-          );
+              : []
+          )
 
           records = all.filter(
             ({ record: { payload } }) =>
-              ["ThreadCreated", "WorkerOriginRecorded", "SubagentLineageRecorded"].includes(
+              ['ThreadCreated', 'WorkerOriginRecorded', 'SubagentLineageRecorded'].includes(
                 payload._tag,
               ) ||
-              (payload._tag === "SubtreeBudgetReserved" &&
+              (payload._tag === 'SubtreeBudgetReserved' &&
                 reservations.includes(payload.reservationId)) ||
-              (payload._tag === "SubagentJoined" &&
+              (payload._tag === 'SubagentJoined' &&
                 selection.sourceSubmissionId !== undefined &&
                 payload.runId === `run:${selection.sourceSubmissionId}`) ||
-              (payload._tag === "WorkerInputRequested" &&
+              (payload._tag === 'WorkerInputRequested' &&
                 reservations.includes(payload.admission.messageId)) ||
-              ((payload._tag === "WorkerInputCompleted" || payload._tag === "WorkerInputRefused") &&
+              ((payload._tag === 'WorkerInputCompleted' || payload._tag === 'WorkerInputRefused') &&
                 reservations.includes(payload.messageId)),
-          );
-        } else if (selection?._tag === "LiveWorkerInputs") {
+          )
+        } else if (selection?._tag === 'LiveWorkerInputs') {
           records = liveInputs(request.threadId).filter(
             ({ record: { payload } }) =>
-              payload._tag === "WorkerInputRequested" &&
+              payload._tag === 'WorkerInputRequested' &&
               (selection.workerThreadId === undefined ||
                 payload.admission.origin.worker.threadId === selection.workerThreadId),
-          );
-        } else if (selection?._tag === "WorkerStop") {
+          )
+        } else if (selection?._tag === 'WorkerStop') {
           records = all
             .filter(
               ({ sequence, record: { payload } }) =>
                 sequence <= selection.throughSequence &&
-                payload._tag === "WorkerStopRequested" &&
+                payload._tag === 'WorkerStopRequested' &&
                 payload.command.worker.threadId === selection.workerThreadId,
             )
-            .slice(-1);
-        } else if (selection?._tag === "RunEvidence") {
+            .slice(-1)
+        } else if (selection?._tag === 'RunEvidence') {
           records = all.filter(
             ({ sequence, record }) =>
               sequence <= selection.throughSequence &&
-              record.payload._tag !== "RunContinuation" &&
+              record.payload._tag !== 'RunContinuation' &&
               canonicalRunIds(record).includes(selection.runId),
-          );
+          )
         } else if (
-          selection?._tag === "DeliveryPredecessor" ||
-          selection?._tag === "LastAgentUpdate"
+          selection?._tag === 'DeliveryPredecessor' ||
+          selection?._tag === 'LastAgentUpdate'
         ) {
           records = all
             .filter(
               ({ sequence, record: { payload } }) =>
                 sequence <= selection.throughSequence &&
-                (selection._tag === "LastAgentUpdate"
-                  ? payload._tag === "AgentUpdateEmitted"
-                  : payload._tag === "WorkerReportPrepared" ||
-                    (payload._tag === "AgentUpdateEmitted" && payload.delivery !== undefined)),
+                (selection._tag === 'LastAgentUpdate'
+                  ? payload._tag === 'AgentUpdateEmitted'
+                  : payload._tag === 'WorkerReportPrepared' ||
+                    (payload._tag === 'AgentUpdateEmitted' && payload.delivery !== undefined)),
             )
-            .slice(-1);
-        } else if (selection !== undefined)
-          return Stream.die("Worker fixture only reads exact identities and accounting");
-        const page = "selection" in request ? request.page : request;
+            .slice(-1)
+        } else if (selection !== undefined) {
+          return Stream.die('Worker fixture only reads exact identities and accounting')
+        }
+        const page = 'selection' in request ? request.page : request
 
         return Stream.fromIterable(
           records
             .filter((entry) => entry.sequence > (page.afterSequence ?? 0))
             .slice(0, page.limit)
             .map((entry) => {
-              return entry;
+              return entry
             }),
-        );
+        )
       }).pipe(Stream.onStart(Effect.suspend(() => options.beforeRead?.(request) ?? Effect.void))),
     export: () =>
       ThreadStoreError.make({
-        operation: "export",
-        message: "Worker fixture does not export Threads",
+        operation: 'export',
+        message: 'Worker fixture does not export Threads',
       }),
-    inspectTail: Effect.fnUntraced(function* ({ threadId }) {
-      const records = logs.get(threadId);
+    inspectTail: Effect.fnUntraced(function*({ threadId }) {
+      const records = logs.get(threadId)
 
       return records === undefined
         ? yield* ThreadNotMaterialized.make({ threadId })
         : ThreadTail.make({
-            threadId,
-            tailSequence: yield* Schema.decodeEffect(CanonicalSequence)(records.length).pipe(
-              Effect.orDie,
-            ),
-          });
+          threadId,
+          tailSequence: yield* Schema.decodeEffect(CanonicalSequence)(records.length).pipe(
+            Effect.orDie,
+          ),
+        })
     }),
-    append: Effect.fnUntraced(function* (request) {
-      yield* Effect.yieldNow;
+    append: Effect.fnUntraced(function*(request) {
+      yield* Effect.yieldNow
 
       const preparedDeliveries = yield* prepareCanonicalMessageDeliveries(
         request.threadId,
         request.batch.records,
       ).pipe(
         Effect.provideService(CryptoDigest.Digest, crypto),
-        Effect.mapError((cause) =>
-          ThreadStoreError.make({ operation: "append", message: cause.message, cause }),
-        ),
-      );
+        Effect.mapError((cause) => ThreadStoreError.make({ operation: 'append', message: cause.message, cause })),
+      )
 
-      const records = logs.get(request.threadId) ?? [];
+      const records = logs.get(request.threadId) ?? []
 
       if (records.length !== request.expectedTailSequence) {
-        rejectedAppends.tail++;
+        rejectedAppends.tail++
 
         return yield* AppendConflict.make({
           threadId: request.threadId,
           batchId: request.batch.batchId,
-          reason: "tail",
-        });
+          reason: 'tail',
+        })
       }
       for (const update of request.executions ?? []) {
         if (
           (executions.get(update.checkpoint.progress.runId)?.progress.revision ?? 0) !==
-          update.previousRevision
-        )
+            update.previousRevision
+        ) {
           return yield* AppendConflict.make({
             threadId: request.threadId,
             batchId: request.batch.batchId,
-            reason: "tail",
-          });
+            reason: 'tail',
+          })
+        }
       }
-      const first = records.length + (request.batch.records.length > 0 ? 1 : 0);
+      const first = records.length + (request.batch.records.length > 0 ? 1 : 0)
 
-      for (const record of request.batch.records)
-        push(request.threadId, record.payload, record.recordId, request.batch.batchId);
+      for (const record of request.batch.records) {
+        push(request.threadId, record.payload, record.recordId, request.batch.batchId)
+      }
 
       for (const update of request.executions ?? []) {
-        if (update.retire) executions.delete(update.checkpoint.progress.runId);
-        else executions.set(update.checkpoint.progress.runId, update.checkpoint);
+        if (update.retire) executions.delete(update.checkpoint.progress.runId)
+        else executions.set(update.checkpoint.progress.runId, update.checkpoint)
       }
 
-      for (const delivery of preparedDeliveries)
-        if (!deliveries.has(delivery.key.messageId))
-          deliveries.set(delivery.key.messageId, delivery);
+      for (const delivery of preparedDeliveries) {
+        if (!deliveries.has(delivery.key.messageId)) {
+          deliveries.set(delivery.key.messageId, delivery)
+        }
+      }
 
       return AppendResult.make({
         firstSequence: yield* Schema.decodeEffect(CanonicalSequence)(first).pipe(Effect.orDie),
@@ -548,20 +543,20 @@ const harness = Effect.fn("workerHostHarness")(function* (
         ),
 
         replayed: false,
-      });
+      })
     }),
 
-    materialize: () => Effect.die("Worker fixture materializes through input control"),
-    observe: () => Stream.die("Worker fixture uses finite canonical reads"),
-  });
+    materialize: () => Effect.die('Worker fixture materializes through input control'),
+    observe: () => Stream.die('Worker fixture uses finite canonical reads'),
+  })
 
   const updateStore = ThreadStore.of({
     ...fixtureStore,
-    append: Effect.fnUntraced(function* (request) {
-      const writer = yield* makeProgressWriter(request.threadId, DeploymentId.make("test")).pipe(
+    append: Effect.fnUntraced(function*(request) {
+      const writer = yield* makeProgressWriter(request.threadId, DeploymentId.make('test')).pipe(
         Effect.provideService(ThreadReader, ThreadReader.fromStore(fixtureStore)),
         Effect.provideService(CryptoDigest.Digest, crypto),
-      );
+      )
 
       return yield* writer.commit(request.batch).pipe(
         Effect.provideService(CurrentRunWriter, {
@@ -570,42 +565,40 @@ const harness = Effect.fn("workerHostHarness")(function* (
           tail: Effect.succeed({
             sequence: request.expectedTailSequence,
           }),
-          append: (batch, updates) =>
-            fixtureStore.append({ ...request, batch, executions: updates }),
+          append: (batch, updates) => fixtureStore.append({ ...request, batch, executions: updates }),
         }),
-      );
+      )
     }),
-  });
+  })
 
   const runtimes = yield* makeWorkerRuntime({
-    deploymentId: yield* Schema.decodeEffect(DeploymentId)("test").pipe(Effect.orDie),
-    producerId: yield* Schema.decodeEffect(ProducerId)("test").pipe(Effect.orDie),
+    deploymentId: yield* Schema.decodeEffect(DeploymentId)('test').pipe(Effect.orDie),
+    producerId: yield* Schema.decodeEffect(ProducerId)('test').pipe(Effect.orDie),
     settlementPollInterval: Duration.millis(5),
     bindings: [sourceAgent, target].map((definition) => ({
       definition,
       agentId: definition.id,
       digests: definitions,
       attempt: () => Effect.succeedNone,
-      reporting:
-        definition === sourceAgent ? (options.sourceReports ?? []) : (options.targetReports ?? []),
+      reporting: definition === sourceAgent ? (options.sourceReports ?? []) : (options.targetReports ?? []),
     })),
   }).pipe(
     Effect.flatMap((runtime) =>
       makeAgentUpdateRuntime({
-        deploymentId: Schema.decodeSync(DeploymentId)("test"),
-        producerId: Schema.decodeSync(ProducerId)("test"),
+        deploymentId: Schema.decodeSync(DeploymentId)('test'),
+        producerId: Schema.decodeSync(ProducerId)('test'),
       }).pipe(
         Effect.provideService(ThreadStore, updateStore),
         Effect.provideService(WorkerRuntime, runtime),
         Effect.provide(WakeScheduler.layerNoop),
         Effect.map((updates) => ({ runtime, updates })),
-      ),
+      )
     ),
     Effect.provideService(WorkerBudgetAuthorizer, {
       authorize: () =>
         options.independentBudget !== false
           ? Effect.void
-          : WorkerError.make({ operation: "start", reason: "denied" }),
+          : WorkerError.make({ operation: 'start', reason: 'denied' }),
     }),
     Effect.provideService(WorkerHostConfig, {
       maxActiveWorkersPerSource: 2,
@@ -617,12 +610,12 @@ const harness = Effect.fn("workerHostHarness")(function* (
       authorize: (request) =>
         Effect.suspend(() => {
           return request.access === denied ||
-            request.principal !== principal ||
-            !logs.has(request.sourceThreadId)
-            ? WorkerError.make({ operation: request.operation, reason: "denied" })
+              request.principal !== principal ||
+              !logs.has(request.sourceThreadId)
+            ? WorkerError.make({ operation: request.operation, reason: 'denied' })
             : options.authorize === undefined
-              ? Effect.succeed(principal)
-              : options.authorize(request);
+            ? Effect.succeed(principal)
+            : options.authorize(request)
         }),
     }),
     Effect.provideService(DurableRuntimeFailpoint, {
@@ -630,7 +623,7 @@ const harness = Effect.fn("workerHostHarness")(function* (
         Effect.suspend(() =>
           point === failpoint
             ? DurableRuntimeFailpointError.make({ location: point })
-            : Effect.void,
+            : Effect.void
         ),
     }),
     Effect.provideService(ThreadStore, fixtureStore),
@@ -640,24 +633,24 @@ const harness = Effect.fn("workerHostHarness")(function* (
       get: ({ messageId }) => Effect.sync(() => deliveries.get(messageId) ?? null),
       insert: (record) =>
         Effect.sync(() => {
-          deliveries.set(record.key.messageId, record);
+          deliveries.set(record.key.messageId, record)
 
-          return record;
+          return record
         }),
-      change: Effect.fnUntraced(function* ({ messageId }, change) {
+      change: Effect.fnUntraced(function*({ messageId }, change) {
         const changed = yield* Effect.fromResult(
           applyMessageDeliveryChange(deliveries.get(messageId)!, change),
-        );
+        )
 
-        deliveries.set(messageId, changed);
+        deliveries.set(messageId, changed)
 
-        return changed;
+        return changed
       }),
       list: ({ ownerThreadId, limit, after, workerStarts, pendingWorker }) =>
         Effect.sync(() => {
           const rows = [...deliveries.values()]
             .filter((record) => {
-              const origin = record.envelope.workerAdmission?.origin;
+              const origin = record.envelope.workerAdmission?.origin
 
               return (
                 record.key.ownerThreadId === ownerThreadId &&
@@ -669,20 +662,20 @@ const harness = Effect.fn("workerHostHarness")(function* (
                 (pendingWorker === undefined ||
                   (origin?.worker.threadId === pendingWorker &&
                     record.receipt === null &&
-                    (record.status === "pending" || record.status === "parked")))
-              );
+                    (record.status === 'pending' || record.status === 'parked')))
+              )
             })
-            .sort((a, b) => a.key.messageId.localeCompare(b.key.messageId));
+            .sort((a, b) => a.key.messageId.localeCompare(b.key.messageId))
 
           return {
             items: rows.slice(0, limit),
             next: rows.length > limit ? rows[limit - 1]!.key.messageId : null,
-          };
+          }
         }),
       due: () =>
         Effect.succeed(
           [...deliveries.values()]
-            .filter((record) => record.status === "pending")
+            .filter((record) => record.status === 'pending')
             .map((record) => record.key),
         ),
       nextDeadline: () => Effect.succeed(null),
@@ -692,51 +685,51 @@ const harness = Effect.fn("workerHostHarness")(function* (
         Effect.sync(() => {
           const rows = [...submissions.values()]
             .filter((row) => row.threadId === threadId)
-            .sort((a, b) => a.queueSequence - b.queueSequence);
+            .sort((a, b) => a.queueSequence - b.queueSequence)
 
           return {
             latest: rows.at(-1) ?? null,
-            active: rows.find((row) => row.state !== "settled") ?? null,
+            active: rows.find((row) => row.state !== 'settled') ?? null,
             stopped: stopped.has(threadId),
-          };
+          }
         }),
       lookup: (request) =>
         Effect.sync(() => {
-          return request._tag === "SubmissionLookupById"
+          return request._tag === 'SubmissionLookupById'
             ? lookup(request.submissionId)
             : Option.fromNullishOr(
-                [...submissions.values()].find(
-                  (row) =>
-                    row.threadId === request.threadId &&
-                    row.principal === request.principal &&
-                    row.idempotencyKey === request.idempotencyKey,
-                ),
-              );
+              [...submissions.values()].find(
+                (row) =>
+                  row.threadId === request.threadId &&
+                  row.principal === request.principal &&
+                  row.idempotencyKey === request.idempotencyKey,
+              ),
+            )
         }),
 
-      capabilities: Effect.die("Worker fixture only implements ledger lookup"),
-      scanNonterminal: Stream.die("Worker fixture only implements ledger lookup"),
-      admit: () => Effect.die("Worker fixture only implements ledger lookup"),
-      markReady: () => Effect.die("Worker fixture only implements ledger lookup"),
+      capabilities: Effect.die('Worker fixture only implements ledger lookup'),
+      scanNonterminal: Stream.die('Worker fixture only implements ledger lookup'),
+      admit: () => Effect.die('Worker fixture only implements ledger lookup'),
+      markReady: () => Effect.die('Worker fixture only implements ledger lookup'),
       resolveFundingOwner: ({ threadId, submissionId }) =>
         Effect.suspend(() => {
-          const selected = submissions.get(submissionId);
-          const owner = submissions.get(fundingOwners.get(submissionId) ?? submissionId);
+          const selected = submissions.get(submissionId)
+          const owner = submissions.get(fundingOwners.get(submissionId) ?? submissionId)
 
           return selected === undefined ||
-            owner === undefined ||
-            selected.threadId !== threadId ||
-            owner.threadId !== threadId
+              owner === undefined ||
+              selected.threadId !== threadId ||
+              owner.threadId !== threadId
             ? Effect.fail(
-                LedgerError.make({ operation: "funding owner", message: "Missing exact owner" }),
-              )
-            : Effect.succeed(FundingOwner.make({ selected, owner }));
+              LedgerError.make({ operation: 'funding owner', message: 'Missing exact owner' }),
+            )
+            : Effect.succeed(FundingOwner.make({ selected, owner }))
         }),
       stopWorker: ({ threadId }) =>
         Effect.sync(() => {
-          stopped.add(threadId);
+          stopped.add(threadId)
 
-          return 0;
+          return 0
         }),
       resolveAdmission: ({ threadId, principal, idempotencyKey }) =>
         Effect.sync(() => {
@@ -745,34 +738,34 @@ const harness = Effect.fn("workerHostHarness")(function* (
               row.threadId === threadId &&
               row.principal === principal &&
               row.idempotencyKey === idempotencyKey,
-          );
+          )
 
           return found === undefined
             ? AdmissionNotAdmitted.make()
-            : AdmissionAdmitted.make({ submission: found });
+            : AdmissionAdmitted.make({ submission: found })
         }),
-      selectHead: () => Effect.die("Worker fixture only implements ledger lookup"),
-      markInputApplied: () => Effect.die("Worker fixture only implements ledger lookup"),
-      finalizeSettlement: () => Effect.die("Worker fixture only implements ledger lookup"),
-      requestAbort: () => Effect.die("Worker fixture only implements ledger lookup"),
-      readAbortIntent: () => Effect.die("Worker fixture only implements ledger lookup"),
-      claimJoining: () => Effect.die("Worker fixture only implements ledger lookup"),
-      markJoined: () => Effect.die("Worker fixture only implements ledger lookup"),
-      revertJoining: () => Effect.die("Worker fixture only implements ledger lookup"),
-      suspend: () => Effect.die("Worker fixture only implements ledger lookup"),
-      recordApprovalDecision: () => Effect.die("Worker fixture only implements ledger lookup"),
-      markUnknown: () => Effect.die("Worker fixture only implements ledger lookup"),
-      recordUnknownResolution: () => Effect.die("Worker fixture only implements ledger lookup"),
-      recordChildSettled: () => Effect.die("Worker fixture only implements ledger lookup"),
-      reserveChildBudget: () => Effect.die("Worker fixture only implements ledger lookup"),
-      attachChildToReservation: () => Effect.die("Worker fixture only implements ledger lookup"),
-      beginChildBudgetRelease: () => Effect.die("Worker fixture only implements ledger lookup"),
-      releaseChildBudget: () => Effect.die("Worker fixture only implements ledger lookup"),
-      loadRecoverySnapshot: () => Effect.die("Worker fixture only implements ledger lookup"),
+      selectHead: () => Effect.die('Worker fixture only implements ledger lookup'),
+      markInputApplied: () => Effect.die('Worker fixture only implements ledger lookup'),
+      finalizeSettlement: () => Effect.die('Worker fixture only implements ledger lookup'),
+      requestAbort: () => Effect.die('Worker fixture only implements ledger lookup'),
+      readAbortIntent: () => Effect.die('Worker fixture only implements ledger lookup'),
+      claimJoining: () => Effect.die('Worker fixture only implements ledger lookup'),
+      markJoined: () => Effect.die('Worker fixture only implements ledger lookup'),
+      revertJoining: () => Effect.die('Worker fixture only implements ledger lookup'),
+      suspend: () => Effect.die('Worker fixture only implements ledger lookup'),
+      recordApprovalDecision: () => Effect.die('Worker fixture only implements ledger lookup'),
+      markUnknown: () => Effect.die('Worker fixture only implements ledger lookup'),
+      recordUnknownResolution: () => Effect.die('Worker fixture only implements ledger lookup'),
+      recordChildSettled: () => Effect.die('Worker fixture only implements ledger lookup'),
+      reserveChildBudget: () => Effect.die('Worker fixture only implements ledger lookup'),
+      attachChildToReservation: () => Effect.die('Worker fixture only implements ledger lookup'),
+      beginChildBudgetRelease: () => Effect.die('Worker fixture only implements ledger lookup'),
+      releaseChildBudget: () => Effect.die('Worker fixture only implements ledger lookup'),
+      loadRecoverySnapshot: () => Effect.die('Worker fixture only implements ledger lookup'),
     }),
     Effect.provideService(WorkerInputControl, {
-      submit: Effect.fnUntraced(function* (envelope) {
-        const metadata = envelope.workerAdmission!;
+      submit: Effect.fnUntraced(function*(envelope) {
+        const metadata = envelope.workerAdmission!
 
         const options = {
           threadId: envelope.threadId,
@@ -780,7 +773,7 @@ const harness = Effect.fn("workerHostHarness")(function* (
           principal: envelope.deliveryPrincipal,
           idempotencyKey: envelope.admissionKey,
           workerAdmission: metadata,
-        };
+        }
 
         yield* runtime
           .validateAdmission(
@@ -793,44 +786,46 @@ const harness = Effect.fn("workerHostHarness")(function* (
           .pipe(
             Effect.mapError((error) =>
               AdmissionPolicyError.make({
-                reason:
-                  error.reason === "storage" || error.reason === "unavailable"
-                    ? "unavailable"
-                    : "refused",
+                reason: error.reason === 'storage' || error.reason === 'unavailable'
+                  ? 'unavailable'
+                  : 'refused',
                 code: `worker-${error.reason}`,
                 cause: error,
-              }),
+              })
             ),
-          );
+          )
 
         const existing = [...submissions.values()].find(
           (row) => row.idempotencyKey === envelope.admissionKey,
-        );
+        )
 
-        if (existing !== undefined)
+        if (existing !== undefined) {
           return Receipt.make({
             threadId: existing.threadId,
             submissionId: existing.submissionId,
             receiptId: existing.receiptId,
             queueSequence: existing.queueSequence,
-          });
-        if (rejectAdmission || stopped.has(envelope.threadId))
+          })
+        }
+        if (rejectAdmission || stopped.has(envelope.threadId)) {
           return yield* AdmissionPolicyError.make({
-            reason: "refused",
-            code: "receiver-refused",
-          });
-        if (!logs.has(envelope.threadId))
+            reason: 'refused',
+            code: 'receiver-refused',
+          })
+        }
+        if (!logs.has(envelope.threadId)) {
           push(
             envelope.threadId,
             ThreadCreated.make({ agentId: target.id, definitions }),
-            "child-created",
-          );
-        yield* runtime.ensureOrigin(metadata.origin).pipe(Effect.orDie);
-        sequence++;
+            'child-created',
+          )
+        }
+        yield* runtime.ensureOrigin(metadata.origin).pipe(Effect.orDie)
+        sequence++
 
         const submissionId = yield* Schema.decodeEffect(SubmissionId)(
           `submission-${sequence}`,
-        ).pipe(Effect.orDie);
+        ).pipe(Effect.orDie)
 
         const receipt = Receipt.make({
           threadId: envelope.threadId,
@@ -839,7 +834,7 @@ const harness = Effect.fn("workerHostHarness")(function* (
             Effect.orDie,
           ),
           queueSequence: yield* Schema.decodeEffect(QueueSequence)(sequence).pipe(Effect.orDie),
-        });
+        })
 
         submissions.set(
           submissionId,
@@ -849,29 +844,27 @@ const harness = Effect.fn("workerHostHarness")(function* (
             idempotencyKey: envelope.admissionKey,
             agentId: target.id,
             agentDigests: definitions,
-            deploymentId: yield* Schema.decodeEffect(DeploymentId)("test").pipe(Effect.orDie),
+            deploymentId: yield* Schema.decodeEffect(DeploymentId)('test').pipe(Effect.orDie),
             inputPayload: envelope.input,
             inputDigest: envelope.inputDigest,
-            state: "ready",
+            state: 'ready',
             createdAt: DateTime.makeUnsafe(now),
             workerAdmission: metadata,
           }),
-        );
+        )
 
-        return receipt;
+        return receipt
       }),
       status,
       abort: (command) =>
-        Effect.suspend(() =>
-          Effect.succeed(AbortIntent.make({ ...command, requestedAt: DateTime.makeUnsafe(now) })),
-        ),
+        Effect.suspend(() => Effect.succeed(AbortIntent.make({ ...command, requestedAt: DateTime.makeUnsafe(now) }))),
     }),
-  );
+  )
 
-  runtime = runtimes.runtime;
-  const ownerId = yield* Schema.decodeEffect(SubmissionId)("report-owner").pipe(Effect.orDie);
+  runtime = runtimes.runtime
+  const ownerId = yield* Schema.decodeEffect(SubmissionId)('report-owner').pipe(Effect.orDie)
 
-  if (options.sourceReports?.length)
+  if (options.sourceReports?.length) {
     submissions.set(
       ownerId,
       SubmissionSnapshot.make({
@@ -879,52 +872,53 @@ const harness = Effect.fn("workerHostHarness")(function* (
         threadId: sourceId,
         queueSequence: yield* Schema.decodeEffect(QueueSequence)(1).pipe(Effect.orDie),
         principal,
-        idempotencyKey: yield* Schema.decodeEffect(IdempotencyKey)("report-owner").pipe(
+        idempotencyKey: yield* Schema.decodeEffect(IdempotencyKey)('report-owner').pipe(
           Effect.orDie,
         ),
         agentId: sourceAgent.id,
         agentDigests: definitions,
-        deploymentId: yield* Schema.decodeEffect(DeploymentId)("test").pipe(Effect.orDie),
-        inputPayload: "original parent input",
+        deploymentId: yield* Schema.decodeEffect(DeploymentId)('test').pipe(Effect.orDie),
+        inputPayload: 'original parent input',
         inputDigest: digest,
-        receiptId: yield* Schema.decodeEffect(ReceiptId)("report-owner").pipe(Effect.orDie),
-        state: "settled",
+        receiptId: yield* Schema.decodeEffect(ReceiptId)('report-owner').pipe(Effect.orDie),
+        state: 'settled',
         createdAt: DateTime.makeUnsafe(now),
       }),
-    );
+    )
+  }
 
   const host = yield* runtime.acquire({
     sourceThreadId: sourceId,
     principal,
     ...(options.sourceReports?.length ? { sourceSubmissionId: ownerId } : {}),
-  });
+  })
 
-  const commit = Effect.fnUntraced(function* (
+  const commit = Effect.fnUntraced(function*(
     threadId: ThreadId,
     payload: CanonicalRecordPayload,
     id: string,
   ) {
-    const store = fixtureStore;
+    const store = fixtureStore
 
     const writer = yield* makeProgressWriter(
       threadId,
-      yield* Schema.decodeEffect(DeploymentId)("test").pipe(Effect.orDie),
-    ).pipe(Effect.provideService(ThreadReader, ThreadReader.fromStore(store)));
+      yield* Schema.decodeEffect(DeploymentId)('test').pipe(Effect.orDie),
+    ).pipe(Effect.provideService(ThreadReader, ThreadReader.fromStore(store)))
 
     yield* writer
       .commit(
         CanonicalBatch.make({
           batchId: BatchId.make(id),
-          producerId: ProducerId.make("test"),
+          producerId: ProducerId.make('test'),
           records: [
             RecordEnvelope.make({
               recordId: yield* Schema.decodeEffect(RecordEnvelope.fields.recordId)(id).pipe(
                 Effect.orDie,
               ),
-              family: "thread",
+              family: 'thread',
               schemaVersion: 1,
               createdAt: DateTime.makeUnsafe(now),
-              deploymentId: DeploymentId.make("test"),
+              deploymentId: DeploymentId.make('test'),
               payload,
             }),
           ],
@@ -945,39 +939,39 @@ const harness = Effect.fn("workerHostHarness")(function* (
                 expectedTailSequence: tail.tailSequence,
 
                 batch,
-              }),
-            ),
+              })),
         }),
-      );
-  });
+      )
+  })
 
-  const settle = Effect.fn("workerHostHarness.settle")(function* (
+  const settle = Effect.fn('workerHostHarness.settle')(function*(
     receipt: Receipt,
-    result = "done",
+    result = 'done',
     options: { readonly host?: Receipt } = {},
   ) {
-    const row = submissions.get(receipt.submissionId)!;
-    const settlementId = submissionSettlementId(row.submissionId);
-    const outcome = "completed";
+    const row = submissions.get(receipt.submissionId)!
+    const settlementId = submissionSettlementId(row.submissionId)
+    const outcome = 'completed'
 
     const runId = yield* Schema.decodeEffect(SubmissionSettled.fields.runId)(
       `run:${options.host?.submissionId ?? row.submissionId}`,
-    ).pipe(Effect.orDie);
+    ).pipe(Effect.orDie)
 
     if (
       runId !== undefined &&
       !logs.get(row.threadId)?.some(({ record }) => record.recordId === `input:${row.submissionId}`)
-    )
+    ) {
       push(
         row.threadId,
         UserInputRecorded.make({
           submissionId: row.submissionId,
-          kind: options.host === undefined ? "user" : "steering",
+          kind: options.host === undefined ? 'user' : 'steering',
           runId,
           input: row.inputPayload,
         }),
         `input:${row.submissionId}`,
-      );
+      )
+    }
 
     const payload = yield* Schema.decodeUnknownEffect(Schema.toType(SubmissionSettledRecord))(
       SubmissionSettled.make({
@@ -985,13 +979,13 @@ const harness = Effect.fn("workerHostHarness")(function* (
         receiptId: row.receiptId,
         settlementId,
         outcome,
-        ...(options.host === undefined && outcome === "completed" ? { result } : {}),
+        ...(options.host === undefined && outcome === 'completed' ? { result } : {}),
         ...(runId === undefined ? {} : { runId }),
       }),
-    ).pipe(Effect.orDie);
+    ).pipe(Effect.orDie)
 
-    yield* commit(row.threadId, payload, `settled:${row.submissionId}`);
-    yield* runtime.completeInput(row);
+    yield* commit(row.threadId, payload, `settled:${row.submissionId}`)
+    yield* runtime.completeInput(row)
 
     const settlement = Settlement.make({
       submissionId: row.submissionId,
@@ -999,32 +993,32 @@ const harness = Effect.fn("workerHostHarness")(function* (
       settlementId,
       outcome,
       settledAt: DateTime.makeUnsafe(now),
-    });
+    })
 
-    settlements.set(row.submissionId, settlement);
-    submissions.set(row.submissionId, SubmissionSnapshot.make({ ...row, state: "settled" }));
-  });
+    settlements.set(row.submissionId, settlement)
+    submissions.set(row.submissionId, SubmissionSnapshot.make({ ...row, state: 'settled' }))
+  })
 
-  const startRun = Effect.fnUntraced(function* (receipt: Receipt) {
-    const row = submissions.get(receipt.submissionId)!;
-    const runId = RunId.make(`run:${row.submissionId}`);
+  const startRun = Effect.fnUntraced(function*(receipt: Receipt) {
+    const row = submissions.get(receipt.submissionId)!
+    const runId = RunId.make(`run:${row.submissionId}`)
 
     push(
       row.threadId,
       UserInputRecorded.make({
         submissionId: row.submissionId,
-        kind: "user",
+        kind: 'user',
         runId,
         input: row.inputPayload,
       }),
       `input:${row.submissionId}`,
-    );
+    )
     yield* commit(
       row.threadId,
       RunStartedRecord.make({ runId, policyAccountingVersion: 1, maxDurationMillis: 10_000 }),
       `started:${row.submissionId}`,
-    );
-  });
+    )
+  })
 
   return {
     startRun,
@@ -1042,122 +1036,122 @@ const harness = Effect.fn("workerHostHarness")(function* (
     submissions,
     fundingOwners,
     rejectAdmission: (value: boolean) => {
-      rejectAdmission = value;
+      rejectAdmission = value
     },
     settle,
     push,
     deny: (value: typeof denied) => {
-      denied = value;
+      denied = value
     },
     fail: (value: typeof failpoint) => {
-      failpoint = value;
+      failpoint = value
     },
-  };
-});
+  }
+})
 
 layer(NodeCrypto.layer)((it) => {
   // Regression: https://github.com/yielded-dev/agent/commit/4ff21e2a4
   it.effect(
-    "reuses one start admission through preparation and rejects a later revoked start",
+    'reuses one start admission through preparation and rejects a later revoked start',
     () =>
-      Effect.gen(function* () {
-        let sourceReads = 0;
+      Effect.gen(function*() {
+        let sourceReads = 0
 
         const h = yield* harness({
           authorize: (request) => {
             if (
-              request.operation === "start" &&
-              request.access === "send" &&
-              !("admission" in request)
-            )
-              sourceReads++;
+              request.operation === 'start' &&
+              request.access === 'send' &&
+              !('admission' in request)
+            ) {
+              sourceReads++
+            }
 
-            return Effect.succeed(principal);
+            return Effect.succeed(principal)
           },
-        });
+        })
 
-        const command = request("one-admission");
+        const command = request('one-admission')
 
         const started = yield* h.host.start({
           ...command,
           prepare: Effect.succeed({ encodedInput: command.encodedInput }),
-        });
+        })
 
-        expect(started.delivery.status).toBe("parked");
-        expect(sourceReads).toBe(1);
-        h.deny("send");
-        const denied = yield* h.host.start(command).pipe(Effect.flip);
+        expect(started.delivery.status).toBe('parked')
+        expect(sourceReads).toBe(1)
+        h.deny('send')
+        const denied = yield* h.host.start(command).pipe(Effect.flip)
 
-        expect(denied.reason).toBe("denied");
-        expect(h.submissions.size).toBe(1);
+        expect(denied.reason).toBe('denied')
+        expect(h.submissions.size).toBe(1)
       }),
-  );
+  )
 
   // Regression: https://github.com/yielded-dev/agent/pull/621
-  it.effect("origin establishment retries a tail advance after its identity snapshot", () =>
-    Effect.gen(function* () {
-      let onIdentity: Effect.Effect<void, ThreadStoreError> = Effect.void;
-      const h = yield* harness({ afterIdentity: () => Effect.suspend(() => onIdentity) });
-      const started = yield* h.host.start(request("origin-tail-race"));
-      const threadId = started.worker.threadId;
+  it.effect('origin establishment retries a tail advance after its identity snapshot', () =>
+    Effect.gen(function*() {
+      let onIdentity: Effect.Effect<void, ThreadStoreError> = Effect.void
+      const h = yield* harness({ afterIdentity: () => Effect.suspend(() => onIdentity) })
+      const started = yield* h.host.start(request('origin-tail-race'))
+      const threadId = started.worker.threadId
 
       const origin = h.submissions.get(started.delivery.receipt!.submissionId)!.workerAdmission!
-        .origin;
+        .origin
 
-      h.logs.set(threadId, h.logs.get(threadId)!.slice(0, 1));
+      h.logs.set(threadId, h.logs.get(threadId)!.slice(0, 1))
       onIdentity = Effect.sync(() => {
-        onIdentity = Effect.void;
-        h.push(threadId, UserInputRecorded.make({ kind: "steering", input: "raced" }), "raced");
-      });
-      yield* h.runtime.ensureOrigin(origin);
-      expect(h.rejectedAppends.tail).toBe(1);
+        onIdentity = Effect.void
+        h.push(threadId, UserInputRecorded.make({ kind: 'steering', input: 'raced' }), 'raced')
+      })
+      yield* h.runtime.ensureOrigin(origin)
+      expect(h.rejectedAppends.tail).toBe(1)
       expect(h.logs.get(threadId)!.map(({ record }) => record.payload._tag)).toEqual([
-        "ThreadCreated",
-        "UserInputRecorded",
-        "WorkerOriginRecorded",
-      ]);
-    }),
-  );
+        'ThreadCreated',
+        'UserInputRecorded',
+        'WorkerOriginRecorded',
+      ])
+    }))
 
   // Regression: https://github.com/yielded-dev/agent/commit/6a4f4f870
   it.effect(
-    "origin establishment replays the same identity and refuses incompatible canonical ancestry",
+    'origin establishment replays the same identity and refuses incompatible canonical ancestry',
     () =>
-      Effect.gen(function* () {
-        const h = yield* harness();
-        const started = yield* h.host.start(request("origin-identity"));
-        const threadId = started.worker.threadId;
+      Effect.gen(function*() {
+        const h = yield* harness()
+        const started = yield* h.host.start(request('origin-identity'))
+        const threadId = started.worker.threadId
 
         const origin = h.submissions.get(started.delivery.receipt!.submissionId)!.workerAdmission!
-          .origin;
+          .origin
 
-        const history = [...h.logs.get(threadId)!];
+        const history = [...h.logs.get(threadId)!]
 
-        yield* h.runtime.ensureOrigin(origin);
-        expect(h.logs.get(threadId)).toEqual(history);
+        yield* h.runtime.ensureOrigin(origin)
+        expect(h.logs.get(threadId)).toEqual(history)
 
         const mismatch = yield* h.runtime
           .ensureOrigin({
             ...origin,
-            firstMessageId: yield* Schema.decodeEffect(IdempotencyKey)("different-origin").pipe(
+            firstMessageId: yield* Schema.decodeEffect(IdempotencyKey)('different-origin').pipe(
               Effect.orDie,
             ),
           })
-          .pipe(Effect.flip);
+          .pipe(Effect.flip)
 
-        expect(mismatch.reason).toBe("worker-mismatch");
-        expect(h.logs.get(threadId)).toEqual(history);
+        expect(mismatch.reason).toBe('worker-mismatch')
+        expect(h.logs.get(threadId)).toEqual(history)
 
         {
-          h.logs.set(threadId, []);
+          h.logs.set(threadId, [])
           h.push(
             threadId,
             ThreadCreated.make({
               agentId: target.id,
               definitions: definitions,
             }),
-            "child-created",
-          );
+            'child-created',
+          )
           h.push(
             threadId,
             SubagentLineageRecorded.make({
@@ -1165,14 +1159,14 @@ layer(NodeCrypto.layer)((it) => {
                 delegationId: origin.worker.delegationId,
                 parentAgentId: sourceAgent.id,
                 parentThreadId: sourceId,
-                parentRunId: yield* Schema.decodeEffect(RunId)("parent-run").pipe(Effect.orDie),
-                parentToolCallId: yield* Schema.decodeEffect(ToolCallId)("parent-call").pipe(
+                parentRunId: yield* Schema.decodeEffect(RunId)('parent-run').pipe(Effect.orDie),
+                parentToolCallId: yield* Schema.decodeEffect(ToolCallId)('parent-call').pipe(
                   Effect.orDie,
                 ),
                 depth: 1,
               }),
               parentSubmissionId: yield* Schema.decodeEffect(SubmissionId)(
-                "parent-submission",
+                'parent-submission',
               ).pipe(Effect.orDie),
               childDefinitionDigests: definitions,
               childInputDigest: digest,
@@ -1182,50 +1176,50 @@ layer(NodeCrypto.layer)((it) => {
               grant: origin.grant,
             }),
             subagentLineageRecordId(threadId),
-          );
-          const before = [...h.logs.get(threadId)!];
-          const refused = yield* h.runtime.ensureOrigin(origin).pipe(Effect.flip);
+          )
+          const before = [...h.logs.get(threadId)!]
+          const refused = yield* h.runtime.ensureOrigin(origin).pipe(Effect.flip)
 
-          expect(refused.reason).toBe("worker-mismatch");
-          expect(h.logs.get(threadId)).toEqual(before);
+          expect(refused.reason).toBe('worker-mismatch')
+          expect(h.logs.get(threadId)).toEqual(before)
         }
-        h.logs.delete(threadId);
-        expect((yield* h.runtime.ensureOrigin(origin).pipe(Effect.flip)).reason).toBe("storage");
+        h.logs.delete(threadId)
+        expect((yield* h.runtime.ensureOrigin(origin).pipe(Effect.flip)).reason).toBe('storage')
       }),
-  );
+  )
 
   // Regression: https://github.com/yielded-dev/agent/commit/4ff21e2a4c3735be34955e7d5caf64f623d33f81
   // Reuse the public-start retained-command fixture from #568 for follow-up correction provenance.
   it.effect(`public follow-up replays its pending correction across Runs without preparation`, () =>
-    Effect.gen(function* () {
+    Effect.gen(function*() {
       class PreparationFailed extends Schema.TaggedError<PreparationFailed>()(
-        "PreparationFailed",
+        'PreparationFailed',
         {},
       ) {}
-      let preparations = 0;
-      let throwPreparation = false;
-      const h = yield* harness();
-      const first = yield* h.host.start(request("original task"));
+      let preparations = 0
+      let throwPreparation = false
+      const h = yield* harness()
+      const first = yield* h.host.start(request('original task'))
 
-      const declaration = Subagent.make("research", {
+      const declaration = Subagent.make('research', {
         target,
         parameters: Schema.Struct({ note: Schema.String }),
         failure: PreparationFailed,
-        prepareInput: Effect.fnUntraced(function* ({ note }, caller) {
-          preparations++;
-          if (throwPreparation) return yield* PreparationFailed.make();
+        prepareInput: Effect.fnUntraced(function*({ note }, caller) {
+          preparations++
+          if (throwPreparation) return yield* PreparationFailed.make()
 
           return {
-            text: `${note}:${caller.source === "tool" ? caller.parent.runId : "programmatic"}`,
-          };
+            text: `${note}:${caller.source === 'tool' ? caller.parent.runId : 'programmatic'}`,
+          }
         }),
-      });
+      })
 
       const facet = (run: string) =>
         h.runtime.facet(
           {
             source: {
-              _tag: "tool",
+              _tag: 'tool',
               agentId: sourceAgent.id,
               threadId: sourceId,
               runId: Schema.decodeSync(RunId)(run),
@@ -1235,189 +1229,195 @@ layer(NodeCrypto.layer)((it) => {
             depth: 0,
           },
           principal,
-        );
+        )
 
       const worker = yield* Schema.decodeEffect(Subagent.Worker(declaration))(first.worker).pipe(
         Effect.orDie,
-      );
+      )
 
-      const key = yield* Schema.decodeEffect(IdempotencyKey)("explicit-correction").pipe(
+      const key = yield* Schema.decodeEffect(IdempotencyKey)('explicit-correction').pipe(
         Effect.orDie,
-      );
+      )
 
       const followUp = Subagent.followUp(
         declaration,
         worker,
-        { note: "corrected brief" },
+        { note: 'corrected brief' },
         { idempotencyKey: key },
-      );
+      )
 
-      h.fail("worker:before-source-append");
+      h.fail('worker:before-source-append')
 
       const correction = yield* followUp.pipe(
-        Effect.provideService(SubagentHost, facet("human-correction-run")),
-      );
+        Effect.provideService(SubagentHost, facet('human-correction-run')),
+      )
 
-      const envelope = structuredClone(h.deliveries.get(correction.message.messageId)!.envelope);
+      const envelope = structuredClone(h.deliveries.get(correction.message.messageId)!.envelope)
 
-      expect(envelope.input).toEqual({ text: "corrected brief:human-correction-run" });
+      expect(envelope.input).toEqual({ text: 'corrected brief:human-correction-run' })
       expect(envelope.workerAdmission?.origin).toEqual(
         h.deliveries.get(first.delivery.message.messageId)!.envelope.workerAdmission?.origin,
-      );
-      expect(correction.receipt === null).toBe(true);
-      h.fail(undefined);
-      yield* TestClock.adjust("31 seconds");
-      const later = facet("later-run");
-      const replay = yield* followUp.pipe(Effect.provideService(SubagentHost, later));
+      )
+      expect(correction.receipt === null).toBe(true)
+      h.fail(undefined)
+      yield* TestClock.adjust('31 seconds')
+      const later = facet('later-run')
+      const replay = yield* followUp.pipe(Effect.provideService(SubagentHost, later))
 
-      expect(replay.message).toEqual(correction.message);
-      expect(replay.receipt).not.toBeNull();
-      throwPreparation = true;
-      expect(yield* followUp.pipe(Effect.provideService(SubagentHost, later))).toEqual(replay);
+      expect(replay.message).toEqual(correction.message)
+      expect(replay.receipt).not.toBeNull()
+      throwPreparation = true
+      expect(yield* followUp.pipe(Effect.provideService(SubagentHost, later))).toEqual(replay)
       expect(
         yield* Subagent.followUp(
           declaration,
           worker,
-          { note: "changed brief" },
+          { note: 'changed brief' },
           { idempotencyKey: key },
         ).pipe(Effect.provideService(SubagentHost, later), Effect.flip),
-      ).toMatchObject({ reason: "idempotency-conflict" });
-      for (const changed of [
-        {
-          encodedInput: { text: "different capture" },
-          encodedParameters: { note: "corrected brief" },
-        },
-        { encodedInput: envelope.input, encodedParameters: { note: "different parameters" } },
-      ])
+      ).toMatchObject({ reason: 'idempotency-conflict' })
+      for (
+        const changed of [
+          {
+            encodedInput: { text: 'different capture' },
+            encodedParameters: { note: 'corrected brief' },
+          },
+          { encodedInput: envelope.input, encodedParameters: { note: 'different parameters' } },
+        ]
+      ) {
         expect(
           yield* later
             .followUp({ worker, target, idempotencyKey: key, ...changed })
             .pipe(Effect.flip),
-        ).toMatchObject({ reason: "idempotency-conflict" });
-      h.deny("send");
+        ).toMatchObject({ reason: 'idempotency-conflict' })
+      }
+      h.deny('send')
       expect(
         yield* followUp.pipe(Effect.provideService(SubagentHost, later), Effect.flip),
-      ).toMatchObject({ reason: "denied" });
-      h.deny(undefined);
-      expect(preparations).toBe(1);
-      expect(h.deliveries.get(correction.message.messageId)!.envelope).toEqual(envelope);
-      expect(h.submissions.get(replay.receipt!.submissionId)?.inputPayload).toEqual(envelope.input);
-      expect(h.submissions.size).toBe(2);
+      ).toMatchObject({ reason: 'denied' })
+      h.deny(undefined)
+      expect(preparations).toBe(1)
+      expect(h.deliveries.get(correction.message.messageId)!.envelope).toEqual(envelope)
+      expect(h.submissions.get(replay.receipt!.submissionId)?.inputPayload).toEqual(envelope.input)
+      expect(h.submissions.size).toBe(2)
       expect(
         yield* Subagent.followUp(
           declaration,
           worker,
-          { note: "new correction" },
+          { note: 'new correction' },
           {
-            idempotencyKey: yield* Schema.decodeEffect(IdempotencyKey)("fresh-command").pipe(
+            idempotencyKey: yield* Schema.decodeEffect(IdempotencyKey)('fresh-command').pipe(
               Effect.orDie,
             ),
           },
         ).pipe(Effect.provideService(SubagentHost, later), Effect.flip),
-      ).toEqual(PreparationFailed.make());
-      expect(h.deliveries.size).toBe(2);
-    }),
-  );
+      ).toEqual(PreparationFailed.make())
+      expect(h.deliveries.size).toBe(2)
+    }))
 
   // Equal-input regression: https://github.com/yielded-dev/agent/commit/3ab9045fc293d09a22801c7d881c4d89e562461a
-  for (const [preparation, denied] of [
-    ["changed", undefined],
-    ["failed", undefined],
-    ["equal", "caller"],
-    ["equal", "policy"],
-  ] as const)
+  for (
+    const [preparation, denied] of [
+      ['changed', undefined],
+      ['failed', undefined],
+      ['equal', 'caller'],
+      ['equal', 'policy'],
+    ] as const
+  ) {
     it.effect(
-      `public follow-up reconciles concurrent retention with current authority (${preparation}, denied=${denied ?? "none"})`,
+      `public follow-up reconciles concurrent retention with current authority (${preparation}, denied=${
+        denied ?? 'none'
+      })`,
       () =>
-        Effect.gen(function* () {
+        Effect.gen(function*() {
           class PreparationFailed extends Schema.TaggedError<PreparationFailed>()(
-            "PreparationFailed",
+            'PreparationFailed',
             {},
           ) {}
-          let denyPolicy = false;
+          let denyPolicy = false
 
           const h = yield* harness().pipe(
             Effect.provideService(WorkerPolicyResolver, {
               resolveSource: () => Effect.succeedNone,
               resolveTarget: () =>
                 denyPolicy
-                  ? WorkerError.make({ operation: "followUp", reason: "denied" })
+                  ? WorkerError.make({ operation: 'followUp', reason: 'denied' })
                   : Effect.succeedNone,
             }),
-          );
+          )
 
-          const first = yield* h.host.start(request("original task"));
-          const preparing = yield* Deferred.make<void>();
-          const resume = yield* Deferred.make<void>();
+          const first = yield* h.host.start(request('original task'))
+          const preparing = yield* Deferred.make<void>()
+          const resume = yield* Deferred.make<void>()
 
-          const declaration = Subagent.make("research", {
+          const declaration = Subagent.make('research', {
             target,
             parameters: Schema.Struct({ note: Schema.String }),
             failure: PreparationFailed,
             prepareInput: ({ note }) => Effect.succeed({ text: note }),
-          });
+          })
 
           const worker = yield* Schema.decodeEffect(Subagent.Worker(declaration))(
             first.worker,
-          ).pipe(Effect.orDie);
+          ).pipe(Effect.orDie)
 
-          const key = yield* Schema.decodeEffect(IdempotencyKey)("racing-correction").pipe(
+          const key = yield* Schema.decodeEffect(IdempotencyKey)('racing-correction').pipe(
             Effect.orDie,
-          );
+          )
 
           const loser = yield* Subagent.followUp(
             {
               ...declaration,
-              prepareInput: Effect.fnUntraced(function* () {
-                yield* Deferred.succeed(preparing, undefined);
-                yield* Deferred.await(resume);
-                if (preparation === "failed") return yield* PreparationFailed.make();
+              prepareInput: Effect.fnUntraced(function*() {
+                yield* Deferred.succeed(preparing, undefined)
+                yield* Deferred.await(resume)
+                if (preparation === 'failed') return yield* PreparationFailed.make()
 
                 return {
-                  text:
-                    preparation === "equal" ? "original correction" : "later correction capture",
-                };
+                  text: preparation === 'equal' ? 'original correction' : 'later correction capture',
+                }
               }),
             },
             worker,
-            { note: "original correction" },
+            { note: 'original correction' },
             { idempotencyKey: key },
-          ).pipe(Effect.provideService(SubagentHost, h.host), Effect.result, Effect.forkChild);
+          ).pipe(Effect.provideService(SubagentHost, h.host), Effect.result, Effect.forkChild)
 
-          yield* Deferred.await(preparing);
+          yield* Deferred.await(preparing)
 
           const winner = yield* Subagent.followUp(
             declaration,
             worker,
-            { note: "original correction" },
+            { note: 'original correction' },
             {
               idempotencyKey: key,
             },
-          ).pipe(Effect.provideService(SubagentHost, h.host));
+          ).pipe(Effect.provideService(SubagentHost, h.host))
 
-          const envelope = structuredClone(h.deliveries.get(winner.message.messageId)!.envelope);
+          const envelope = structuredClone(h.deliveries.get(winner.message.messageId)!.envelope)
 
-          if (denied === "caller") h.deny("send");
-          if (denied === "policy") denyPolicy = true;
-          yield* Deferred.succeed(resume, undefined);
-          const result = yield* Fiber.join(loser);
+          if (denied === 'caller') h.deny('send')
+          if (denied === 'policy') denyPolicy = true
+          yield* Deferred.succeed(resume, undefined)
+          const result = yield* Fiber.join(loser)
 
-          if (denied !== undefined)
-            expect(result).toMatchObject({ _tag: "Failure", failure: { reason: "denied" } });
-          else expect(result).toMatchObject({ _tag: "Success", success: winner });
-          expect(h.deliveries.get(winner.message.messageId)!.envelope).toEqual(envelope);
-          expect(envelope.input).toEqual({ text: "original correction" });
-          expect(h.deliveries.size).toBe(2);
-          expect(h.submissions.size).toBe(2);
+          if (denied !== undefined) {
+            expect(result).toMatchObject({ _tag: 'Failure', failure: { reason: 'denied' } })
+          } else expect(result).toMatchObject({ _tag: 'Success', success: winner })
+          expect(h.deliveries.get(winner.message.messageId)!.envelope).toEqual(envelope)
+          expect(envelope.input).toEqual({ text: 'original correction' })
+          expect(h.deliveries.size).toBe(2)
+          expect(h.submissions.size).toBe(2)
         }),
-    );
+    )
+  }
 
   // Regression: https://github.com/yielded-dev/agent/commit/43882d187248665eaf7fd46950b3bc617edcb73d
   it.effect(
-    "serializes source-aware active slots across raced starts, steering and idle reactivation",
+    'serializes source-aware active slots across raced starts, steering and idle reactivation',
     () =>
-      Effect.gen(function* () {
-        let limit = 1;
+      Effect.gen(function*() {
+        let limit = 1
 
         const h = yield* harness({
           independentBudget: true,
@@ -1426,27 +1426,27 @@ layer(NodeCrypto.layer)((it) => {
           Effect.provideService(WorkerConcurrencyResolver, {
             resolve: (request) =>
               Effect.sync(() => {
-                expect(request.source.threadId).toBe(sourceId);
-                expect(request.principal).toBe(principal);
-                expect(request.sourceSubmission).toBeUndefined();
+                expect(request.source.threadId).toBe(sourceId)
+                expect(request.principal).toBe(principal)
+                expect(request.sourceSubmission).toBeUndefined()
 
-                return Option.some({ maxActiveWorkersPerSource: limit });
+                return Option.some({ maxActiveWorkersPerSource: limit })
               }),
           }),
-        );
+        )
 
-        const start = (key: string) => h.host.start({ ...request(key), budgetScope: "worker-run" });
+        const start = (key: string) => h.host.start({ ...request(key), budgetScope: 'worker-run' })
 
         const raced = yield* Effect.forEach(
-          [start("slot-a"), start("slot-b")],
+          [start('slot-a'), start('slot-b')],
           (effect) => effect,
-          { concurrency: "unbounded" },
-        );
+          { concurrency: 'unbounded' },
+        )
 
-        expect(raced.map((result) => result.delivery.status).sort()).toEqual(["parked", "refused"]);
-        const first = raced.find((result) => result.delivery.status === "parked")!;
+        expect(raced.map((result) => result.delivery.status).sort()).toEqual(['parked', 'refused'])
+        const first = raced.find((result) => result.delivery.status === 'parked')!
 
-        limit = 0;
+        limit = 0
 
         const follow = (key: string) =>
           h.host.followUp({
@@ -1455,42 +1455,42 @@ layer(NodeCrypto.layer)((it) => {
             idempotencyKey: Schema.decodeSync(IdempotencyKey)(key),
             encodedInput: { text: key },
             encodedParameters: { note: key },
-          });
+          })
 
-        const steering = yield* follow("active-steering");
+        const steering = yield* follow('active-steering')
 
-        expect(yield* follow("active-steering")).toEqual(steering);
-        expect((yield* start("blocked-zero")).delivery).toMatchObject({
-          status: "refused",
-          reason: "worker-capacity",
-        });
-        yield* h.settle(first.delivery.receipt!);
+        expect(yield* follow('active-steering')).toEqual(steering)
+        expect((yield* start('blocked-zero')).delivery).toMatchObject({
+          status: 'refused',
+          reason: 'worker-capacity',
+        })
+        yield* h.settle(first.delivery.receipt!)
         // A queued/steering input still owns the slot after the first receipt settles.
-        expect((yield* start("blocked-pending")).delivery).toMatchObject({
-          status: "refused",
-          reason: "worker-capacity",
-        });
-        yield* h.settle(steering.receipt!, "steered", { host: first.delivery.receipt! });
-        expect(yield* follow("idle-blocked")).toMatchObject({
-          status: "refused",
-          reason: "worker-capacity",
-        });
-        limit = 1;
-        const later = yield* follow("idle-later");
+        expect((yield* start('blocked-pending')).delivery).toMatchObject({
+          status: 'refused',
+          reason: 'worker-capacity',
+        })
+        yield* h.settle(steering.receipt!, 'steered', { host: first.delivery.receipt! })
+        expect(yield* follow('idle-blocked')).toMatchObject({
+          status: 'refused',
+          reason: 'worker-capacity',
+        })
+        limit = 1
+        const later = yield* follow('idle-later')
 
-        expect(later.receipt!.threadId).toEqual(first.worker.threadId);
+        expect(later.receipt!.threadId).toEqual(first.worker.threadId)
         expect(h.submissions.get(later.receipt!.submissionId)?.workerAdmission?.origin).toEqual(
           h.submissions.get(first.delivery.receipt!.submissionId)?.workerAdmission?.origin,
-        );
-        yield* h.settle(later.receipt!);
-        limit = 1_000;
-        yield* start("host-one");
-        yield* start("host-two");
-        expect((yield* start("host-three")).delivery).toMatchObject({
-          status: "refused",
-          reason: "worker-capacity",
-        });
-        for (const saved of [...h.submissions.values()].filter((row) => row.state !== "settled")) {
+        )
+        yield* h.settle(later.receipt!)
+        limit = 1_000
+        yield* start('host-one')
+        yield* start('host-two')
+        expect((yield* start('host-three')).delivery).toMatchObject({
+          status: 'refused',
+          reason: 'worker-capacity',
+        })
+        for (const saved of [...h.submissions.values()].filter((row) => row.state !== 'settled')) {
           yield* h.settle(
             Receipt.make({
               threadId: saved.threadId,
@@ -1498,128 +1498,131 @@ layer(NodeCrypto.layer)((it) => {
               receiptId: saved.receiptId,
               queueSequence: saved.queueSequence,
             }),
-          );
+          )
         }
         for (let index = 0; index < 12; index++) {
-          const next = yield* start(`sequential-${index}`);
+          const next = yield* start(`sequential-${index}`)
 
-          expect(next.delivery.receipt).not.toBeNull();
-          yield* h.settle(next.delivery.receipt!);
+          expect(next.delivery.receipt).not.toBeNull()
+          yield* h.settle(next.delivery.receipt!)
         }
         for (let index = 0; index < 12; index++) {
-          const next = yield* follow(`sequential-input-${index}`);
+          const next = yield* follow(`sequential-input-${index}`)
 
-          expect(next.receipt).not.toBeNull();
-          yield* h.settle(next.receipt!);
+          expect(next.receipt).not.toBeNull()
+          yield* h.settle(next.receipt!)
         }
-        expect((yield* start("slot-a")).worker).toEqual(raced[0].worker);
-        expect(yield* follow("active-steering")).toEqual(steering);
+        expect((yield* start('slot-a')).worker).toEqual(raced[0].worker)
+        expect(yield* follow('active-steering')).toEqual(steering)
       }),
-  );
+  )
 
-  it.effect("closes only stopped, never-admitted reserved input and replays its refusal", () =>
-    Effect.gen(function* () {
-      const h = yield* harness();
+  it.effect('closes only stopped, never-admitted reserved input and replays its refusal', () =>
+    Effect.gen(function*() {
+      const h = yield* harness()
 
-      h.rejectAdmission(true);
-      const command = request("unadmitted");
-      const start = yield* h.host.start(command);
+      h.rejectAdmission(true)
+      const command = request('unadmitted')
+      const start = yield* h.host.start(command)
 
-      expect(start.delivery.status).toBe("refused");
+      expect(start.delivery.status).toBe('refused')
 
       const input = h.logs
         .get(sourceId)!
-        .find(({ record: { payload } }) => payload._tag === "WorkerInputRequested");
+        .find(({ record: { payload } }) => payload._tag === 'WorkerInputRequested')
 
-      if (input?.record.payload._tag !== "WorkerInputRequested")
-        return yield* Effect.die("Missing reservation");
-      expect(yield* h.runtime.repairInput(sourceId, input.record.payload)).toBe("delivery-owned");
+      if (input?.record.payload._tag !== 'WorkerInputRequested') {
+        return yield* Effect.die('Missing reservation')
+      }
+      expect(yield* h.runtime.repairInput(sourceId, input.record.payload)).toBe('delivery-owned')
       yield* h.host.stop({
         worker: start.worker,
         target,
-        idempotencyKey: IdempotencyKey.make("stop-unadmitted"),
-      });
-      expect(h.logs.has(start.worker.threadId)).toBe(false);
-      expect(yield* h.runtime.repairInput(sourceId, input.record.payload)).toBe("repaired");
-      expect(yield* h.runtime.repairInput(sourceId, input.record.payload)).toBe("repaired");
+        idempotencyKey: IdempotencyKey.make('stop-unadmitted'),
+      })
+      expect(h.logs.has(start.worker.threadId)).toBe(false)
+      expect(yield* h.runtime.repairInput(sourceId, input.record.payload)).toBe('repaired')
+      expect(yield* h.runtime.repairInput(sourceId, input.record.payload)).toBe('repaired')
       expect(
         h.logs
           .get(sourceId)!
-          .filter(({ record: { payload } }) => payload._tag === "WorkerInputRefused"),
-      ).toHaveLength(1);
-      expect(yield* h.host.start(command)).toEqual(start);
-      expect(h.submissions.size).toBe(0);
+          .filter(({ record: { payload } }) => payload._tag === 'WorkerInputRefused'),
+      ).toHaveLength(1)
+      expect(yield* h.host.start(command)).toEqual(start)
+      expect(h.submissions.size).toBe(0)
 
-      const pending = yield* harness();
+      const pending = yield* harness()
 
-      pending.fail("worker:before-source-append");
-      const retained = yield* pending.host.start(request("retained-before-reservation"));
+      pending.fail('worker:before-source-append')
+      const retained = yield* pending.host.start(request('retained-before-reservation'))
 
-      expect(retained.delivery.receipt).toBeNull();
+      expect(retained.delivery.receipt).toBeNull()
       expect(
         pending.logs
           .get(sourceId)!
-          .some(({ record }) => record.payload._tag === "WorkerInputRequested"),
-      ).toBe(false);
-      pending.fail(undefined);
+          .some(({ record }) => record.payload._tag === 'WorkerInputRequested'),
+      ).toBe(false)
+      pending.fail(undefined)
       yield* pending.host.stop({
         worker: retained.worker,
         target,
-        idempotencyKey: IdempotencyKey.make("stop-retained"),
-      });
+        idempotencyKey: IdempotencyKey.make('stop-retained'),
+      })
 
       const stop = pending.logs
         .get(sourceId)!
-        .find(({ record }) => record.payload._tag === "WorkerStopRequested")!;
+        .find(({ record }) => record.payload._tag === 'WorkerStopRequested')!
 
-      if (stop.record.payload._tag !== "WorkerStopRequested")
-        return yield* Effect.die("Missing retained stop");
+      if (stop.record.payload._tag !== 'WorkerStopRequested') {
+        return yield* Effect.die('Missing retained stop')
+      }
       expect(
         yield* pending.runtime.repairStop(sourceId, stop.record.recordId, stop.record.payload),
-      ).toBe(true);
-      expect(pending.logs.has(retained.worker.threadId)).toBe(false);
-    }),
-  );
+      ).toBe(true)
+      expect(pending.logs.has(retained.worker.threadId)).toBe(false)
+    }))
 
   // Regression: https://github.com/yielded-dev/agent/commit/43882d187248665eaf7fd46950b3bc617edcb73d
   it.effect(
-    "revalidates captured authority across a reserved admission retry and freezes later worker policy",
+    'revalidates captured authority across a reserved admission retry and freezes later worker policy',
     () =>
-      Effect.gen(function* () {
+      Effect.gen(function*() {
         const captured = AgentPolicy.make({
           ...policy,
           maxTurns: 7,
           maxToolCalls: 6,
-          maxDuration: "4 seconds",
-        });
+          maxDuration: '4 seconds',
+        })
 
-        let unavailable = false;
-        let replaceRetained = false;
-        let initialCalls = 0;
+        let unavailable = false
+        let replaceRetained = false
+        let initialCalls = 0
 
         const h = yield* harness({ independentBudget: true }).pipe(
           Effect.provideService(WorkerPolicyResolver, {
             resolveSource: () => Effect.succeedNone,
-            resolveTarget: Effect.fnUntraced(function* (input) {
-              if (unavailable)
-                return yield* WorkerError.make({ operation: "start", reason: "unavailable" });
-              if (input._tag === "RetainedWorker")
-                return Option.some(replaceRetained ? policy : input.origin.policy);
-              initialCalls++;
-              expect(input.input).toEqual({ text: "captured" });
-              expect(input.definition).toBe(target);
+            resolveTarget: Effect.fnUntraced(function*(input) {
+              if (unavailable) {
+                return yield* WorkerError.make({ operation: 'start', reason: 'unavailable' })
+              }
+              if (input._tag === 'RetainedWorker') {
+                return Option.some(replaceRetained ? policy : input.origin.policy)
+              }
+              initialCalls++
+              expect(input.input).toEqual({ text: 'captured' })
+              expect(input.definition).toBe(target)
 
-              return Option.some(captured);
+              return Option.some(captured)
             }),
           }),
-        );
+        )
 
-        const base = request("captured");
+        const base = request('captured')
 
         const start: StartWorkerRequest = {
           ...base,
           policy: captured,
-          budgetScope: "worker-run",
+          budgetScope: 'worker-run',
           budget: {
             caps: SubagentDelegationCaps.make({
               maxTotalChildInvocations: 1,
@@ -1636,25 +1639,25 @@ layer(NodeCrypto.layer)((it) => {
             }),
             descendantInvocations: 1,
           },
-        };
+        }
 
-        h.fail("worker:after-source-append");
+        h.fail('worker:after-source-append')
         expect((yield* h.host.start(start)).delivery).toMatchObject({
-          status: "pending",
-          reason: "storage",
-        });
-        h.fail(undefined);
-        const delivery = [...h.deliveries.values()][0]!;
-        const metadata = delivery.envelope.workerAdmission!;
+          status: 'pending',
+          reason: 'storage',
+        })
+        h.fail(undefined)
+        const delivery = [...h.deliveries.values()][0]!
+        const metadata = delivery.envelope.workerAdmission!
 
         const admissionOptions = {
           threadId: delivery.envelope.threadId,
           definitions: delivery.envelope.definitions,
           principal,
           idempotencyKey: delivery.envelope.admissionKey,
-        };
+        }
 
-        unavailable = true;
+        unavailable = true
         expect(
           (yield* h.runtime
             .validateAdmission(
@@ -1665,143 +1668,146 @@ layer(NodeCrypto.layer)((it) => {
               delivery.envelope.input,
             )
             .pipe(Effect.flip)).reason,
-        ).toBe("unavailable");
-        expect(h.submissions.size).toBe(0);
-        unavailable = false;
-        yield* TestClock.adjust("1 second");
-        const started = yield* h.host.start(start);
+        ).toBe('unavailable')
+        expect(h.submissions.size).toBe(0)
+        unavailable = false
+        yield* TestClock.adjust('1 second')
+        const started = yield* h.host.start(start)
 
-        expect(initialCalls).toBeGreaterThanOrEqual(3);
+        expect(initialCalls).toBeGreaterThanOrEqual(3)
 
         const origin = h.submissions.get(started.delivery.receipt!.submissionId)!.workerAdmission!
-          .origin;
+          .origin
 
-        expect(origin.policy).toEqual(captured);
+        expect(origin.policy).toEqual(captured)
         expect(
           h.logs
             .get(sourceId)!
-            .filter(({ record }) => record.payload._tag === "WorkerInputRequested"),
-        ).toHaveLength(1);
-        yield* h.settle(started.delivery.receipt!);
+            .filter(({ record }) => record.payload._tag === 'WorkerInputRequested'),
+        ).toHaveLength(1)
+        yield* h.settle(started.delivery.receipt!)
 
         const followup = {
           worker: started.worker,
           target,
-          idempotencyKey: yield* Schema.decodeEffect(IdempotencyKey)("later").pipe(Effect.orDie),
-          encodedInput: { text: "different later input" },
-          encodedParameters: { note: "later" },
-        };
+          idempotencyKey: yield* Schema.decodeEffect(IdempotencyKey)('later').pipe(Effect.orDie),
+          encodedInput: { text: 'different later input' },
+          encodedParameters: { note: 'later' },
+        }
 
-        replaceRetained = true;
-        expect((yield* h.host.followUp(followup).pipe(Effect.flip)).reason).toBe("worker-mismatch");
-        expect(h.deliveries.size).toBe(1);
-        replaceRetained = false;
-        const next = yield* h.host.followUp(followup);
+        replaceRetained = true
+        expect((yield* h.host.followUp(followup).pipe(Effect.flip)).reason).toBe('worker-mismatch')
+        expect(h.deliveries.size).toBe(1)
+        replaceRetained = false
+        const next = yield* h.host.followUp(followup)
 
         expect(h.submissions.get(next.receipt!.submissionId)!.workerAdmission!.origin).toEqual(
           origin,
-        );
+        )
       }),
-  );
+  )
 
-  it.effect("worker summaries retry a selected-read failure after a concurrent append", () =>
-    Effect.gen(function* () {
-      let onRead: Effect.Effect<void, ThreadStoreError> = Effect.void;
+  it.effect('worker summaries retry a selected-read failure after a concurrent append', () =>
+    Effect.gen(function*() {
+      let onRead: Effect.Effect<void, ThreadStoreError> = Effect.void
 
       const h = yield* harness({
         beforeRead: (request) =>
           Effect.suspend(() => {
-            if (!("selection" in request) || request.selection._tag !== "WorkerExecution")
-              return Effect.void;
+            if (!('selection' in request) || request.selection._tag !== 'WorkerExecution') {
+              return Effect.void
+            }
 
-            return onRead;
+            return onRead
           }),
-      });
+      })
 
-      const first = yield* h.host.start(request("concurrent-summary"));
-      const receipt = first.delivery.receipt;
+      const first = yield* h.host.start(request('concurrent-summary'))
+      const receipt = first.delivery.receipt
 
-      if (receipt === null) return yield* Effect.die("Expected an admitted worker input");
+      if (receipt === null) return yield* Effect.die('Expected an admitted worker input')
 
       const runId = yield* Schema.decodeEffect(RunId)(`run:${receipt.submissionId}`).pipe(
         Effect.orDie,
-      );
+      )
 
       onRead = Effect.sync(() => {
-        onRead = Effect.void;
+        onRead = Effect.void
         h.push(
           first.worker.threadId,
           UserInputRecorded.make({
             submissionId: receipt.submissionId,
-            kind: "user",
+            kind: 'user',
             runId,
-            input: { text: "concurrent-summary" },
+            input: { text: 'concurrent-summary' },
           }),
-          "concurrent-input",
-        );
+          'concurrent-input',
+        )
       }).pipe(
         Effect.andThen(
-          ThreadStoreError.make({ operation: "selected read", message: "Canonical tail changed" }),
+          ThreadStoreError.make({ operation: 'selected read', message: 'Canonical tail changed' }),
         ),
-      );
+      )
 
-      const summary = yield* h.host.summary({ worker: first.worker, target });
+      const summary = yield* h.host.summary({ worker: first.worker, target })
 
       expect(summary.appliedInput).toMatchObject({
         receipt,
         messageId: first.delivery.message.messageId,
         runId,
-      });
-      expect(summary.watermark.canonicalSequence).toBe(summary.appliedInput?.sequence);
-    }),
-  );
+      })
+      expect(summary.watermark.canonicalSequence).toBe(summary.appliedInput?.sequence)
+    }))
 
-  for (const watermark of ["unchanged", "unavailable"] as const)
+  for (const watermark of ['unchanged', 'unavailable'] as const) {
     it.effect(
       `worker summaries preserve a selected-read error when the watermark is ${watermark}`,
       () =>
-        Effect.gen(function* () {
+        Effect.gen(function*() {
           const readFailure = ThreadStoreError.make({
-            operation: "selected read",
-            message: "Canonical tail changed",
-          });
+            operation: 'selected read',
+            message: 'Canonical tail changed',
+          })
 
-          let onRead: Effect.Effect<void, ThreadStoreError> = readFailure;
+          let onRead: Effect.Effect<void, ThreadStoreError> = readFailure
 
           const h = yield* harness({
             beforeRead: (request) =>
               Effect.suspend(() => {
-                if (!("selection" in request) || request.selection._tag !== "WorkerExecution")
-                  return Effect.void;
+                if (!('selection' in request) || request.selection._tag !== 'WorkerExecution') {
+                  return Effect.void
+                }
 
-                return onRead;
+                return onRead
               }),
-          });
+          })
 
-          const first = yield* h.host.start(request("failed-summary"));
+          const first = yield* h.host.start(request('failed-summary'))
 
-          if (watermark === "unavailable")
+          if (watermark === 'unavailable') {
             onRead = Effect.sync(() => h.logs.delete(first.worker.threadId)).pipe(
               Effect.andThen(readFailure),
-            );
+            )
+          }
 
           const failure = yield* h.host
             .list({ delegationId: first.worker.delegationId, target, limit: 1 })
-            .pipe(Effect.flip);
+            .pipe(Effect.flip)
 
-          expect(failure).toMatchObject({ operation: "list", reason: "storage" });
-          expect(failure.cause).toBe(readFailure);
+          expect(failure).toMatchObject({ operation: 'list', reason: 'storage' })
+          expect(failure.cause).toBe(readFailure)
         }),
-    );
+    )
+  }
 
   it.effect(
-    "worker summaries choose the latest destination receipt when source intents arrive out of order",
+    'worker summaries choose the latest destination receipt when source intents arrive out of order',
     () =>
-      Effect.gen(function* () {
-        const h = yield* harness();
-        const first = yield* h.host.start(request("initial"));
+      Effect.gen(function*() {
+        const h = yield* harness()
+        const first = yield* h.host.start(request('initial'))
 
-        yield* h.settle(first.delivery.receipt!);
+        yield* h.settle(first.delivery.receipt!)
 
         const followUp = (key: string) =>
           h.host.followUp({
@@ -1810,62 +1816,62 @@ layer(NodeCrypto.layer)((it) => {
             idempotencyKey: Schema.decodeSync(IdempotencyKey)(key),
             encodedInput: { text: key },
             encodedParameters: { note: key },
-          });
+          })
 
-        h.fail("worker:after-source-append");
-        expect(yield* followUp("earlier-intent")).toMatchObject({
-          status: "pending",
-          reason: "storage",
-        });
-        h.fail(undefined);
+        h.fail('worker:after-source-append')
+        expect(yield* followUp('earlier-intent')).toMatchObject({
+          status: 'pending',
+          reason: 'storage',
+        })
+        h.fail(undefined)
         expect(yield* h.host.summary({ worker: first.worker, target })).toMatchObject({
           worker: first.worker,
           latestReceipt: first.delivery.receipt!,
-          state: "starting",
-        });
-        const earlierReceipt = yield* followUp("later-intent");
+          state: 'starting',
+        })
+        const earlierReceipt = yield* followUp('later-intent')
 
         // The interrupted delivery's expiring claim must elapse before its admission replay.
-        yield* TestClock.adjust("31 seconds");
-        const latestReceipt = yield* followUp("earlier-intent");
+        yield* TestClock.adjust('31 seconds')
+        const latestReceipt = yield* followUp('earlier-intent')
 
         expect(latestReceipt.receipt!.queueSequence).toBeGreaterThan(
           earlierReceipt.receipt!.queueSequence,
-        );
+        )
         expect(
           h.logs
             .get(sourceId)!
             .flatMap(({ record }) =>
-              record.payload._tag === "WorkerInputRequested"
+              record.payload._tag === 'WorkerInputRequested'
                 ? [record.payload.admission.parameters]
-                : [],
+                : []
             ),
-        ).toEqual([{ note: "initial" }, { note: "earlier-intent" }, { note: "later-intent" }]);
+        ).toEqual([{ note: 'initial' }, { note: 'earlier-intent' }, { note: 'later-intent' }])
 
         const active = {
           worker: first.worker,
           latestReceipt: latestReceipt.receipt,
-          state: "active",
-        };
+          state: 'active',
+        }
 
-        expect(yield* h.host.summary({ worker: first.worker, target })).toMatchObject(active);
+        expect(yield* h.host.summary({ worker: first.worker, target })).toMatchObject(active)
         expect(
           (yield* h.host.list({ delegationId: first.worker.delegationId, target, limit: 10 }))
             .items,
-        ).toMatchObject([active]);
-        yield* h.settle(earlierReceipt.receipt!);
-        yield* h.settle(latestReceipt.receipt!);
+        ).toMatchObject([active])
+        yield* h.settle(earlierReceipt.receipt!)
+        yield* h.settle(latestReceipt.receipt!)
         expect(yield* h.host.summary({ worker: first.worker, target })).toMatchObject({
           ...active,
-          state: "idle",
-        });
+          state: 'idle',
+        })
       }),
-  );
+  )
 
-  it.effect("bounds report preparation and finalizes its resources on timeout", () =>
-    Effect.gen(function* () {
-      let finalized = 0;
-      const entered = yield* Deferred.make<void>();
+  it.effect('bounds report preparation and finalizes its resources on timeout', () =>
+    Effect.gen(function*() {
+      let finalized = 0
+      const entered = yield* Deferred.make<void>()
 
       const h = yield* harness({
         sourceReports: [
@@ -1874,84 +1880,81 @@ layer(NodeCrypto.layer)((it) => {
               Effect.andThen(Effect.never),
               Effect.ensuring(
                 Effect.sync(() => {
-                  finalized++;
+                  finalized++
                 }),
               ),
-            ),
+            )
           ),
         ],
-      });
+      })
 
-      const first = yield* h.host.start(request("timeout"));
-      const fiber = yield* h.settle(first.delivery.receipt!).pipe(Effect.forkChild);
+      const first = yield* h.host.start(request('timeout'))
+      const fiber = yield* h.settle(first.delivery.receipt!).pipe(Effect.forkChild)
 
-      yield* Deferred.await(entered);
-      yield* TestClock.adjust("5 seconds");
-      yield* Fiber.join(fiber);
-      expect(finalized).toBe(1);
+      yield* Deferred.await(entered)
+      yield* TestClock.adjust('5 seconds')
+      yield* Fiber.join(fiber)
+      expect(finalized).toBe(1)
       expect(
         h.logs
           .get(first.worker.threadId)!
-          .find(({ record }) => record.payload._tag === "WorkerReportRefused")?.record.payload,
-      ).toMatchObject({ reason: "timeout" });
-    }),
-  );
+          .find(({ record }) => record.payload._tag === 'WorkerReportRefused')?.record.payload,
+      ).toMatchObject({ reason: 'timeout' })
+    }))
 
-  it.effect("interrupted preparation leaves repairable work without a false refusal", () =>
-    Effect.gen(function* () {
-      let block = true;
-      let finalized = 0;
-      const entered = yield* Deferred.make<void>();
+  it.effect('interrupted preparation leaves repairable work without a false refusal', () =>
+    Effect.gen(function*() {
+      let block = true
+      let finalized = 0
+      const entered = yield* Deferred.make<void>()
 
       const h = yield* harness({
         sourceReports: [
           reportWith((report) =>
             (block
               ? Deferred.succeed(entered, undefined).pipe(Effect.andThen(Effect.never))
-              : standardReport.prepare(report)
-            ).pipe(
-              Effect.ensuring(
-                Effect.sync(() => {
-                  finalized++;
-                }),
-              ),
-            ),
+              : standardReport.prepare(report)).pipe(
+                Effect.ensuring(
+                  Effect.sync(() => {
+                    finalized++
+                  }),
+                ),
+              )
           ),
         ],
-      });
+      })
 
-      const first = yield* h.host.start(request("interrupted"));
-      const fiber = yield* h.settle(first.delivery.receipt!).pipe(Effect.forkChild);
+      const first = yield* h.host.start(request('interrupted'))
+      const fiber = yield* h.settle(first.delivery.receipt!).pipe(Effect.forkChild)
 
-      yield* Deferred.await(entered);
-      yield* Fiber.interrupt(fiber);
-      block = false;
-      yield* h.runtime.completeInput(h.submissions.get(first.delivery.receipt!.submissionId)!);
-      expect(finalized).toBe(2);
+      yield* Deferred.await(entered)
+      yield* Fiber.interrupt(fiber)
+      block = false
+      yield* h.runtime.completeInput(h.submissions.get(first.delivery.receipt!.submissionId)!)
+      expect(finalized).toBe(2)
       expect(
         h.logs
           .get(first.worker.threadId)!
-          .filter(({ record }) => record.payload._tag === "WorkerReportRefused"),
-      ).toHaveLength(0);
+          .filter(({ record }) => record.payload._tag === 'WorkerReportRefused'),
+      ).toHaveLength(0)
       expect(
         h.logs
           .get(first.worker.threadId)!
-          .filter(({ record }) => record.payload._tag === "WorkerReportPrepared"),
-      ).toHaveLength(1);
-    }),
-  );
+          .filter(({ record }) => record.payload._tag === 'WorkerReportPrepared'),
+      ).toHaveLength(1)
+    }))
 
   it.effect("validates report authority against the receiving worker's original ancestor", () =>
-    Effect.gen(function* () {
-      const scoutId = yield* Schema.decodeEffect(DelegationId)("scout").pipe(Effect.orDie);
+    Effect.gen(function*() {
+      const scoutId = yield* Schema.decodeEffect(DelegationId)('scout').pipe(Effect.orDie)
 
       const scoutReport = Subagent.reporting(
-        Subagent.make("scout", {
+        Subagent.make('scout', {
           target,
           parameters: reportDeclaration.parameters,
           prepareInput: reportDeclaration.prepareInput,
         }),
-      );
+      )
 
       const h = yield* harness({
         limits: {
@@ -1964,16 +1967,14 @@ layer(NodeCrypto.layer)((it) => {
               scoutReport
                 .prepare(report)
                 .pipe(
-                  Effect.mapError(() =>
-                    WorkerReportPreparationFailure.make({ stage: "projection" }),
-                  ),
+                  Effect.mapError(() => WorkerReportPreparationFailure.make({ stage: 'projection' })),
                 ),
           },
         ],
-      });
+      })
 
-      const initial = request("report-builder");
-      const grant = SubagentGrant.make({ allowedToolNames: [], maxDepth: 2 });
+      const initial = request('report-builder')
+      const grant = SubagentGrant.make({ allowedToolNames: [], maxDepth: 2 })
 
       const builder = yield* h.host.start({
         ...initial,
@@ -1990,38 +1991,38 @@ layer(NodeCrypto.layer)((it) => {
             resultBytes: 1_280,
           }),
         },
-      });
+      })
 
       const childPolicy = AgentPolicy.make({
         ...policy,
         maxTurns: 1,
         maxToolCalls: 1,
-        maxDuration: "500 millis",
+        maxDuration: '500 millis',
         toolConcurrency: 1,
         toolResultBounds: ToolResultBounds.make({ maxBytes: 256 }),
-      });
+      })
 
-      const fundingOwner = builder.delivery.receipt!.submissionId;
-      const joinedId = SubmissionId.make("joined-builder-input");
+      const fundingOwner = builder.delivery.receipt!.submissionId
+      const joinedId = SubmissionId.make('joined-builder-input')
 
       h.submissions.set(
         joinedId,
         SubmissionSnapshot.make({
           ...h.submissions.get(fundingOwner)!,
           submissionId: joinedId,
-          state: "joined",
+          state: 'joined',
         }),
-      );
-      h.fundingOwners.set(joinedId, fundingOwner);
+      )
+      h.fundingOwners.set(joinedId, fundingOwner)
 
       const nested = h.runtime.facet(
         {
           source: {
-            _tag: "tool",
+            _tag: 'tool',
             agentId: target.id,
             threadId: builder.worker.threadId,
-            runId: yield* Schema.decodeEffect(RunId)("builder-run").pipe(Effect.orDie),
-            toolCallId: yield* Schema.decodeEffect(ToolCallId)("scout-call").pipe(Effect.orDie),
+            runId: yield* Schema.decodeEffect(RunId)('builder-run').pipe(Effect.orDie),
+            toolCallId: yield* Schema.decodeEffect(ToolCallId)('scout-call').pipe(Effect.orDie),
           },
           policy,
           depth: 1,
@@ -2029,10 +2030,10 @@ layer(NodeCrypto.layer)((it) => {
         },
         principal,
         joinedId,
-      );
+      )
 
       const scout = yield* nested.start({
-        ...request("report-scout"),
+        ...request('report-scout'),
         delegationId: scoutId,
         policy: childPolicy,
         encodedGrant: grant,
@@ -2055,45 +2056,43 @@ layer(NodeCrypto.layer)((it) => {
             costMicrousd: 0,
           }),
         },
-      });
+      })
 
       expect(
         h.submissions.get(scout.delivery.receipt!.submissionId)?.workerAdmission
           ?.sourceSubmissionId,
-      ).toBe(fundingOwner);
+      ).toBe(fundingOwner)
       expect(
         h.logs
           .get(builder.worker.threadId)!
-          .find(({ record }) => record.payload._tag === "SubtreeBudgetReserved")?.record.payload,
-      ).toMatchObject({ sourceSubmissionId: fundingOwner });
+          .find(({ record }) => record.payload._tag === 'SubtreeBudgetReserved')?.record.payload,
+      ).toMatchObject({ sourceSubmissionId: fundingOwner })
 
       {
-        const submission = h.submissions.get(scout.delivery.receipt!.submissionId)!;
+        const submission = h.submissions.get(scout.delivery.receipt!.submissionId)!
 
         const runId = yield* Schema.decodeEffect(RunId)(`run:${submission.submissionId}`).pipe(
           Effect.orDie,
-        );
+        )
 
-        yield* h.startRun(scout.delivery.receipt!);
+        yield* h.startRun(scout.delivery.receipt!)
         yield* h.updates
           .emit({
             submission,
             runId,
             definitions,
-            updateId: yield* Schema.decodeEffect(IdempotencyKey)("scout-finding").pipe(
+            updateId: yield* Schema.decodeEffect(IdempotencyKey)('scout-finding').pipe(
               Effect.orDie,
             ),
-            value: { finding: "area concern" },
+            value: { finding: 'area concern' },
           })
-          .pipe(Effect.provideService(CurrentRunWriter, yield* h.writer(submission.threadId)));
+          .pipe(Effect.provideService(CurrentRunWriter, yield* h.writer(submission.threadId)))
 
-        const update = [...h.deliveries.values()].find((row) =>
-          Schema.is(WorkerUpdate)(row.envelope.messageAdmission),
-        )!;
+        const update = [...h.deliveries.values()].find((row) => Schema.is(WorkerUpdate)(row.envelope.messageAdmission))!
 
-        const metadata = update.envelope.workerAdmission!;
+        const metadata = update.envelope.workerAdmission!
 
-        expect(metadata.reportKind).toBe("update");
+        expect(metadata.reportKind).toBe('update')
 
         const options = {
           threadId: update.envelope.threadId,
@@ -2102,7 +2101,7 @@ layer(NodeCrypto.layer)((it) => {
           definitions: update.envelope.definitions,
           workerAdmission: metadata,
           messageAdmission: update.envelope.messageAdmission,
-        };
+        }
 
         expect(
           yield* h.runtime
@@ -2114,37 +2113,37 @@ layer(NodeCrypto.layer)((it) => {
               update.envelope.input,
             )
             .pipe(Effect.flip),
-        ).toMatchObject({ reason: "denied" });
+        ).toMatchObject({ reason: 'denied' })
         yield* h.runtime.validateAdmission(
           metadata,
           options,
           update.envelope.agentId,
           update.envelope.inputDigest,
           update.envelope.input,
-        );
+        )
       }
 
-      yield* h.settle(scout.delivery.receipt!);
+      yield* h.settle(scout.delivery.receipt!)
 
       const report = [...h.deliveries.values()].find(
         (row) =>
           row.key.ownerThreadId === scout.worker.threadId &&
           !Schema.is(WorkerUpdate)(row.envelope.messageAdmission),
-      )!;
+      )!
 
-      expect(report.envelope.threadId).toBe(builder.worker.threadId);
+      expect(report.envelope.threadId).toBe(builder.worker.threadId)
       expect(report.envelope.workerAdmission?.parameters).toEqual({
-        note: "report-builder",
-      });
+        note: 'report-builder',
+      })
       expect(report.envelope.workerAdmission?.origin).toEqual(
         h.submissions.get(builder.delivery.receipt!.submissionId)?.workerAdmission?.origin,
-      );
-      expect(report.envelope.workerAdmission?.sourceSubmissionId).toBeUndefined();
+      )
+      expect(report.envelope.workerAdmission?.sourceSubmissionId).toBeUndefined()
       {
-        expect(report.envelope.input).toEqual({ text: "report-builder" });
-        expect(Schema.is(WorkerCompletion)(report.envelope.messageAdmission)).toBe(true);
+        expect(report.envelope.input).toEqual({ text: 'report-builder' })
+        expect(Schema.is(WorkerCompletion)(report.envelope.messageAdmission)).toBe(true)
       }
-      const metadata = report.envelope.workerAdmission!;
+      const metadata = report.envelope.workerAdmission!
 
       const options = {
         threadId: report.envelope.threadId,
@@ -2152,64 +2151,65 @@ layer(NodeCrypto.layer)((it) => {
         idempotencyKey: report.envelope.admissionKey,
         definitions: report.envelope.definitions,
         workerAdmission: metadata,
-      };
+      }
 
       {
         const message = yield* Schema.decodeUnknownEffect(WorkerCompletion)(
           report.envelope.messageAdmission,
-        );
+        )
 
         const validate = (
           completion = message,
           admission: Parameters<typeof h.runtime.validateCompletion>[1] = options,
           inputDigest = report.envelope.inputDigest,
-        ) =>
-          h.runtime.validateCompletion(completion, admission, report.envelope.agentId, inputDigest);
+        ) => h.runtime.validateCompletion(completion, admission, report.envelope.agentId, inputDigest)
 
-        expect(yield* validate()).toEqual(message);
-        for (const changed of [
-          { ...options, threadId: sourceId },
-          {
-            ...options,
-            principal: yield* Schema.decodeEffect(Principal)("other").pipe(Effect.orDie),
-          },
-          {
-            ...options,
-            idempotencyKey: yield* Schema.decodeEffect(IdempotencyKey)("other").pipe(Effect.orDie),
-          },
-          { ...options, workerAdmission: undefined },
-          {
-            ...options,
-            definitions: DefinitionDigests.make({
-              ...options.definitions,
-              agent: yield* Schema.decodeEffect(Digest)("b".repeat(64)).pipe(Effect.orDie),
-            }),
-          },
-        ])
-          expect((yield* validate(message, changed).pipe(Effect.flip)).reason).toBe("denied");
+        expect(yield* validate()).toEqual(message)
+        for (
+          const changed of [
+            { ...options, threadId: sourceId },
+            {
+              ...options,
+              principal: yield* Schema.decodeEffect(Principal)('other').pipe(Effect.orDie),
+            },
+            {
+              ...options,
+              idempotencyKey: yield* Schema.decodeEffect(IdempotencyKey)('other').pipe(Effect.orDie),
+            },
+            { ...options, workerAdmission: undefined },
+            {
+              ...options,
+              definitions: DefinitionDigests.make({
+                ...options.definitions,
+                agent: yield* Schema.decodeEffect(Digest)('b'.repeat(64)).pipe(Effect.orDie),
+              }),
+            },
+          ]
+        ) {
+          expect((yield* validate(message, changed).pipe(Effect.flip)).reason).toBe('denied')
+        }
         expect(
           (yield* validate({ ...message, budgetExhausted: true }).pipe(Effect.flip)).reason,
-        ).toBe("denied");
+        ).toBe('denied')
         expect(
           (yield* validate({
             ...message,
             report: {
               ...message.report,
-              runId: yield* Schema.decodeEffect(RunId)("unprepared-run").pipe(Effect.orDie),
+              runId: yield* Schema.decodeEffect(RunId)('unprepared-run').pipe(Effect.orDie),
             },
           }).pipe(Effect.flip)).reason,
-        ).toBe("denied");
+        ).toBe('denied')
         expect(
           (yield* validate(
             message,
             options,
-            yield* Schema.decodeEffect(Digest)("b".repeat(64)).pipe(Effect.orDie),
+            yield* Schema.decodeEffect(Digest)('b'.repeat(64)).pipe(Effect.orDie),
           ).pipe(Effect.flip)).reason,
-        ).toBe("denied");
-        h.deny("report");
-        expect((yield* validate().pipe(Effect.flip)).reason).toBe("denied");
-        h.deny(undefined);
+        ).toBe('denied')
+        h.deny('report')
+        expect((yield* validate().pipe(Effect.flip)).reason).toBe('denied')
+        h.deny(undefined)
       }
-    }),
-  );
-});
+    }))
+})

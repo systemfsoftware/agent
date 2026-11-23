@@ -1,29 +1,25 @@
-import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
-import { type EventSources } from "@yielded/agent/event-source";
-import { PreparedInputAdmission } from "@yielded/agent/prepared-input-admission";
+import * as NodeCrypto from '@effect/platform-node/NodeCrypto'
+import { type EventSources } from '@yielded/agent/event-source'
+import { PreparedInputAdmission } from '@yielded/agent/prepared-input-admission'
 import {
+  defaultSubscriptionLimits,
   type SubscriptionAuthorizer,
   type SubscriptionError,
   type SubscriptionLimits,
-  type SubscriptionStoreFailure,
   SubscriptionStore,
-  defaultSubscriptionLimits,
-} from "@yielded/agent/subscription";
-import { type SubscriptionInputBindings } from "@yielded/agent/subscription-input";
-import {
-  SubscriptionDriver,
-  SubscriptionIntake,
-  Subscriptions,
-} from "@yielded/agent/subscriptions";
-import * as Cause from "effect/Cause";
-import * as Duration from "effect/Duration";
-import * as Effect from "effect/Effect";
-import * as Exit from "effect/Exit";
-import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
+  type SubscriptionStoreFailure,
+} from '@yielded/agent/subscription'
+import { type SubscriptionInputBindings } from '@yielded/agent/subscription-input'
+import { SubscriptionDriver, SubscriptionIntake, Subscriptions } from '@yielded/agent/subscriptions'
+import * as Cause from 'effect/Cause'
+import * as Duration from 'effect/Duration'
+import * as Effect from 'effect/Effect'
+import * as Exit from 'effect/Exit'
+import * as Layer from 'effect/Layer'
+import * as Option from 'effect/Option'
 
-import { makeNodePreparedInputAdmission, NodeAdmission } from "./internal/prepared-admission.ts";
-import { NodeDurableHost } from "./NodeDurableHost.ts";
+import { makeNodePreparedInputAdmission, NodeAdmission } from './internal/prepared-admission.ts'
+import { NodeDurableHost } from './NodeDurableHost.ts'
 
 /** Ordinary prepared admission through the Scope-owned Node host gate. */
 export const nodePreparedInputAdmissionLayer: Layer.Layer<
@@ -32,66 +28,65 @@ export const nodePreparedInputAdmissionLayer: Layer.Layer<
   NodeDurableHost
 > = Layer.effect(PreparedInputAdmission, makeNodePreparedInputAdmission).pipe(
   Layer.provide(Layer.effect(NodeAdmission, NodeDurableHost)),
-);
+)
 
 const reportPassFailure = (cause: Cause.Cause<SubscriptionStoreFailure>): Effect.Effect<boolean> =>
   Cause.hasInterruptsOnly(cause)
     ? Effect.interrupt
-    : Effect.logWarning("Node subscription pass failed").pipe(
-        Effect.annotateLogs({
-          failureTag: Option.match(Cause.findErrorOption(cause), {
-            onNone: () => "Defect",
-            onSome: (error) => error._tag,
-          }),
+    : Effect.logWarning('Node subscription pass failed').pipe(
+      Effect.annotateLogs({
+        failureTag: Option.match(Cause.findErrorOption(cause), {
+          onNone: () => 'Defect',
+          onSome: (error) => error._tag,
         }),
-        Effect.as(false),
-      );
+      }),
+      Effect.as(false),
+    )
 
 const nodeSubscriptionDriverLayer = (
   limits: SubscriptionLimits,
 ): Layer.Layer<never, never, SubscriptionDriver | SubscriptionStore> =>
   Layer.effectDiscard(
-    Effect.gen(function* () {
-      const driver = yield* SubscriptionDriver;
-      const store = yield* SubscriptionStore;
+    Effect.gen(function*() {
+      const driver = yield* SubscriptionDriver
+      const store = yield* SubscriptionStore
 
-      const run = Effect.gen(function* () {
+      const run = Effect.gen(function*() {
         while (true) {
           const passSucceeded = yield* driver.runDue.pipe(
             Effect.map((pass) => pass.failed === 0),
             Effect.catchCause(reportPassFailure),
-          );
+          )
 
           if (!passSucceeded) {
-            yield* Effect.sleep(Duration.millis(limits.retryMillis));
-            continue;
+            yield* Effect.sleep(Duration.millis(limits.retryMillis))
+            continue
           }
 
-          const deadline = yield* store.nextDeadline.pipe(Effect.exit);
+          const deadline = yield* store.nextDeadline.pipe(Effect.exit)
 
           if (Exit.isFailure(deadline)) {
-            yield* reportPassFailure(deadline.cause);
-            yield* Effect.sleep(Duration.millis(limits.retryMillis));
-            continue;
+            yield* reportPassFailure(deadline.cause)
+            yield* Effect.sleep(Duration.millis(limits.retryMillis))
+            continue
           }
 
-          const nowMillis = yield* Effect.clockWith((clock) => clock.currentTimeMillis);
+          const nowMillis = yield* Effect.clockWith((clock) => clock.currentTimeMillis)
 
-          const delay =
-            deadline.value === null
-              ? limits.retryMillis
-              : Math.max(1, Math.min(deadline.value - nowMillis, limits.retryMillis));
+          const delay = deadline.value === null
+            ? limits.retryMillis
+            : Math.max(1, Math.min(deadline.value - nowMillis, limits.retryMillis))
 
-          yield* Effect.sleep(Duration.millis(delay));
+          yield* Effect.sleep(Duration.millis(delay))
         }
-      });
+      })
 
-      yield* Effect.forkScoped(run);
+      yield* Effect.forkScoped(run)
     }),
-  );
+  )
 
 export interface NodeSubscriptionsOptions {
-  readonly limits?: SubscriptionLimits | undefined;
+  readonly limits?: SubscriptionLimits | undefined
 }
 
 /**
@@ -110,20 +105,20 @@ export class NodeSubscriptions {
     | EventSources
     | SubscriptionInputBindings
   > {
-    const limits = options.limits ?? defaultSubscriptionLimits;
+    const limits = options.limits ?? defaultSubscriptionLimits
 
     const publicServices = Layer.merge(
       Subscriptions.layer(limits),
       SubscriptionIntake.layer(limits),
-    );
+    )
 
     const driver = nodeSubscriptionDriverLayer(limits).pipe(
       Layer.provide(SubscriptionDriver.layer(limits)),
-    );
+    )
 
     return Layer.merge(publicServices, driver).pipe(
       Layer.provide(nodePreparedInputAdmissionLayer),
       Layer.provide(NodeCrypto.layer),
-    );
+    )
   }
 }

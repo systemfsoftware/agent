@@ -1,66 +1,66 @@
-import * as Context from "effect/Context";
-import type * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
-import type * as Scope from "effect/Scope";
+import * as Context from 'effect/Context'
+import type * as Effect from 'effect/Effect'
+import * as Option from 'effect/Option'
+import * as Schema from 'effect/Schema'
+import type * as Scope from 'effect/Scope'
 
-import type { PageScreenshotResult } from "./PageScreenshot.ts";
-import { SandboxImplementation } from "./Sandbox.ts";
+import type { PageScreenshotResult } from './PageScreenshot.ts'
+import { SandboxImplementation } from './Sandbox.ts'
 
-const PositiveInt = Schema.Int.check(Schema.isGreaterThan(0));
-const BoundedText = Schema.String.check(Schema.isMaxLength(8 * 1024 * 1024));
-const BoundedMessage = Schema.String.check(Schema.isMaxLength(8 * 1024));
-const Selector = Schema.NonEmptyString.check(Schema.isMaxLength(1_024));
-const FieldValue = Schema.String.check(Schema.isMaxLength(64 * 1024));
-const ScrollDelta = Schema.Int.check(Schema.isBetween({ minimum: -100_000, maximum: 100_000 }));
-const decodeUrl = Schema.decodeUnknownOption(Schema.URLFromString);
+const PositiveInt = Schema.Int.check(Schema.isGreaterThan(0))
+const BoundedText = Schema.String.check(Schema.isMaxLength(8 * 1024 * 1024))
+const BoundedMessage = Schema.String.check(Schema.isMaxLength(8 * 1024))
+const Selector = Schema.NonEmptyString.check(Schema.isMaxLength(1_024))
+const FieldValue = Schema.String.check(Schema.isMaxLength(64 * 1024))
+const ScrollDelta = Schema.Int.check(Schema.isBetween({ minimum: -100_000, maximum: 100_000 }))
+const decodeUrl = Schema.decodeUnknownOption(Schema.URLFromString)
 
 /** Absolute, bounded HTTP(S) navigation URL without embedded credentials. */
 export const InteractiveBrowserTargetUrl = Schema.NonEmptyString.check(
   Schema.isMaxLength(8 * 1024),
   Schema.makeFilter(
     (value) => {
-      const parsed = decodeUrl(value);
+      const parsed = decodeUrl(value)
 
-      if (Option.isNone(parsed)) return false;
-      const url = parsed.value;
+      if (Option.isNone(parsed)) return false
+      const url = parsed.value
 
       return (
-        (url.protocol === "http:" || url.protocol === "https:") &&
-        url.hostname !== "" &&
-        url.username === "" &&
-        url.password === ""
-      );
+        (url.protocol === 'http:' || url.protocol === 'https:') &&
+        url.hostname !== '' &&
+        url.username === '' &&
+        url.password === ''
+      )
     },
-    { title: "an absolute HTTP or HTTPS URL without embedded credentials" },
+    { title: 'an absolute HTTP or HTTPS URL without embedded credentials' },
   ),
-);
+)
 
-export type InteractiveBrowserTargetUrl = typeof InteractiveBrowserTargetUrl.Type;
+export type InteractiveBrowserTargetUrl = typeof InteractiveBrowserTargetUrl.Type
 
 /** Canonical HTTPS host authority, optionally carrying a non-default port. */
 export const InteractiveBrowserHost = Schema.NonEmptyString.check(
   Schema.isMaxLength(255),
   Schema.makeFilter(
     (value) => {
-      if (value.includes("*")) return false;
-      const parsed = decodeUrl(`https://${value}/`);
+      if (value.includes('*')) return false
+      const parsed = decodeUrl(`https://${value}/`)
 
-      if (Option.isNone(parsed)) return false;
-      const url = parsed.value;
+      if (Option.isNone(parsed)) return false
+      const url = parsed.value
 
       return (
-        url.protocol === "https:" &&
-        url.username === "" &&
-        url.password === "" &&
+        url.protocol === 'https:' &&
+        url.username === '' &&
+        url.password === '' &&
         url.host === value
-      );
+      )
     },
-    { title: "a canonical credential-free HTTPS host authority" },
+    { title: 'a canonical credential-free HTTPS host authority' },
   ),
-);
+)
 
-export type InteractiveBrowserHost = typeof InteractiveBrowserHost.Type;
+export type InteractiveBrowserHost = typeof InteractiveBrowserHost.Type
 
 /**
  * ExactHosts retains the page-request URL allowlist, not a public-network boundary.
@@ -70,22 +70,22 @@ export type InteractiveBrowserHost = typeof InteractiveBrowserHost.Type;
  * Unrestricted explicitly opts out of URL/host and private-network containment.
  */
 export const InteractiveBrowserNetworkPolicy = Schema.Union([
-  Schema.TaggedStruct("ExactHosts", {
+  Schema.TaggedStruct('ExactHosts', {
     allowedHosts: Schema.Array(InteractiveBrowserHost).check(
       Schema.isMinLength(1),
       Schema.isMaxLength(64),
       Schema.isUnique(),
     ),
   }),
-  Schema.TaggedStruct("PublicWeb", {}),
-  Schema.TaggedStruct("Unrestricted", {}),
-]);
+  Schema.TaggedStruct('PublicWeb', {}),
+  Schema.TaggedStruct('Unrestricted', {}),
+])
 
-export type InteractiveBrowserNetworkPolicy = typeof InteractiveBrowserNetworkPolicy.Type;
+export type InteractiveBrowserNetworkPolicy = typeof InteractiveBrowserNetworkPolicy.Type
 
 /** Caller-owned finite per-pass budgets. Elapsed time includes pauses; provider idle limits are separate. */
 export class InteractiveBrowserPolicy extends Schema.Class<InteractiveBrowserPolicy>(
-  "InteractiveBrowserPolicy",
+  'InteractiveBrowserPolicy',
 )(
   Schema.Struct({
     network: InteractiveBrowserNetworkPolicy,
@@ -96,11 +96,11 @@ export class InteractiveBrowserPolicy extends Schema.Class<InteractiveBrowserPol
 ) {}
 
 export class BrowserNavigateRequest extends Schema.Class<BrowserNavigateRequest>(
-  "BrowserNavigateRequest",
+  'BrowserNavigateRequest',
 )({ url: InteractiveBrowserTargetUrl }) {}
 
 export class BrowserReadTextRequest extends Schema.Class<BrowserReadTextRequest>(
-  "BrowserReadTextRequest",
+  'BrowserReadTextRequest',
 )({ selector: Schema.optionalKey(Selector) }) {}
 
 /** Observed control state, without an input value. Absence is part of the snapshot. */
@@ -114,9 +114,9 @@ export const BrowserExpectedTargetState = Schema.Struct({
   required: Schema.optionalKey(Schema.Boolean),
   valid: Schema.optionalKey(Schema.Boolean),
   formValid: Schema.optionalKey(Schema.Boolean),
-});
+})
 
-export type BrowserExpectedTargetState = typeof BrowserExpectedTargetState.Type;
+export type BrowserExpectedTargetState = typeof BrowserExpectedTargetState.Type
 
 /** Exact observed document/node identity. A replacement node is refused before input dispatch. */
 export const BrowserExpectedTarget = Schema.Struct({
@@ -124,27 +124,27 @@ export const BrowserExpectedTarget = Schema.Struct({
   nodeId: Schema.NonEmptyString.check(Schema.isMaxLength(256)),
   state: Schema.optionalKey(BrowserExpectedTargetState),
   scopeSelector: Schema.optionalKey(Selector),
-});
+})
 
-export type BrowserExpectedTarget = typeof BrowserExpectedTarget.Type;
+export type BrowserExpectedTarget = typeof BrowserExpectedTarget.Type
 
-export class BrowserFillRequest extends Schema.Class<BrowserFillRequest>("BrowserFillRequest")({
+export class BrowserFillRequest extends Schema.Class<BrowserFillRequest>('BrowserFillRequest')({
   selector: Selector,
   value: FieldValue,
   expectedTarget: Schema.optionalKey(BrowserExpectedTarget),
 }) {}
 
-export class BrowserClickRequest extends Schema.Class<BrowserClickRequest>("BrowserClickRequest")({
+export class BrowserClickRequest extends Schema.Class<BrowserClickRequest>('BrowserClickRequest')({
   selector: Selector,
   expectedTarget: Schema.optionalKey(BrowserExpectedTarget),
 }) {}
 
 /** Caller-owned bytes; no host filesystem paths or model-supplied script crosses this port. */
 export class BrowserSelectFileRequest extends Schema.Class<BrowserSelectFileRequest>(
-  "BrowserSelectFileRequest",
+  'BrowserSelectFileRequest',
 )({
   selector: Selector,
-  target: Schema.Literals(["input", "chooser"]),
+  target: Schema.Literals(['input', 'chooser']),
   fileName: Schema.NonEmptyString.check(
     Schema.isMaxLength(200),
     // oxlint-disable-next-line no-control-regex -- File names cannot contain control characters or paths.
@@ -159,7 +159,7 @@ export class BrowserSelectFileRequest extends Schema.Class<BrowserSelectFileRequ
 
 /** Confirms selection in the input. It does not confirm a website received or submitted the file. */
 export class BrowserFileSelectionResult extends Schema.Class<BrowserFileSelectionResult>(
-  "BrowserFileSelectionResult",
+  'BrowserFileSelectionResult',
 )({
   url: InteractiveBrowserTargetUrl,
   fileName: BrowserSelectFileRequest.fields.fileName,
@@ -169,27 +169,27 @@ export class BrowserFileSelectionResult extends Schema.Class<BrowserFileSelectio
 
 /** Capture the current page without navigating or opening another browser. */
 export class BrowserScreenshotRequest extends Schema.Class<BrowserScreenshotRequest>(
-  "BrowserScreenshotRequest",
+  'BrowserScreenshotRequest',
 )({ fullPage: Schema.Boolean }) {}
 
 /** Scroll the current viewport by signed CSS pixel deltas. */
 export class BrowserScrollRequest extends Schema.Class<BrowserScrollRequest>(
-  "BrowserScrollRequest",
+  'BrowserScrollRequest',
 )({
   deltaX: ScrollDelta,
   deltaY: ScrollDelta,
 }) {}
 
 export class BrowserNavigationResult extends Schema.Class<BrowserNavigationResult>(
-  "BrowserNavigationResult",
+  'BrowserNavigationResult',
 )({ url: InteractiveBrowserTargetUrl }) {}
 
-export class BrowserTextResult extends Schema.Class<BrowserTextResult>("BrowserTextResult")({
+export class BrowserTextResult extends Schema.Class<BrowserTextResult>('BrowserTextResult')({
   text: BoundedText,
 }) {}
 
 /** Post-action URL observation; no provider session state crosses this boundary. */
-export class BrowserActionResult extends Schema.Class<BrowserActionResult>("BrowserActionResult")({
+export class BrowserActionResult extends Schema.Class<BrowserActionResult>('BrowserActionResult')({
   url: InteractiveBrowserTargetUrl,
 }) {}
 
@@ -197,15 +197,15 @@ export class BrowserActionResult extends Schema.Class<BrowserActionResult>("Brow
  * completed proves SDK input completion, never website acceptance or durable settlement.
  */
 export const InteractiveBrowserFailureEvidence = Schema.Struct({
-  stage: Schema.Literals(["preparation", "input", "observation"]),
-  dispatch: Schema.Literals(["not-dispatched", "completed", "unknown", "running"]),
-  session: Schema.Literals(["attached", "disconnected", "lost"]),
-});
+  stage: Schema.Literals(['preparation', 'input', 'observation']),
+  dispatch: Schema.Literals(['not-dispatched', 'completed', 'unknown', 'running']),
+  session: Schema.Literals(['attached', 'disconnected', 'lost']),
+})
 
-export type InteractiveBrowserFailureEvidence = typeof InteractiveBrowserFailureEvidence.Type;
+export type InteractiveBrowserFailureEvidence = typeof InteractiveBrowserFailureEvidence.Type
 
 export class InteractiveBrowserPolicyDeniedError extends Schema.TaggedError<InteractiveBrowserPolicyDeniedError>()(
-  "InteractiveBrowserPolicyDeniedError",
+  'InteractiveBrowserPolicyDeniedError',
   {
     implementation: SandboxImplementation,
     message: BoundedMessage,
@@ -214,17 +214,17 @@ export class InteractiveBrowserPolicyDeniedError extends Schema.TaggedError<Inte
 ) {}
 
 export class InteractiveBrowserBusyError extends Schema.TaggedError<InteractiveBrowserBusyError>()(
-  "InteractiveBrowserBusyError",
+  'InteractiveBrowserBusyError',
   { implementation: SandboxImplementation, message: BoundedMessage },
 ) {}
 
 export class InteractiveBrowserCapacityError extends Schema.TaggedError<InteractiveBrowserCapacityError>()(
-  "InteractiveBrowserCapacityError",
+  'InteractiveBrowserCapacityError',
   { implementation: SandboxImplementation, message: BoundedMessage },
 ) {}
 
 export class InteractiveBrowserExpiredError extends Schema.TaggedError<InteractiveBrowserExpiredError>()(
-  "InteractiveBrowserExpiredError",
+  'InteractiveBrowserExpiredError',
   {
     implementation: SandboxImplementation,
     message: BoundedMessage,
@@ -233,18 +233,18 @@ export class InteractiveBrowserExpiredError extends Schema.TaggedError<Interacti
 ) {}
 
 export class InteractiveBrowserActionError extends Schema.TaggedError<InteractiveBrowserActionError>()(
-  "InteractiveBrowserActionError",
+  'InteractiveBrowserActionError',
   {
     implementation: SandboxImplementation,
     operation: Schema.Literals([
-      "navigate",
-      "read-text",
-      "fill",
-      "click",
-      "select-file",
-      "screenshot",
-      "scroll",
-      "close",
+      'navigate',
+      'read-text',
+      'fill',
+      'click',
+      'select-file',
+      'screenshot',
+      'scroll',
+      'close',
     ]),
     message: BoundedMessage,
     evidence: Schema.optionalKey(InteractiveBrowserFailureEvidence),
@@ -253,7 +253,7 @@ export class InteractiveBrowserActionError extends Schema.TaggedError<Interactiv
 ) {}
 
 export class InteractiveBrowserProtocolError extends Schema.TaggedError<InteractiveBrowserProtocolError>()(
-  "InteractiveBrowserProtocolError",
+  'InteractiveBrowserProtocolError',
   {
     implementation: SandboxImplementation,
     message: BoundedMessage,
@@ -263,11 +263,11 @@ export class InteractiveBrowserProtocolError extends Schema.TaggedError<Interact
 ) {}
 
 export class InteractiveBrowserLimitError extends Schema.TaggedError<InteractiveBrowserLimitError>()(
-  "InteractiveBrowserLimitError",
+  'InteractiveBrowserLimitError',
   {
     implementation: SandboxImplementation,
     evidence: Schema.optionalKey(InteractiveBrowserFailureEvidence),
-    limit: Schema.Literals(["actions", "elapsed", "returned-bytes"]),
+    limit: Schema.Literals(['actions', 'elapsed', 'returned-bytes']),
     maximum: PositiveInt,
     observed: Schema.Natural,
     message: BoundedMessage,
@@ -275,18 +275,18 @@ export class InteractiveBrowserLimitError extends Schema.TaggedError<Interactive
 ) {}
 
 export class InteractiveBrowserUnsupportedError extends Schema.TaggedError<InteractiveBrowserUnsupportedError>()(
-  "InteractiveBrowserUnsupportedError",
+  'InteractiveBrowserUnsupportedError',
   {
     implementation: SandboxImplementation,
     feature: Schema.Literals([
-      "navigation",
-      "read-text",
-      "fill",
-      "click",
-      "select-file",
-      "screenshot",
-      "scroll",
-      "policy",
+      'navigation',
+      'read-text',
+      'fill',
+      'click',
+      'select-file',
+      'screenshot',
+      'scroll',
+      'policy',
     ]),
     message: BoundedMessage,
   },
@@ -301,36 +301,36 @@ export const InteractiveBrowserError = Schema.Union([
   InteractiveBrowserProtocolError,
   InteractiveBrowserLimitError,
   InteractiveBrowserUnsupportedError,
-]);
+])
 
-export type InteractiveBrowserError = typeof InteractiveBrowserError.Type;
+export type InteractiveBrowserError = typeof InteractiveBrowserError.Type
 
 /** A live handle is intentionally not a Schema value and cannot cross persistence/transport boundaries. */
 export interface BrowserHandle {
   readonly navigate: (
     request: BrowserNavigateRequest,
-  ) => Effect.Effect<BrowserNavigationResult, InteractiveBrowserError>;
+  ) => Effect.Effect<BrowserNavigationResult, InteractiveBrowserError>
   readonly readText: (
     request: BrowserReadTextRequest,
-  ) => Effect.Effect<BrowserTextResult, InteractiveBrowserError>;
+  ) => Effect.Effect<BrowserTextResult, InteractiveBrowserError>
   readonly fill: (
     request: BrowserFillRequest,
-  ) => Effect.Effect<BrowserActionResult, InteractiveBrowserError>;
+  ) => Effect.Effect<BrowserActionResult, InteractiveBrowserError>
   readonly click: (
     request: BrowserClickRequest,
-  ) => Effect.Effect<BrowserActionResult, InteractiveBrowserError>;
+  ) => Effect.Effect<BrowserActionResult, InteractiveBrowserError>
   readonly selectFile: (
     request: BrowserSelectFileRequest,
-  ) => Effect.Effect<BrowserFileSelectionResult, InteractiveBrowserError>;
+  ) => Effect.Effect<BrowserFileSelectionResult, InteractiveBrowserError>
   /** PNG bytes are caller-owned and bounded by the pass's per-result byte limit. */
   readonly screenshot: (
     request: BrowserScreenshotRequest,
-  ) => Effect.Effect<PageScreenshotResult, InteractiveBrowserError>;
+  ) => Effect.Effect<PageScreenshotResult, InteractiveBrowserError>
   readonly scroll: (
     request: BrowserScrollRequest,
-  ) => Effect.Effect<BrowserActionResult, InteractiveBrowserError>;
+  ) => Effect.Effect<BrowserActionResult, InteractiveBrowserError>
   /** Invalidate the handle and close its resources early, including after an interrupted action. */
-  readonly close: Effect.Effect<void, InteractiveBrowserError>;
+  readonly close: Effect.Effect<void, InteractiveBrowserError>
 }
 
 export class InteractiveBrowser extends Context.Service<
@@ -338,6 +338,6 @@ export class InteractiveBrowser extends Context.Service<
   {
     readonly open: (
       policy: InteractiveBrowserPolicy,
-    ) => Effect.Effect<BrowserHandle, InteractiveBrowserError, Scope.Scope>;
+    ) => Effect.Effect<BrowserHandle, InteractiveBrowserError, Scope.Scope>
   }
->()("@effect-agent/sandbox/InteractiveBrowser") {}
+>()('@effect-agent/sandbox/InteractiveBrowser') {}

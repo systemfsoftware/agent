@@ -1,51 +1,51 @@
-import * as Context from "effect/Context";
-import * as Effect from "effect/Effect";
-import * as Schema from "effect/Schema";
-import type * as Scope from "effect/Scope";
+import * as Context from 'effect/Context'
+import * as Effect from 'effect/Effect'
+import * as Schema from 'effect/Schema'
+import type * as Scope from 'effect/Scope'
 
-import { PersistedJson } from "./Records.ts";
+import { PersistedJson } from './Records.ts'
 import {
   type AcceptedEvent,
   type EventSourceVersion,
   type SubscriptionRecord,
   SubscriptionSourceError,
-} from "./Subscription.ts";
+} from './Subscription.ts'
 
 export interface NormalizedEvent {
-  readonly eventId: string;
-  readonly occurredAtMillis?: number;
-  readonly matchingKey: string;
-  readonly payload: PersistedJson;
+  readonly eventId: string
+  readonly occurredAtMillis?: number
+  readonly matchingKey: string
+  readonly payload: PersistedJson
 }
 
 /** Runtime-only versioned behavior. Never persist this object or silently replace its version. */
 export interface EventSource {
-  readonly source: EventSourceVersion;
-  readonly continuity: string;
+  readonly source: EventSourceVersion
+  readonly continuity: string
   readonly parameters: (
     value: unknown,
   ) => Effect.Effect<
     { readonly parameters: PersistedJson; readonly matchingKey: string },
     SubscriptionSourceError
-  >;
-  readonly normalize: (value: unknown) => Effect.Effect<NormalizedEvent, SubscriptionSourceError>;
+  >
+  readonly normalize: (value: unknown) => Effect.Effect<NormalizedEvent, SubscriptionSourceError>
   readonly matches: (
     event: AcceptedEvent,
     subscription: SubscriptionRecord,
-  ) => Effect.Effect<boolean, SubscriptionSourceError>;
+  ) => Effect.Effect<boolean, SubscriptionSourceError>
   readonly reconcile?: (
     subscription: SubscriptionRecord,
-  ) => Effect.Effect<NormalizedEvent | null, SubscriptionSourceError>;
+  ) => Effect.Effect<NormalizedEvent | null, SubscriptionSourceError>
 }
 
 export class EventSources extends Context.Service<
   EventSources,
   {
-    readonly sources: ReadonlyArray<EventSource>;
+    readonly sources: ReadonlyArray<EventSource>
   }
->()("@effect-agent/thread/EventSources") {}
+>()('@effect-agent/thread/EventSources') {}
 
-const invalid = () => SubscriptionSourceError.make({ code: "source-schema", retryable: false });
+const invalid = () => SubscriptionSourceError.make({ code: 'source-schema', retryable: false })
 
 /**
  * Capture the source's explicit Effect dependencies at host assembly. Matching and key functions
@@ -54,105 +54,104 @@ const invalid = () => SubscriptionSourceError.make({ code: "source-schema", retr
  * Each operation owns a fresh Scope for its callbacks and codecs; captured host services
  * retain their host lifetime. Operation resources finalize on success, failure, or interruption.
  */
-export const makeEventSource = Effect.fnUntraced(function* <
+export const makeEventSource = Effect.fnUntraced(function*<
   Event extends Schema.Top,
   Parameters extends Schema.Top,
   R = never,
 >(options: {
-  readonly source: EventSourceVersion;
-  readonly continuity: string;
-  readonly event: Event;
-  readonly parameters: Parameters;
-  readonly identity: (event: Event["Type"]) => string;
+  readonly source: EventSourceVersion
+  readonly continuity: string
+  readonly event: Event
+  readonly parameters: Parameters
+  readonly identity: (event: Event['Type']) => string
   /** Authenticated source time, stable across delivery retries; required for bounded retention. */
-  readonly occurredAtMillis?: (event: Event["Type"]) => number | undefined;
-  readonly eventKey: (event: Event["Type"]) => string;
-  readonly parameterKey: (parameters: Parameters["Type"]) => string;
-  readonly matches: (event: Event["Type"], parameters: Parameters["Type"]) => boolean;
+  readonly occurredAtMillis?: (event: Event['Type']) => number | undefined
+  readonly eventKey: (event: Event['Type']) => string
+  readonly parameterKey: (parameters: Parameters['Type']) => string
+  readonly matches: (event: Event['Type'], parameters: Parameters['Type']) => boolean
   readonly reconcile?: (
-    parameters: Parameters["Type"],
-  ) => Effect.Effect<Event["Type"] | null, SubscriptionSourceError, R>;
+    parameters: Parameters['Type'],
+  ) => Effect.Effect<Event['Type'] | null, SubscriptionSourceError, R>
 }): Effect.fn.Return<
   EventSource,
   never,
   Exclude<
     | R
-    | Event["DecodingServices"]
-    | Event["EncodingServices"]
-    | Parameters["DecodingServices"]
-    | Parameters["EncodingServices"],
+    | Event['DecodingServices']
+    | Event['EncodingServices']
+    | Parameters['DecodingServices']
+    | Parameters['EncodingServices'],
     Scope.Scope
   >
 > {
-  const services =
-    yield* Effect.context<
-      Exclude<
-        | R
-        | Event["DecodingServices"]
-        | Event["EncodingServices"]
-        | Parameters["DecodingServices"]
-        | Parameters["EncodingServices"],
-        Scope.Scope
-      >
-    >();
+  const services = yield* Effect.context<
+    Exclude<
+      | R
+      | Event['DecodingServices']
+      | Event['EncodingServices']
+      | Parameters['DecodingServices']
+      | Parameters['EncodingServices'],
+      Scope.Scope
+    >
+  >()
 
-  const encode = <S extends Schema.Top>(schema: S, value: S["Type"]) =>
+  const encode = <S extends Schema.Top>(schema: S, value: S['Type']) =>
     Schema.encodeEffect(schema)(value).pipe(
       Effect.flatMap(Schema.decodeUnknownEffect(PersistedJson)),
       Effect.mapError(invalid),
-    );
+    )
 
-  const normalized = Effect.fnUntraced(function* (event: Event["Type"]) {
-    const occurredAtMillis = options.occurredAtMillis?.(event);
+  const normalized = Effect.fnUntraced(function*(event: Event['Type']) {
+    const occurredAtMillis = options.occurredAtMillis?.(event)
 
     return {
       eventId: options.identity(event),
       ...(occurredAtMillis === undefined ? {} : { occurredAtMillis }),
       matchingKey: options.eventKey(event),
       payload: yield* encode(options.event, event),
-    };
-  });
+    }
+  })
 
-  const normalize: EventSource["normalize"] = (value) =>
+  const normalize: EventSource['normalize'] = (value) =>
     Schema.decodeUnknownEffect(PersistedJson)(value).pipe(
       Effect.flatMap(Schema.decodeUnknownEffect(options.event)),
       Effect.mapError(invalid),
       Effect.flatMap(normalized),
       Effect.scoped,
       Effect.provideContext(services),
-    );
+    )
 
-  const parameters: EventSource["parameters"] = Effect.fnUntraced(
-    function* (value) {
-      yield* Schema.decodeUnknownEffect(PersistedJson)(value).pipe(Effect.mapError(invalid));
+  const parameters: EventSource['parameters'] = Effect.fnUntraced(
+    function*(value) {
+      yield* Schema.decodeUnknownEffect(PersistedJson)(value).pipe(Effect.mapError(invalid))
 
       const decoded = yield* Schema.decodeUnknownEffect(options.parameters)(value).pipe(
         Effect.mapError(invalid),
-      );
+      )
 
       return {
         parameters: yield* encode(options.parameters, decoded),
         matchingKey: options.parameterKey(decoded),
-      };
+      }
     },
     (effect) => effect.pipe(Effect.scoped, Effect.provideContext(services)),
-  );
+  )
 
-  const matches: EventSource["matches"] = Effect.fnUntraced(
-    function* (event, subscription) {
-      const e = yield* Schema.decodeEffect(options.event)(event.payload);
+  const matches: EventSource['matches'] = Effect.fnUntraced(
+    function*(event, subscription) {
+      const e = yield* Schema.decodeEffect(options.event)(event.payload)
 
       const p = yield* Schema.decodeEffect(options.parameters)(
         subscription.configuration.parameters,
-      );
+      )
 
-      return options.matches(e, p);
+      return options.matches(e, p)
     },
     (effect) => effect.pipe(Effect.scoped, Effect.provideContext(services)),
     Effect.mapError(invalid),
-  );
+  )
 
-  const reconcile = options.reconcile;
+  const reconcile = options.reconcile
 
   return {
     source: options.source,
@@ -163,18 +162,18 @@ export const makeEventSource = Effect.fnUntraced(function* <
     ...(reconcile === undefined
       ? {}
       : {
-          reconcile: Effect.fnUntraced(
-            function* (subscription: SubscriptionRecord) {
-              const p = yield* Schema.decodeEffect(options.parameters)(
-                subscription.configuration.parameters,
-              ).pipe(Effect.mapError(invalid));
+        reconcile: Effect.fnUntraced(
+          function*(subscription: SubscriptionRecord) {
+            const p = yield* Schema.decodeEffect(options.parameters)(
+              subscription.configuration.parameters,
+            ).pipe(Effect.mapError(invalid))
 
-              const event = yield* reconcile(p);
+            const event = yield* reconcile(p)
 
-              return event === null ? null : yield* normalized(event);
-            },
-            (effect) => effect.pipe(Effect.scoped, Effect.provideContext(services)),
-          ),
-        }),
-  };
-});
+            return event === null ? null : yield* normalized(event)
+          },
+          (effect) => effect.pipe(Effect.scoped, Effect.provideContext(services)),
+        ),
+      }),
+  }
+})

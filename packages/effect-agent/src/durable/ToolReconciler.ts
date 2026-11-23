@@ -1,10 +1,10 @@
-import * as Context from "effect/Context";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Schema from "effect/Schema";
+import * as Context from 'effect/Context'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
+import * as Schema from 'effect/Schema'
 
-import { ThreadId, RunId, SubmissionId, ToolCallId } from "../core/Identifiers.ts";
-import { Digest, PersistedJson, DeclaredToolCall } from "./Records.ts";
+import { RunId, SubmissionId, ThreadId, ToolCallId } from '../core/Identifiers.ts'
+import { DeclaredToolCall, Digest, PersistedJson } from './Records.ts'
 
 /**
  * Everything a reconciliation policy can consult about one declared-but-unsettled ordinary Tool
@@ -13,7 +13,7 @@ import { Digest, PersistedJson, DeclaredToolCall } from "./Records.ts";
  * and the owning Submission's identities — never from in-memory Attempt state.
  */
 export class DeclaredToolCallEvidence extends Schema.Class<DeclaredToolCallEvidence>(
-  "@effect-agent/thread/DeclaredToolCallEvidence",
+  '@effect-agent/thread/DeclaredToolCallEvidence',
 )({
   threadId: ThreadId,
   submissionId: SubmissionId,
@@ -30,29 +30,29 @@ export class DeclaredToolCallEvidence extends Schema.Class<DeclaredToolCallEvide
 
 /** Proof of nonexecution: resume the original operation or report it unavailable. */
 export class ReconciliationNeverStarted extends Schema.TaggedClass<ReconciliationNeverStarted>(
-  "@effect-agent/thread/ReconciliationNeverStarted",
-)("NeverStarted", {}) {}
+  '@effect-agent/thread/ReconciliationNeverStarted',
+)('NeverStarted', {}) {}
 
 /**
  * Proof that the external execution completed: `result` is the recovered supplier truth, which
  * becomes canonical (`ToolCallSettled` + `ToolCallResolved`) WITHOUT executing anything.
  */
 export class ReconciliationCompleted extends Schema.TaggedClass<ReconciliationCompleted>(
-  "@effect-agent/thread/ReconciliationCompleted",
-)("CompletedWithResult", {
+  '@effect-agent/thread/ReconciliationCompleted',
+)('CompletedWithResult', {
   result: PersistedJson,
   isFailure: Schema.Boolean,
 }) {}
 
 /** Only the original operation, identity and parameters may repeat under supported semantics. */
 export class ReconciliationSafeToRetry extends Schema.TaggedClass<ReconciliationSafeToRetry>(
-  "@effect-agent/thread/ReconciliationSafeToRetry",
-)("SafeToRetry", {}) {}
+  '@effect-agent/thread/ReconciliationSafeToRetry',
+)('SafeToRetry', {}) {}
 
 /** No proof either way: the outcome is Unknown and requires authorized resolution (DUR-017). */
 export class ReconciliationUncertain extends Schema.TaggedClass<ReconciliationUncertain>(
-  "@effect-agent/thread/ReconciliationUncertain",
-)("Uncertain", {
+  '@effect-agent/thread/ReconciliationUncertain',
+)('Uncertain', {
   reason: Schema.String,
 }) {}
 
@@ -68,14 +68,14 @@ export const ReconciliationDecision = Schema.Union([
   ReconciliationCompleted,
   ReconciliationSafeToRetry,
   ReconciliationUncertain,
-]);
+])
 
-export type ReconciliationDecision = typeof ReconciliationDecision.Type;
+export type ReconciliationDecision = typeof ReconciliationDecision.Type
 
 /** The reconciliation policy itself failed (supplier unreachable, corrupt lookup, ...). The
  * caller treats this as no proof: the call stays open and the pass may retry. */
 export class ToolReconcilerError extends Schema.TaggedError<ToolReconcilerError>()(
-  "ToolReconcilerError",
+  'ToolReconcilerError',
   {
     toolCallId: ToolCallId,
     message: Schema.String,
@@ -97,16 +97,16 @@ export class ToolReconciler extends Context.Service<
   {
     readonly reconcile: (
       evidence: DeclaredToolCallEvidence,
-    ) => Effect.Effect<ReconciliationDecision, ToolReconcilerError>;
+    ) => Effect.Effect<ReconciliationDecision, ToolReconcilerError>
   }
->()("@effect-agent/thread/ToolReconciler") {
+>()('@effect-agent/thread/ToolReconciler') {
   /** Fail-closed default: no proof is ever asserted, every open call stays Unknown. */
   static readonly uncertain: Layer.Layer<ToolReconciler> = Layer.succeed(this)({
     reconcile: () =>
       Effect.succeed(
         ReconciliationUncertain.make({
-          reason: "No reconciliation policy is registered; the outcome stays unknown",
+          reason: 'No reconciliation policy is registered; the outcome stays unknown',
         }),
       ),
-  });
+  })
 }

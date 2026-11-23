@@ -1,107 +1,105 @@
-import { expect, layer } from "@effect/vitest";
-import * as Agent from "@yielded/agent/agent";
-import { AgentPolicy } from "@yielded/agent/agent-policy";
-import * as AgentRuntime from "@yielded/agent/agent-runtime";
+import { expect, layer } from '@effect/vitest'
+import * as Agent from '@yielded/agent/agent'
+import { AgentPolicy } from '@yielded/agent/agent-policy'
+import * as AgentRuntime from '@yielded/agent/agent-runtime'
 import {
   type AgentSpawner,
+  type RuntimeBinding,
   type SubagentDurability,
   type SubagentDurabilityError,
   type ToolCallWaiting,
-  type RuntimeBinding,
-} from "@yielded/agent/agent-runtime";
-import { IdGenerator } from "@yielded/agent/id-generator";
-import { ThreadId, RunId, TurnId } from "@yielded/agent/identifiers";
-import { type RunEventSink } from "@yielded/agent/run-event-sink";
-import { RunContextPreparationPassthrough } from "@yielded/agent/run-options";
-import * as Subagent from "@yielded/agent/subagent";
+} from '@yielded/agent/agent-runtime'
+import { IdGenerator } from '@yielded/agent/id-generator'
+import { RunId, ThreadId, TurnId } from '@yielded/agent/identifiers'
+import { type RunEventSink } from '@yielded/agent/run-event-sink'
+import { RunContextPreparationPassthrough } from '@yielded/agent/run-options'
+import * as Subagent from '@yielded/agent/subagent'
 import {
+  type SubagentChildRunFailure,
   type SubagentExecutionFailure,
+  SubagentPolicy,
   type SubagentPrestartDenied,
   type SubagentProjectionFailure,
-  type SubagentChildRunFailure,
-  SubagentPolicy,
-} from "@yielded/agent/subagent";
+} from '@yielded/agent/subagent'
 import {
   type SubagentBudgetExhausted,
   type SubagentParentBudgetView,
   SubagentReservations,
   SubagentReservationsMemoryLive,
   type SubagentReservationView,
-} from "@yielded/agent/subagent-reservations";
-import { ThreadHistory } from "@yielded/agent/thread-history";
-import type * as AiError from "effect/ai/AiError";
-import * as LanguageModel from "effect/ai/LanguageModel";
-import * as Model from "effect/ai/Model";
-import type * as Prompt from "effect/ai/Prompt";
-import type * as Response from "effect/ai/Response";
-import * as Tool from "effect/ai/Tool";
-import * as Toolkit from "effect/ai/Toolkit";
-import * as Cause from "effect/Cause";
-import * as Context from "effect/Context";
-import * as DateTime from "effect/DateTime";
-import * as Deferred from "effect/Deferred";
-import * as Effect from "effect/Effect";
-import * as Exit from "effect/Exit";
-import * as Fiber from "effect/Fiber";
-import * as Layer from "effect/Layer";
-import * as Ref from "effect/Ref";
-import * as Schema from "effect/Schema";
-import * as Stream from "effect/Stream";
-import * as TestClock from "effect/testing/TestClock";
+} from '@yielded/agent/subagent-reservations'
+import { ThreadHistory } from '@yielded/agent/thread-history'
+import type * as AiError from 'effect/ai/AiError'
+import * as LanguageModel from 'effect/ai/LanguageModel'
+import * as Model from 'effect/ai/Model'
+import type * as Prompt from 'effect/ai/Prompt'
+import type * as Response from 'effect/ai/Response'
+import * as Tool from 'effect/ai/Tool'
+import * as Toolkit from 'effect/ai/Toolkit'
+import * as Cause from 'effect/Cause'
+import * as Context from 'effect/Context'
+import * as DateTime from 'effect/DateTime'
+import * as Deferred from 'effect/Deferred'
+import * as Effect from 'effect/Effect'
+import * as Exit from 'effect/Exit'
+import * as Fiber from 'effect/Fiber'
+import * as Layer from 'effect/Layer'
+import * as Ref from 'effect/Ref'
+import * as Schema from 'effect/Schema'
+import * as Stream from 'effect/Stream'
+import * as TestClock from 'effect/testing/TestClock'
 
-type Equal<Left, Right> =
-  (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2
-    ? (<Value>() => Value extends Right ? 1 : 2) extends <Value>() => Value extends Left ? 1 : 2
-      ? true
-      : false
-    : false;
-type Assert<Value extends true> = Value;
+type Equal<Left, Right> = (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2
+  ? (<Value>() => Value extends Right ? 1 : 2) extends <Value>() => Value extends Left ? 1 : 2 ? true
+  : false
+  : false
+type Assert<Value extends true> = Value
 
 const usage = {
   inputTokens: {},
   outputTokens: {},
-};
+}
 
-const decodeThreadId = Schema.decodeSync(ThreadId);
-const decodeRunId = Schema.decodeSync(RunId);
-const decodeTurnId = Schema.decodeSync(TurnId);
+const decodeThreadId = Schema.decodeSync(ThreadId)
+const decodeRunId = Schema.decodeSync(RunId)
+const decodeTurnId = Schema.decodeSync(TurnId)
 
 /** Deterministic, distinct identities so preallocated child IDs are observable. */
 const identifiers = Layer.effect(IdGenerator)(
-  Effect.gen(function* () {
-    const counter = yield* Ref.make(0);
+  Effect.gen(function*() {
+    const counter = yield* Ref.make(0)
 
     const next = <A>(decode: (value: string) => A, prefix: string) =>
       Ref.updateAndGet(counter, (value) => value + 1).pipe(
         Effect.map((value) => decode(`${prefix}-${value}`)),
-      );
+      )
 
     return {
-      nextThreadId: next(decodeThreadId, "thread"),
-      nextRunId: next(decodeRunId, "run"),
-      nextTurnId: next(decodeTurnId, "turn"),
-    };
+      nextThreadId: next(decodeThreadId, 'thread'),
+      nextRunId: next(decodeRunId, 'run'),
+      nextTurnId: next(decodeTurnId, 'turn'),
+    }
   }),
-);
+)
 
 const TestServices = Layer.mergeAll(
   identifiers,
   SubagentReservationsMemoryLive,
   ThreadHistory.layer,
   RunContextPreparationPassthrough,
-);
+)
 
 const finalParts = (text: string): ReadonlyArray<Response.StreamPartEncoded> => [
-  { type: "text-start", id: "answer" },
-  { type: "text-delta", id: "answer", delta: text },
-  { type: "text-end", id: "answer" },
-  { type: "finish", reason: "stop", usage },
-];
+  { type: 'text-start', id: 'answer' },
+  { type: 'text-delta', id: 'answer', delta: text },
+  { type: 'text-end', id: 'answer' },
+  { type: 'finish', reason: 'stop', usage },
+]
 
 /** One-turn scripted child model that answers immediately and can capture its prompt. */
 const answeringModel = (name: string, answerText: string, promptRef?: Ref.Ref<unknown>) =>
   Model.make(
-    "scripted",
+    'scripted',
     name,
     Layer.effect(
       LanguageModel.LanguageModel,
@@ -111,13 +109,13 @@ const answeringModel = (name: string, answerText: string, promptRef?: Ref.Ref<un
           promptRef === undefined
             ? Stream.fromIterable(finalParts(answerText))
             : Stream.unwrap(
-                Ref.set(promptRef, options.prompt).pipe(
-                  Effect.as(Stream.fromIterable(finalParts(answerText))),
-                ),
+              Ref.set(promptRef, options.prompt).pipe(
+                Effect.as(Stream.fromIterable(finalParts(answerText))),
               ),
+            ),
       }),
     ),
-  );
+  )
 
 /** Scripted parent model: turn one declares the given Tool Calls, turn two answers. */
 const delegatingModel = (
@@ -127,12 +125,12 @@ const delegatingModel = (
   answerText: string,
 ) =>
   Model.make(
-    "scripted",
+    'scripted',
     name,
     Layer.effect(
       LanguageModel.LanguageModel,
-      Effect.gen(function* () {
-        const turn = yield* Ref.make(0);
+      Effect.gen(function*() {
+        const turn = yield* Ref.make(0)
 
         return yield* LanguageModel.make({
           generateText: () => Effect.succeed([]),
@@ -143,63 +141,63 @@ const delegatingModel = (
                   Stream.fromIterable<Response.StreamPartEncoded>(
                     value === 0
                       ? [
-                          ...calls.map((call): Response.StreamPartEncoded => ({
-                            type: "tool-call",
-                            id: call.id,
-                            name: toolName,
-                            params: call.params,
-                            providerExecuted: false,
-                          })),
-                          { type: "finish", reason: "tool-calls", usage },
-                        ]
+                        ...calls.map((call): Response.StreamPartEncoded => ({
+                          type: 'tool-call',
+                          id: call.id,
+                          name: toolName,
+                          params: call.params,
+                          providerExecuted: false,
+                        })),
+                        { type: 'finish', reason: 'tool-calls', usage },
+                      ]
                       : finalParts(answerText),
-                  ),
+                  )
                 ),
               ),
             ),
-        });
+        })
       }),
     ),
-  );
+  )
 
-const ChildInput = Schema.Struct({ question: Schema.String });
-const ChildOutput = Schema.Struct({ answer: Schema.String });
+const ChildInput = Schema.Struct({ question: Schema.String })
+const ChildOutput = Schema.Struct({ answer: Schema.String })
 
 const childPolicy = AgentPolicy.make({
   maxTurns: 2,
   maxToolCalls: 1,
-  maxDuration: "30 seconds",
+  maxDuration: '30 seconds',
   toolConcurrency: 1,
-});
+})
 
-const childDefinition = Agent.make("research-child", {
+const childDefinition = Agent.make('research-child', {
   input: ChildInput,
   output: ChildOutput,
-  instructions: "Answer as JSON.",
+  instructions: 'Answer as JSON.',
   toolkit: Toolkit.empty,
   policy: childPolicy,
-});
+})
 
 class ResearchDelegationFailed extends Schema.TaggedError<ResearchDelegationFailed>()(
-  "ResearchDelegationFailed",
+  'ResearchDelegationFailed',
   {
     childErrorTag: Schema.String,
   },
 ) {}
 
-const ResearchParams = Schema.Struct({ topic: Schema.String });
-const ResearchFindings = Schema.Struct({ summary: Schema.String });
+const ResearchParams = Schema.Struct({ topic: Schema.String })
+const ResearchFindings = Schema.Struct({ summary: Schema.String })
 
 const researchPolicy = SubagentPolicy.make({
   maxChildren: 2,
   maxConcurrency: 2,
   maxTurns: 4,
   maxToolCalls: 4,
-  maxDuration: "10 seconds",
-});
+  maxDuration: '10 seconds',
+})
 
-const researchDelegation = Subagent.make("delegate_research", {
-  description: "Research one bounded question and return findings.",
+const researchDelegation = Subagent.make('delegate_research', {
+  description: 'Research one bounded question and return findings.',
   target: childDefinition,
   parameters: ResearchParams,
   success: ResearchFindings,
@@ -208,25 +206,25 @@ const researchDelegation = Subagent.make("delegate_research", {
   projectResult: (output, _context, parameters) =>
     Effect.succeed({ summary: `finding:${parameters.topic}:${output.answer}` }),
   policy: researchPolicy,
-});
+})
 
 const parentPolicy = AgentPolicy.make({
   maxTurns: 2,
   maxToolCalls: 2,
-  maxDuration: "30 seconds",
+  maxDuration: '30 seconds',
   toolConcurrency: 2,
-});
+})
 
-const coordinatorDefinition = Agent.make("coordinator", {
+const coordinatorDefinition = Agent.make('coordinator', {
   input: Schema.Struct({ mission: Schema.String }),
   output: Schema.Struct({ report: Schema.String }),
-  instructions: "Delegate, then answer as JSON.",
+  instructions: 'Delegate, then answer as JSON.',
   toolkit: Toolkit.make(researchDelegation.tool),
   policy: parentPolicy,
-});
+})
 
 const mapChildFailure = (failure: { readonly _tag: string }) =>
-  ResearchDelegationFailed.make({ childErrorTag: failure._tag });
+  ResearchDelegationFailed.make({ childErrorTag: failure._tag })
 
 const researchLayer = <ModelProvides, ModelRequires>(
   childBinding: RuntimeBinding<
@@ -237,198 +235,198 @@ const researchLayer = <ModelProvides, ModelRequires>(
     ModelProvides,
     ModelRequires
   >,
-) => Subagent.layer(researchDelegation, childBinding, { mapChildFailure });
+) => Subagent.layer(researchDelegation, childBinding, { mapChildFailure })
 
 const dimensionKeys = [
-  "turns",
-  "toolCalls",
-  "durationMillis",
-  "inputTokens",
-  "outputTokens",
-  "costMicrousd",
-  "resultBytes",
-] as const;
+  'turns',
+  'toolCalls',
+  'durationMillis',
+  'inputTokens',
+  'outputTokens',
+  'costMicrousd',
+  'resultBytes',
+] as const
 
 /** Spec §7: at `released`, allocated = covered + released and observed = covered + overrun. */
 const expectSettledOnce = (view: SubagentReservationView | undefined): void => {
-  expect(view).toBeDefined();
+  expect(view).toBeDefined()
   if (view === undefined) {
-    return;
+    return
   }
-  expect(view.status).toBe("released");
+  expect(view.status).toBe('released')
   for (const key of dimensionKeys) {
-    expect(view.allocated[key]).toBe(view.coveredConsumed[key] + view.released[key]);
-    expect(view.observedConsumed[key] ?? 0).toBe(view.coveredConsumed[key] + view.overrun[key]);
+    expect(view.allocated[key]).toBe(view.coveredConsumed[key] + view.released[key])
+    expect(view.observedConsumed[key] ?? 0).toBe(view.coveredConsumed[key] + view.overrun[key])
   }
-};
+}
 
-layer(TestServices)("Subagent.layer S1 attached delegation", (it) => {
-  it.effect("delegates finite child work from a parent with unbounded turns", () =>
-    Effect.gen(function* () {
-      const child = Agent.make("finite-child", {
+layer(TestServices)('Subagent.layer S1 attached delegation', (it) => {
+  it.effect('delegates finite child work from a parent with unbounded turns', () =>
+    Effect.gen(function*() {
+      const child = Agent.make('finite-child', {
         input: ChildInput,
         output: ChildOutput,
-        instructions: "Answer as JSON.",
+        instructions: 'Answer as JSON.',
         toolkit: Toolkit.empty,
         policy: { maxTurns: 5, maxToolCalls: 5 },
-      });
+      })
 
-      const delegation = Subagent.make("delegate_finite", { target: child });
+      const delegation = Subagent.make('delegate_finite', { target: child })
 
-      const parent = Agent.make("unbounded-parent", {
+      const parent = Agent.make('unbounded-parent', {
         input: Schema.String,
         output: Schema.String,
-        instructions: "Delegate then finish.",
+        instructions: 'Delegate then finish.',
         toolkit: Toolkit.make(delegation.tool),
         policy: { maxTurns: null, maxToolCalls: 10 },
-      });
+      })
 
       const result = yield* AgentRuntime.run(
         Agent.withModel(
           parent,
           delegatingModel(
-            "unbounded-parent",
+            'unbounded-parent',
             delegation.tool.name,
-            [{ id: "finite-child-call", params: { question: "question" } }],
+            [{ id: 'finite-child-call', params: { question: 'question' } }],
             '"done"',
           ),
         ),
-        "go",
+        'go',
       ).pipe(
         Effect.provide(
           Subagent.layer(
             delegation,
-            Agent.withModel(child, answeringModel("finite-child", '{"answer":"child done"}')),
+            Agent.withModel(child, answeringModel('finite-child', '{"answer":"child done"}')),
           ),
         ),
-      );
+      )
 
-      expect(result.output).toBe("done");
-    }),
-  );
+      expect(result.output).toBe('done')
+    }))
 
   // Regression: https://github.com/yielded-dev/agent/issues/961
-  it.effect("bounds late children by the parent deadline and leaves time to finish", () =>
-    Effect.gen(function* () {
-      const childCalls = yield* Ref.make(0);
-      const lateTurnStarted = yield* Deferred.make<void>();
-      const slowChildStarted = yield* Deferred.make<void>();
-      const slowChildReleased = yield* Deferred.make<void>();
-      const finalPrompt = yield* Ref.make<Prompt.Prompt | undefined>(undefined);
+  it.effect('bounds late children by the parent deadline and leaves time to finish', () =>
+    Effect.gen(function*() {
+      const childCalls = yield* Ref.make(0)
+      const lateTurnStarted = yield* Deferred.make<void>()
+      const slowChildStarted = yield* Deferred.make<void>()
+      const slowChildReleased = yield* Deferred.make<void>()
+      const finalPrompt = yield* Ref.make<Prompt.Prompt | undefined>(undefined)
 
-      const child = Agent.make("deadline-child", {
+      const child = Agent.make('deadline-child', {
         input: ChildInput,
         output: ChildOutput,
-        instructions: "Answer as JSON.",
+        instructions: 'Answer as JSON.',
         toolkit: Toolkit.empty,
-        policy: AgentPolicy.make({ ...childPolicy, maxDuration: "4 minutes" }),
-      });
+        policy: AgentPolicy.make({ ...childPolicy, maxDuration: '4 minutes' }),
+      })
 
-      const delegation = Subagent.make("delegate_deadline", {
+      const delegation = Subagent.make('delegate_deadline', {
         target: child,
-        failureMode: "return",
+        failureMode: 'return',
         policy: SubagentPolicy.make({
           ...researchPolicy,
           maxChildren: 3,
           maxConcurrency: 1,
-          maxDuration: "4 minutes",
-          parentReserveDuration: "30 seconds",
+          maxDuration: '4 minutes',
+          parentReserveDuration: '30 seconds',
         }),
-      });
+      })
 
       const childModel = Model.make(
-        "scripted",
-        "deadline-child",
+        'scripted',
+        'deadline-child',
         Layer.effect(
           LanguageModel.LanguageModel,
           LanguageModel.make({
             generateText: () => Effect.succeed([]),
             streamText: () =>
               Stream.unwrap(
-                Effect.gen(function* () {
-                  const call = yield* Ref.getAndUpdate(childCalls, (count) => count + 1);
+                Effect.gen(function*() {
+                  const call = yield* Ref.getAndUpdate(childCalls, (count) => count + 1)
 
-                  if (call === 0)
-                    return Stream.fromIterable(finalParts('{"answer":"retained finding"}'));
-                  yield* Deferred.succeed(slowChildStarted, undefined);
+                  if (call === 0) {
+                    return Stream.fromIterable(finalParts('{"answer":"retained finding"}'))
+                  }
+                  yield* Deferred.succeed(slowChildStarted, undefined)
 
                   return Stream.never.pipe(
                     Stream.ensuring(Deferred.succeed(slowChildReleased, undefined)),
-                  );
+                  )
                 }),
               ),
           }),
         ),
-      );
+      )
 
-      const turn = yield* Ref.make(0);
+      const turn = yield* Ref.make(0)
 
       const parentModel = Model.make(
-        "scripted",
-        "deadline-parent",
+        'scripted',
+        'deadline-parent',
         Layer.effect(
           LanguageModel.LanguageModel,
           LanguageModel.make({
             generateText: () => Effect.succeed([]),
             streamText: (options) =>
               Stream.unwrap(
-                Effect.gen(function* () {
-                  const current = yield* Ref.getAndUpdate(turn, (count) => count + 1);
+                Effect.gen(function*() {
+                  const current = yield* Ref.getAndUpdate(turn, (count) => count + 1)
 
                   if (current === 2) {
-                    yield* Ref.set(finalPrompt, options.prompt);
-                    yield* Effect.sleep("15 seconds");
+                    yield* Ref.set(finalPrompt, options.prompt)
+                    yield* Effect.sleep('15 seconds')
 
                     return Stream.fromIterable(
                       finalParts('{"report":"finished with earlier findings"}'),
-                    );
+                    )
                   }
                   if (current === 1) {
-                    yield* Deferred.succeed(lateTurnStarted, undefined);
-                    yield* Effect.sleep("8 minutes");
+                    yield* Deferred.succeed(lateTurnStarted, undefined)
+                    yield* Effect.sleep('8 minutes')
                   }
-                  const calls = current === 0 ? ["early"] : ["late", "queued"];
+                  const calls = current === 0 ? ['early'] : ['late', 'queued']
 
                   return Stream.fromIterable<Response.StreamPartEncoded>([
                     ...calls.map((id): Response.StreamPartEncoded => ({
-                      type: "tool-call",
+                      type: 'tool-call',
                       id,
                       name: delegation.name,
                       params: { question: id },
                       providerExecuted: false,
                     })),
-                    { type: "finish", reason: "tool-calls", usage },
-                  ]);
+                    { type: 'finish', reason: 'tool-calls', usage },
+                  ])
                 }),
               ),
           }),
         ),
-      );
+      )
 
       const parent = Agent.withModel(
-        Agent.make("deadline-parent", {
+        Agent.make('deadline-parent', {
           input: Schema.Struct({ mission: Schema.String }),
           output: Schema.Struct({ report: Schema.String }),
-          instructions: "Delegate, then answer as JSON.",
+          instructions: 'Delegate, then answer as JSON.',
           toolkit: Toolkit.make(delegation.tool),
           policy: AgentPolicy.make({
             ...parentPolicy,
             maxTurns: 3,
             maxToolCalls: 3,
-            maxDuration: "20 minutes",
+            maxDuration: '20 minutes',
           }),
         }),
         parentModel,
-      );
+      )
 
-      const reservations = yield* SubagentReservations;
-      const finalBudget = yield* Deferred.make<SubagentParentBudgetView>();
-      const runId = decodeRunId("parent-run-deadline");
-      const durationDeadline = DateTime.addDuration(yield* DateTime.now, "10 minutes");
+      const reservations = yield* SubagentReservations
+      const finalBudget = yield* Deferred.make<SubagentParentBudgetView>()
+      const runId = decodeRunId('parent-run-deadline')
+      const durationDeadline = DateTime.addDuration(yield* DateTime.now, '10 minutes')
 
       const fiber = yield* AgentRuntime.run(
         parent,
-        { mission: "m" },
+        { mission: 'm' },
         {
           runId,
           durationDeadline,
@@ -446,59 +444,58 @@ layer(TestServices)("Subagent.layer S1 attached delegation", (it) => {
         Effect.provide(Subagent.layer(delegation, Agent.withModel(child, childModel))),
         Effect.scoped,
         Effect.forkChild,
-      );
+      )
 
-      yield* Deferred.await(lateTurnStarted);
-      yield* TestClock.adjust("8 minutes");
-      yield* Deferred.await(slowChildStarted);
-      yield* TestClock.adjust("2 minutes");
-      const result = yield* Fiber.join(fiber);
+      yield* Deferred.await(lateTurnStarted)
+      yield* TestClock.adjust('8 minutes')
+      yield* Deferred.await(slowChildStarted)
+      yield* TestClock.adjust('2 minutes')
+      const result = yield* Fiber.join(fiber)
 
-      expect(result.output).toEqual({ report: "finished with earlier findings" });
-      expect(yield* Ref.get(childCalls)).toBe(2);
-      expect(yield* Deferred.isDone(slowChildReleased)).toBe(true);
+      expect(result.output).toEqual({ report: 'finished with earlier findings' })
+      expect(yield* Ref.get(childCalls)).toBe(2)
+      expect(yield* Deferred.isDone(slowChildReleased)).toBe(true)
 
       const results = (yield* Ref.get(finalPrompt))?.content.flatMap((message) =>
-        message.role === "tool" ? message.content : [],
-      );
+        message.role === 'tool' ? message.content : []
+      )
 
       expect(results).toEqual([
         expect.objectContaining({
-          id: "early",
+          id: 'early',
           isFailure: false,
-          result: { output: { answer: "retained finding" }, budgetExhausted: false },
+          result: { output: { answer: 'retained finding' }, budgetExhausted: false },
         }),
         expect.objectContaining({
-          id: "late",
+          id: 'late',
           isFailure: false,
           result: expect.objectContaining({
-            _tag: "SubagentBudgetExhausted",
-            dimension: "duration",
+            _tag: 'SubagentBudgetExhausted',
+            dimension: 'duration',
             limitValue: 90_000,
           }),
         }),
         expect.objectContaining({
-          id: "queued",
+          id: 'queued',
           isFailure: false,
           result: expect.objectContaining({
-            _tag: "SubagentBudgetExhausted",
-            dimension: "duration",
+            _tag: 'SubagentBudgetExhausted',
+            dimension: 'duration',
           }),
         }),
-      ]);
-      const snapshot = yield* Deferred.await(finalBudget);
+      ])
+      const snapshot = yield* Deferred.await(finalBudget)
 
-      snapshot.reservations.forEach(expectSettledOnce);
-    }),
-  );
+      snapshot.reservations.forEach(expectSettledOnce)
+    }))
 
-  it.effect("preserves a tighter supplied child deadline and its failure mapping", () =>
-    Effect.gen(function* () {
-      const modelStarted = yield* Deferred.make<void>();
+  it.effect('preserves a tighter supplied child deadline and its failure mapping', () =>
+    Effect.gen(function*() {
+      const modelStarted = yield* Deferred.make<void>()
 
       const model = Model.make(
-        "scripted",
-        "short-child-deadline",
+        'scripted',
+        'short-child-deadline',
         Layer.effect(
           LanguageModel.LanguageModel,
           LanguageModel.make({
@@ -509,21 +506,21 @@ layer(TestServices)("Subagent.layer S1 attached delegation", (it) => {
               ),
           }),
         ),
-      );
+      )
 
       const parent = Agent.withModel(
         coordinatorDefinition,
         delegatingModel(
-          "parent-child-deadline",
-          "delegate_research",
-          [{ id: "short", params: { topic: "short" } }],
+          'parent-child-deadline',
+          'delegate_research',
+          [{ id: 'short', params: { topic: 'short' } }],
           '{"report":"unreached"}',
         ),
-      );
+      )
 
-      const durationDeadline = DateTime.addDuration(yield* DateTime.now, "2 seconds");
+      const durationDeadline = DateTime.addDuration(yield* DateTime.now, '2 seconds')
 
-      const fiber = yield* AgentRuntime.run(parent, { mission: "m" }).pipe(
+      const fiber = yield* AgentRuntime.run(parent, { mission: 'm' }).pipe(
         Effect.provide(
           Subagent.layer(researchDelegation, Agent.withModel(childDefinition, model), {
             mapChildFailure,
@@ -533,27 +530,26 @@ layer(TestServices)("Subagent.layer S1 attached delegation", (it) => {
         Effect.scoped,
         Effect.exit,
         Effect.forkChild,
-      );
+      )
 
-      yield* Deferred.await(modelStarted);
-      yield* TestClock.adjust("2 seconds");
-      const exit = yield* Fiber.join(fiber);
+      yield* Deferred.await(modelStarted)
+      yield* TestClock.adjust('2 seconds')
+      const exit = yield* Fiber.join(fiber)
 
       expect(Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined).toMatchObject({
-        _tag: "ResearchDelegationFailed",
-        childErrorTag: "AgentPolicyError",
-      });
-    }),
-  );
+        _tag: 'ResearchDelegationFailed',
+        childErrorTag: 'AgentPolicyError',
+      })
+    }))
 
-  it.effect("settles the reservation when parent interruption reaches the child", () =>
-    Effect.gen(function* () {
-      const modelStarted = yield* Deferred.make<void>();
-      const modelReleased = yield* Deferred.make<void>();
+  it.effect('settles the reservation when parent interruption reaches the child', () =>
+    Effect.gen(function*() {
+      const modelStarted = yield* Deferred.make<void>()
+      const modelReleased = yield* Deferred.make<void>()
 
       const blockingModel = Model.make(
-        "scripted",
-        "blocking-child",
+        'scripted',
+        'blocking-child',
         Layer.effect(
           LanguageModel.LanguageModel,
           Effect.acquireRelease(
@@ -567,27 +563,27 @@ layer(TestServices)("Subagent.layer S1 attached delegation", (it) => {
             () => Deferred.succeed(modelReleased, undefined),
           ),
         ),
-      );
+      )
 
-      const childBinding = Agent.withModel(childDefinition, blockingModel);
+      const childBinding = Agent.withModel(childDefinition, blockingModel)
 
       const parent = Agent.withModel(
         coordinatorDefinition,
         delegatingModel(
-          "parent-interrupted",
-          "delegate_research",
-          [{ id: "call-1", params: { topic: "blocked" } }],
+          'parent-interrupted',
+          'delegate_research',
+          [{ id: 'call-1', params: { topic: 'blocked' } }],
           '{"report":"unreached"}',
         ),
-      );
+      )
 
-      const reservations = yield* SubagentReservations;
-      const finalBudget = yield* Deferred.make<SubagentParentBudgetView>();
-      const runId = decodeRunId("parent-run-interrupted");
+      const reservations = yield* SubagentReservations
+      const finalBudget = yield* Deferred.make<SubagentParentBudgetView>()
+      const runId = decodeRunId('parent-run-interrupted')
 
       const fiber = yield* AgentRuntime.run(
         parent,
-        { mission: "m" },
+        { mission: 'm' },
         {
           runId,
           input: {
@@ -605,136 +601,134 @@ layer(TestServices)("Subagent.layer S1 attached delegation", (it) => {
         Effect.scoped,
         Effect.exit,
         Effect.forkChild,
-      );
+      )
 
-      yield* Deferred.await(modelStarted);
-      yield* Fiber.interrupt(fiber);
+      yield* Deferred.await(modelStarted)
+      yield* Fiber.interrupt(fiber)
       // Interruption reached the child Run and its model Layer finalizer.
-      yield* Deferred.await(modelReleased);
+      yield* Deferred.await(modelReleased)
 
-      const snapshot = yield* Deferred.await(finalBudget);
-      const view = snapshot.reservations[0];
+      const snapshot = yield* Deferred.await(finalBudget)
+      const view = snapshot.reservations[0]
 
-      expectSettledOnce(view);
+      expectSettledOnce(view)
       // No wall-clock time elapsed before interruption, so refund the full duration.
-      expect(view?.observedConsumed.durationMillis).toBe(0);
-      expect(view?.released.durationMillis).toBe(10_000);
-    }),
-  );
-});
+      expect(view?.observedConsumed.durationMillis).toBe(0)
+      expect(view?.released.durationMillis).toBe(10_000)
+    }))
+})
 
 // ---------------------------------------------------------------------------
 // Compile-time proofs
 // ---------------------------------------------------------------------------
 
 class ChildModelConfig extends Context.Service<ChildModelConfig, { readonly modelName: string }>()(
-  "@effect-agent/capabilities/test/ChildModelConfig",
+  '@effect-agent/capabilities/test/ChildModelConfig',
 ) {}
 
 class ChildCatalog extends Context.Service<
   ChildCatalog,
   { readonly search: Effect.Effect<ReadonlyArray<string>> }
->()("@effect-agent/capabilities/test/ChildCatalog") {}
+>()('@effect-agent/capabilities/test/ChildCatalog') {}
 
 class PrepareDirectory extends Context.Service<PrepareDirectory, { readonly prefix: string }>()(
-  "@effect-agent/capabilities/test/PrepareDirectory",
+  '@effect-agent/capabilities/test/PrepareDirectory',
 ) {}
 
 class ProjectStamper extends Context.Service<ProjectStamper, { readonly stamp: string }>()(
-  "@effect-agent/capabilities/test/ProjectStamper",
+  '@effect-agent/capabilities/test/ProjectStamper',
 ) {}
 
 class ChildInputRenderer extends Context.Service<
   ChildInputRenderer,
   { readonly render: (question: string) => Effect.Effect<string, ChildInputFailure> }
->()("@effect-agent/capabilities/test/ChildInputRenderer") {}
+>()('@effect-agent/capabilities/test/ChildInputRenderer') {}
 
-class ChildInputFailure extends Schema.TaggedError<ChildInputFailure>()("ChildInputFailure", {}) {}
+class ChildInputFailure extends Schema.TaggedError<ChildInputFailure>()('ChildInputFailure', {}) {}
 
-class SearchFailure extends Schema.TaggedError<SearchFailure>()("SearchFailure", {
+class SearchFailure extends Schema.TaggedError<SearchFailure>()('SearchFailure', {
   message: Schema.String,
 }) {}
 
-const SearchDocs = Tool.make("search_docs", {
+const SearchDocs = Tool.make('search_docs', {
   parameters: Schema.Struct({ query: Schema.String }),
   success: Schema.Array(Schema.String),
   failure: SearchFailure,
   dependencies: [ChildCatalog],
-});
+})
 
-const typedChildTools = Toolkit.make(SearchDocs);
+const typedChildTools = Toolkit.make(SearchDocs)
 
-const typedChildDefinition = Agent.make("typed-child", {
+const typedChildDefinition = Agent.make('typed-child', {
   input: ChildInput,
   output: ChildOutput,
-  instructions: "Search, then answer as JSON.",
-  inputPrompt: ({ question }) =>
-    Effect.flatMap(ChildInputRenderer, ({ render }) => render(question)),
+  instructions: 'Search, then answer as JSON.',
+  inputPrompt: ({ question }) => Effect.flatMap(ChildInputRenderer, ({ render }) => render(question)),
   toolkit: typedChildTools,
   policy: childPolicy,
-});
+})
 
 const typedModel = Model.make(
-  "scripted",
-  "typed-model",
+  'scripted',
+  'typed-model',
   Layer.effect(
     LanguageModel.LanguageModel,
-    Effect.gen(function* () {
-      yield* ChildModelConfig;
+    Effect.gen(function*() {
+      yield* ChildModelConfig
 
       return yield* LanguageModel.make({
         generateText: () => Effect.succeed([]),
         streamText: () => Stream.empty,
-      });
+      })
     }),
   ),
-);
+)
 
-const typedDelegation = Subagent.make("typed", {
-  description: "Typed delegation for compile proofs.",
+const typedDelegation = Subagent.make('typed', {
+  description: 'Typed delegation for compile proofs.',
   target: typedChildDefinition,
   parameters: ResearchParams,
   success: ResearchFindings,
   failure: ResearchDelegationFailed,
-  prepareInput: Effect.fnUntraced(function* ({ topic }) {
-    const directory = yield* PrepareDirectory;
+  prepareInput: Effect.fnUntraced(function*({ topic }) {
+    const directory = yield* PrepareDirectory
 
-    return { question: `${directory.prefix}:${topic}` };
+    return { question: `${directory.prefix}:${topic}` }
   }),
-  projectResult: Effect.fnUntraced(function* (output) {
-    const stamper = yield* ProjectStamper;
+  projectResult: Effect.fnUntraced(function*(output) {
+    const stamper = yield* ProjectStamper
 
-    return { summary: `${stamper.stamp}:${output.answer}` };
+    return { summary: `${stamper.stamp}:${output.answer}` }
   }),
   policy: researchPolicy,
-});
+})
 
 const typedLayer = Subagent.layer(typedDelegation, typedModel, {
   mapChildFailure: (failure) => ResearchDelegationFailed.make({ childErrorTag: failure._tag }),
-});
+})
 
-const typedParentDefinition = Agent.make("typed-parent", {
+const typedParentDefinition = Agent.make('typed-parent', {
   input: Schema.Struct({ mission: Schema.String }),
   output: Schema.Struct({ report: Schema.String }),
-  instructions: "Delegate, then answer as JSON.",
+  instructions: 'Delegate, then answer as JSON.',
   toolkit: Toolkit.make(typedDelegation.tool),
   policy: parentPolicy,
-});
+})
 
 const typedParent = Agent.withModel(
   typedParentDefinition,
-  answeringModel("typed-parent-model", '{"report":"typed"}'),
-);
+  answeringModel('typed-parent-model', '{"report":"typed"}'),
+)
 
-const typedProgram = AgentRuntime.run(typedParent, { mission: "m" }).pipe(
+const typedProgram = AgentRuntime.run(typedParent, { mission: 'm' }).pipe(
   Effect.provide(typedLayer),
-);
+)
 
-type LayerContext<L> = L extends Layer.Layer<infer _ROut, infer _E, infer RIn> ? RIn : never;
-type TypedLayerRequirements = LayerContext<typeof typedLayer>;
-type TypedProgramServices = Effect.Services<typeof typedProgram>;
-type TypedHandlerError = Tool.HandlerError<typeof typedDelegation.tool>;
-type TypedHandlerServices = Tool.HandlerServices<typeof typedDelegation.tool>;
+type LayerContext<L> = L extends Layer.Layer<infer _ROut, infer _E, infer RIn> ? RIn : never
+type TypedLayerRequirements = LayerContext<typeof typedLayer>
+type TypedProgramServices = Effect.Services<typeof typedProgram>
+type TypedHandlerError = Tool.HandlerError<typeof typedDelegation.tool>
+type TypedHandlerServices = Tool.HandlerServices<typeof typedDelegation.tool>
 // Per-call handler failures are exactly the declared Tool failure union plus
 // Effect AI's own error (spec §4.2); nothing else can leak through `E`. The
 // S2 members travel typed: the engine-owned waiting signal, the coordinator
@@ -751,38 +745,38 @@ type HandlerErrorProof = Assert<
     | SubagentDurabilityError
     | AiError.AiError
   >
->;
+>
 type HandlerRequirementsProof = Assert<
   Equal<TypedHandlerServices, AgentSpawner | RunEventSink | SubagentDurability>
->;
+>
 // Layer construction carries the child Model, child Tool handler, projection,
 // and reservation requirements visibly (spec §4 compile-proof list).
 type LayerModelProof = Assert<
   Equal<Extract<TypedLayerRequirements, ChildModelConfig>, ChildModelConfig>
->;
+>
 type LayerInputPromptProof = Assert<
   Equal<Extract<TypedLayerRequirements, ChildInputRenderer>, ChildInputRenderer>
->;
+>
 type LayerChildToolServiceProof = Assert<
   Equal<Extract<TypedLayerRequirements, ChildCatalog>, ChildCatalog>
->;
+>
 type LayerChildHandlersProof = Assert<
   Equal<
     Extract<TypedLayerRequirements, Tool.HandlersFor<Toolkit.Tools<typeof typedChildTools>>>,
     Tool.HandlersFor<Toolkit.Tools<typeof typedChildTools>>
   >
->;
+>
 type LayerPrepareProof = Assert<
   Equal<Extract<TypedLayerRequirements, PrepareDirectory>, PrepareDirectory>
->;
+>
 type LayerProjectProof = Assert<
   Equal<Extract<TypedLayerRequirements, ProjectStamper>, ProjectStamper>
->;
+>
 // The provided parent program still needs the child requirements but never
 // the engine-provided services.
 type ProgramModelProof = Assert<
   Equal<Extract<TypedProgramServices, ChildModelConfig>, ChildModelConfig>
->;
+>
 
 const unboundDefinitionRejected = () =>
   Subagent.layer(
@@ -792,7 +786,7 @@ const unboundDefinitionRejected = () =>
     {
       mapChildFailure: (failure) => ResearchDelegationFailed.make({ childErrorTag: failure._tag }),
     },
-  );
+  )
 
 // The expected child-failure domain covers the child's Tool failures and the
 // interpreter's own failures; a mapping over any narrower domain is not
@@ -807,23 +801,22 @@ type TypedChildFailure = SubagentChildRunFailure<
   never,
   never,
   typeof typedChildDefinition.inputPrompt
->;
+>
 type MappingDomainInputPromptFailureProof = Assert<
   Equal<Extract<TypedChildFailure, ChildInputFailure>, ChildInputFailure>
->;
+>
 type MappingDomainToolFailureProof = Assert<
   Equal<Extract<TypedChildFailure, SearchFailure>, SearchFailure>
->;
+>
 type PartialMappingRejectedProof = Assert<
   Equal<
     ((failure: SearchFailure) => ResearchDelegationFailed) extends (
       failure: TypedChildFailure,
-    ) => ResearchDelegationFailed
-      ? true
+    ) => ResearchDelegationFailed ? true
       : false,
     false
   >
->;
+>
 
 // ---------------------------------------------------------------------------
 // SUB-033 containment: `failureMode: "return"` turns expected delegation
@@ -831,31 +824,31 @@ type PartialMappingRejectedProof = Assert<
 // (`ToolCallWaiting`, `SubagentDurabilityError`) stay in the error channel.
 // ---------------------------------------------------------------------------
 
-const containedDelegation = Subagent.make("delegate_contained", {
-  description: "Research one bounded question; failures are contained result data.",
+const containedDelegation = Subagent.make('delegate_contained', {
+  description: 'Research one bounded question; failures are contained result data.',
   target: childDefinition,
   parameters: ResearchParams,
   success: ResearchFindings,
   failure: ResearchDelegationFailed,
-  failureMode: "return",
+  failureMode: 'return',
   prepareInput: ({ topic }) => Effect.succeed({ question: `research:${topic}` }),
   projectResult: (output) => Effect.succeed({ summary: `finding:${output.answer}` }),
   policy: researchPolicy,
-});
+})
 
 export const verifyKeepsPerCallAndConstructionRequirementsDistinct = () => {
-  const handlerErrorProof: HandlerErrorProof = true;
-  const handlerRequirementsProof: HandlerRequirementsProof = true;
-  const layerModelProof: LayerModelProof = true;
-  const layerInputPromptProof: LayerInputPromptProof = true;
-  const mappingDomainInputPromptFailureProof: MappingDomainInputPromptFailureProof = true;
-  const layerChildToolServiceProof: LayerChildToolServiceProof = true;
-  const layerChildHandlersProof: LayerChildHandlersProof = true;
-  const layerPrepareProof: LayerPrepareProof = true;
-  const layerProjectProof: LayerProjectProof = true;
-  const programModelProof: ProgramModelProof = true;
-  const mappingDomainToolFailureProof: MappingDomainToolFailureProof = true;
-  const partialMappingRejectedProof: PartialMappingRejectedProof = true;
+  const handlerErrorProof: HandlerErrorProof = true
+  const handlerRequirementsProof: HandlerRequirementsProof = true
+  const layerModelProof: LayerModelProof = true
+  const layerInputPromptProof: LayerInputPromptProof = true
+  const mappingDomainInputPromptFailureProof: MappingDomainInputPromptFailureProof = true
+  const layerChildToolServiceProof: LayerChildToolServiceProof = true
+  const layerChildHandlersProof: LayerChildHandlersProof = true
+  const layerPrepareProof: LayerPrepareProof = true
+  const layerProjectProof: LayerProjectProof = true
+  const programModelProof: ProgramModelProof = true
+  const mappingDomainToolFailureProof: MappingDomainToolFailureProof = true
+  const partialMappingRejectedProof: PartialMappingRejectedProof = true
 
   void [
     handlerErrorProof,
@@ -870,13 +863,13 @@ export const verifyKeepsPerCallAndConstructionRequirementsDistinct = () => {
     programModelProof,
     mappingDomainToolFailureProof,
     partialMappingRejectedProof,
-  ];
-  void unboundDefinitionRejected;
-};
+  ]
+  void unboundDefinitionRejected
+}
 
 export const verifySUB033KeepsTheContainedToolChannelsTypedModeTypeProofs = () => {
-  type ContainedTool = typeof containedDelegation.tool;
-  type ErrorTool = typeof researchDelegation.tool;
+  type ContainedTool = typeof containedDelegation.tool
+  type ErrorTool = typeof researchDelegation.tool
 
   // Under "return" only the engine signals (plus Effect AI's own permitted
   // error) remain raisable.
@@ -885,7 +878,7 @@ export const verifySUB033KeepsTheContainedToolChannelsTypedModeTypeProofs = () =
       Tool.HandlerError<ContainedTool>,
       AiError.AiError | ToolCallWaiting | SubagentDurabilityError
     >
-  >;
+  >
   // The declared failure family is model-visible RESULT data.
   type ContainedSuccessProof = Assert<
     Equal<
@@ -897,7 +890,7 @@ export const verifySUB033KeepsTheContainedToolChannelsTypedModeTypeProofs = () =
       | SubagentProjectionFailure
       | SubagentExecutionFailure
     >
-  >;
+  >
   // The default mode keeps today's full error-channel union.
   type ErrorModeUnchangedProof = Assert<
     Equal<
@@ -911,11 +904,11 @@ export const verifySUB033KeepsTheContainedToolChannelsTypedModeTypeProofs = () =
       | ToolCallWaiting
       | SubagentDurabilityError
     >
-  >;
+  >
 
-  const containedHandlerErrorProof: ContainedHandlerErrorProof = true;
-  const containedSuccessProof: ContainedSuccessProof = true;
-  const errorModeUnchangedProof: ErrorModeUnchangedProof = true;
+  const containedHandlerErrorProof: ContainedHandlerErrorProof = true
+  const containedSuccessProof: ContainedSuccessProof = true
+  const errorModeUnchangedProof: ErrorModeUnchangedProof = true
 
-  void [containedHandlerErrorProof, containedSuccessProof, errorModeUnchangedProof];
-};
+  void [containedHandlerErrorProof, containedSuccessProof, errorModeUnchangedProof]
+}

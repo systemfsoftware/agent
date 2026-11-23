@@ -1,41 +1,41 @@
-import * as Context from "effect/Context";
-import * as Effect from "effect/Effect";
-import * as Schema from "effect/Schema";
-import type * as Scope from "effect/Scope";
+import * as Context from 'effect/Context'
+import * as Effect from 'effect/Effect'
+import * as Schema from 'effect/Schema'
+import type * as Scope from 'effect/Scope'
 
-import { type AgentId } from "../core/Identifiers.ts";
-import { definitionDigestsEqual } from "./internal/agent-registration.ts";
-import { type DefinitionDigests, PersistedJson } from "./Records.ts";
+import { type AgentId } from '../core/Identifiers.ts'
+import { definitionDigestsEqual } from './internal/agent-registration.ts'
+import { type DefinitionDigests, PersistedJson } from './Records.ts'
 import {
   type AcceptedEvent,
   type EventSourceVersion,
   type SubscriptionConfiguration,
-  type SubscriptionRecord,
   SubscriptionError,
+  type SubscriptionRecord,
   SubscriptionSourceError,
-} from "./Subscription.ts";
+} from './Subscription.ts'
 
 /** Host-retained preparation code for one source and exact destination Agent definition. */
 export interface SubscriptionInputBinding {
-  readonly source: EventSourceVersion;
-  readonly agentId: AgentId;
-  readonly definitions: DefinitionDigests;
-  readonly context: (value: unknown) => Effect.Effect<PersistedJson, SubscriptionSourceError>;
+  readonly source: EventSourceVersion
+  readonly agentId: AgentId
+  readonly definitions: DefinitionDigests
+  readonly context: (value: unknown) => Effect.Effect<PersistedJson, SubscriptionSourceError>
   readonly prepare: (
     event: AcceptedEvent,
     subscription: SubscriptionRecord,
-  ) => Effect.Effect<PersistedJson, SubscriptionSourceError>;
+  ) => Effect.Effect<PersistedJson, SubscriptionSourceError>
 }
 
 export class SubscriptionInputBindings extends Context.Service<
   SubscriptionInputBindings,
   { readonly bindings: ReadonlyArray<SubscriptionInputBinding> }
->()("@effect-agent/thread/SubscriptionInputBindings") {}
+>()('@effect-agent/thread/SubscriptionInputBindings') {}
 
 /** Missing or ambiguous code stays pending. Never substitute a newer destination definition. */
 export const resolveSubscriptionInput = (
   bindings: ReadonlyArray<SubscriptionInputBinding>,
-  configuration: Pick<SubscriptionConfiguration, "source" | "agentId" | "definitions">,
+  configuration: Pick<SubscriptionConfiguration, 'source' | 'agentId' | 'definitions'>,
 ): Effect.Effect<SubscriptionInputBinding, SubscriptionError> => {
   const found = bindings.filter(
     (binding) =>
@@ -43,14 +43,14 @@ export const resolveSubscriptionInput = (
       binding.source.version === configuration.source.version &&
       binding.agentId === configuration.agentId &&
       definitionDigestsEqual(binding.definitions, configuration.definitions),
-  );
+  )
 
-  const binding = found[0];
+  const binding = found[0]
 
   return found.length === 1 && binding !== undefined
     ? Effect.succeed(binding)
-    : Effect.fail(SubscriptionError.make({ reason: "unsupported-binding", code: "input-binding" }));
-};
+    : Effect.fail(SubscriptionError.make({ reason: 'unsupported-binding', code: 'input-binding' }))
+}
 
 /**
  * Capture explicit dependencies at host assembly. Pass the destination definition's input Schema.
@@ -59,59 +59,57 @@ export const resolveSubscriptionInput = (
  * Each operation owns a fresh Scope for its callbacks and codecs; captured host services
  * retain their host lifetime. Operation resources finalize on success, failure, or interruption.
  */
-export const makeSubscriptionInputBinding = Effect.fnUntraced(function* <
+export const makeSubscriptionInputBinding = Effect.fnUntraced(function*<
   Event extends Schema.Top,
   Parameters extends Schema.Top,
   Continuation extends Schema.Top,
   Input extends Schema.Top,
   R,
 >(options: {
-  readonly source: EventSourceVersion;
-  readonly agentId: AgentId;
-  readonly definitions: DefinitionDigests;
-  readonly event: Event;
-  readonly parameters: Parameters;
-  readonly context: Continuation;
-  readonly input: Input;
+  readonly source: EventSourceVersion
+  readonly agentId: AgentId
+  readonly definitions: DefinitionDigests
+  readonly event: Event
+  readonly parameters: Parameters
+  readonly context: Continuation
+  readonly input: Input
   readonly prepare: (
-    event: Event["Type"],
-    parameters: Parameters["Type"],
-    context: Continuation["Type"],
-  ) => Effect.Effect<Input["Type"], SubscriptionSourceError, R>;
+    event: Event['Type'],
+    parameters: Parameters['Type'],
+    context: Continuation['Type'],
+  ) => Effect.Effect<Input['Type'], SubscriptionSourceError, R>
 }): Effect.fn.Return<
   SubscriptionInputBinding,
   never,
   Exclude<
     | R
-    | Event["DecodingServices"]
-    | Parameters["DecodingServices"]
-    | Continuation["DecodingServices"]
-    | Continuation["EncodingServices"]
-    | Input["EncodingServices"],
+    | Event['DecodingServices']
+    | Parameters['DecodingServices']
+    | Continuation['DecodingServices']
+    | Continuation['EncodingServices']
+    | Input['EncodingServices'],
     Scope.Scope
   >
 > {
-  const services =
-    yield* Effect.context<
-      Exclude<
-        | R
-        | Event["DecodingServices"]
-        | Parameters["DecodingServices"]
-        | Continuation["DecodingServices"]
-        | Continuation["EncodingServices"]
-        | Input["EncodingServices"],
-        Scope.Scope
-      >
-    >();
+  const services = yield* Effect.context<
+    Exclude<
+      | R
+      | Event['DecodingServices']
+      | Parameters['DecodingServices']
+      | Continuation['DecodingServices']
+      | Continuation['EncodingServices']
+      | Input['EncodingServices'],
+      Scope.Scope
+    >
+  >()
 
-  const invalid = () =>
-    SubscriptionSourceError.make({ code: "input-binding-schema", retryable: false });
+  const invalid = () => SubscriptionSourceError.make({ code: 'input-binding-schema', retryable: false })
 
-  const encode = <S extends Schema.Top>(schema: S, value: S["Type"]) =>
+  const encode = <S extends Schema.Top>(schema: S, value: S['Type']) =>
     Schema.encodeEffect(schema)(value).pipe(
       Effect.flatMap(Schema.decodeUnknownEffect(PersistedJson)),
       Effect.mapError(invalid),
-    );
+    )
 
   return {
     source: options.source,
@@ -126,22 +124,22 @@ export const makeSubscriptionInputBinding = Effect.fnUntraced(function* <
         Effect.provideContext(services),
       ),
     prepare: Effect.fnUntraced(
-      function* (event, subscription) {
+      function*(event, subscription) {
         const e = yield* Schema.decodeEffect(options.event)(event.payload).pipe(
           Effect.mapError(invalid),
-        );
+        )
 
         const p = yield* Schema.decodeEffect(options.parameters)(
           subscription.configuration.parameters,
-        ).pipe(Effect.mapError(invalid));
+        ).pipe(Effect.mapError(invalid))
 
         const c = yield* Schema.decodeEffect(options.context)(
           subscription.configuration.context,
-        ).pipe(Effect.mapError(invalid));
+        ).pipe(Effect.mapError(invalid))
 
-        return yield* encode(options.input, yield* options.prepare(e, p, c));
+        return yield* encode(options.input, yield* options.prepare(e, p, c))
       },
       (effect) => effect.pipe(Effect.scoped, Effect.provideContext(services)),
     ),
-  };
-});
+  }
+})

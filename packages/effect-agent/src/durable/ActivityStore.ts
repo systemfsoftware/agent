@@ -1,18 +1,18 @@
-import * as Context from "effect/Context";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Schema from "effect/Schema";
-import type * as Scope from "effect/Scope";
+import * as Context from 'effect/Context'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
+import * as Schema from 'effect/Schema'
+import type * as Scope from 'effect/Scope'
 
-import { ThreadId } from "../core/Identifiers.ts";
-import { CanonicalSequence, Digest, PersistedJson, RecordId } from "./Records.ts";
+import { ThreadId } from '../core/Identifiers.ts'
+import { CanonicalSequence, Digest, PersistedJson, RecordId } from './Records.ts'
 
-const Identity = Schema.NonEmptyString.check(Schema.isMaxLength(256));
-const Timestamp = Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0));
+const Identity = Schema.NonEmptyString.check(Schema.isMaxLength(256))
+const Timestamp = Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0))
 
 /** Application-owned processor identity. Changing the version starts independent progress. */
 export class ActivityProcessorKey extends Schema.Class<ActivityProcessorKey>(
-  "@effect-agent/thread/ActivityProcessorKey",
+  '@effect-agent/thread/ActivityProcessorKey',
 )({
   processorId: Identity,
   processorVersion: Identity,
@@ -21,7 +21,7 @@ export class ActivityProcessorKey extends Schema.Class<ActivityProcessorKey>(
 
 /** Durable extraction output, pinned before any external application of that output. */
 export class PreparedActivity extends Schema.Class<PreparedActivity>(
-  "@effect-agent/thread/PreparedActivity",
+  '@effect-agent/thread/PreparedActivity',
 )({
   version: Schema.Literal(1),
   key: ActivityProcessorKey,
@@ -33,7 +33,7 @@ export class PreparedActivity extends Schema.Class<PreparedActivity>(
 
 /** Durable cursor and exact pending output; local authority is never stored here. */
 export class ActivityProgress extends Schema.Class<ActivityProgress>(
-  "@effect-agent/thread/ActivityProgress",
+  '@effect-agent/thread/ActivityProgress',
 )({
   version: Schema.Literal(2),
   key: ActivityProcessorKey,
@@ -44,50 +44,50 @@ export class ActivityProgress extends Schema.Class<ActivityProgress>(
 }) {}
 
 export class ActivityStoreError extends Schema.TaggedError<ActivityStoreError>()(
-  "ActivityStoreError",
+  'ActivityStoreError',
   {
     operation: Schema.NonEmptyString,
-    reason: Schema.Literals(["invalid-input", "unavailable", "corrupt", "incompatible"]),
+    reason: Schema.Literals(['invalid-input', 'unavailable', 'corrupt', 'incompatible']),
   },
 ) {}
 
-export class ActivityBusy extends Schema.TaggedError<ActivityBusy>()("ActivityBusy", {
+export class ActivityBusy extends Schema.TaggedError<ActivityBusy>()('ActivityBusy', {
   key: ActivityProcessorKey,
 }) {}
 
 export class ActivityOwnershipLost extends Schema.TaggedError<ActivityOwnershipLost>()(
-  "ActivityOwnershipLost",
+  'ActivityOwnershipLost',
   { key: ActivityProcessorKey },
 ) {}
 
 export class ActivityWorkConflict extends Schema.TaggedError<ActivityWorkConflict>()(
-  "ActivityWorkConflict",
+  'ActivityWorkConflict',
   { key: ActivityProcessorKey, workId: Digest },
 ) {}
 
 export const ActivityMutationPoint = Schema.Literals([
-  "activity:initialize:before",
-  "activity:initialize:after",
-  "activity:prepare:before",
-  "activity:prepare:after-state",
-  "activity:prepare:after",
-  "activity:advance:before",
-  "activity:advance:after-state",
-  "activity:advance:after",
-]);
+  'activity:initialize:before',
+  'activity:initialize:after',
+  'activity:prepare:before',
+  'activity:prepare:after-state',
+  'activity:prepare:after',
+  'activity:advance:before',
+  'activity:advance:after-state',
+  'activity:advance:after',
+])
 
-export type ActivityMutationPoint = typeof ActivityMutationPoint.Type;
+export type ActivityMutationPoint = typeof ActivityMutationPoint.Type
 
 export class ActivityMutationFailure extends Schema.TaggedError<ActivityMutationFailure>()(
-  "ActivityMutationFailure",
+  'ActivityMutationFailure',
   { point: ActivityMutationPoint },
 ) {}
 
 export class ActivityMutationFailpoint extends Context.Service<
   ActivityMutationFailpoint,
   { readonly hit: (point: ActivityMutationPoint) => Effect.Effect<void, ActivityMutationFailure> }
->()("@effect-agent/thread/ActivityMutationFailpoint") {
-  static readonly layer = Layer.succeed(this, { hit: () => Effect.void });
+>()('@effect-agent/thread/ActivityMutationFailpoint') {
+  static readonly layer = Layer.succeed(this, { hit: () => Effect.void })
 }
 
 export type ActivityStoreFailure =
@@ -95,17 +95,17 @@ export type ActivityStoreFailure =
   | ActivityBusy
   | ActivityOwnershipLost
   | ActivityWorkConflict
-  | ActivityMutationFailure;
+  | ActivityMutationFailure
 
 /** A local consumer capability. It cannot be encoded or restored from durable progress. */
 export interface ActivitySession {
   /** Progress captured under the owner's gate at acquisition. */
-  readonly progress: ActivityProgress;
-  readonly checkActive: Effect.Effect<void, ActivityOwnershipLost>;
+  readonly progress: ActivityProgress
+  readonly checkActive: Effect.Effect<void, ActivityOwnershipLost>
   readonly prepare: (
     work: PreparedActivity,
-  ) => Effect.Effect<PreparedActivity, ActivityStoreFailure>;
-  readonly advance: (workId: Digest) => Effect.Effect<ActivityProgress, ActivityStoreFailure>;
+  ) => Effect.Effect<PreparedActivity, ActivityStoreFailure>
+  readonly advance: (workId: Digest) => Effect.Effect<ActivityProgress, ActivityStoreFailure>
 }
 
 /**
@@ -123,9 +123,9 @@ export class ActivityProcessorStore extends Context.Service<
   {
     readonly inspect: (
       key: ActivityProcessorKey,
-    ) => Effect.Effect<ActivityProgress | null, ActivityStoreError>;
+    ) => Effect.Effect<ActivityProgress | null, ActivityStoreError>
     readonly acquire: (
       key: ActivityProcessorKey,
-    ) => Effect.Effect<ActivitySession, ActivityStoreFailure, Scope.Scope>;
+    ) => Effect.Effect<ActivitySession, ActivityStoreFailure, Scope.Scope>
   }
->()("@effect-agent/thread/ActivityProcessorStore") {}
+>()('@effect-agent/thread/ActivityProcessorStore') {}

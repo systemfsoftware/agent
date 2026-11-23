@@ -1,92 +1,85 @@
-import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
-import { expect, it } from "@effect/vitest";
-import { NodeDurableAgentRuntime } from "@yielded/agent-platform-node/node-durable-agent-runtime";
-import * as Agent from "@yielded/agent/agent";
-import { AgentPolicy } from "@yielded/agent/agent-policy";
-import { DurableWorkerBinding } from "@yielded/agent/agent-registration";
-import { DurableAgentRuntime } from "@yielded/agent/durable-agent-runtime";
-import {
-  DurableRuntimeFailpointError,
-  type DurableRuntimeFailpointLocation,
-} from "@yielded/agent/durable-failpoint";
-import { ToolExecutionClass } from "@yielded/agent/durable-step";
-import { ThreadId, ToolCallId } from "@yielded/agent/identifiers";
-import { DefinitionDigests, Digest } from "@yielded/agent/records";
-import { childThreadIdFor } from "@yielded/agent/run-journal";
-import * as Subagent from "@yielded/agent/subagent";
-import { SubagentPolicy } from "@yielded/agent/subagent";
-import { SubagentReservationsMemoryLive } from "@yielded/agent/subagent-reservations";
-import {
-  ApprovalDecisionCommand,
-  IdempotencyKey,
-  Principal,
-} from "@yielded/agent/submission-ledger";
-import { ThreadRead, ThreadStore } from "@yielded/agent/thread-store";
-import * as LanguageModel from "effect/ai/LanguageModel";
-import * as Model from "effect/ai/Model";
-import type * as Response from "effect/ai/Response";
-import * as Tool from "effect/ai/Tool";
-import * as Toolkit from "effect/ai/Toolkit";
-import * as Cause from "effect/Cause";
-import * as Effect from "effect/Effect";
-import * as Exit from "effect/Exit";
-import * as FileSystem from "effect/FileSystem";
-import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
-import * as Stream from "effect/Stream";
+import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
+import { expect, it } from '@effect/vitest'
+import { NodeDurableAgentRuntime } from '@yielded/agent-platform-node/node-durable-agent-runtime'
+import * as Agent from '@yielded/agent/agent'
+import { AgentPolicy } from '@yielded/agent/agent-policy'
+import { DurableWorkerBinding } from '@yielded/agent/agent-registration'
+import { DurableAgentRuntime } from '@yielded/agent/durable-agent-runtime'
+import { DurableRuntimeFailpointError, type DurableRuntimeFailpointLocation } from '@yielded/agent/durable-failpoint'
+import { ToolExecutionClass } from '@yielded/agent/durable-step'
+import { ThreadId, ToolCallId } from '@yielded/agent/identifiers'
+import { DefinitionDigests, Digest } from '@yielded/agent/records'
+import { childThreadIdFor } from '@yielded/agent/run-journal'
+import * as Subagent from '@yielded/agent/subagent'
+import { SubagentPolicy } from '@yielded/agent/subagent'
+import { SubagentReservationsMemoryLive } from '@yielded/agent/subagent-reservations'
+import { ApprovalDecisionCommand, IdempotencyKey, Principal } from '@yielded/agent/submission-ledger'
+import { ThreadRead, ThreadStore } from '@yielded/agent/thread-store'
+import * as LanguageModel from 'effect/ai/LanguageModel'
+import * as Model from 'effect/ai/Model'
+import type * as Response from 'effect/ai/Response'
+import * as Tool from 'effect/ai/Tool'
+import * as Toolkit from 'effect/ai/Toolkit'
+import * as Cause from 'effect/Cause'
+import * as Effect from 'effect/Effect'
+import * as Exit from 'effect/Exit'
+import * as FileSystem from 'effect/FileSystem'
+import * as Layer from 'effect/Layer'
+import * as Option from 'effect/Option'
+import * as Schema from 'effect/Schema'
+import * as Stream from 'effect/Stream'
 
-const digest = Schema.decodeSync(Digest)("a".repeat(64));
-const digests = DefinitionDigests.make({ agent: digest, model: digest, tools: digest });
-const delegationCall = Schema.decodeSync(ToolCallId)("delegate-1");
-const usage = { inputTokens: {}, outputTokens: {} };
+const digest = Schema.decodeSync(Digest)('a'.repeat(64))
+const digests = DefinitionDigests.make({ agent: digest, model: digest, tools: digest })
+const delegationCall = Schema.decodeSync(ToolCallId)('delegate-1')
+const usage = { inputTokens: {}, outputTokens: {} }
 
-class ProbeFailed extends Schema.TaggedError<ProbeFailed>()("ProbeFailed", {
+class ProbeFailed extends Schema.TaggedError<ProbeFailed>()('ProbeFailed', {
   tag: Schema.String,
 }) {}
 
 const finalParts: ReadonlyArray<Response.StreamPartEncoded> = [
-  { type: "text-start", id: "answer" },
-  { type: "text-delta", id: "answer", delta: '{"answer":"partial"}' },
-  { type: "text-end", id: "answer" },
-  { type: "finish", reason: "stop", usage },
-];
+  { type: 'text-start', id: 'answer' },
+  { type: 'text-delta', id: 'answer', delta: '{"answer":"partial"}' },
+  { type: 'text-end', id: 'answer' },
+  { type: 'finish', reason: 'stop', usage },
+]
 
 const toolTurn = (
   id: string,
   name: string,
   params: unknown,
 ): ReadonlyArray<Response.StreamPartEncoded> => [
-  { type: "tool-call", id, name, params, providerExecuted: false },
-  { type: "finish", reason: "tool-calls", usage },
-];
+  { type: 'tool-call', id, name, params, providerExecuted: false },
+  { type: 'finish', reason: 'tool-calls', usage },
+]
 
-const readLog = Effect.fn("AllowanceTest.readLog")(function* (threadId: ThreadId) {
-  const store = yield* ThreadStore;
+const readLog = Effect.fn('AllowanceTest.readLog')(function*(threadId: ThreadId) {
+  const store = yield* ThreadStore
 
-  return yield* Stream.runCollect(store.read(ThreadRead.make({ threadId, limit: 1024 })));
-});
+  return yield* Stream.runCollect(store.read(ThreadRead.make({ threadId, limit: 1024 })))
+})
 
 it.effect(
-  "persists policy-derived child allowances through establishment faults, approval suspension, and SQLite reopen without replenishing usage",
+  'persists policy-derived child allowances through establishment faults, approval suspension, and SQLite reopen without replenishing usage',
   () =>
     Effect.scoped(
-      Effect.gen(function* () {
-        const fs = yield* FileSystem.FileSystem;
-        const directory = yield* fs.makeTempDirectoryScoped({ prefix: "subagent-allowance-" });
+      Effect.gen(function*() {
+        const fs = yield* FileSystem.FileSystem
+        const directory = yield* fs.makeTempDirectoryScoped({ prefix: 'subagent-allowance-' })
 
         const rows = [
           {
             definition: 8,
             reservation: 3,
             effective: 3,
-            fault: "subagent:after-admit",
+            fault: 'subagent:after-admit',
           },
-        ] as const;
+        ] as const
 
         for (const [index, row] of rows.entries()) {
-          const filename = `${directory}/${index}.sqlite`;
-          let incarnation = 0;
+          const filename = `${directory}/${index}.sqlite`
+          let incarnation = 0
 
           const withRuntime = <A, E, R>(
             effect: Effect.Effect<A, E, R>,
@@ -96,7 +89,7 @@ it.effect(
               Effect.provide(
                 NodeDurableAgentRuntime.layerWithBindings(bindings, {
                   filename,
-                  deploymentId: "allowance-test",
+                  deploymentId: 'allowance-test',
                   producerId: `producer-${incarnation++}`,
                   runtimeFailpoint: (location) =>
                     location === fault
@@ -104,241 +97,241 @@ it.effect(
                       : Effect.void,
                 }),
               ),
-            );
+            )
 
-          const starts: Array<number> = [];
+          const starts: Array<number> = []
 
           const tools = Toolkit.make(
-            Tool.make("delegate_payment", {
+            Tool.make('delegate_payment', {
               parameters: Schema.Struct({ index: Schema.Int }),
               success: Schema.String,
               needsApproval: ({ index }) => index === 1,
-            }).annotate(ToolExecutionClass, "readonly"),
-          );
+            }).annotate(ToolExecutionClass, 'readonly'),
+          )
 
           const handlers = tools.toLayer({
             delegate_payment: ({ index }) =>
               Effect.sync(() => {
-                starts.push(index);
+                starts.push(index)
 
-                return "found";
+                return 'found'
               }),
-          });
+          })
 
-          const childDefinition = Agent.make("allowance-child", {
+          const childDefinition = Agent.make('allowance-child', {
             input: Schema.String,
             output: Schema.Struct({ answer: Schema.String }),
-            instructions: "Probe until the budget is exhausted.",
+            instructions: 'Probe until the budget is exhausted.',
             toolkit: tools,
             policy: { maxToolCalls: row.definition },
-          });
+          })
 
           // Prompt-derived calls survive replacement runtimes without a live model counter.
           const child = Agent.withModel(
             childDefinition,
             Model.make(
-              "scripted",
-              "allowance-child",
+              'scripted',
+              'allowance-child',
               Layer.effect(
                 LanguageModel.LanguageModel,
                 LanguageModel.make({
                   generateText: () => Effect.succeed([]),
                   streamText: (request) => {
                     const count = request.prompt.content
-                      .flatMap((message) => (message.role === "tool" ? message.content : []))
+                      .flatMap((message) => (message.role === 'tool' ? message.content : []))
                       .filter(
-                        (part) => part.type === "tool-result" && part.name === "delegate_payment",
-                      ).length;
+                        (part) => part.type === 'tool-result' && part.name === 'delegate_payment',
+                      ).length
 
                     return Stream.fromIterable(
-                      request.toolChoice === "none"
+                      request.toolChoice === 'none'
                         ? finalParts
-                        : toolTurn(`probe-${count + 1}`, "delegate_payment", { index: count + 1 }),
-                    );
+                        : toolTurn(`probe-${count + 1}`, 'delegate_payment', { index: count + 1 }),
+                    )
                   },
                 }),
               ),
             ),
-          );
+          )
 
-          const delegation = Subagent.make("research", {
+          const delegation = Subagent.make('research', {
             target: childDefinition,
-            description: "Run bounded probes.",
+            description: 'Run bounded probes.',
             parameters: Schema.Struct({}),
             success: Schema.Struct({ exhausted: Schema.Boolean }),
             failure: ProbeFailed,
-            prepareInput: () => Effect.succeed("probe"),
+            prepareInput: () => Effect.succeed('probe'),
             projectResult: (_, context) => Effect.succeed({ exhausted: context.budgetExhausted }),
             policy: SubagentPolicy.make({
               maxChildren: 1,
               maxConcurrency: 1,
               maxTurns: 12,
               maxToolCalls: row.reservation,
-              maxDuration: "5 minutes",
+              maxDuration: '5 minutes',
             }),
-          });
+          })
 
           const parent = Agent.withModel(
-            Agent.make("allowance-parent", {
+            Agent.make('allowance-parent', {
               input: Schema.String,
               output: Schema.Struct({ answer: Schema.String }),
-              instructions: "Delegate.",
+              instructions: 'Delegate.',
               toolkit: Toolkit.make(delegation.tool),
               policy: AgentPolicy.make({
                 maxTurns: 3,
                 maxToolCalls: 1,
-                maxDuration: "5 minutes",
+                maxDuration: '5 minutes',
                 toolConcurrency: 1,
               }),
             }),
             Model.make(
-              "scripted",
-              "allowance-parent",
+              'scripted',
+              'allowance-parent',
               Layer.effect(
                 LanguageModel.LanguageModel,
                 LanguageModel.make({
                   generateText: () => Effect.succeed([]),
                   streamText: (request) =>
                     Stream.fromIterable(
-                      request.prompt.content.some((message) => message.role === "tool")
+                      request.prompt.content.some((message) => message.role === 'tool')
                         ? finalParts
                         : toolTurn(delegationCall, delegation.name, {}),
                     ),
                 }),
               ),
             ),
-          );
+          )
 
           const delegationLayer = Subagent.layer(delegation, child.model, {
             mapChildFailure: (failure) => ProbeFailed.make({ tag: failure._tag }),
-          }).pipe(Layer.provide([handlers, SubagentReservationsMemoryLive]));
+          }).pipe(Layer.provide([handlers, SubagentReservationsMemoryLive]))
 
           const bindings = [
             yield* DurableWorkerBinding.make(parent, digests).pipe(Effect.provide(delegationLayer)),
             yield* DurableWorkerBinding.make(child, digests).pipe(Effect.provide(handlers)),
-          ];
+          ]
 
           const parentId = yield* Schema.decodeEffect(ThreadId)(`allowance-parent-${index}`).pipe(
             Effect.orDie,
-          );
+          )
 
           const receipt = yield* withRuntime(
-            Effect.gen(function* () {
-              const runtime = yield* DurableAgentRuntime;
+            Effect.gen(function*() {
+              const runtime = yield* DurableAgentRuntime
 
-              const receipt = yield* runtime.submit(parent, "probe", {
+              const receipt = yield* runtime.submit(parent, 'probe', {
                 threadId: parentId,
-                principal: yield* Schema.decodeEffect(Principal)("allowance-test").pipe(
+                principal: yield* Schema.decodeEffect(Principal)('allowance-test').pipe(
                   Effect.orDie,
                 ),
-                idempotencyKey: yield* Schema.decodeEffect(IdempotencyKey)("one").pipe(
+                idempotencyKey: yield* Schema.decodeEffect(IdempotencyKey)('one').pipe(
                   Effect.orDie,
                 ),
                 definitions: digests,
-              });
+              })
 
-              const exit = yield* Effect.exit(runtime.processThreadResolved(parentId));
+              const exit = yield* Effect.exit(runtime.processThreadResolved(parentId))
 
               expect(
                 Exit.isFailure(exit) ? Cause.findErrorOption(exit.cause) : Option.none(),
-              ).toEqual(Option.some(DurableRuntimeFailpointError.make({ location: row.fault })));
+              ).toEqual(Option.some(DurableRuntimeFailpointError.make({ location: row.fault })))
 
-              return receipt;
+              return receipt
             }),
             row.fault,
-          );
+          )
 
-          const childId = childThreadIdFor(receipt.submissionId, delegationCall);
+          const childId = childThreadIdFor(receipt.submissionId, delegationCall)
 
           const childSubmission = yield* withRuntime(
-            Effect.gen(function* () {
-              const runtime = yield* DurableAgentRuntime;
+            Effect.gen(function*() {
+              const runtime = yield* DurableAgentRuntime
 
               // Complete admission from the request record, without a delegation handler.
-              yield* runtime.runRecovery();
-              yield* runtime.processThreadResolved(parentId);
-              expect(yield* runtime.processThreadResolved(childId)).toEqual([]);
-              expect(starts).toEqual([]);
-              const explanations = yield* runtime.explainThread(childId);
+              yield* runtime.runRecovery()
+              yield* runtime.processThreadResolved(parentId)
+              expect(yield* runtime.processThreadResolved(childId)).toEqual([])
+              expect(starts).toEqual([])
+              const explanations = yield* runtime.explainThread(childId)
 
-              expect(explanations[0]?.evidence.approvalsPending).toHaveLength(1);
-              const submission = explanations[0]?.submission;
+              expect(explanations[0]?.evidence.approvalsPending).toHaveLength(1)
+              const submission = explanations[0]?.submission
 
-              if (submission === undefined) return yield* Effect.die("Missing child Submission");
+              if (submission === undefined) return yield* Effect.die('Missing child Submission')
 
-              return submission.submissionId;
+              return submission.submissionId
             }),
-          );
+          )
 
           yield* withRuntime(
-            Effect.gen(function* () {
-              const runtime = yield* DurableAgentRuntime;
+            Effect.gen(function*() {
+              const runtime = yield* DurableAgentRuntime
 
               yield* runtime.resolveApproval(
                 ApprovalDecisionCommand.make({
                   submissionId: childSubmission,
-                  toolCallId: yield* Schema.decodeEffect(ToolCallId)("probe-1").pipe(Effect.orDie),
-                  decision: "approved",
-                  resolver: "test",
-                  reason: "first probe approved",
+                  toolCallId: yield* Schema.decodeEffect(ToolCallId)('probe-1').pipe(Effect.orDie),
+                  decision: 'approved',
+                  resolver: 'test',
+                  reason: 'first probe approved',
                 }),
-              );
-              const exit = yield* Effect.exit(runtime.processThreadResolved(childId));
+              )
+              const exit = yield* Effect.exit(runtime.processThreadResolved(childId))
 
               expect(
                 Exit.isFailure(exit) ? Cause.findErrorOption(exit.cause) : Option.none(),
               ).toEqual(
                 Option.some(
-                  DurableRuntimeFailpointError.make({ location: "turn:after-results-append" }),
+                  DurableRuntimeFailpointError.make({ location: 'turn:after-results-append' }),
                 ),
-              );
-              expect(starts).toEqual([1]);
+              )
+              expect(starts).toEqual([1])
             }),
-            "turn:after-results-append",
-          );
+            'turn:after-results-append',
+          )
           yield* withRuntime(
-            Effect.gen(function* () {
-              const runtime = yield* DurableAgentRuntime;
+            Effect.gen(function*() {
+              const runtime = yield* DurableAgentRuntime
 
-              yield* runtime.runRecovery();
-              const settlements = yield* runtime.processThreadResolved(childId);
+              yield* runtime.runRecovery()
+              const settlements = yield* runtime.processThreadResolved(childId)
 
-              expect(settlements[0]?.outcome).toBe("completed");
+              expect(settlements[0]?.outcome).toBe('completed')
               expect(starts).toEqual(
                 Array.from({ length: row.effective }, (_, index) => index + 1),
-              );
+              )
               expect((yield* runtime.processThreadResolved(parentId))[0]?.outcome).toBe(
-                "completed",
-              );
-              const parentLog = yield* readLog(parentId);
-              const childLog = yield* readLog(childId);
+                'completed',
+              )
+              const parentLog = yield* readLog(parentId)
+              const childLog = yield* readLog(childId)
 
               expect(
-                childLog.find(({ record }) => record.payload._tag === "SubmissionSettled")?.record
+                childLog.find(({ record }) => record.payload._tag === 'SubmissionSettled')?.record
                   .payload,
-              ).toMatchObject({ finishReason: "budget-exhausted" });
+              ).toMatchObject({ finishReason: 'budget-exhausted' })
               expect(
-                parentLog.find(({ record }) => record.payload._tag === "SubagentRequested")?.record
+                parentLog.find(({ record }) => record.payload._tag === 'SubagentRequested')?.record
                   .payload,
               ).toMatchObject({
                 toolCallAllowance: row.effective,
                 policy: { maxTurns: 3, toolConcurrency: 1 },
-              });
+              })
               expect(
-                childLog.find(({ record }) => record.payload._tag === "SubagentLineageRecorded")
+                childLog.find(({ record }) => record.payload._tag === 'SubagentLineageRecorded')
                   ?.record.payload,
               ).toMatchObject({
                 toolCallAllowance: row.effective,
                 policy: { maxTurns: 3, toolConcurrency: 1 },
-              });
+              })
               expect(
-                parentLog.find(({ record }) => record.payload._tag === "ToolCallSettled")?.record
+                parentLog.find(({ record }) => record.payload._tag === 'ToolCallSettled')?.record
                   .payload,
-              ).toMatchObject({ result: { exhausted: true } });
+              ).toMatchObject({ result: { exhausted: true } })
             }),
-          );
+          )
         }
       }),
     ).pipe(Effect.provide(NodeFileSystem.layer)),
   30_000,
-);
+)

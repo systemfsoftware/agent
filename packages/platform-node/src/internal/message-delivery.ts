@@ -2,54 +2,53 @@ import {
   MessageDeliveryDriver,
   type MessageDeliveryFailure,
   MessageDeliveryStore,
-} from "@yielded/agent/message-delivery";
-import * as Cause from "effect/Cause";
-import * as Clock from "effect/Clock";
-import * as Effect from "effect/Effect";
-import * as Exit from "effect/Exit";
-import * as Option from "effect/Option";
+} from '@yielded/agent/message-delivery'
+import * as Cause from 'effect/Cause'
+import * as Clock from 'effect/Clock'
+import * as Effect from 'effect/Effect'
+import * as Exit from 'effect/Exit'
+import * as Option from 'effect/Option'
 
 const reportFailure = (cause: Cause.Cause<MessageDeliveryFailure>): Effect.Effect<void> =>
   Cause.hasInterruptsOnly(cause)
     ? Effect.interrupt
-    : Effect.logWarning("Node message delivery pass failed").pipe(
-        Effect.annotateLogs({
-          failureTag: Option.match(Cause.findErrorOption(cause), {
-            onNone: () => "Defect",
-            onSome: (failure) => failure._tag,
-          }),
+    : Effect.logWarning('Node message delivery pass failed').pipe(
+      Effect.annotateLogs({
+        failureTag: Option.match(Cause.findErrorOption(cause), {
+          onNone: () => 'Defect',
+          onSome: (failure) => failure._tag,
         }),
-      );
+      }),
+    )
 
 /** Caller-owned loop. Indexed scans repair absent hints even when both Threads have settled. */
-export const runNodeMessageDeliveries = Effect.fnUntraced(function* (scanInterval: number) {
-  const driver = yield* MessageDeliveryDriver;
-  const store = yield* MessageDeliveryStore;
+export const runNodeMessageDeliveries = Effect.fnUntraced(function*(scanInterval: number) {
+  const driver = yield* MessageDeliveryDriver
+  const store = yield* MessageDeliveryStore
 
   while (true) {
-    const pass = yield* driver.runDue().pipe(Effect.exit);
+    const pass = yield* driver.runDue().pipe(Effect.exit)
 
     if (Exit.isFailure(pass)) {
-      yield* reportFailure(pass.cause);
-      yield* Effect.sleep(scanInterval);
-      continue;
+      yield* reportFailure(pass.cause)
+      yield* Effect.sleep(scanInterval)
+      continue
     }
 
-    const deadline = yield* store.nextDeadline().pipe(Effect.exit);
+    const deadline = yield* store.nextDeadline().pipe(Effect.exit)
 
     if (Exit.isFailure(deadline)) {
-      yield* reportFailure(deadline.cause);
-      yield* Effect.sleep(scanInterval);
-      continue;
+      yield* reportFailure(deadline.cause)
+      yield* Effect.sleep(scanInterval)
+      continue
     }
 
-    const nowMillis = yield* Clock.currentTimeMillis;
+    const nowMillis = yield* Clock.currentTimeMillis
 
-    const delay =
-      deadline.value === null
-        ? scanInterval
-        : Math.max(1, Math.min(deadline.value - nowMillis, scanInterval));
+    const delay = deadline.value === null
+      ? scanInterval
+      : Math.max(1, Math.min(deadline.value - nowMillis, scanInterval))
 
-    yield* Effect.sleep(delay);
+    yield* Effect.sleep(delay)
   }
-});
+})

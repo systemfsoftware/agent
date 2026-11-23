@@ -1,40 +1,22 @@
-import * as Clock from "effect/Clock";
-import * as CryptoDigest from "effect/crypto/Digest";
-import * as DateTime from "effect/DateTime";
-import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
-import * as Stream from "effect/Stream";
+import * as Clock from 'effect/Clock'
+import * as CryptoDigest from 'effect/crypto/Digest'
+import * as DateTime from 'effect/DateTime'
+import * as Effect from 'effect/Effect'
+import * as Option from 'effect/Option'
+import * as Schema from 'effect/Schema'
+import * as Stream from 'effect/Stream'
 
-import type { InboxPage } from "../../capabilities/Messaging.ts";
-import {
-  MessageAdmission,
-  MessageRef,
-  MessagingError,
-  PeerName,
-} from "../../capabilities/Messaging.ts";
-import type { AgentId, ThreadId } from "../../core/Identifiers.ts";
-import { IdempotencyKey, type Principal } from "../../core/Receipt.ts";
-import type { WorkerSource } from "../../core/Worker.ts";
-import {
-  type MessagingHost,
-  type PeerTarget,
-  type SendPeerMessage,
-} from "../../engine/MessagingHost.ts";
-import {
-  PeerAuthorizer,
-  PeerRoutes,
-  PeerDeliveryLifetime,
-  PeerMessageCapacity,
-} from "../../engine/MessagingHost.ts";
-import { digestJson } from "../Digest.ts";
-import type { DurableSubmitOptions } from "../DurableAgentRuntime.ts";
-import {
-  MessageDeliveryFailpoint,
-  MessageDeliveryStore,
-  type MessageDeliveryRecord,
-} from "../MessageDelivery.ts";
-import { PreparedInput } from "../PreparedInputAdmission.ts";
+import type { InboxPage } from '../../capabilities/Messaging.ts'
+import { MessageAdmission, MessageRef, MessagingError, PeerName } from '../../capabilities/Messaging.ts'
+import type { AgentId, ThreadId } from '../../core/Identifiers.ts'
+import { IdempotencyKey, type Principal } from '../../core/Receipt.ts'
+import type { WorkerSource } from '../../core/Worker.ts'
+import { type MessagingHost, type PeerTarget, type SendPeerMessage } from '../../engine/MessagingHost.ts'
+import { PeerAuthorizer, PeerDeliveryLifetime, PeerMessageCapacity, PeerRoutes } from '../../engine/MessagingHost.ts'
+import { digestJson } from '../Digest.ts'
+import type { DurableSubmitOptions } from '../DurableAgentRuntime.ts'
+import { MessageDeliveryFailpoint, type MessageDeliveryRecord, MessageDeliveryStore } from '../MessageDelivery.ts'
+import { PreparedInput } from '../PreparedInputAdmission.ts'
 import {
   BatchId,
   CanonicalBatch,
@@ -45,44 +27,36 @@ import {
   PersistedJson,
   type ProducerId,
   RecordEnvelope,
-} from "../Records.ts";
-import { peerMessageRecordId } from "../RunJournal.ts";
+} from '../Records.ts'
+import { peerMessageRecordId } from '../RunJournal.ts'
+import { submissionInputRecordId, SubmissionLedger, SubmissionLookupByKey } from '../SubmissionLedger.ts'
 import {
-  SubmissionLedger,
-  SubmissionLookupByKey,
-  submissionInputRecordId,
-} from "../SubmissionLedger.ts";
-import {
-  getRecord,
   AppendRequest,
+  getRecord,
   ThreadRead,
-  ThreadTailRequest,
-  ThreadStore,
   ThreadReader,
+  ThreadStore,
   ThreadStoreError,
-} from "../ThreadStore.ts";
-import {
-  definitionDigestsEqual,
-  resolveDefinitionBinding,
-  type ResolvedBinding,
-} from "./agent-registration.ts";
-import { messageStatus } from "./message-status.ts";
+  ThreadTailRequest,
+} from '../ThreadStore.ts'
+import { definitionDigestsEqual, type ResolvedBinding, resolveDefinitionBinding } from './agent-registration.ts'
+import { messageStatus } from './message-status.ts'
 
 export interface MessagingRuntimeOptions {
-  readonly bindings: ReadonlyArray<ResolvedBinding>;
-  readonly deploymentId: DeploymentId;
-  readonly producerId: ProducerId;
+  readonly bindings: ReadonlyArray<ResolvedBinding>
+  readonly deploymentId: DeploymentId
+  readonly producerId: ProducerId
 }
 
-const failure = (operation: MessagingError["operation"], reason: MessagingError["reason"]) =>
-  MessagingError.make({ operation, reason });
+const failure = (operation: MessagingError['operation'], reason: MessagingError['reason']) =>
+  MessagingError.make({ operation, reason })
 
-const sameRef = Schema.toEquivalence(MessageRef);
-const sameAdmission = Schema.toEquivalence(MessageAdmission);
-const sameJson = Schema.toEquivalence(PersistedJson);
+const sameRef = Schema.toEquivalence(MessageRef)
+const sameAdmission = Schema.toEquivalence(MessageAdmission)
+const sameJson = Schema.toEquivalence(PersistedJson)
 
 /** Thread-owned durable peer delivery. Source proof and the independent due index survive Run settlement. */
-export const makeMessagingRuntime = Effect.fnUntraced(function* (options: MessagingRuntimeOptions) {
+export const makeMessagingRuntime = Effect.fnUntraced(function*(options: MessagingRuntimeOptions) {
   const deps = {
     ...options,
     store: yield* ThreadStore,
@@ -94,67 +68,69 @@ export const makeMessagingRuntime = Effect.fnUntraced(function* (options: Messag
     lifetimeMillis: yield* PeerDeliveryLifetime,
     maxMessagesPerSource: yield* PeerMessageCapacity,
     failpoint: yield* MessageDeliveryFailpoint,
-  };
+  }
 
-  const countPeerMessages = deps.store.countPeerMessages?.bind(deps.store);
+  const countPeerMessages = deps.store.countPeerMessages?.bind(deps.store)
 
-  if (countPeerMessages === undefined)
+  if (countPeerMessages === undefined) {
     return yield* ThreadStoreError.make({
-      operation: "construct messaging runtime",
-      message: "The storage adapter has no peer-message capacity port",
-    });
+      operation: 'construct messaging runtime',
+      message: 'The storage adapter has no peer-message capacity port',
+    })
+  }
 
   const digest = (value: Schema.Json) =>
     digestJson(value).pipe(
       Effect.provideService(CryptoDigest.Digest, deps.crypto),
-      Effect.mapError(() => failure("send", "storage")),
-    );
+      Effect.mapError(() => failure('send', 'storage')),
+    )
 
-  const exactRecord = Effect.fnUntraced(function* (
+  const exactRecord = Effect.fnUntraced(function*(
     threadId: ThreadId,
-    recordId: RecordEnvelope["recordId"],
+    recordId: RecordEnvelope['recordId'],
   ) {
     return Option.getOrUndefined(
       yield* getRecord({ threadId, recordId }).pipe(
         Effect.provideService(ThreadReader, ThreadReader.fromStore(deps.store)),
-        Effect.mapError(() => failure("send", "storage")),
+        Effect.mapError(() => failure('send', 'storage')),
       ),
-    )?.record;
-  });
+    )?.record
+  })
 
-  const sourceOf = Effect.fnUntraced(function* (threadId: ThreadId) {
+  const sourceOf = Effect.fnUntraced(function*(threadId: ThreadId) {
     const log = yield* deps.store
       .inspectTail(ThreadTailRequest.make({ threadId }))
-      .pipe(Effect.mapError(() => failure("context", "storage")));
+      .pipe(Effect.mapError(() => failure('context', 'storage')))
 
     const records = yield* deps.store.read(ThreadRead.make({ threadId, limit: 1 })).pipe(
       Stream.runCollect,
-      Effect.mapError(() => failure("context", "storage")),
-    );
+      Effect.mapError(() => failure('context', 'storage')),
+    )
 
-    const created = records[0]?.record.payload;
+    const created = records[0]?.record.payload
 
-    if (created?._tag !== "ThreadCreated") return yield* failure("context", "not-found");
+    if (created?._tag !== 'ThreadCreated') return yield* failure('context', 'not-found')
 
-    const matching = deps.bindings.filter((binding) => binding.agentId === created.agentId);
+    const matching = deps.bindings.filter((binding) => binding.agentId === created.agentId)
 
-    if (matching.length !== 1) return yield* failure("context", "binding-mismatch");
+    if (matching.length !== 1) return yield* failure('context', 'binding-mismatch')
 
-    return { log, address: { threadId, agentId: created.agentId } };
-  });
+    return { log, address: { threadId, agentId: created.agentId } }
+  })
 
-  const decodeProof = Effect.fnUntraced(function* (record: RecordEnvelope) {
-    if (record.payload._tag !== "PeerMessagePrepared") return yield* failure("send", "corrupt");
+  const decodeProof = Effect.fnUntraced(function*(record: RecordEnvelope) {
+    if (record.payload._tag !== 'PeerMessagePrepared') return yield* failure('send', 'corrupt')
 
     const envelope = yield* Schema.decodeUnknownEffect(PreparedInput)(
       record.payload.encodedEnvelope,
-    ).pipe(Effect.mapError(() => failure("send", "corrupt")));
+    ).pipe(Effect.mapError(() => failure('send', 'corrupt')))
 
     if (
       !Schema.is(MessageAdmission)(envelope.messageAdmission) ||
       envelope.messageAdmission.message.messageId !== record.payload.messageId
-    )
-      return yield* failure("send", "corrupt");
+    ) {
+      return yield* failure('send', 'corrupt')
+    }
 
     return {
       envelope,
@@ -162,103 +138,105 @@ export const makeMessagingRuntime = Effect.fnUntraced(function* (options: Messag
       operation: record.payload.operation,
       deadlineAtMillis: record.payload.deadlineAtMillis,
       createdAtMillis: DateTime.toEpochMillis(record.createdAt),
-    };
-  });
+    }
+  })
 
-  const proof = Effect.fnUntraced(function* (message: MessageRef) {
-    const source = yield* sourceOf(message.ownerThreadId);
+  const proof = Effect.fnUntraced(function*(message: MessageRef) {
+    const source = yield* sourceOf(message.ownerThreadId)
 
     const record = yield* exactRecord(
       message.ownerThreadId,
       peerMessageRecordId(message.messageId),
-    );
+    )
 
-    if (record === undefined) return yield* failure("reply", "invalid-reference");
-    const saved = yield* decodeProof(record);
+    if (record === undefined) return yield* failure('reply', 'invalid-reference')
+    const saved = yield* decodeProof(record)
 
     if (
       !Schema.is(MessageAdmission)(saved.envelope.messageAdmission) ||
       saved.envelope.messageAdmission.sender.agentId !== source.address.agentId ||
       !sameRef(saved.envelope.messageAdmission.message, message)
-    )
-      return yield* failure("reply", "invalid-reference");
+    ) {
+      return yield* failure('reply', 'invalid-reference')
+    }
 
-    return saved;
-  });
+    return saved
+  })
 
-  const authorizeEnvelope = Effect.fnUntraced(function* (
+  const authorizeEnvelope = Effect.fnUntraced(function*(
     saved: Effect.Success<ReturnType<typeof proof>>,
-    operation: "send" | "reply",
+    operation: 'send' | 'reply',
   ) {
-    const metadata = saved.envelope.messageAdmission;
+    const metadata = saved.envelope.messageAdmission
 
-    if (!Schema.is(MessageAdmission)(metadata)) return yield* failure(operation, "corrupt");
+    if (!Schema.is(MessageAdmission)(metadata)) return yield* failure(operation, 'corrupt')
 
     const principal = yield* deps.authorizer.authorize({
       source: metadata.sender,
       principal: saved.sourcePrincipal,
       operation: saved.operation,
-      access: "send",
+      access: 'send',
       peerName: metadata.peerName,
       destination: { threadId: saved.envelope.threadId, agentId: saved.envelope.agentId },
-    });
+    })
 
-    if (principal !== saved.envelope.deliveryPrincipal) return yield* failure(operation, "denied");
-  });
+    if (principal !== saved.envelope.deliveryPrincipal) return yield* failure(operation, 'denied')
+  })
 
-  const status = (row: MessageDeliveryRecord, operation: MessagingError["operation"]) =>
-    messageStatus(row).pipe(Effect.mapError(() => failure(operation, "corrupt")));
+  const status = (row: MessageDeliveryRecord, operation: MessagingError['operation']) =>
+    messageStatus(row).pipe(Effect.mapError(() => failure(operation, 'corrupt')))
 
-  const deliveries = (operation: MessagingError["operation"]) =>
+  const deliveries = (operation: MessagingError['operation']) =>
     Option.isSome(deps.deliveries)
       ? Effect.succeed(deps.deliveries.value)
-      : failure(operation, "unavailable");
+      : failure(operation, 'unavailable')
 
-  const mapStore =
-    (operation: MessagingError["operation"]) =>
-    (error: {
-      readonly _tag: string;
-      readonly reason?: string;
-      readonly deliveryReason?: string;
-    }) => {
-      const reason = error.deliveryReason ?? error.reason;
+  const mapStore = (operation: MessagingError['operation']) =>
+  (error: {
+    readonly _tag: string
+    readonly reason?: string
+    readonly deliveryReason?: string
+  }) => {
+    const reason = error.deliveryReason ?? error.reason
 
-      return failure(
-        operation,
-        reason === "capacity" ? "capacity" : reason === "conflict" ? "conflict" : "storage",
-      );
-    };
+    return failure(
+      operation,
+      reason === 'capacity' ? 'capacity' : reason === 'conflict' ? 'conflict' : 'storage',
+    )
+  }
 
   const lifetime = Schema.decodeEffect(
     Schema.Int.check(Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(604_800_000)),
-  )(deps.lifetimeMillis).pipe(Effect.mapError(() => failure("send", "capacity")));
+  )(deps.lifetimeMillis).pipe(Effect.mapError(() => failure('send', 'capacity')))
 
   const capacity = Schema.decodeEffect(
     Schema.Int.check(Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(1_000)),
-  )(deps.maxMessagesPerSource ?? 256).pipe(Effect.mapError(() => failure("send", "capacity")));
+  )(deps.maxMessagesPerSource ?? 256).pipe(Effect.mapError(() => failure('send', 'capacity')))
 
   const facet = (
     threadId: ThreadId,
     principal: Principal,
     toolSource?: WorkerSource,
-  ): MessagingHost["Service"] => {
-    const authorize = Effect.fnUntraced(function* (
-      operation: MessagingError["operation"],
-      access: "context" | "read" | "send" | "control",
+  ): MessagingHost['Service'] => {
+    const authorize = Effect.fnUntraced(function*(
+      operation: MessagingError['operation'],
+      access: 'context' | 'read' | 'send' | 'control',
       peer?: PeerTarget,
       destination?: { readonly threadId: ThreadId; readonly agentId: AgentId },
     ) {
-      const source = yield* sourceOf(threadId);
+      const source = yield* sourceOf(threadId)
 
       if (
         toolSource !== undefined &&
         (toolSource.agentId !== source.address.agentId || toolSource.threadId !== threadId)
-      )
-        return yield* failure(operation, "denied");
-      if (peer !== undefined)
+      ) {
+        return yield* failure(operation, 'denied')
+      }
+      if (peer !== undefined) {
         yield* Schema.decodeEffect(PeerName)(peer.name).pipe(
-          Effect.mapError(() => failure(operation, "invalid-input")),
-        );
+          Effect.mapError(() => failure(operation, 'invalid-input')),
+        )
+      }
 
       const deliveryPrincipal = yield* deps.authorizer.authorize({
         source: source.address,
@@ -267,61 +245,60 @@ export const makeMessagingRuntime = Effect.fnUntraced(function* (options: Messag
         access,
         ...(peer === undefined ? {} : { peerName: peer.name }),
         ...(destination === undefined ? {} : { destination }),
-      });
+      })
 
-      return { ...source, deliveryPrincipal };
-    });
+      return { ...source, deliveryPrincipal }
+    })
 
-    const send = Effect.fnUntraced(function* (
+    const send = Effect.fnUntraced(function*(
       request: SendPeerMessage,
-      operation: "send" | "reply",
+      operation: 'send' | 'reply',
     ) {
-      const initial = yield* authorize(operation, "send", request);
+      const initial = yield* authorize(operation, 'send', request)
 
       const target = yield* resolveDefinitionBinding(deps.bindings, request.target).pipe(
-        Effect.mapError(() => failure(operation, "binding-mismatch")),
-      );
+        Effect.mapError(() => failure(operation, 'binding-mismatch')),
+      )
 
       const encoded = yield* Schema.decodeUnknownEffect(Schema.toEncoded(target.definition.input))(
         request.encodedInput,
-      ).pipe(Effect.mapError(() => failure(operation, "invalid-input")));
+      ).pipe(Effect.mapError(() => failure(operation, 'invalid-input')))
 
       const input = yield* Schema.decodeUnknownEffect(PersistedJson)(encoded).pipe(
         Effect.flatMap(Schema.encodeEffect(Schema.fromJsonString(PersistedJson))),
         Effect.flatMap(Schema.decodeEffect(Schema.fromJsonString(PersistedJson))),
-        Effect.mapError(() => failure(operation, "invalid-input")),
-      );
+        Effect.mapError(() => failure(operation, 'invalid-input')),
+      )
 
       const key = yield* Schema.decodeEffect(IdempotencyKey)(request.idempotencyKey).pipe(
-        Effect.mapError(() => failure(operation, "invalid-input")),
-      );
+        Effect.mapError(() => failure(operation, 'invalid-input')),
+      )
 
-      const inReplyTo =
-        request.inReplyTo === undefined
-          ? undefined
-          : yield* Schema.decodeEffect(MessageRef)(request.inReplyTo).pipe(
-              Effect.mapError(() => failure(operation, "invalid-reference")),
-            );
+      const inReplyTo = request.inReplyTo === undefined
+        ? undefined
+        : yield* Schema.decodeEffect(MessageRef)(request.inReplyTo).pipe(
+          Effect.mapError(() => failure(operation, 'invalid-reference')),
+        )
 
       const message: MessageRef = {
         ownerThreadId: threadId,
         messageId: yield* Schema.decodeEffect(IdempotencyKey)(
           `peer:${yield* digest([threadId, principal, request.name, operation, key])}`,
         ).pipe(Effect.orDie),
-      };
+      }
 
-      const store = yield* deliveries(operation);
-      const window = yield* lifetime;
-      const maxMessages = yield* capacity;
+      const store = yield* deliveries(operation)
+      const window = yield* lifetime
+      const maxMessages = yield* capacity
 
       for (let attempt = 0; attempt < 8; attempt++) {
-        const current = attempt === 0 ? initial : yield* sourceOf(threadId);
+        const current = attempt === 0 ? initial : yield* sourceOf(threadId)
 
-        const prior = yield* exactRecord(threadId, peerMessageRecordId(message.messageId));
+        const prior = yield* exactRecord(threadId, peerMessageRecordId(message.messageId))
 
         if (prior !== undefined) {
-          const saved = yield* decodeProof(prior);
-          const metadata = saved.envelope.messageAdmission;
+          const saved = yield* decodeProof(prior)
+          const metadata = saved.envelope.messageAdmission
 
           if (
             !Schema.is(MessageAdmission)(metadata) ||
@@ -331,13 +308,14 @@ export const makeMessagingRuntime = Effect.fnUntraced(function* (options: Messag
             (inReplyTo === undefined || metadata.inReplyTo === undefined
               ? inReplyTo !== metadata.inReplyTo
               : !sameRef(inReplyTo, metadata.inReplyTo))
-          )
-            return yield* failure(operation, "conflict");
-          yield* authorize(operation, "send", request, {
+          ) {
+            return yield* failure(operation, 'conflict')
+          }
+          yield* authorize(operation, 'send', request, {
             threadId: saved.envelope.threadId,
             agentId: target.agentId,
-          });
-          yield* authorizeEnvelope(saved, operation);
+          })
+          yield* authorizeEnvelope(saved, operation)
         } else {
           if (
             (yield* countPeerMessages({
@@ -345,20 +323,22 @@ export const makeMessagingRuntime = Effect.fnUntraced(function* (options: Messag
               nowMillis: yield* Clock.currentTimeMillis,
               limit: maxMessages,
             }).pipe(Effect.mapError(mapStore(operation)))) >= maxMessages
-          )
-            return yield* failure(operation, "capacity");
-          let destinationThread: ThreadId;
+          ) {
+            return yield* failure(operation, 'capacity')
+          }
+          let destinationThread: ThreadId
 
-          if (operation === "reply") {
-            if (inReplyTo === undefined) return yield* failure(operation, "invalid-reference");
+          if (operation === 'reply') {
+            if (inReplyTo === undefined) return yield* failure(operation, 'invalid-reference')
 
-            const original = yield* proof(inReplyTo);
+            const original = yield* proof(inReplyTo)
 
             if (
               original.envelope.threadId !== threadId ||
               original.envelope.agentId !== current.address.agentId
-            )
-              return yield* failure(operation, "invalid-reference");
+            ) {
+              return yield* failure(operation, 'invalid-reference')
+            }
 
             const accepted = yield* deps.ledger
               .lookup(
@@ -368,15 +348,15 @@ export const makeMessagingRuntime = Effect.fnUntraced(function* (options: Messag
                   idempotencyKey: inReplyTo.messageId,
                 }),
               )
-              .pipe(Effect.mapError(mapStore(operation)));
+              .pipe(Effect.mapError(mapStore(operation)))
 
             const inbound = Option.isNone(accepted)
               ? undefined
               : (yield* exactRecord(threadId, submissionInputRecordId(accepted.value.submissionId)))
-                  ?.payload;
+                ?.payload
 
             if (
-              inbound?._tag !== "UserInputRecorded" ||
+              inbound?._tag !== 'UserInputRecorded' ||
               !Schema.is(MessageAdmission)(inbound.messageAdmission) ||
               inbound.messageAdmission.sender.agentId !== target.agentId ||
               !sameRef(inbound.messageAdmission.message, inReplyTo) ||
@@ -384,22 +364,23 @@ export const makeMessagingRuntime = Effect.fnUntraced(function* (options: Messag
               !sameAdmission(inbound.messageAdmission, original.envelope.messageAdmission) ||
               Option.isNone(accepted) ||
               inbound.submissionId !== accepted.value.submissionId
-            )
-              return yield* failure(operation, "invalid-reference");
-            destinationThread = inbound.messageAdmission.returnAddress.threadId;
+            ) {
+              return yield* failure(operation, 'invalid-reference')
+            }
+            destinationThread = inbound.messageAdmission.returnAddress.threadId
           } else {
             destinationThread = yield* deps.routes.resolve({
               source: current.address,
               principal,
               peerName: request.name,
               targetAgentId: target.agentId,
-            });
+            })
           }
 
-          const allowed = yield* authorize(operation, "send", request, {
+          const allowed = yield* authorize(operation, 'send', request, {
             threadId: destinationThread,
             agentId: target.agentId,
-          });
+          })
 
           const metadata = MessageAdmission.make({
             schemaVersion: 1,
@@ -408,7 +389,7 @@ export const makeMessagingRuntime = Effect.fnUntraced(function* (options: Messag
             sender: current.address,
             returnAddress: current.address,
             ...(inReplyTo === undefined ? {} : { inReplyTo }),
-          });
+          })
 
           const envelope = PreparedInput.make({
             schemaVersion: 1,
@@ -419,24 +400,24 @@ export const makeMessagingRuntime = Effect.fnUntraced(function* (options: Messag
             input,
             inputDigest: yield* digest(input),
             admissionKey: message.messageId,
-            authorization: { policyId: "peer-message", decisionId: message.messageId },
+            authorization: { policyId: 'peer-message', decisionId: message.messageId },
             messageAdmission: metadata,
-          });
+          })
 
           const encodedEnvelope = yield* Schema.encodeEffect(PreparedInput)(envelope).pipe(
-            Effect.mapError(() => failure(operation, "invalid-input")),
-          );
+            Effect.mapError(() => failure(operation, 'invalid-input')),
+          )
 
           const tail = yield* deps.store
             .inspectTail(ThreadTailRequest.make({ threadId }))
-            .pipe(Effect.mapError(mapStore(operation)));
+            .pipe(Effect.mapError(mapStore(operation)))
 
-          if (tail.tailSequence !== current.log.tailSequence) continue;
-          const createdAtMillis = yield* Clock.currentTimeMillis;
+          if (tail.tailSequence !== current.log.tailSequence) continue
+          const createdAtMillis = yield* Clock.currentTimeMillis
 
           yield* deps.failpoint
-            .hit("peer:before-prepared-append")
-            .pipe(Effect.mapError(mapStore(operation)));
+            .hit('peer:before-prepared-append')
+            .pipe(Effect.mapError(mapStore(operation)))
 
           const appended = yield* deps.store
             .append(
@@ -452,13 +433,13 @@ export const makeMessagingRuntime = Effect.fnUntraced(function* (options: Messag
                   records: [
                     RecordEnvelope.make({
                       recordId: peerMessageRecordId(message.messageId),
-                      family: "thread",
+                      family: 'thread',
                       schemaVersion: 1,
                       createdAt: DateTime.makeUnsafe(createdAtMillis),
                       deploymentId: deps.deploymentId,
                       payload: PeerMessagePrepared.make({
                         messageId: message.messageId,
-                        source: toolSource ?? { _tag: "programmatic", ...initial.address },
+                        source: toolSource ?? { _tag: 'programmatic', ...initial.address },
                         encodedEnvelope,
                         sourcePrincipal: principal,
                         operation,
@@ -471,149 +452,148 @@ export const makeMessagingRuntime = Effect.fnUntraced(function* (options: Messag
             )
             .pipe(
               Effect.as(true),
-              Effect.catchTag("AppendConflict", () => Effect.succeed(false)),
+              Effect.catchTag('AppendConflict', () => Effect.succeed(false)),
               Effect.mapError(mapStore(operation)),
-            );
+            )
 
-          if (!appended) continue;
+          if (!appended) continue
           yield* deps.failpoint
-            .hit("peer:after-prepared-append")
-            .pipe(Effect.mapError(mapStore(operation)));
+            .hit('peer:after-prepared-append')
+            .pipe(Effect.mapError(mapStore(operation)))
         }
 
-        const published = yield* store.get(message).pipe(Effect.mapError(mapStore(operation)));
+        const published = yield* store.get(message).pipe(Effect.mapError(mapStore(operation)))
 
-        if (published === null) return yield* failure(operation, "corrupt");
+        if (published === null) return yield* failure(operation, 'corrupt')
 
-        return yield* status(published, operation);
+        return yield* status(published, operation)
       }
 
-      return yield* failure(operation, "capacity");
-    });
+      return yield* failure(operation, 'capacity')
+    })
 
-    const lookup = Effect.fnUntraced(function* (
+    const lookup = Effect.fnUntraced(function*(
       request: PeerTarget & { readonly message: MessageRef },
-      operation: "inspect" | "retry",
+      operation: 'inspect' | 'retry',
     ) {
-      yield* authorize(operation, operation === "inspect" ? "read" : "control", request);
+      yield* authorize(operation, operation === 'inspect' ? 'read' : 'control', request)
 
       const message = yield* Schema.decodeEffect(MessageRef)(request.message).pipe(
-        Effect.mapError(() => failure(operation, "invalid-reference")),
-      );
+        Effect.mapError(() => failure(operation, 'invalid-reference')),
+      )
 
-      if (message.ownerThreadId !== threadId) return yield* failure(operation, "denied");
-      const store = yield* deliveries(operation);
-      const row = yield* store.get(message).pipe(Effect.mapError(mapStore(operation)));
+      if (message.ownerThreadId !== threadId) return yield* failure(operation, 'denied')
+      const store = yield* deliveries(operation)
+      const row = yield* store.get(message).pipe(Effect.mapError(mapStore(operation)))
 
-      if (row === null) return yield* failure(operation, "not-found");
+      if (row === null) return yield* failure(operation, 'not-found')
       if (
         !Schema.is(MessageAdmission)(row.envelope.messageAdmission) ||
         row.envelope.messageAdmission.peerName !== request.name ||
         row.envelope.agentId !== request.target.id
-      )
-        return yield* failure(operation, "invalid-reference");
-      yield* authorize(operation, operation === "inspect" ? "read" : "control", request, {
+      ) {
+        return yield* failure(operation, 'invalid-reference')
+      }
+      yield* authorize(operation, operation === 'inspect' ? 'read' : 'control', request, {
         threadId: row.envelope.threadId,
         agentId: row.envelope.agentId,
-      });
+      })
 
-      return { row, store };
-    });
+      return { row, store }
+    })
 
     return {
-      context: authorize("context", "context").pipe(
+      context: authorize('context', 'context').pipe(
         Effect.map(
-          (source): WorkerSource => toolSource ?? { _tag: "programmatic", ...source.address },
+          (source): WorkerSource => toolSource ?? { _tag: 'programmatic', ...source.address },
         ),
       ),
-      send: (request) => send(request, "send"),
-      reply: (request) => send(request, "reply"),
-      inspect: (request) =>
-        lookup(request, "inspect").pipe(Effect.flatMap(({ row }) => status(row, "inspect"))),
-      retry: Effect.fnUntraced(function* (request) {
-        const { row, store } = yield* lookup(request, "retry");
+      send: (request) => send(request, 'send'),
+      reply: (request) => send(request, 'reply'),
+      inspect: (request) => lookup(request, 'inspect').pipe(Effect.flatMap(({ row }) => status(row, 'inspect'))),
+      retry: Effect.fnUntraced(function*(request) {
+        const { row, store } = yield* lookup(request, 'retry')
 
-        yield* authorizeEnvelope(yield* proof(row.key), "send");
-        const nowMillis = yield* Clock.currentTimeMillis;
+        yield* authorizeEnvelope(yield* proof(row.key), 'send')
+        const nowMillis = yield* Clock.currentTimeMillis
 
         return yield* status(
           yield* store
             .change(row.key, {
-              _tag: "Recover",
+              _tag: 'Recover',
               expectedVersion: row.version,
               nowMillis,
               deadlineAtMillis: nowMillis + (yield* lifetime),
             })
-            .pipe(Effect.mapError(mapStore("retry"))),
-          "retry",
-        );
+            .pipe(Effect.mapError(mapStore('retry'))),
+          'retry',
+        )
       }),
-      inbox: Effect.fnUntraced(function* (request) {
-        const current = yield* authorize("inbox", "read", request);
+      inbox: Effect.fnUntraced(function*(request) {
+        const current = yield* authorize('inbox', 'read', request)
 
         const limit = yield* Schema.decodeEffect(
           Schema.Int.check(Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(100)),
-        )(request.limit).pipe(Effect.mapError(() => failure("inbox", "capacity")));
+        )(request.limit).pipe(Effect.mapError(() => failure('inbox', 'capacity')))
 
         let after = yield* Schema.decodeEffect(CanonicalSequence)(request.after ?? 0).pipe(
-          Effect.mapError(() => failure("inbox", "invalid-reference")),
-        );
+          Effect.mapError(() => failure('inbox', 'invalid-reference')),
+        )
 
-        const items: Array<InboxPage["items"][number]> = [];
+        const items: Array<InboxPage['items'][number]> = []
 
         while (after < current.log.tailSequence && items.length < limit) {
           const records = yield* Stream.runCollect(
             deps.store.read(ThreadRead.make({ threadId, afterSequence: after, limit: 1_024 })),
-          ).pipe(Effect.mapError(() => failure("inbox", "storage")));
+          ).pipe(Effect.mapError(() => failure('inbox', 'storage')))
 
-          if (records.length === 0) break;
+          if (records.length === 0) break
           for (const entry of records) {
-            if (entry.sequence > current.log.tailSequence) break;
-            after = entry.sequence;
-            const payload = entry.record.payload;
+            if (entry.sequence > current.log.tailSequence) break
+            after = entry.sequence
+            const payload = entry.record.payload
 
             if (
-              payload._tag === "UserInputRecorded" &&
+              payload._tag === 'UserInputRecorded' &&
               Schema.is(MessageAdmission)(payload.messageAdmission) &&
               payload.messageAdmission.sender.agentId === request.target.id
             ) {
-              yield* authorize("inbox", "read", request, payload.messageAdmission.sender);
-              items.push({ sequence: entry.sequence, admission: payload.messageAdmission });
+              yield* authorize('inbox', 'read', request, payload.messageAdmission.sender)
+              items.push({ sequence: entry.sequence, admission: payload.messageAdmission })
             }
-            if (items.length >= limit) break;
+            if (items.length >= limit) break
           }
         }
 
-        return { items, next: after < current.log.tailSequence ? after : null };
+        return { items, next: after < current.log.tailSequence ? after : null }
       }),
-    };
-  };
+    }
+  }
 
   return {
-    acquire: Effect.fnUntraced(function* (request: {
-      readonly sourceThreadId: ThreadId;
-      readonly principal: Principal;
+    acquire: Effect.fnUntraced(function*(request: {
+      readonly sourceThreadId: ThreadId
+      readonly principal: Principal
     }) {
-      const service = facet(request.sourceThreadId, request.principal);
+      const service = facet(request.sourceThreadId, request.principal)
 
-      yield* service.context;
+      yield* service.context
 
-      return service;
+      return service
     }),
-    forTool: (source: WorkerSource, principal: Principal) =>
-      facet(source.threadId, principal, source),
-    validateAdmission: Effect.fnUntraced(function* (
+    forTool: (source: WorkerSource, principal: Principal) => facet(source.threadId, principal, source),
+    validateAdmission: Effect.fnUntraced(function*(
       unvalidated: MessageAdmission,
       options: DurableSubmitOptions,
       agentId: AgentId,
       inputDigest: Digest,
     ) {
       const admission = yield* Schema.decodeEffect(MessageAdmission)(unvalidated).pipe(
-        Effect.mapError(() => failure("send", "invalid-input")),
-      );
+        Effect.mapError(() => failure('send', 'invalid-input')),
+      )
 
-      const saved = yield* proof(admission.message);
-      const envelope = saved.envelope;
+      const saved = yield* proof(admission.message)
+      const envelope = saved.envelope
 
       if (
         !Schema.is(MessageAdmission)(envelope.messageAdmission) ||
@@ -624,11 +604,12 @@ export const makeMessagingRuntime = Effect.fnUntraced(function* (options: Messag
         envelope.deliveryPrincipal !== options.principal ||
         envelope.admissionKey !== options.idempotencyKey ||
         !definitionDigestsEqual(envelope.definitions, options.definitions)
-      )
-        return yield* failure("send", "denied");
-      yield* authorizeEnvelope(saved, "send");
+      ) {
+        return yield* failure('send', 'denied')
+      }
+      yield* authorizeEnvelope(saved, 'send')
 
-      return admission;
+      return admission
     }),
-  };
-});
+  }
+})

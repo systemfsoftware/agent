@@ -1,89 +1,89 @@
-import * as Prompt from "effect/ai/Prompt";
-import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
-import * as Struct from "effect/Struct";
+import * as Prompt from 'effect/ai/Prompt'
+import * as Option from 'effect/Option'
+import * as Schema from 'effect/Schema'
+import * as Struct from 'effect/Struct'
 
-import { InputMessage } from "../capabilities/Messaging.ts";
-import { PolicyLimit } from "../core/AgentError.ts";
-import { AgentPolicy } from "../core/AgentPolicy.ts";
-import { Update } from "../core/AgentUpdates.ts";
-import * as FailureDiagnostic from "../core/FailureDiagnostic.ts";
+import { InputMessage } from '../capabilities/Messaging.ts'
+import { PolicyLimit } from '../core/AgentError.ts'
+import { AgentPolicy } from '../core/AgentPolicy.ts'
+import { Update } from '../core/AgentUpdates.ts'
+import * as FailureDiagnostic from '../core/FailureDiagnostic.ts'
 import {
   AgentId,
-  ThreadId,
   DelegationId,
   ReceiptId,
   RunId,
   SettlementId,
   SubmissionId,
+  ThreadId,
   ToolCallId,
   TurnId,
-} from "../core/Identifiers.ts";
-import { utf8ByteLength } from "../core/internal/utf8.ts";
-import { IdempotencyKey, Principal, Receipt } from "../core/Receipt.ts";
-import { ExhaustedLimit } from "../core/RunEvent.ts";
-import { RunPolicyUsage } from "../core/RunPolicyUsage.ts";
+} from '../core/Identifiers.ts'
+import { utf8ByteLength } from '../core/internal/utf8.ts'
+import { IdempotencyKey, Principal, Receipt } from '../core/Receipt.ts'
+import { ExhaustedLimit } from '../core/RunEvent.ts'
+import { RunPolicyUsage } from '../core/RunPolicyUsage.ts'
 import {
   DelegationDepth,
   SubagentBudgetReservation,
   SubagentGrant,
   SubagentParentLink,
   ToolExecutionKind,
-} from "../core/SubagentContract.ts";
-import { Selection, Snapshot } from "../core/ToolExposure.ts";
-import { ToolParameterRejection } from "../core/ToolResult.ts";
-import { ModelCallUsage, RunUsageSummary, RunTotals } from "../core/Usage.ts";
-import { WorkerBudgetScope, WorkerRef, WorkerSource, WorkerStop } from "../core/Worker.ts";
-import { ContextHandoff } from "../engine/ContextWindow.ts";
-import { HistoryPrompt } from "./internal/history-prompt.ts";
+} from '../core/SubagentContract.ts'
+import { Selection, Snapshot } from '../core/ToolExposure.ts'
+import { ToolParameterRejection } from '../core/ToolResult.ts'
+import { ModelCallUsage, RunTotals, RunUsageSummary } from '../core/Usage.ts'
+import { WorkerBudgetScope, WorkerRef, WorkerSource, WorkerStop } from '../core/Worker.ts'
+import { ContextHandoff } from '../engine/ContextWindow.ts'
+import { HistoryPrompt } from './internal/history-prompt.ts'
 
 /** Stable identity of one canonical record. */
-export const RecordId = Schema.NonEmptyString.pipe(Schema.brand("@effect-agent/thread/RecordId"));
+export const RecordId = Schema.NonEmptyString.pipe(Schema.brand('@effect-agent/thread/RecordId'))
 
-export type RecordId = typeof RecordId.Type;
+export type RecordId = typeof RecordId.Type
 
 /** Stable idempotency identity of one atomic append. */
-export const BatchId = Schema.NonEmptyString.pipe(Schema.brand("@effect-agent/thread/BatchId"));
+export const BatchId = Schema.NonEmptyString.pipe(Schema.brand('@effect-agent/thread/BatchId'))
 
-export type BatchId = typeof BatchId.Type;
+export type BatchId = typeof BatchId.Type
 
 /** Identity of the deployment that produced a record. */
 export const DeploymentId = Schema.NonEmptyString.pipe(
-  Schema.brand("@effect-agent/thread/DeploymentId"),
-);
+  Schema.brand('@effect-agent/thread/DeploymentId'),
+)
 
-export type DeploymentId = typeof DeploymentId.Type;
+export type DeploymentId = typeof DeploymentId.Type
 
 /** Identity of a canonical-log producer. */
 export const ProducerId = Schema.NonEmptyString.pipe(
-  Schema.brand("@effect-agent/thread/ProducerId"),
-);
+  Schema.brand('@effect-agent/thread/ProducerId'),
+)
 
-export type ProducerId = typeof ProducerId.Type;
+export type ProducerId = typeof ProducerId.Type
 
 /** SHA-256 digest encoded as lowercase hexadecimal text. */
 export const Digest = Schema.String.check(Schema.isPattern(/^[a-f0-9]{64}$/)).pipe(
-  Schema.brand("@effect-agent/thread/Digest"),
-);
+  Schema.brand('@effect-agent/thread/Digest'),
+)
 
-export type Digest = typeof Digest.Type;
+export type Digest = typeof Digest.Type
 
 /** Adapter-owned resume cursor. Callers must not parse or synthesize it. */
 export const ObservationOffset = Schema.NonEmptyString.pipe(
-  Schema.brand("@effect-agent/thread/ObservationOffset"),
-);
+  Schema.brand('@effect-agent/thread/ObservationOffset'),
+)
 
-export type ObservationOffset = typeof ObservationOffset.Type;
+export type ObservationOffset = typeof ObservationOffset.Type
 
 /** Gap-free position in one Thread's canonical sequence. */
 export const CanonicalSequence = Schema.Natural.pipe(
-  Schema.brand("@effect-agent/thread/CanonicalSequence"),
-);
+  Schema.brand('@effect-agent/thread/CanonicalSequence'),
+)
 
-export type CanonicalSequence = typeof CanonicalSequence.Type;
+export type CanonicalSequence = typeof CanonicalSequence.Type
 
-const BoundedText = Schema.String.check(Schema.isMaxLength(64 * 1024));
-const BoundedName = Schema.NonEmptyString.check(Schema.isMaxLength(256));
+const BoundedText = Schema.String.check(Schema.isMaxLength(64 * 1024))
+const BoundedName = Schema.NonEmptyString.check(Schema.isMaxLength(256))
 
 /**
  * Private failed-Settlement evidence. The summary remains the safe public projection; diagnostic
@@ -92,21 +92,21 @@ const BoundedName = Schema.NonEmptyString.check(Schema.isMaxLength(256));
  */
 export const SettlementFailureDiagnostic = FailureDiagnostic.Failure.pipe(
   Schema.annotate({
-    identifier: "@effect-agent/thread/SettlementFailureDiagnostic",
+    identifier: '@effect-agent/thread/SettlementFailureDiagnostic',
   }),
-);
+)
 
-export type SettlementFailureDiagnostic = typeof SettlementFailureDiagnostic.Type;
+export type SettlementFailureDiagnostic = typeof SettlementFailureDiagnostic.Type
 
 /** Positive canonical (Run-relative, Attempt-independent) Turn number. */
-const TurnNumber = Schema.Int.check(Schema.isGreaterThan(0));
+const TurnNumber = Schema.Int.check(Schema.isGreaterThan(0))
 
-export const MAX_PERSISTED_JSON_DEPTH = 64;
-export const MAX_PERSISTED_JSON_COLLECTION_LENGTH = 4_096;
-export const MAX_PERSISTED_JSON_NODES = 65_536;
-export const MAX_PERSISTED_JSON_BYTES = 1024 * 1024;
+export const MAX_PERSISTED_JSON_DEPTH = 64
+export const MAX_PERSISTED_JSON_COLLECTION_LENGTH = 4_096
+export const MAX_PERSISTED_JSON_NODES = 65_536
+export const MAX_PERSISTED_JSON_BYTES = 1024 * 1024
 /** Whole record wire includes bounded payloads and their canonical envelope. */
-export const MAX_CANONICAL_RECORD_BYTES = 4 * 1024 * 1024;
+export const MAX_CANONICAL_RECORD_BYTES = 4 * 1024 * 1024
 
 /**
  * Iteratively preflights an unknown value before Schema's recursive JSON validation. This is the
@@ -114,67 +114,67 @@ export const MAX_CANONICAL_RECORD_BYTES = 4 * 1024 * 1024;
  * preserves `unknown` as the encoded type, which would leak through every nested record codec.
  * Schema.Json still owns the accepted value shape after this resource preflight succeeds.
  */
-const isJson = Schema.is(Schema.Json);
+const isJson = Schema.is(Schema.Json)
 // No Unicode flag: match surrogate code units so astral characters take the UTF-8 path too.
-const nonAscii = /[\u0080-\uFFFF]/;
+const nonAscii = /[\u0080-\uFFFF]/
 
 const boundedJson =
   (limits: { readonly depth: number; readonly nodes: number; readonly bytes: number }) =>
   (input: unknown): input is Schema.Json => {
     const pending: Array<
-      | { readonly _tag: "visit"; readonly value: unknown; readonly depth: number }
-      | { readonly _tag: "leave"; readonly value: object }
-    > = [{ _tag: "visit", value: input, depth: 0 }];
+      | { readonly _tag: 'visit'; readonly value: unknown; readonly depth: number }
+      | { readonly _tag: 'leave'; readonly value: object }
+    > = [{ _tag: 'visit', value: input, depth: 0 }]
 
     // Only ancestors indicate a cycle. Shared acyclic values serialize once per occurrence,
     // so revisit them and charge every occurrence against the same resource limits.
-    const ancestors = new WeakSet<object>();
-    let nodes = 0;
-    let textUnits = 0;
+    const ancestors = new WeakSet<object>()
+    let nodes = 0
+    let textUnits = 0
 
     try {
       while (pending.length > 0) {
-        const current = pending.pop();
+        const current = pending.pop()
 
-        if (current === undefined) return false;
-        if (current._tag === "leave") {
-          ancestors.delete(current.value);
-          continue;
+        if (current === undefined) return false
+        if (current._tag === 'leave') {
+          ancestors.delete(current.value)
+          continue
         }
         if (current.depth > limits.depth || ++nodes > limits.nodes) {
-          return false;
+          return false
         }
 
-        const value = current.value;
+        const value = current.value
 
-        if (value === null || typeof value === "boolean") continue;
-        if (typeof value === "number") {
-          if (!Number.isFinite(value)) return false;
-          continue;
+        if (value === null || typeof value === 'boolean') continue
+        if (typeof value === 'number') {
+          if (!Number.isFinite(value)) return false
+          continue
         }
-        if (typeof value === "string") {
-          textUnits += value.length;
-          if (textUnits > limits.bytes) return false;
-          continue;
+        if (typeof value === 'string') {
+          textUnits += value.length
+          if (textUnits > limits.bytes) return false
+          continue
         }
-        if (typeof value !== "object" || ancestors.has(value)) return false;
-        ancestors.add(value);
-        pending.push({ _tag: "leave", value });
+        if (typeof value !== 'object' || ancestors.has(value)) return false
+        ancestors.add(value)
+        pending.push({ _tag: 'leave', value })
 
         const entries = Array.isArray(value)
           ? Array.from(value, (entry, index) => [index, entry] as const)
-          : Object.entries(value);
+          : Object.entries(value)
 
-        if (entries.length > MAX_PERSISTED_JSON_COLLECTION_LENGTH) return false;
+        if (entries.length > MAX_PERSISTED_JSON_COLLECTION_LENGTH) return false
         for (const [key, entry] of entries) {
-          textUnits += typeof key === "string" ? key.length : 0;
-          if (textUnits > limits.bytes) return false;
-          pending.push({ _tag: "visit", value: entry, depth: current.depth + 1 });
+          textUnits += typeof key === 'string' ? key.length : 0
+          if (textUnits > limits.bytes) return false
+          pending.push({ _tag: 'visit', value: entry, depth: current.depth + 1 })
         }
       }
 
-      if (!isJson(input)) return false;
-      const encoded = JSON.stringify(input);
+      if (!isJson(input)) return false
+      const encoded = JSON.stringify(input)
 
       // Escaping is already reflected in the serialized text. UTF-8 uses one to three bytes per
       // UTF-16 code unit; ASCII uses exactly one. Only ambiguous Unicode needs the exact count.
@@ -184,25 +184,25 @@ const boundedJson =
         (encoded.length <= limits.bytes / 3 ||
           !nonAscii.test(encoded) ||
           utf8ByteLength(encoded) <= limits.bytes)
-      );
+      )
     } catch {
-      return false;
+      return false
     }
-  };
+  }
 
 const isPersistedJson = boundedJson({
   depth: MAX_PERSISTED_JSON_DEPTH,
   nodes: MAX_PERSISTED_JSON_NODES,
   bytes: MAX_PERSISTED_JSON_BYTES,
-});
+})
 
 /** Canonical JSON admitted to persisted records and checkpoints under explicit resource limits. */
 export const PersistedJson = Schema.declare(isPersistedJson, {
-  identifier: "@effect-agent/thread/PersistedJson",
-  description: "JSON bounded by canonical persistence depth, collection, node, and byte limits",
-});
+  identifier: '@effect-agent/thread/PersistedJson',
+  description: 'JSON bounded by canonical persistence depth, collection, node, and byte limits',
+})
 
-export type PersistedJson = typeof PersistedJson.Type;
+export type PersistedJson = typeof PersistedJson.Type
 
 /** Whole record wire reserves room for the payload's envelope and additional bounded fields. */
 export const RecordJson = Schema.declare(
@@ -212,16 +212,16 @@ export const RecordJson = Schema.declare(
     bytes: MAX_CANONICAL_RECORD_BYTES,
   }),
   {
-    identifier: "@effect-agent/thread/RecordJson",
-    description: "Canonical record JSON bounded by depth, collection, node, and 4 MiB byte limits",
+    identifier: '@effect-agent/thread/RecordJson',
+    description: 'Canonical record JSON bounded by depth, collection, node, and 4 MiB byte limits',
   },
-);
+)
 
-export type RecordJson = typeof RecordJson.Type;
+export type RecordJson = typeof RecordJson.Type
 
 /** Schema-owned replay inputs whose individual definitions are incorporated into digests. */
 export class DefinitionDigestInput extends Schema.Class<DefinitionDigestInput>(
-  "@effect-agent/thread/DefinitionDigestInput",
+  '@effect-agent/thread/DefinitionDigestInput',
 )({
   agent: PersistedJson,
   model: PersistedJson,
@@ -230,7 +230,7 @@ export class DefinitionDigestInput extends Schema.Class<DefinitionDigestInput>(
 
 /** Admission-time operation fingerprints. Agent fingerprints remain immutable evidence only. */
 export class ReplayContract extends Schema.Class<ReplayContract>(
-  "@effect-agent/thread/ReplayContract",
+  '@effect-agent/thread/ReplayContract',
 )({
   agent: Digest,
   /** Retained for reading earlier admissions; never selects executable code. */
@@ -240,7 +240,7 @@ export class ReplayContract extends Schema.Class<ReplayContract>(
 
 /** Digests identify admission exactly; only an unfinished operation needs replay compatibility. */
 export class DefinitionDigests extends Schema.Class<DefinitionDigests>(
-  "@effect-agent/thread/DefinitionDigests",
+  '@effect-agent/thread/DefinitionDigests',
 )({
   agent: Digest,
   model: Digest,
@@ -249,8 +249,8 @@ export class DefinitionDigests extends Schema.Class<DefinitionDigests>(
 }) {}
 
 export class ThreadCreated extends Schema.TaggedClass<ThreadCreated>(
-  "@effect-agent/thread/ThreadCreated",
-)("ThreadCreated", {
+  '@effect-agent/thread/ThreadCreated',
+)('ThreadCreated', {
   agentId: AgentId,
   definitions: DefinitionDigests,
 }) {}
@@ -260,10 +260,10 @@ export class ThreadCreated extends Schema.TaggedClass<ThreadCreated>(
  * retained history has no admission or settlement obligation. `kind` identifies the input seam.
  */
 export class UserInputRecorded extends Schema.TaggedClass<UserInputRecorded>(
-  "@effect-agent/thread/UserInputRecorded",
-)("UserInputRecorded", {
+  '@effect-agent/thread/UserInputRecorded',
+)('UserInputRecorded', {
   submissionId: Schema.optionalKey(SubmissionId),
-  kind: Schema.Literals(["user", "steering", "follow-up"]),
+  kind: Schema.Literals(['user', 'steering', 'follow-up']),
   runId: Schema.optionalKey(RunId),
   input: PersistedJson,
   messageAdmission: Schema.optionalKey(InputMessage),
@@ -271,8 +271,8 @@ export class UserInputRecorded extends Schema.TaggedClass<UserInputRecorded>(
 
 /** Immutable Run start and per-Attempt duration allowance, before any agent execution. */
 export class RunStartedRecord extends Schema.TaggedClass<RunStartedRecord>(
-  "@effect-agent/thread/RunStartedRecord",
-)("RunStarted", {
+  '@effect-agent/thread/RunStartedRecord',
+)('RunStarted', {
   runId: RunId,
   /** Older private histories cannot prove programmatic accounting and must be reset. */
   policyAccountingVersion: Schema.Literal(1),
@@ -281,22 +281,22 @@ export class RunStartedRecord extends Schema.TaggedClass<RunStartedRecord>(
 
 /** An active Attempt exhausted its execution allowance; downtime alone never writes this. */
 export class RunDurationExhausted extends Schema.TaggedClass<RunDurationExhausted>(
-  "@effect-agent/thread/RunDurationExhausted",
-)("RunDurationExhausted", { runId: RunId }) {}
+  '@effect-agent/thread/RunDurationExhausted',
+)('RunDurationExhausted', { runId: RunId }) {}
 
-const PersistedPromptMessages = Schema.toEncoded(Prompt.Prompt);
-const isPersistedPromptMessages = Schema.is(PersistedPromptMessages);
+const PersistedPromptMessages = Schema.toEncoded(Prompt.Prompt)
+const isPersistedPromptMessages = Schema.is(PersistedPromptMessages)
 
 // Carry the native Prompt proof while preserving the existing JSON wire identity.
 const PersistedResponseMessages = PersistedJson.pipe(
   Schema.refine(
     (input): input is Schema.Json & Prompt.PromptEncoded => isPersistedPromptMessages(input),
     {
-      identifier: "@effect-agent/thread/PersistedJson",
-      expected: "persisted Effect AI Prompt messages",
+      identifier: '@effect-agent/thread/PersistedJson',
+      expected: 'persisted Effect AI Prompt messages',
     },
   ),
-);
+)
 
 /**
  * Final model output. Immediate history records the successful Run's source messages for
@@ -304,9 +304,9 @@ const PersistedResponseMessages = PersistedJson.pipe(
  * instead journals individual ModelResponseRecorded Turns and exact context references.
  */
 export class ModelCompleted extends Schema.TaggedClass<ModelCompleted>(
-  "@effect-agent/thread/ModelCompleted",
+  '@effect-agent/thread/ModelCompleted',
 )(
-  "ModelCompleted",
+  'ModelCompleted',
   Schema.Struct({
     runId: RunId,
     output: PersistedJson,
@@ -320,14 +320,14 @@ export class ModelCompleted extends Schema.TaggedClass<ModelCompleted>(
           record.history !== undefined &&
           isPersistedPromptMessages(record.messages) &&
           isPersistedPromptMessages(record.history)),
-      { title: "Retained source messages and model context are paired encoded Effect AI Prompts" },
+      { title: 'Retained source messages and model context are paired encoded Effect AI Prompts' },
     ),
   ),
 ) {}
 
 export class ToolCallSettled extends Schema.TaggedClass<ToolCallSettled>(
-  "@effect-agent/thread/ToolCallSettled",
-)("ToolCallSettled", {
+  '@effect-agent/thread/ToolCallSettled',
+)('ToolCallSettled', {
   toolSelection: Schema.optionalKey(Selection),
   runId: RunId,
   toolCallId: ToolCallId,
@@ -340,18 +340,18 @@ export class ToolCallSettled extends Schema.TaggedClass<ToolCallSettled>(
 
 /** Compact execution evidence committed with a declaration, before any handler can start. */
 export class ToolOperation extends Schema.Class<ToolOperation>(
-  "@effect-agent/thread/ToolOperation",
+  '@effect-agent/thread/ToolOperation',
 )({
   toolCallId: ToolCallId,
   toolName: BoundedName,
-  executionClass: Schema.Literals(["readonly", "idempotent", "uncertain"]),
+  executionClass: Schema.Literals(['readonly', 'idempotent', 'uncertain']),
   executionKind: ToolExecutionKind,
   replay: Digest,
 }) {}
 
 /** Derived recovery input from one committed response; never a separate canonical record. */
 export class DeclaredToolCall extends Schema.Class<DeclaredToolCall>(
-  "@effect-agent/thread/DeclaredToolCall",
+  '@effect-agent/thread/DeclaredToolCall',
 )({
   ...ToolOperation.fields,
   runId: RunId,
@@ -362,9 +362,9 @@ export class DeclaredToolCall extends Schema.Class<DeclaredToolCall>(
 }) {}
 
 /** A retired call's runtime result. Unavailable readonly work may already have been observed. */
-export class ToolUnavailable extends Schema.TaggedClass<ToolUnavailable>()("ToolUnavailable", {
+export class ToolUnavailable extends Schema.TaggedClass<ToolUnavailable>()('ToolUnavailable', {
   toolName: BoundedName,
-  execution: Schema.Literals(["not-executed", "unavailable"]),
+  execution: Schema.Literals(['not-executed', 'unavailable']),
   message: BoundedText,
 }) {}
 
@@ -413,28 +413,29 @@ const ModelResponseRecordedFields = Schema.Struct({
   Schema.makeFilter(
     (response) => {
       const declarations = response.messages.content.flatMap((message) =>
-        message.role === "assistant" && typeof message.content !== "string"
+        message.role === 'assistant' && typeof message.content !== 'string'
           ? message.content.filter(
-              (part) => part.type === "tool-call" && part.providerExecuted !== true,
-            )
-          : [],
-      );
+            (part) => part.type === 'tool-call' && part.providerExecuted !== true,
+          )
+          : []
+      )
 
-      if (declarations.length !== response.toolOperations.length) return false;
-      const seen = new Set<string>();
+      if (declarations.length !== response.toolOperations.length) return false
+      const seen = new Set<string>()
 
       for (const operation of response.toolOperations) {
         if (
           seen.has(operation.toolCallId) ||
           !declarations.some(
             (call) =>
-              call.type === "tool-call" &&
+              call.type === 'tool-call' &&
               call.id === operation.toolCallId &&
               call.name === operation.toolName,
           )
-        )
-          return false;
-        seen.add(operation.toolCallId);
+        ) {
+          return false
+        }
+        seen.add(operation.toolCallId)
       }
 
       // Equal counts and unique matching operation IDs already cover every declaration.
@@ -444,23 +445,22 @@ const ModelResponseRecordedFields = Schema.Struct({
         (response.runScopedPrefixLength <= response.messages.content.length &&
           response.messages.content
             .slice(0, response.runScopedPrefixLength)
-            .every((message) => message.role === "system" || message.role === "user"))
-      );
+            .every((message) => message.role === 'system' || message.role === 'user'))
+      )
     },
     {
-      title:
-        "Model response has unique original Tool operation evidence and a valid instruction/wake prefix",
+      title: 'Model response has unique original Tool operation evidence and a valid instruction/wake prefix',
     },
   ),
-);
+)
 
 export class ModelResponseRecorded extends Schema.TaggedClass<ModelResponseRecorded>(
-  "@effect-agent/thread/ModelResponseRecorded",
-)("ModelResponseRecorded", ModelResponseRecordedFields) {}
+  '@effect-agent/thread/ModelResponseRecorded',
+)('ModelResponseRecorded', ModelResponseRecordedFields) {}
 
 /** Monotonic reservations charged before programmatic execution or grace finalization. */
 export class RunPolicyUsageReserved extends Schema.TaggedClass<RunPolicyUsageReserved>()(
-  "RunPolicyUsageReserved",
+  'RunPolicyUsageReserved',
   {
     runId: RunId,
     programmaticToolCalls: RunPolicyUsage.fields.programmaticToolCalls,
@@ -474,8 +474,8 @@ export class RunPolicyUsageReserved extends Schema.TaggedClass<RunPolicyUsageRes
  * ordinary failure; automatic continuation stops until an authorized resolution arrives.
  */
 export class ToolCallUnknown extends Schema.TaggedClass<ToolCallUnknown>(
-  "@effect-agent/thread/ToolCallUnknown",
-)("ToolCallUnknown", {
+  '@effect-agent/thread/ToolCallUnknown',
+)('ToolCallUnknown', {
   runId: RunId,
   turn: TurnNumber,
   toolCallId: ToolCallId,
@@ -485,13 +485,13 @@ export class ToolCallUnknown extends Schema.TaggedClass<ToolCallUnknown>(
 
 /** How one open/unknown Tool Call was authoritatively closed (DUR-017 resolution audit). */
 export const ToolCallResolution = Schema.Literals([
-  "completed-with-result",
-  "failed-with-error",
-  "never-started",
-  "safe-retry",
-]);
+  'completed-with-result',
+  'failed-with-error',
+  'never-started',
+  'safe-retry',
+])
 
-export type ToolCallResolution = typeof ToolCallResolution.Type;
+export type ToolCallResolution = typeof ToolCallResolution.Type
 
 /**
  * The canonical audit record closing one open or unknown Tool Call: reconciler-recovered supplier
@@ -500,8 +500,8 @@ export type ToolCallResolution = typeof ToolCallResolution.Type;
  * per-call `ToolCallSettled` record carrying the recovered result.
  */
 export class ToolCallResolved extends Schema.TaggedClass<ToolCallResolved>(
-  "@effect-agent/thread/ToolCallResolved",
-)("ToolCallResolved", {
+  '@effect-agent/thread/ToolCallResolved',
+)('ToolCallResolved', {
   runId: RunId,
   toolCallId: ToolCallId,
   resolution: ToolCallResolution,
@@ -516,8 +516,8 @@ export class ToolCallResolved extends Schema.TaggedClass<ToolCallResolved>(
  * Schema-encoded Step output; `outputDigest` pins it for replay-divergence detection.
  */
 export class ToolStepSettled extends Schema.TaggedClass<ToolStepSettled>(
-  "@effect-agent/thread/ToolStepSettled",
-)("ToolStepSettled", {
+  '@effect-agent/thread/ToolStepSettled',
+)('ToolStepSettled', {
   runId: RunId,
   toolCallId: ToolCallId,
   stepName: BoundedName,
@@ -531,8 +531,8 @@ export class ToolStepSettled extends Schema.TaggedClass<ToolStepSettled>(
  * Attempt replays the declared batch instead of re-invoking the model.
  */
 export class ToolApprovalRequested extends Schema.TaggedClass<ToolApprovalRequested>(
-  "@effect-agent/thread/ToolApprovalRequested",
-)("ToolApprovalRequested", {
+  '@effect-agent/thread/ToolApprovalRequested',
+)('ToolApprovalRequested', {
   runId: RunId,
   turnId: TurnId,
   turn: TurnNumber,
@@ -544,9 +544,9 @@ export class ToolApprovalRequested extends Schema.TaggedClass<ToolApprovalReques
 }) {}
 
 /** The two-valued approval decision family shared by canonical records and ledger intents. */
-export const ApprovalDecision = Schema.Literals(["approved", "denied"]);
+export const ApprovalDecision = Schema.Literals(['approved', 'denied'])
 
-export type ApprovalDecision = typeof ApprovalDecision.Type;
+export type ApprovalDecision = typeof ApprovalDecision.Type
 
 /**
  * The canonical decision for one requested approval. Appended by the deciding Attempt (policy
@@ -554,8 +554,8 @@ export type ApprovalDecision = typeof ApprovalDecision.Type;
  * deterministic decision authority for every later Attempt of the same Run.
  */
 export class ToolApprovalDecided extends Schema.TaggedClass<ToolApprovalDecided>(
-  "@effect-agent/thread/ToolApprovalDecided",
-)("ToolApprovalDecided", {
+  '@effect-agent/thread/ToolApprovalDecided',
+)('ToolApprovalDecided', {
   runId: RunId,
   turn: TurnNumber,
   toolCallId: ToolCallId,
@@ -569,18 +569,18 @@ export class ToolApprovalDecided extends Schema.TaggedClass<ToolApprovalDecided>
  * incomplete; it does not count missing provider calls or retain Attempt history.
  */
 export class ModelResponseInterrupted extends Schema.TaggedClass<ModelResponseInterrupted>(
-  "@effect-agent/thread/ModelResponseInterrupted",
-)("ModelResponseInterrupted", {
+  '@effect-agent/thread/ModelResponseInterrupted',
+)('ModelResponseInterrupted', {
   runId: RunId,
 }) {}
 
 /** Disposable call cancellation: no response or Tool declaration is canonical. */
-export class ModelCallAborted extends Schema.TaggedClass<ModelCallAborted>()("ModelCallAborted", {
+export class ModelCallAborted extends Schema.TaggedClass<ModelCallAborted>()('ModelCallAborted', {
   runId: RunId,
   turnId: TurnId,
   turn: TurnNumber,
   restart: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 2 })),
-  reason: Schema.Literal("joined-input"),
+  reason: Schema.Literal('joined-input'),
   modelUsage: Schema.Array(ModelCallUsage),
   unobservedModelCalls: Schema.Natural,
 }) {}
@@ -599,18 +599,18 @@ export class ModelCallAborted extends Schema.TaggedClass<ModelCallAborted>()("Mo
  * treats a summarize record without one as invalid and ignores it fail-safe.
  */
 export class CompactionCreated extends Schema.TaggedClass<CompactionCreated>(
-  "@effect-agent/thread/CompactionCreated",
-)("CompactionCreated", {
+  '@effect-agent/thread/CompactionCreated',
+)('CompactionCreated', {
   runId: RunId,
   turn: TurnNumber,
-  kind: Schema.Literals(["clear-tool-results", "summarize", "rollover"]),
+  kind: Schema.Literals(['clear-tool-results', 'summarize', 'rollover']),
   coversThrough: CanonicalSequence,
   summary: Schema.optionalKey(BoundedText),
   handoff: Schema.optionalKey(ContextHandoff),
 }) {}
 
-export class RunFailed extends Schema.TaggedClass<RunFailed>("@effect-agent/thread/RunFailed")(
-  "RunFailed",
+export class RunFailed extends Schema.TaggedClass<RunFailed>('@effect-agent/thread/RunFailed')(
+  'RunFailed',
   {
     runId: RunId,
     failure: PersistedJson,
@@ -624,7 +624,7 @@ const RunCompletedFields = Schema.Struct({
   /** Application disposition captured with an ordinary completion. */
   runDisposition: Schema.optionalKey(PersistedJson),
   /** Honest soft-landing marker, present exactly when `exhausted` is present. */
-  finishReason: Schema.optionalKey(Schema.Literal("budget-exhausted")),
+  finishReason: Schema.optionalKey(Schema.Literal('budget-exhausted')),
   /** Budget dimension paired with `finishReason` on a soft landing. */
   exhausted: Schema.optionalKey(ExhaustedLimit),
 }).check(
@@ -632,33 +632,33 @@ const RunCompletedFields = Schema.Struct({
     (completed) =>
       (completed.finishReason === undefined) === (completed.exhausted === undefined) &&
       (completed.runDisposition === undefined || completed.finishReason === undefined),
-    { title: "Run completion metadata matches its terminal family" },
+    { title: 'Run completion metadata matches its terminal family' },
   ),
-);
+)
 
 export class RunCompleted extends Schema.TaggedClass<RunCompleted>(
-  "@effect-agent/thread/RunCompleted",
-)("RunCompleted", RunCompletedFields) {}
+  '@effect-agent/thread/RunCompleted',
+)('RunCompleted', RunCompletedFields) {}
 
 export class RepairAnnotated extends Schema.TaggedClass<RepairAnnotated>(
-  "@effect-agent/thread/RepairAnnotated",
-)("RepairAnnotated", {
+  '@effect-agent/thread/RepairAnnotated',
+)('RepairAnnotated', {
   reason: BoundedText,
   details: PersistedJson,
 }) {}
 
 /** Terminal outcome family for one accepted Submission (DUR-002). */
-export const SettlementOutcome = Schema.Literals(["completed", "failed", "aborted"]);
+export const SettlementOutcome = Schema.Literals(['completed', 'failed', 'aborted'])
 
-export type SettlementOutcome = typeof SettlementOutcome.Type;
+export type SettlementOutcome = typeof SettlementOutcome.Type
 
 /**
  * A durable abort command made canonical before the active worker is interrupted (DUR-012).
  * Repeating the same abort command is idempotent; abort never rewrites a prior terminal outcome.
  */
 export class AbortRequested extends Schema.TaggedClass<AbortRequested>(
-  "@effect-agent/thread/AbortRequested",
-)("AbortRequested", {
+  '@effect-agent/thread/AbortRequested',
+)('AbortRequested', {
   submissionId: SubmissionId,
   author: BoundedName,
   reason: BoundedText,
@@ -691,7 +691,7 @@ const RawSubmissionSettled = Schema.Struct({
    * the live event stream. Absent for every ordinary settlement, keeping
    * existing histories and goldens byte-stable (additive, schemaVersion 1).
    */
-  finishReason: Schema.optionalKey(Schema.Literal("budget-exhausted")),
+  finishReason: Schema.optionalKey(Schema.Literal('budget-exhausted')),
   /**
    * The dimension that bound a budget-exhausted completion (RUN-011,
    * RUN-025), carried verbatim from the live `RunCompleted` event so
@@ -712,65 +712,65 @@ const RawSubmissionSettled = Schema.Struct({
   usageSummary: Schema.optionalKey(RunUsageSummary),
   /** Calls included in usageSummary but not in any ModelResponseRecorded, retained on failure. */
   uncommittedModelUsage: Schema.optionalKey(Schema.Array(ModelCallUsage)),
-});
+})
 
 const isPolicyFailureProjection = Schema.is(
-  Schema.Struct({ errorTag: Schema.Literal("AgentPolicyError") }),
-);
+  Schema.Struct({ errorTag: Schema.Literal('AgentPolicyError') }),
+)
 
 const decodeSettlementFailureDiagnostic = Schema.decodeUnknownOption(SettlementFailureDiagnostic, {
-  onExcessProperty: "error",
-});
+  onExcessProperty: 'error',
+})
 
 const hasValidSettlementFamily = (settled: typeof RawSubmissionSettled.Type): boolean =>
-  (settled.finishReason === undefined || settled.outcome === "completed") &&
+  (settled.finishReason === undefined || settled.outcome === 'completed') &&
   (settled.finishReason === undefined) === (settled.exhausted === undefined) &&
   (settled.usageSummary === undefined || settled.runId !== undefined) &&
   (settled.uncommittedModelUsage === undefined ||
     (settled.runId !== undefined && settled.usageSummary !== undefined)) &&
   (settled.runDisposition === undefined ||
-    (settled.outcome === "completed" &&
+    (settled.outcome === 'completed' &&
       settled.finishReason === undefined &&
       settled.runId !== undefined &&
       settled.result !== undefined)) &&
-  (settled.outcome !== "failed" ||
+  (settled.outcome !== 'failed' ||
     Option.isSome(decodeSettlementFailureDiagnostic(settled.result))) &&
-  (settled.outcome !== "aborted" || settled.result === undefined) &&
+  (settled.outcome !== 'aborted' || settled.result === undefined) &&
   (settled.policyLimit === undefined ||
-    (settled.outcome === "failed" && isPolicyFailureProjection(settled.result)));
+    (settled.outcome === 'failed' && isPolicyFailureProjection(settled.result)))
 
 const SubmissionSettledFields = RawSubmissionSettled.check(
   Schema.makeFilter(hasValidSettlementFamily, {
     title:
-      "failed settlements require a bounded diagnostic; aborted settlements carry no result; budget metadata must match its settlement family",
+      'failed settlements require a bounded diagnostic; aborted settlements carry no result; budget metadata must match its settlement family',
   }),
-);
+)
 
 export class SubmissionSettled extends Schema.TaggedClass<SubmissionSettled>(
-  "@effect-agent/thread/SubmissionSettled",
-)("SubmissionSettled", SubmissionSettledFields) {}
+  '@effect-agent/thread/SubmissionSettled',
+)('SubmissionSettled', SubmissionSettledFields) {}
 
 /** Canonical completed settlement; joined completion may legitimately carry no independent result. */
 export type CompletedSubmissionSettled = SubmissionSettled & {
-  readonly outcome: "completed";
-};
+  readonly outcome: 'completed'
+}
 
 /** Canonical failed settlement; its bounded diagnostic is required and typed. */
 export type FailedSubmissionSettled = SubmissionSettled & {
-  readonly outcome: "failed";
-  readonly result: SettlementFailureDiagnostic;
-};
+  readonly outcome: 'failed'
+  readonly result: SettlementFailureDiagnostic
+}
 
 /** Canonical aborted settlement; abort records intent rather than fabricating a terminal result. */
 export type AbortedSubmissionSettled = SubmissionSettled & {
-  readonly outcome: "aborted";
-  readonly result?: never;
-};
+  readonly outcome: 'aborted'
+  readonly result?: never
+}
 
 export type SubmissionSettledRecord =
   | CompletedSubmissionSettled
   | FailedSubmissionSettled
-  | AbortedSubmissionSettled;
+  | AbortedSubmissionSettled
 
 /**
  * Canonical-boundary view of `SubmissionSettled`: `finishReason` is valid
@@ -789,10 +789,10 @@ export const SubmissionSettledRecord = SubmissionSettled.pipe(
     (settled): settled is SubmissionSettledRecord => hasValidSettlementFamily(settled),
     {
       expected:
-        "failed settlements require a bounded diagnostic, aborted settlements carry no result, finishReason only occurs on completed settlements, exhausted only occurs with finishReason budget-exhausted, runDisposition only occurs on an ordinary completed settlement with a Run result, and policyLimit only occurs on a failed AgentPolicyError settlement",
+        'failed settlements require a bounded diagnostic, aborted settlements carry no result, finishReason only occurs on completed settlements, exhausted only occurs with finishReason budget-exhausted, runDisposition only occurs on an ordinary completed settlement with a Run result, and policyLimit only occurs on a failed AgentPolicyError settlement',
     },
   ),
-);
+)
 
 /**
  * PARENT-log record of one durable child establishment request:
@@ -805,8 +805,8 @@ export const SubmissionSettledRecord = SubmissionSettled.pipe(
  * branded Schemas in the ledger port.
  */
 export class SubagentRequested extends Schema.TaggedClass<SubagentRequested>(
-  "@effect-agent/thread/SubagentRequested",
-)("SubagentRequested", {
+  '@effect-agent/thread/SubagentRequested',
+)('SubagentRequested', {
   runId: RunId,
   turnId: TurnId,
   turn: TurnNumber,
@@ -836,8 +836,8 @@ export class SubagentRequested extends Schema.TaggedClass<SubagentRequested>(
  * exists — SUB-017 holds by construction because `childReceiptId` is a required field.
  */
 export class SubagentStarted extends Schema.TaggedClass<SubagentStarted>(
-  "@effect-agent/thread/SubagentStarted",
-)("SubagentStarted", {
+  '@effect-agent/thread/SubagentStarted',
+)('SubagentStarted', {
   runId: RunId,
   toolCallId: ToolCallId,
   childThreadId: ThreadId,
@@ -854,8 +854,8 @@ export class SubagentStarted extends Schema.TaggedClass<SubagentStarted>(
  * `finalAccounting` from this record, so canonical history authorizes the release (DUR-015).
  */
 export class SubagentJoined extends Schema.TaggedClass<SubagentJoined>(
-  "@effect-agent/thread/SubagentJoined",
-)("SubagentJoined", {
+  '@effect-agent/thread/SubagentJoined',
+)('SubagentJoined', {
   runId: RunId,
   toolCallId: ToolCallId,
   childSubmissionId: SubmissionId,
@@ -876,8 +876,8 @@ export class SubagentJoined extends Schema.TaggedClass<SubagentJoined>(
  * child or parent identity fails Parent Link verification (SUB-004, D10).
  */
 export class SubagentLineageRecorded extends Schema.TaggedClass<SubagentLineageRecorded>(
-  "@effect-agent/thread/SubagentLineageRecorded",
-)("SubagentLineageRecorded", {
+  '@effect-agent/thread/SubagentLineageRecorded',
+)('SubagentLineageRecorded', {
   parentLink: SubagentParentLink,
   parentSubmissionId: SubmissionId,
   childDefinitionDigests: DefinitionDigests,
@@ -892,7 +892,7 @@ export class SubagentLineageRecorded extends Schema.TaggedClass<SubagentLineageR
 
 export const WorkerReportingIntent = Schema.Struct({
   /** Absent only in historical custom-report origins; these remain readable as evidence. */
-  mode: Schema.optionalKey(Schema.Literal("standard")),
+  mode: Schema.optionalKey(Schema.Literal('standard')),
   sourceDigests: DefinitionDigests,
   /** Historical custom destination evidence. New worker origins never write this field. */
   destinationDelegationId: Schema.optionalKey(DelegationId),
@@ -909,17 +909,17 @@ export const WorkerReportingIntent = Schema.Struct({
     }),
   ),
 }).check(
-  Schema.makeFilter((value) => (value.mode === "standard") === (value.returnAddress !== undefined)),
-);
+  Schema.makeFilter((value) => (value.mode === 'standard') === (value.returnAddress !== undefined)),
+)
 
 /** Exact successful predecessor evidence; a locator alone grants no authority. */
 export const WorkerContinuation = Schema.Struct({
   worker: WorkerRef,
   receipt: Receipt,
   settlementId: SettlementId,
-}).check(Schema.makeFilter((value) => value.worker.threadId === value.receipt.threadId));
+}).check(Schema.makeFilter((value) => value.worker.threadId === value.receipt.threadId))
 
-export type WorkerContinuation = typeof WorkerContinuation.Type;
+export type WorkerContinuation = typeof WorkerContinuation.Type
 
 /** Immutable worker Thread origin. Each input has its own digest and parameters separately. */
 export const WorkerOrigin = Schema.Struct({
@@ -930,7 +930,7 @@ export const WorkerOrigin = Schema.Struct({
   /** Frozen funding owner; worker-run renews only for a new native Run. */
   budgetScope: WorkerBudgetScope,
   /** Frozen at worker creation; older origins remain reusable. */
-  lifecycle: Schema.optionalKey(Schema.Literal("assignment")),
+  lifecycle: Schema.optionalKey(Schema.Literal('assignment')),
   targetDigests: DefinitionDigests,
   policy: Schema.toCodecJson(AgentPolicy),
   budget: SubagentBudgetReservation,
@@ -942,9 +942,9 @@ export const WorkerOrigin = Schema.Struct({
   expiresAtMillis: Schema.Natural,
   /** Exact source registration owns projection; absence means reporting was not declared. */
   reporting: Schema.optionalKey(WorkerReportingIntent),
-}).check(Schema.makeFilter((value) => value.expiresAtMillis > value.createdAtMillis));
+}).check(Schema.makeFilter((value) => value.expiresAtMillis > value.createdAtMillis))
 
-export type WorkerOrigin = typeof WorkerOrigin.Type;
+export type WorkerOrigin = typeof WorkerOrigin.Type
 
 /** Frozen per-input metadata; it grants no attached-child or parent-abort semantics. */
 export const WorkerAdmission = Schema.Struct({
@@ -959,14 +959,14 @@ export const WorkerAdmission = Schema.Struct({
   /** Enables routed receipt lookup when the delivery is owned by a reporting child. */
   deliveryPrincipal: Schema.optionalKey(Principal),
   /** Proven framework updates use a separate bounded input-capacity partition. */
-  reportKind: Schema.optionalKey(Schema.Literal("update")),
-});
+  reportKind: Schema.optionalKey(Schema.Literal('update')),
+})
 
-export type WorkerAdmission = typeof WorkerAdmission.Type;
+export type WorkerAdmission = typeof WorkerAdmission.Type
 
 /** Owner command retained before the destination inbox is sealed. */
 export class WorkerStopRequested extends Schema.TaggedClass<WorkerStopRequested>()(
-  "WorkerStopRequested",
+  'WorkerStopRequested',
   {
     command: WorkerStop,
     principal: Principal,
@@ -976,25 +976,25 @@ export class WorkerStopRequested extends Schema.TaggedClass<WorkerStopRequested>
 
 /** The named canonical obligation closed only after its owning state durably completes. */
 export class WorkHandoffCompleted extends Schema.TaggedClass<WorkHandoffCompleted>()(
-  "WorkHandoffCompleted",
+  'WorkHandoffCompleted',
   { preparationId: RecordId, ownerId: Schema.NonEmptyString.check(Schema.isMaxLength(4096)) },
 ) {}
 
 /** Source-log capacity reservation, retained independently of the source Run's settlement. */
 export class WorkerInputRequested extends Schema.TaggedClass<WorkerInputRequested>()(
-  "WorkerInputRequested",
+  'WorkerInputRequested',
   { admission: WorkerAdmission, inputDigest: Digest },
 ) {}
 
 /** Child-log origin, reconstructed from a retained delivery before the child becomes ready. */
 export class WorkerOriginRecorded extends Schema.TaggedClass<WorkerOriginRecorded>()(
-  "WorkerOriginRecorded",
+  'WorkerOriginRecorded',
   { origin: WorkerOrigin },
 ) {}
 
 /** Canonical child completion acknowledgement releases only this input's active capacity. */
 export class WorkerInputCompleted extends Schema.TaggedClass<WorkerInputCompleted>()(
-  "WorkerInputCompleted",
+  'WorkerInputCompleted',
   {
     messageId: IdempotencyKey,
     workerThreadId: ThreadId,
@@ -1013,7 +1013,7 @@ export class WorkerInputCompleted extends Schema.TaggedClass<WorkerInputComplete
  * Keeping the encoded value here avoids a Records/PreparedInput schema dependency cycle.
  */
 export class WorkerReportPrepared extends Schema.TaggedClass<WorkerReportPrepared>()(
-  "WorkerReportPrepared",
+  'WorkerReportPrepared',
   {
     runId: RunId,
     messageId: IdempotencyKey,
@@ -1026,7 +1026,7 @@ export class WorkerReportPrepared extends Schema.TaggedClass<WorkerReportPrepare
 
 /** Accepted update and its optional parent outbox row commit with this canonical fact. */
 export class AgentUpdateEmitted extends Schema.TaggedClass<AgentUpdateEmitted>()(
-  "AgentUpdateEmitted",
+  'AgentUpdateEmitted',
   {
     update: Update,
     definitions: DefinitionDigests,
@@ -1044,34 +1044,34 @@ export class AgentUpdateEmitted extends Schema.TaggedClass<AgentUpdateEmitted>()
 
 /** Permanent bounded report refusal. Application errors and raw Run dispositions stay private. */
 export class WorkerReportRefused extends Schema.TaggedClass<WorkerReportRefused>()(
-  "WorkerReportRefused",
+  'WorkerReportRefused',
   {
     runId: RunId,
     messageId: IdempotencyKey,
     reason: Schema.Literals([
-      "filtered",
-      "declaration-unavailable",
-      "destination",
-      "projection",
-      "input",
-      "preparation",
-      "timeout",
-      "defect",
-      "expired",
-      "denied",
-      "capacity",
+      'filtered',
+      'declaration-unavailable',
+      'destination',
+      'projection',
+      'input',
+      'preparation',
+      'timeout',
+      'defect',
+      'expired',
+      'denied',
+      'capacity',
     ]),
   },
 ) {}
 
 /** Frozen peer provenance, committed with its outbox row and readable through routed storage. */
 export class PeerMessagePrepared extends Schema.TaggedClass<PeerMessagePrepared>()(
-  "PeerMessagePrepared",
+  'PeerMessagePrepared',
   {
     messageId: IdempotencyKey,
     source: WorkerSource,
     sourcePrincipal: Principal,
-    operation: Schema.Literals(["send", "reply"]),
+    operation: Schema.Literals(['send', 'reply']),
     deadlineAtMillis: Schema.Int.check(Schema.isGreaterThan(0)),
     encodedEnvelope: PersistedJson,
   },
@@ -1084,14 +1084,14 @@ export class PeerMessagePrepared extends Schema.TaggedClass<PeerMessagePrepared>
  * resultBytes reserves the terminal/projection result, not cumulative Tool output bytes.
  */
 export class SubtreeBudgetReserved extends Schema.TaggedClass<SubtreeBudgetReserved>()(
-  "SubtreeBudgetReserved",
+  'SubtreeBudgetReserved',
   {
     reservationId: BoundedName,
     /** Run executing this reservation; null for host-owned follow-ups. Grants no authority. */
     executionRunId: Schema.NullOr(RunId),
     sourceSubmissionId: Schema.optionalKey(SubmissionId),
     childThreadId: ThreadId,
-    lifetime: Schema.Literals(["attached", "background"]),
+    lifetime: Schema.Literals(['attached', 'background']),
     depth: DelegationDepth,
     policy: Schema.toCodecJson(AgentPolicy),
     grant: SubagentGrant,
@@ -1100,8 +1100,8 @@ export class SubtreeBudgetReserved extends Schema.TaggedClass<SubtreeBudgetReser
 ) {}
 
 /** Fact identity; active-only references resolve inside their Run checkpoint. */
-export const EvidenceReference = Schema.Struct({ recordId: RecordId });
-export type EvidenceReference = typeof EvidenceReference.Type;
+export const EvidenceReference = Schema.Struct({ recordId: RecordId })
+export type EvidenceReference = typeof EvidenceReference.Type
 
 /**
  * Receipt-free factual closure. The receiver's irreversible inbox seal precedes its exact-key
@@ -1109,7 +1109,7 @@ export type EvidenceReference = typeof EvidenceReference.Type;
  * Invocation and allocation charges remain with the original funding Run.
  */
 export class WorkerInputRefused extends Schema.TaggedClass<WorkerInputRefused>()(
-  "WorkerInputRefused",
+  'WorkerInputRefused',
   Schema.Struct({
     messageId: IdempotencyKey,
     workerThreadId: ThreadId,
@@ -1123,32 +1123,32 @@ export class WorkerInputRefused extends Schema.TaggedClass<WorkerInputRefused>()
       idempotencyKey: IdempotencyKey,
       inputDigest: Digest,
       stopped: Schema.Literal(true),
-      resolution: Schema.Literal("NotAdmitted"),
+      resolution: Schema.Literal('NotAdmitted'),
     }),
   }).check(Schema.makeFilter((value) => value.receiver.threadId === value.workerThreadId)),
 ) {}
 
-export const MAX_RUN_CONTINUATION_BYTES = 8_192;
+export const MAX_RUN_CONTINUATION_BYTES = 8_192
 /** Incremental record JSON per Turn, including progress and the first Turn's initial context. */
-export const MAX_TURN_CANONICAL_BYTES = MAX_CANONICAL_RECORD_BYTES;
+export const MAX_TURN_CANONICAL_BYTES = MAX_CANONICAL_RECORD_BYTES
 /** Room retained for a bounded terminal failure and its atomic progress publication. */
-export const RUN_TERMINAL_RESERVE_BYTES = 256 * 1024;
+export const RUN_TERMINAL_RESERVE_BYTES = 256 * 1024
 /** Bounded closing facts remain publishable even after dispatch capacity is exhausted. */
-export const MAX_RUN_TERMINAL_BYTES = 2 * MAX_CANONICAL_RECORD_BYTES + RUN_TERMINAL_RESERVE_BYTES;
-export const RUN_TERMINAL_RESERVE_RECORDS = 4;
-export const MAX_RUN_EVIDENCE_RECORDS = 16_384;
-export const MAX_RUN_EVIDENCE_BYTES = 32 * 1024 * 1024;
-export const MAX_RUN_RECOVERY_SUFFIX_RECORDS = 64;
-export const MAX_RUN_RECOVERY_SUFFIX_BYTES = 2 * 1024 * 1024;
-export const MAX_RUN_TOOL_CALL_IDENTITIES = 4_096;
+export const MAX_RUN_TERMINAL_BYTES = 2 * MAX_CANONICAL_RECORD_BYTES + RUN_TERMINAL_RESERVE_BYTES
+export const RUN_TERMINAL_RESERVE_RECORDS = 4
+export const MAX_RUN_EVIDENCE_RECORDS = 16_384
+export const MAX_RUN_EVIDENCE_BYTES = 32 * 1024 * 1024
+export const MAX_RUN_RECOVERY_SUFFIX_RECORDS = 64
+export const MAX_RUN_RECOVERY_SUFFIX_BYTES = 2 * 1024 * 1024
+export const MAX_RUN_TOOL_CALL_IDENTITIES = 4_096
 
 export const ContextEvidenceReference = Schema.Struct({
   ...EvidenceReference.fields,
   sequence: CanonicalSequence,
-});
+})
 
 export class RunContextRecorded extends Schema.TaggedClass<RunContextRecorded>()(
-  "RunContextRecorded",
+  'RunContextRecorded',
   Schema.Struct({
     version: Schema.Literal(1),
     runId: RunId,
@@ -1173,7 +1173,7 @@ export class RunContextRecorded extends Schema.TaggedClass<RunContextRecorded>()
             ref.sequence > (context.retained[index - 1]?.sequence ?? 0) &&
             ref.sequence < context.historyFrom,
         ),
-      { title: "Saved context retains an ordered prefix below its original history range" },
+      { title: 'Saved context retains an ordered prefix below its original history range' },
     ),
   ),
 ) {}
@@ -1191,21 +1191,21 @@ export const ContinuationAccounting = Schema.Struct({
   costMicrousd: Schema.Natural,
   /** The last complete operation batch whose declaration-ordered failure streak was charged. */
   accountedToolTurn: Schema.Natural,
-});
+})
 
-export type ContinuationAccounting = typeof ContinuationAccounting.Type;
+export type ContinuationAccounting = typeof ContinuationAccounting.Type
 
 /** Semantic execution boundaries, never engine stacks, fibers, or program counters. */
 export const RunPosition = Schema.Literals([
-  "starting",
-  "awaiting-model",
-  "processing-operations",
-  "waiting-approval",
-  "waiting-dependency",
-  "unknown",
-  "settling",
-  "settled",
-]);
+  'starting',
+  'awaiting-model',
+  'processing-operations',
+  'waiting-approval',
+  'waiting-dependency',
+  'unknown',
+  'settling',
+  'settled',
+])
 
 /**
  * Current interpreter progress, replaced atomically with lastFact under the Thread fence.
@@ -1216,7 +1216,7 @@ export const RunPosition = Schema.Literals([
  * Retired intermediate revisions are not historical verification evidence.
  */
 export class RunContinuation extends Schema.TaggedClass<RunContinuation>()(
-  "RunContinuation",
+  'RunContinuation',
   Schema.Struct({
     version: Schema.Literal(1),
     runId: RunId,
@@ -1251,8 +1251,8 @@ export class RunContinuation extends Schema.TaggedClass<RunContinuation>()(
 ) {}
 
 /** Bump only when the meaning of an existing record changes, independently of SQL layout. */
-export const CURRENT_RECORD_VERSION = 6;
-export const CURRENT_RECORD_FORMAT = "effect-agent/thread@6";
+export const CURRENT_RECORD_VERSION = 6
+export const CURRENT_RECORD_FORMAT = 'effect-agent/thread@6'
 
 /** Durable fact and execution-command schemas. Unsupported controls fail before execution. */
 export const KnownRecordPayload = Schema.Union([
@@ -1294,22 +1294,22 @@ export const KnownRecordPayload = Schema.Union([
   RepairAnnotated,
   RunContextRecorded,
   RunContinuation,
-]);
+])
 
 /** This format accepts only understood facts; unknown control cannot grant permission. */
-export const CanonicalRecordPayload = KnownRecordPayload;
+export const CanonicalRecordPayload = KnownRecordPayload
 
-export type CanonicalRecordPayload = typeof CanonicalRecordPayload.Type;
+export type CanonicalRecordPayload = typeof CanonicalRecordPayload.Type
 
 /**
  * Versioned durable fact. Retained history acquires Thread ordering at its atomic commit;
  * active operational facts keep their identities without a canonical sequence.
  */
 export class RecordEnvelope extends Schema.Class<RecordEnvelope>(
-  "@effect-agent/thread/RecordEnvelope",
+  '@effect-agent/thread/RecordEnvelope',
 )({
   recordId: RecordId,
-  family: Schema.Literal("thread"),
+  family: Schema.Literal('thread'),
   schemaVersion: Schema.Literal(1),
   createdAt: Schema.DateTimeUtcFromString,
   deploymentId: DeploymentId,
@@ -1317,12 +1317,12 @@ export class RecordEnvelope extends Schema.Class<RecordEnvelope>(
 }) {}
 
 /** Backward-compatible domain name for a canonical record. */
-export const CanonicalRecord = RecordEnvelope;
-export type CanonicalRecord = RecordEnvelope;
+export const CanonicalRecord = RecordEnvelope
+export type CanonicalRecord = RecordEnvelope
 
 /** One non-empty, bounded, idempotent atomic append unit. */
 export class CanonicalBatch extends Schema.Class<CanonicalBatch>(
-  "@effect-agent/thread/CanonicalBatch",
+  '@effect-agent/thread/CanonicalBatch',
 )({
   batchId: BatchId,
   producerId: ProducerId,
@@ -1333,7 +1333,7 @@ export class CanonicalBatch extends Schema.Class<CanonicalBatch>(
  * A committed record with its Thread ordering and opaque resumable observation cursor.
  */
 export class CanonicalRecordEnvelope extends Schema.Class<CanonicalRecordEnvelope>(
-  "@effect-agent/thread/CanonicalRecordEnvelope",
+  '@effect-agent/thread/CanonicalRecordEnvelope',
 )({
   threadId: ThreadId,
   batchId: BatchId,
@@ -1374,22 +1374,23 @@ export const PromptRecordPayload = Schema.TaggedUnion({
     submissionId: SubmissionId,
     outcome: SettlementOutcome,
   },
-});
+})
 
 /** Native selections and the projection decoder share this single list of supported facts. */
-export const PROMPT_EVIDENCE_TAGS: ReadonlyArray<keyof typeof PromptRecordPayload.cases> =
-  Struct.keys(PromptRecordPayload.cases);
+export const PROMPT_EVIDENCE_TAGS: ReadonlyArray<keyof typeof PromptRecordPayload.cases> = Struct.keys(
+  PromptRecordPayload.cases,
+)
 
-export const PromptRecord = Schema.Struct({ recordId: RecordId, payload: PromptRecordPayload });
-export type PromptRecord = typeof PromptRecord.Type;
+export const PromptRecord = Schema.Struct({ recordId: RecordId, payload: PromptRecordPayload })
+export type PromptRecord = typeof PromptRecord.Type
 
 /** Not integrity evidence: omitted canonical wire must be read through the full record port. */
 export const PromptRecordEnvelope = Schema.Struct({
   threadId: ThreadId,
   sequence: CanonicalSequence,
   record: PromptRecord,
-});
+})
 
-export type PromptRecordEnvelope = typeof PromptRecordEnvelope.Type;
+export type PromptRecordEnvelope = typeof PromptRecordEnvelope.Type
 
-export const CURRENT_CANONICAL_SCHEMA_VERSION = 1 as const;
+export const CURRENT_CANONICAL_SCHEMA_VERSION = 1 as const

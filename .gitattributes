@@ -1,2 +1,0 @@
-# Collapse generated output when comparing Action distribution tags.
-action/dist/** linguist-generated=true -diff

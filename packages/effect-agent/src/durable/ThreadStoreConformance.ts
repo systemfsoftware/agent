@@ -1,68 +1,56 @@
-import * as DateTime from "effect/DateTime";
-import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
-import * as Stream from "effect/Stream";
+import * as DateTime from 'effect/DateTime'
+import * as Effect from 'effect/Effect'
+import * as Option from 'effect/Option'
+import * as Schema from 'effect/Schema'
+import * as Stream from 'effect/Stream'
 
-import { AgentPolicy } from "../core/AgentPolicy.ts";
+import { AgentPolicy } from '../core/AgentPolicy.ts'
+import { AgentId, DelegationId, ReceiptId, RunId, SettlementId, SubmissionId, ThreadId } from '../core/Identifiers.ts'
+import { IdempotencyKey } from '../core/Receipt.ts'
+import { SubagentDelegationCaps, SubagentGrant, SubagentReservationAmounts } from '../core/SubagentContract.ts'
 import {
-  ThreadId,
-  RunId,
-  SubmissionId,
-  AgentId,
-  DelegationId,
-  ReceiptId,
-  SettlementId,
-} from "../core/Identifiers.ts";
-import { IdempotencyKey } from "../core/Receipt.ts";
-import {
-  SubagentDelegationCaps,
-  SubagentGrant,
-  SubagentReservationAmounts,
-} from "../core/SubagentContract.ts";
-import {
-  Digest,
-  type CanonicalRecordEnvelope,
   BatchId,
   CanonicalBatch,
+  type CanonicalRecordEnvelope,
   CanonicalSequence,
   DeploymentId,
+  Digest,
   ProducerId,
   RecordEnvelope,
   RecordId,
+  SubtreeBudgetReserved,
   UserInputRecorded,
-  WorkerInputRequested,
   WorkerInputCompleted,
+  WorkerInputRequested,
   WorkerOriginRecorded,
   WorkerStopRequested,
-  SubtreeBudgetReserved,
-} from "./Records.ts";
-import { canonicalRecordBytes } from "./RunContinuation.ts";
-import { subagentLineageRecordId, workerOriginRecordId } from "./RunJournal.ts";
+} from './Records.ts'
+import { canonicalRecordBytes } from './RunContinuation.ts'
+import { subagentLineageRecordId, workerOriginRecordId } from './RunJournal.ts'
 import {
-  type AppendResult,
   AppendConflict,
-  ThreadExportRequest,
-  ThreadMaterialization,
-  ThreadIdentityRequest,
-  ThreadNotMaterialized,
-  ThreadObservation,
-  ThreadRead,
-  ThreadStore,
-  ThreadStoreError,
-  ThreadReader,
+  AppendRequest,
+  type AppendResult,
   getRecord,
   getRunInput,
   readWorkerState,
-  ThreadTailRequest,
-  AppendRequest,
-  type ThreadStoreFailure,
   type ThreadExportRejected,
-} from "./ThreadStore.ts";
+  ThreadExportRequest,
+  ThreadIdentityRequest,
+  ThreadMaterialization,
+  ThreadNotMaterialized,
+  ThreadObservation,
+  ThreadRead,
+  ThreadReader,
+  ThreadStore,
+  ThreadStoreError,
+  type ThreadStoreFailure,
+  ThreadTailRequest,
+} from './ThreadStore.ts'
 
 /** A ThreadStore contract invariant that an adapter under test violated. */
 export class ThreadStoreConformanceViolation extends Schema.TaggedError<ThreadStoreConformanceViolation>()(
-  "ThreadStoreConformanceViolation",
+  'ThreadStoreConformanceViolation',
   {
     caseName: Schema.String,
     message: Schema.String,
@@ -72,7 +60,7 @@ export class ThreadStoreConformanceViolation extends Schema.TaggedError<ThreadSt
 export type ThreadStoreConformanceFailure =
   | ThreadStoreFailure
   | ThreadExportRejected
-  | ThreadStoreConformanceViolation;
+  | ThreadStoreConformanceViolation
 
 /**
  * One adapter-neutral ThreadStore contract case. Each case owns disjoint
@@ -80,24 +68,23 @@ export type ThreadStoreConformanceFailure =
  * instance or against a fresh store per case.
  */
 export interface ThreadStoreConformanceCase {
-  readonly name: string;
-  readonly run: Effect.Effect<void, ThreadStoreConformanceFailure, ThreadStore>;
+  readonly name: string
+  readonly run: Effect.Effect<void, ThreadStoreConformanceFailure, ThreadStore>
 }
 
 /** Inspect a small test fixture through its captured tail, up to 16,384 records and 32 MiB.
  * Transfer tests use streamExport so every wire page and independent fact section is exercised. */
-export const readTestThread = Effect.fnUntraced(function* (
-  store: Pick<ThreadStore["Service"], "read" | "inspectTail">,
-  request: Pick<ThreadExportRequest, "threadId">,
+export const readTestThread = Effect.fnUntraced(function*(
+  store: Pick<ThreadStore['Service'], 'read' | 'inspectTail'>,
+  request: Pick<ThreadExportRequest, 'threadId'>,
 ) {
-  const tail = yield* store.inspectTail(ThreadTailRequest.make({ threadId: request.threadId }));
+  const tail = yield* store.inspectTail(ThreadTailRequest.make({ threadId: request.threadId }))
 
-  const invalid = (message: string) =>
-    ThreadStoreError.make({ operation: "test fixture history", message });
+  const invalid = (message: string) => ThreadStoreError.make({ operation: 'test fixture history', message })
 
-  if (tail.tailSequence > 16_384) return yield* invalid("Fixture exceeds 16,384 canonical records");
-  const records: Array<CanonicalRecordEnvelope> = [];
-  let bytes = 0;
+  if (tail.tailSequence > 16_384) return yield* invalid('Fixture exceeds 16,384 canonical records')
+  const records: Array<CanonicalRecordEnvelope> = []
+  let bytes = 0
 
   while (records.length < tail.tailSequence) {
     const page = yield* store
@@ -108,16 +95,17 @@ export const readTestThread = Effect.fnUntraced(function* (
           limit: 8,
         }),
       )
-      .pipe(Stream.take(9), Stream.runCollect);
+      .pipe(Stream.take(9), Stream.runCollect)
 
-    if (page.length === 0 || page.length > 8) return yield* invalid("Invalid fixture history page");
+    if (page.length === 0 || page.length > 8) return yield* invalid('Invalid fixture history page')
     for (const entry of page) {
-      if (entry.sequence > tail.tailSequence) break;
-      if (entry.sequence !== records.length + 1 || entry.threadId !== request.threadId)
-        return yield* invalid("Fixture history is not contiguous");
-      bytes += canonicalRecordBytes(entry.record);
-      if (bytes > 32 * 1024 * 1024) return yield* invalid("Fixture exceeds 32 MiB");
-      records.push(entry);
+      if (entry.sequence > tail.tailSequence) break
+      if (entry.sequence !== records.length + 1 || entry.threadId !== request.threadId) {
+        return yield* invalid('Fixture history is not contiguous')
+      }
+      bytes += canonicalRecordBytes(entry.record)
+      if (bytes > 32 * 1024 * 1024) return yield* invalid('Fixture exceeds 32 MiB')
+      records.push(entry)
     }
   }
 
@@ -126,41 +114,41 @@ export const readTestThread = Effect.fnUntraced(function* (
     tailSequence: tail.tailSequence,
 
     records,
-  };
-});
+  }
+})
 
-const decodeThreadId = Schema.decodeSync(ThreadId);
-const decodeRecordId = Schema.decodeSync(RecordId);
-const decodeBatchId = Schema.decodeSync(BatchId);
-const decodeSequence = Schema.decodeSync(CanonicalSequence);
+const decodeThreadId = Schema.decodeSync(ThreadId)
+const decodeRecordId = Schema.decodeSync(RecordId)
+const decodeBatchId = Schema.decodeSync(BatchId)
+const decodeSequence = Schema.decodeSync(CanonicalSequence)
 
-const CONFORMANCE_DEPLOYMENT = Schema.decodeSync(DeploymentId)("deployment-conformance");
-const CONFORMANCE_PRODUCER = Schema.decodeSync(ProducerId)("producer-conformance");
-const CONFORMANCE_SUBMISSION = Schema.decodeSync(SubmissionId)("submission-conformance");
-const CONFORMANCE_RUN = Schema.decodeSync(RunId)("run-conformance");
-const CONFORMANCE_CREATED_AT = DateTime.toUtc(DateTime.makeUnsafe(1));
+const CONFORMANCE_DEPLOYMENT = Schema.decodeSync(DeploymentId)('deployment-conformance')
+const CONFORMANCE_PRODUCER = Schema.decodeSync(ProducerId)('producer-conformance')
+const CONFORMANCE_SUBMISSION = Schema.decodeSync(SubmissionId)('submission-conformance')
+const CONFORMANCE_RUN = Schema.decodeSync(RunId)('run-conformance')
+const CONFORMANCE_CREATED_AT = DateTime.toUtc(DateTime.makeUnsafe(1))
 
-const ZERO_SEQUENCE = decodeSequence(0);
-const DEFINITION_DIGEST = Digest.make("0".repeat(64));
+const ZERO_SEQUENCE = decodeSequence(0)
+const DEFINITION_DIGEST = Digest.make('0'.repeat(64))
 
-const EMPTY_TAIL = { lastSequence: ZERO_SEQUENCE } as const;
-const isAppendConflict = Schema.is(AppendConflict);
-const isThreadNotMaterialized = Schema.is(ThreadNotMaterialized);
+const EMPTY_TAIL = { lastSequence: ZERO_SEQUENCE } as const
+const isAppendConflict = Schema.is(AppendConflict)
+const isThreadNotMaterialized = Schema.is(ThreadNotMaterialized)
 
 const record = (recordId: string, input: string): RecordEnvelope =>
   RecordEnvelope.make({
     recordId: decodeRecordId(recordId),
-    family: "thread",
+    family: 'thread',
     schemaVersion: 1,
     createdAt: CONFORMANCE_CREATED_AT,
     deploymentId: CONFORMANCE_DEPLOYMENT,
     payload: UserInputRecorded.make({
       submissionId: CONFORMANCE_SUBMISSION,
-      kind: "user",
+      kind: 'user',
       runId: CONFORMANCE_RUN,
       input,
     }),
-  });
+  })
 
 const batch = (
   batchId: string,
@@ -170,20 +158,20 @@ const batch = (
     batchId: decodeBatchId(batchId),
     producerId: CONFORMANCE_PRODUCER,
     records,
-  });
+  })
 
-const materialize = Effect.fn("ThreadStoreConformance.materialize")(function* (threadId: ThreadId) {
-  const store = yield* ThreadStore;
+const materialize = Effect.fn('ThreadStoreConformance.materialize')(function*(threadId: ThreadId) {
+  const store = yield* ThreadStore
 
-  yield* store.materialize(ThreadMaterialization.make({ threadId }));
-});
+  yield* store.materialize(ThreadMaterialization.make({ threadId }))
+})
 
-const append = Effect.fn("ThreadStoreConformance.append")(function* (
+const append = Effect.fn('ThreadStoreConformance.append')(function*(
   threadId: ThreadId,
   canonicalBatch: CanonicalBatch,
-  tail: Pick<AppendResult, "lastSequence"> = EMPTY_TAIL,
+  tail: Pick<AppendResult, 'lastSequence'> = EMPTY_TAIL,
 ) {
-  const store = yield* ThreadStore;
+  const store = yield* ThreadStore
 
   return yield* store.append(
     AppendRequest.make({
@@ -191,14 +179,14 @@ const append = Effect.fn("ThreadStoreConformance.append")(function* (
       batch: canonicalBatch,
       expectedTailSequence: tail.lastSequence,
     }),
-  );
-});
+  )
+})
 
-const readAll = Effect.fn("ThreadStoreConformance.readAll")(function* (threadId: ThreadId) {
-  const store = yield* ThreadStore;
+const readAll = Effect.fn('ThreadStoreConformance.readAll')(function*(threadId: ThreadId) {
+  const store = yield* ThreadStore
 
-  return yield* store.read(ThreadRead.make({ threadId, limit: 1_024 })).pipe(Stream.runCollect);
-});
+  return yield* store.read(ThreadRead.make({ threadId, limit: 1_024 })).pipe(Stream.runCollect)
+})
 
 const conformanceCase = (
   name: string,
@@ -206,11 +194,11 @@ const conformanceCase = (
     readonly ensure: (
       condition: boolean,
       message: string,
-    ) => Effect.Effect<void, ThreadStoreConformanceViolation>;
+    ) => Effect.Effect<void, ThreadStoreConformanceViolation>
     readonly expectFailure: <A, E, R>(
       description: string,
       effect: Effect.Effect<A, E, R>,
-    ) => Effect.Effect<E, ThreadStoreConformanceViolation, R>;
+    ) => Effect.Effect<E, ThreadStoreConformanceViolation, R>
   }) => Effect.Effect<void, ThreadStoreConformanceFailure, ThreadStore | ThreadReader>,
 ): ThreadStoreConformanceCase => ({
   name,
@@ -225,407 +213,407 @@ const conformanceCase = (
           ThreadStoreConformanceViolation.make({
             caseName: name,
             message: `Expected failure but the operation succeeded: ${description}`,
-          }),
+          })
         ),
       ),
   }).pipe(Effect.provide(ThreadReader.layer()), Effect.withSpan(`ThreadStoreConformance.${name}`)),
-});
+})
 
 const atomicBatchVisibility = conformanceCase(
-  "commits batches atomically with no partial reader visibility",
+  'commits batches atomically with no partial reader visibility',
   ({ ensure, expectFailure }) =>
-    Effect.gen(function* () {
-      const threadId = decodeThreadId("conformance-atomic");
-      const store = yield* ThreadStore;
+    Effect.gen(function*() {
+      const threadId = decodeThreadId('conformance-atomic')
+      const store = yield* ThreadStore
 
-      yield* materialize(threadId);
+      yield* materialize(threadId)
 
       const committed = yield* append(
         threadId,
-        batch("atomic-batch-1", [
-          record("atomic-record-1", "first"),
-          record("atomic-record-2", "second"),
-          record("atomic-record-3", "third"),
+        batch('atomic-batch-1', [
+          record('atomic-record-1', 'first'),
+          record('atomic-record-2', 'second'),
+          record('atomic-record-3', 'third'),
         ]),
-      );
+      )
 
       yield* ensure(
         committed.firstSequence === 1 && committed.lastSequence === 3,
-        "A three-record batch must commit sequences 1 through 3",
-      );
+        'A three-record batch must commit sequences 1 through 3',
+      )
 
-      const read = yield* readAll(threadId);
+      const read = yield* readAll(threadId)
 
-      yield* ensure(read.length === 3, "Readers must observe the full committed batch");
+      yield* ensure(read.length === 3, 'Readers must observe the full committed batch')
       yield* ensure(
         read.every((envelope, index) => envelope.sequence === index + 1),
-        "Committed records must be gap-free in declaration order",
-      );
+        'Committed records must be gap-free in declaration order',
+      )
 
       const observed = yield* store
         .observe(ThreadObservation.make({ threadId }))
-        .pipe(Stream.take(3), Stream.runCollect);
+        .pipe(Stream.take(3), Stream.runCollect)
 
       yield* ensure(
-        observed.map((envelope) => envelope.record.recordId).join(",") ===
-          read.map((envelope) => envelope.record.recordId).join(","),
-        "Observers must see exactly the committed batch records in order",
-      );
+        observed.map((envelope) => envelope.record.recordId).join(',') ===
+          read.map((envelope) => envelope.record.recordId).join(','),
+        'Observers must see exactly the committed batch records in order',
+      )
 
-      const duplicate = record("atomic-record-4", "duplicate");
+      const duplicate = record('atomic-record-4', 'duplicate')
 
       const intraBatch = yield* expectFailure(
-        "a batch containing one record ID twice",
-        append(threadId, batch("atomic-batch-2", [duplicate, duplicate]), committed),
-      );
+        'a batch containing one record ID twice',
+        append(threadId, batch('atomic-batch-2', [duplicate, duplicate]), committed),
+      )
 
       yield* ensure(
-        isAppendConflict(intraBatch) && intraBatch.reason === "record-identity",
-        "A duplicated record ID inside one batch must conflict with reason record-identity",
-      );
+        isAppendConflict(intraBatch) && intraBatch.reason === 'record-identity',
+        'A duplicated record ID inside one batch must conflict with reason record-identity',
+      )
 
       const crossBatch = yield* expectFailure(
-        "a batch reusing an already-committed record ID",
-        append(threadId, batch("atomic-batch-3", [record("atomic-record-1", "reused")]), committed),
-      );
+        'a batch reusing an already-committed record ID',
+        append(threadId, batch('atomic-batch-3', [record('atomic-record-1', 'reused')]), committed),
+      )
 
       yield* ensure(
-        isAppendConflict(crossBatch) && crossBatch.reason === "record-identity",
-        "A record ID reused across batches must conflict with reason record-identity",
-      );
+        isAppendConflict(crossBatch) && crossBatch.reason === 'record-identity',
+        'A record ID reused across batches must conflict with reason record-identity',
+      )
 
-      const retained = yield* readTestThread(store, { threadId });
+      const retained = yield* readTestThread(store, { threadId })
 
       yield* ensure(
         retained.records.length === 3 && retained.tailSequence === committed.lastSequence,
-        "A conflicting batch must leave no partial prefix behind",
-      );
+        'A conflicting batch must leave no partial prefix behind',
+      )
     }),
-);
+)
 
 const idempotentReplay = conformanceCase(
-  "replays an identical batch idempotently and rejects altered content",
+  'replays an identical batch idempotently and rejects altered content',
   ({ ensure, expectFailure }) =>
-    Effect.gen(function* () {
-      const threadId = decodeThreadId("conformance-replay");
+    Effect.gen(function*() {
+      const threadId = decodeThreadId('conformance-replay')
 
-      yield* materialize(threadId);
+      yield* materialize(threadId)
 
-      const original = batch("replay-batch-1", [
-        record("replay-record-1", "Lisbon"),
-        record("replay-record-2", "Porto"),
-      ]);
+      const original = batch('replay-batch-1', [
+        record('replay-record-1', 'Lisbon'),
+        record('replay-record-2', 'Porto'),
+      ])
 
-      const first = yield* append(threadId, original);
+      const first = yield* append(threadId, original)
 
-      yield* ensure(!first.replayed, "The first append of a batch must not report replayed");
+      yield* ensure(!first.replayed, 'The first append of a batch must not report replayed')
 
-      const replayed = yield* append(threadId, original);
+      const replayed = yield* append(threadId, original)
 
       yield* ensure(
         replayed.replayed &&
           replayed.firstSequence === first.firstSequence &&
           replayed.lastSequence === first.lastSequence,
-        "Replaying an identical batch must return the original result with replayed set",
-      );
+        'Replaying an identical batch must return the original result with replayed set',
+      )
 
       const altered = yield* expectFailure(
-        "replaying a batch ID with different canonical content",
-        append(threadId, batch("replay-batch-1", [record("replay-record-3", "Faro")])),
-      );
+        'replaying a batch ID with different canonical content',
+        append(threadId, batch('replay-batch-1', [record('replay-record-3', 'Faro')])),
+      )
 
       yield* ensure(
-        isAppendConflict(altered) && altered.reason === "batch-content",
-        "A batch ID replayed with different content must conflict with reason batch-content",
-      );
+        isAppendConflict(altered) && altered.reason === 'batch-content',
+        'A batch ID replayed with different content must conflict with reason batch-content',
+      )
 
-      const read = yield* readAll(threadId);
+      const read = yield* readAll(threadId)
 
-      yield* ensure(read.length === 2, "Replay and conflict must not duplicate committed records");
+      yield* ensure(read.length === 2, 'Replay and conflict must not duplicate committed records')
     }),
-);
+)
 
 const tailConflict = conformanceCase(
-  "rejects stale expected tails and reports the actual tail",
+  'rejects stale expected tails and reports the actual tail',
   ({ ensure, expectFailure }) =>
-    Effect.gen(function* () {
-      const threadId = decodeThreadId("conformance-tail");
+    Effect.gen(function*() {
+      const threadId = decodeThreadId('conformance-tail')
 
-      yield* materialize(threadId);
+      yield* materialize(threadId)
 
       const first = yield* append(
         threadId,
-        batch("tail-batch-1", [record("tail-record-1", "first")]),
-      );
+        batch('tail-batch-1', [record('tail-record-1', 'first')]),
+      )
 
       const staleSequence = yield* expectFailure(
-        "an append declaring the pre-append tail sequence",
-        append(threadId, batch("tail-batch-2", [record("tail-record-2", "second")])),
-      );
+        'an append declaring the pre-append tail sequence',
+        append(threadId, batch('tail-batch-2', [record('tail-record-2', 'second')])),
+      )
 
       yield* ensure(
-        isAppendConflict(staleSequence) && staleSequence.reason === "tail",
-        "A stale expected tail sequence must conflict with reason tail",
-      );
+        isAppendConflict(staleSequence) && staleSequence.reason === 'tail',
+        'A stale expected tail sequence must conflict with reason tail',
+      )
       yield* ensure(
         isAppendConflict(staleSequence) && staleSequence.actualTailSequence === first.lastSequence,
-        "A tail conflict must carry the actual committed tail as a resume hint",
-      );
+        'A tail conflict must carry the actual committed tail as a resume hint',
+      )
 
       const recovered = yield* append(
         threadId,
-        batch("tail-batch-2", [record("tail-record-2", "second")]),
+        batch('tail-batch-2', [record('tail-record-2', 'second')]),
         first,
-      );
+      )
 
       yield* ensure(
         recovered.firstSequence === first.lastSequence + 1,
-        "An append declaring the true tail must commit after a tail conflict",
-      );
+        'An append declaring the true tail must commit after a tail conflict',
+      )
     }),
-);
+)
 
 const offsetResumability = conformanceCase(
-  "resumes observation from a saved offset with exactly the suffix",
+  'resumes observation from a saved offset with exactly the suffix',
   ({ ensure }) =>
-    Effect.gen(function* () {
-      const threadId = decodeThreadId("conformance-offsets");
-      const store = yield* ThreadStore;
+    Effect.gen(function*() {
+      const threadId = decodeThreadId('conformance-offsets')
+      const store = yield* ThreadStore
 
-      yield* materialize(threadId);
+      yield* materialize(threadId)
 
       const first = yield* append(
         threadId,
-        batch("offset-batch-1", [
-          record("offset-record-1", "first"),
-          record("offset-record-2", "second"),
+        batch('offset-batch-1', [
+          record('offset-record-1', 'first'),
+          record('offset-record-2', 'second'),
         ]),
-      );
+      )
 
       const second = yield* append(
         threadId,
-        batch("offset-batch-2", [record("offset-record-3", "third")]),
+        batch('offset-batch-2', [record('offset-record-3', 'third')]),
         first,
-      );
+      )
 
       yield* append(
         threadId,
-        batch("offset-batch-3", [record("offset-record-4", "fourth")]),
+        batch('offset-batch-3', [record('offset-record-4', 'fourth')]),
         second,
-      );
+      )
 
-      const committed = yield* readAll(threadId);
+      const committed = yield* readAll(threadId)
 
-      yield* ensure(committed.length === 4, "All committed records must be readable");
-      const savedOffset = committed[1]?.offset;
+      yield* ensure(committed.length === 4, 'All committed records must be readable')
+      const savedOffset = committed[1]?.offset
 
-      yield* ensure(savedOffset !== undefined, "Committed records must carry observation offsets");
-      if (savedOffset === undefined) return;
+      yield* ensure(savedOffset !== undefined, 'Committed records must carry observation offsets')
+      if (savedOffset === undefined) return
 
       const resumed = yield* store
         .observe(ThreadObservation.make({ threadId, afterOffset: savedOffset }))
-        .pipe(Stream.take(2), Stream.runCollect);
+        .pipe(Stream.take(2), Stream.runCollect)
 
       yield* ensure(
-        resumed.map((envelope) => envelope.record.recordId).join(",") ===
+        resumed.map((envelope) => envelope.record.recordId).join(',') ===
           committed
             .slice(2)
             .map((envelope) => envelope.record.recordId)
-            .join(","),
-        "Observation from a saved offset must deliver exactly the suffix in order",
-      );
+            .join(','),
+        'Observation from a saved offset must deliver exactly the suffix in order',
+      )
 
       const fromStart = yield* store
         .observe(ThreadObservation.make({ threadId }))
-        .pipe(Stream.take(4), Stream.runCollect);
+        .pipe(Stream.take(4), Stream.runCollect)
 
       yield* ensure(
-        fromStart.map((envelope) => envelope.record.recordId).join(",") ===
-          committed.map((envelope) => envelope.record.recordId).join(","),
-        "Observation without an offset must deliver the full log in order",
-      );
+        fromStart.map((envelope) => envelope.record.recordId).join(',') ===
+          committed.map((envelope) => envelope.record.recordId).join(','),
+        'Observation without an offset must deliver the full log in order',
+      )
     }),
-);
+)
 
 const tailInspection = conformanceCase(
-  "inspects the canonical tail so a resuming producer can compose its next append",
+  'inspects the canonical tail so a resuming producer can compose its next append',
   ({ ensure, expectFailure }) =>
-    Effect.gen(function* () {
-      const threadId = decodeThreadId("conformance-tail-inspection");
-      const store = yield* ThreadStore;
+    Effect.gen(function*() {
+      const threadId = decodeThreadId('conformance-tail-inspection')
+      const store = yield* ThreadStore
 
       const missing = yield* expectFailure(
-        "inspecting the tail of an unmaterialized Thread",
+        'inspecting the tail of an unmaterialized Thread',
         store.inspectTail(ThreadTailRequest.make({ threadId })),
-      );
+      )
 
       yield* ensure(
         isThreadNotMaterialized(missing) && missing.threadId === threadId,
-        "Tail inspection of an unmaterialized Thread must fail as not materialized",
-      );
+        'Tail inspection of an unmaterialized Thread must fail as not materialized',
+      )
 
-      yield* materialize(threadId);
-      const empty = yield* store.inspectTail(ThreadTailRequest.make({ threadId }));
+      yield* materialize(threadId)
+      const empty = yield* store.inspectTail(ThreadTailRequest.make({ threadId }))
 
       yield* ensure(
         empty.tailSequence === ZERO_SEQUENCE,
-        "An empty Thread must report the zero tail without ownership metadata",
-      );
-      const emptyIdentity = yield* store.readIdentity(ThreadIdentityRequest.make({ threadId }));
+        'An empty Thread must report the zero tail without ownership metadata',
+      )
+      const emptyIdentity = yield* store.readIdentity(ThreadIdentityRequest.make({ threadId }))
 
       yield* ensure(
         emptyIdentity.tailSequence === ZERO_SEQUENCE &&
           emptyIdentity.records.length === 0 &&
           emptyIdentity.hasAdmissions === false,
-        "A materialized empty identity has no admissions and remains distinct from a missing Thread",
-      );
+        'A materialized empty identity has no admissions and remains distinct from a missing Thread',
+      )
 
       const first = yield* append(
         threadId,
-        batch("inspect-batch-1", [record(workerOriginRecordId(threadId), "first")]),
-      );
+        batch('inspect-batch-1', [record(workerOriginRecordId(threadId), 'first')]),
+      )
 
-      const afterAppend = yield* store.inspectTail(ThreadTailRequest.make({ threadId }));
+      const afterAppend = yield* store.inspectTail(ThreadTailRequest.make({ threadId }))
 
       yield* ensure(
         afterAppend.tailSequence === first.lastSequence,
-        "Tail inspection must match the latest AppendResult",
-      );
+        'Tail inspection must match the latest AppendResult',
+      )
       // Regression: https://github.com/yielded-dev/agent/commit/6a4f4f870
-      const identity = yield* store.readIdentity(ThreadIdentityRequest.make({ threadId }));
+      const identity = yield* store.readIdentity(ThreadIdentityRequest.make({ threadId }))
 
       yield* ensure(
         identity.threadId === threadId &&
           identity.tailSequence === first.lastSequence &&
           identity.records.length === 1 &&
           identity.records[0]?.record.recordId === workerOriginRecordId(threadId),
-        "Identity captures the canonical tail and deduplicates a first record at the origin locator",
-      );
+        'Identity captures the canonical tail and deduplicates a first record at the origin locator',
+      )
 
       const resumed = yield* append(
         threadId,
-        batch("inspect-batch-2", [record("inspect-record-2", "second")]),
+        batch('inspect-batch-2', [record('inspect-record-2', 'second')]),
         { lastSequence: afterAppend.tailSequence },
-      );
+      )
 
       yield* ensure(
         resumed.firstSequence === afterAppend.tailSequence + 1,
-        "An append composed from the inspected tail must commit without exporting the log",
-      );
+        'An append composed from the inspected tail must commit without exporting the log',
+      )
 
       const staleIdentity = yield* expectFailure(
-        "appending from an identity snapshot after a tail advance",
-        append(threadId, batch("inspect-stale-identity", [record("inspect-record-3", "third")]), {
+        'appending from an identity snapshot after a tail advance',
+        append(threadId, batch('inspect-stale-identity', [record('inspect-record-3', 'third')]), {
           lastSequence: identity.tailSequence,
         }),
-      );
+      )
 
       yield* ensure(
-        isAppendConflict(staleIdentity) && staleIdentity.reason === "tail",
-        "Identity reads do not bypass the canonical append tail fence",
-      );
-      const currentIdentity = yield* store.readIdentity(ThreadIdentityRequest.make({ threadId }));
+        isAppendConflict(staleIdentity) && staleIdentity.reason === 'tail',
+        'Identity reads do not bypass the canonical append tail fence',
+      )
+      const currentIdentity = yield* store.readIdentity(ThreadIdentityRequest.make({ threadId }))
 
       const retried = yield* append(
         threadId,
-        batch("inspect-retry-identity", [record("inspect-record-3", "third")]),
+        batch('inspect-retry-identity', [record('inspect-record-3', 'third')]),
         {
           lastSequence: currentIdentity.tailSequence,
         },
-      );
+      )
 
       yield* ensure(
         currentIdentity.tailSequence === resumed.lastSequence &&
           currentIdentity.records.length === 1 &&
           retried.lastSequence === resumed.lastSequence + 1,
-        "Rereading identity retains the bounded facts and allows append at the current tail",
-      );
+        'Rereading identity retains the bounded facts and allows append at the current tail',
+      )
     }),
-);
+)
 
 const notMaterializedOperations = conformanceCase(
-  "fails every read and write against an unmaterialized Thread",
+  'fails every read and write against an unmaterialized Thread',
   ({ ensure, expectFailure }) =>
-    Effect.gen(function* () {
-      const threadId = decodeThreadId("conformance-not-materialized");
-      const store = yield* ThreadStore;
+    Effect.gen(function*() {
+      const threadId = decodeThreadId('conformance-not-materialized')
+      const store = yield* ThreadStore
 
       const failures = [
         yield* expectFailure(
-          "appending to an unmaterialized Thread",
-          append(threadId, batch("missing-batch-1", [record("missing-record-1", "first")])),
+          'appending to an unmaterialized Thread',
+          append(threadId, batch('missing-batch-1', [record('missing-record-1', 'first')])),
         ),
-        yield* expectFailure("reading an unmaterialized Thread", readAll(threadId)),
+        yield* expectFailure('reading an unmaterialized Thread', readAll(threadId)),
         yield* expectFailure(
-          "observing an unmaterialized Thread",
+          'observing an unmaterialized Thread',
           store
             .observe(ThreadObservation.make({ threadId }))
             .pipe(Stream.take(1), Stream.runCollect),
         ),
         yield* expectFailure(
-          "exporting an unmaterialized Thread",
+          'exporting an unmaterialized Thread',
           store.export(ThreadExportRequest.make({ threadId })),
         ),
         yield* expectFailure(
-          "inspecting the tail of an unmaterialized Thread",
+          'inspecting the tail of an unmaterialized Thread',
           store.inspectTail(ThreadTailRequest.make({ threadId })),
         ),
         yield* expectFailure(
-          "reading the identity of an unmaterialized Thread",
+          'reading the identity of an unmaterialized Thread',
           store.readIdentity(ThreadIdentityRequest.make({ threadId })),
         ),
-      ];
+      ]
 
       yield* Effect.forEach(
         failures,
         (failure) =>
           ensure(
             isThreadNotMaterialized(failure) && failure.threadId === threadId,
-            "Operations against an unmaterialized Thread must fail as not materialized",
+            'Operations against an unmaterialized Thread must fail as not materialized',
           ),
         { discard: true },
-      );
+      )
     }),
-);
+)
 
 const nativeAmbiguousOwnership = conformanceCase(
-  "native Run input lookup fails closed on ambiguous original input",
+  'native Run input lookup fails closed on ambiguous original input',
   ({ expectFailure }) =>
-    Effect.gen(function* () {
-      const threadId = decodeThreadId("ambiguous-native-run");
+    Effect.gen(function*() {
+      const threadId = decodeThreadId('ambiguous-native-run')
 
-      yield* materialize(threadId);
+      yield* materialize(threadId)
       yield* append(
         threadId,
-        batch("inputs", [record("input-1", "first"), record("input-2", "second")]),
-      );
+        batch('inputs', [record('input-1', 'first'), record('input-2', 'second')]),
+      )
       yield* expectFailure(
-        "ambiguous original Run input",
+        'ambiguous original Run input',
         getRunInput({ threadId, runId: CONFORMANCE_RUN }),
-      );
+      )
     }),
-);
+)
 
 const nativeWorkerAccounting = conformanceCase(
-  "native worker accounting retains lifetime reservations without conversation history",
+  'native worker accounting retains lifetime reservations without conversation history',
   ({ ensure, expectFailure }) =>
-    Effect.gen(function* () {
-      const threadId = decodeThreadId("native-worker-accounting");
-      const store = yield* ThreadStore;
+    Effect.gen(function*() {
+      const threadId = decodeThreadId('native-worker-accounting')
+      const store = yield* ThreadStore
 
-      yield* materialize(threadId);
-      const workerThreadId = decodeThreadId("worker");
-      const agentId = yield* Schema.decodeEffect(AgentId)("agent").pipe(Effect.orDie);
+      yield* materialize(threadId)
+      const workerThreadId = decodeThreadId('worker')
+      const agentId = yield* Schema.decodeEffect(AgentId)('agent').pipe(Effect.orDie)
 
       const origin = {
         worker: {
           schemaVersion: 1 as const,
-          delegationId: yield* Schema.decodeEffect(DelegationId)("child").pipe(Effect.orDie),
+          delegationId: yield* Schema.decodeEffect(DelegationId)('child').pipe(Effect.orDie),
           targetAgentId: agentId,
           threadId: workerThreadId,
         },
-        source: { _tag: "programmatic" as const, agentId, threadId },
-        budgetScope: "worker-run" as const,
+        source: { _tag: 'programmatic' as const, agentId, threadId },
+        budgetScope: 'worker-run' as const,
         targetDigests: {
           agent: DEFINITION_DIGEST,
           model: DEFINITION_DIGEST,
@@ -634,7 +622,7 @@ const nativeWorkerAccounting = conformanceCase(
         policy: AgentPolicy.make({
           maxTurns: 1,
           maxToolCalls: 1,
-          maxDuration: "1 second",
+          maxDuration: '1 second',
           toolConcurrency: 1,
         }),
         budget: {
@@ -651,24 +639,24 @@ const nativeWorkerAccounting = conformanceCase(
         },
         grant: SubagentGrant.make({ allowedToolNames: [], maxDepth: 1 }),
         depth: 1,
-        firstMessageId: yield* Schema.decodeEffect(IdempotencyKey)("message-0").pipe(Effect.orDie),
+        firstMessageId: yield* Schema.decodeEffect(IdempotencyKey)('message-0').pipe(Effect.orDie),
         createdAtMillis: 0,
         expiresAtMillis: 1000,
-      };
+      }
 
-      const envelope = (id: string, payload: RecordEnvelope["payload"]) =>
-        RecordEnvelope.make({ ...record(id, "unused"), payload });
+      const envelope = (id: string, payload: RecordEnvelope['payload']) =>
+        RecordEnvelope.make({ ...record(id, 'unused'), payload })
 
       const completed = (messageId: IdempotencyKey, verified: boolean) =>
         WorkerInputCompleted.make({
           messageId,
           workerThreadId,
           submissionId: CONFORMANCE_SUBMISSION,
-          receiptId: Schema.decodeSync(ReceiptId)("receipt"),
-          settlementId: Schema.decodeSync(SettlementId)("settlement"),
+          receiptId: Schema.decodeSync(ReceiptId)('receipt'),
+          settlementId: Schema.decodeSync(SettlementId)('settlement'),
           completedAtMillis: 1,
           ...(verified ? { effectsResolved: true as const } : {}),
-        });
+        })
 
       const requested = WorkerInputRequested.make({
         admission: {
@@ -679,59 +667,57 @@ const nativeWorkerAccounting = conformanceCase(
           createdAtMillis: 0,
         },
         inputDigest: DEFINITION_DIGEST,
-      });
+      })
 
       let tail = yield* append(
         threadId,
-        batch("legacy", [
-          envelope("requested", requested),
-          envelope("legacy-completion", completed(origin.firstMessageId, false)),
+        batch('legacy', [
+          envelope('requested', requested),
+          envelope('legacy-completion', completed(origin.firstMessageId, false)),
         ]),
-      );
+      )
 
       tail = yield* append(
         threadId,
-        batch("verified", [envelope("verified", completed(origin.firstMessageId, true))]),
+        batch('verified', [envelope('verified', completed(origin.firstMessageId, true))]),
         tail,
-      );
+      )
       yield* ensure(
-        Option.isSome(yield* getRecord({ threadId, recordId: decodeRecordId("requested") })),
-        "Proven completion retains its canonical reservation",
-      );
+        Option.isSome(yield* getRecord({ threadId, recordId: decodeRecordId('requested') })),
+        'Proven completion retains its canonical reservation',
+      )
       // Regression: https://github.com/yielded-dev/agent/commit/6a4f4f870
       // Payloads do not select identity: the exact lineage locator precedes the
       // exact origin locator in the log, while replies retain first/origin/lineage order.
       tail = yield* append(
         threadId,
-        batch("identity-lineage", [record(subagentLineageRecordId(threadId), "lineage")]),
+        batch('identity-lineage', [record(subagentLineageRecordId(threadId), 'lineage')]),
         tail,
-      );
+      )
       // Cross the recovery horizon with irrelevant conversation records. Native worker
       // accounting must return the same families and scope, while capturing the full CAS tail.
       for (let base = 0; base < 4097; base += 256) {
         const makeInput = (n: number) =>
           envelope(
             `history-${n}`,
-            UserInputRecorded.make({ kind: "steering", input: `message-${n}` }),
-          );
+            UserInputRecorded.make({ kind: 'steering', input: `message-${n}` }),
+          )
 
         tail = yield* append(
           threadId,
           batch(`history-${base}`, [
             makeInput(base),
-            ...Array.from({ length: Math.min(255, 4096 - base) }, (_, offset) =>
-              makeInput(base + offset + 1),
-            ),
+            ...Array.from({ length: Math.min(255, 4096 - base) }, (_, offset) => makeInput(base + offset + 1)),
           ]),
           tail,
-        );
+        )
       }
       tail = yield* append(
         threadId,
-        batch("identity-origin", [record(workerOriginRecordId(threadId), "origin")]),
+        batch('identity-origin', [record(workerOriginRecordId(threadId), 'origin')]),
         tail,
-      );
-      const identity = yield* store.readIdentity(ThreadIdentityRequest.make({ threadId }));
+      )
+      const identity = yield* store.readIdentity(ThreadIdentityRequest.make({ threadId }))
 
       yield* ensure(
         identity.threadId === threadId &&
@@ -739,15 +725,15 @@ const nativeWorkerAccounting = conformanceCase(
           identity.records.length === 3 &&
           identity.records.map(({ record }) => record.recordId).join() ===
             [
-              "requested",
+              'requested',
               workerOriginRecordId(threadId),
               subagentLineageRecordId(threadId),
             ].join() &&
           identity.records.every(
             (entry) => entry.threadId === threadId && entry.sequence <= identity.tailSequence,
           ),
-        "Identity selects the exact canonical locators in semantic order beyond the recovery horizon",
-      );
+        'Identity selects the exact canonical locators in semantic order beyond the recovery horizon',
+      )
 
       const budgetRow = (id: string, sourceSubmissionId: SubmissionId) =>
         envelope(
@@ -757,62 +743,62 @@ const nativeWorkerAccounting = conformanceCase(
             executionRunId: null,
             sourceSubmissionId,
             childThreadId: workerThreadId,
-            lifetime: "background",
+            lifetime: 'background',
             depth: 1,
             policy: origin.policy,
             budget: origin.budget,
             grant: origin.grant,
           }),
-        );
+        )
 
       tail = yield* append(
         threadId,
-        batch("scoped-budgets", [
-          budgetRow("selected", CONFORMANCE_SUBMISSION),
-          budgetRow("selected-second", CONFORMANCE_SUBMISSION),
+        batch('scoped-budgets', [
+          budgetRow('selected', CONFORMANCE_SUBMISSION),
+          budgetRow('selected-second', CONFORMANCE_SUBMISSION),
           budgetRow(
-            "old-run",
-            yield* Schema.decodeEffect(SubmissionId)("old-run").pipe(Effect.orDie),
+            'old-run',
+            yield* Schema.decodeEffect(SubmissionId)('old-run').pipe(Effect.orDie),
           ),
         ]),
         tail,
-      );
+      )
       yield* expectFailure(
-        "Worker accounting cannot return a partial authorization snapshot",
+        'Worker accounting cannot return a partial authorization snapshot',
         readWorkerState({ threadId, sourceSubmissionId: CONFORMANCE_SUBMISSION, limit: 1 }),
-      );
+      )
 
       const accounting = yield* readWorkerState({
         threadId,
         sourceSubmissionId: CONFORMANCE_SUBMISSION,
         limit: 2,
-      });
+      })
 
       yield* ensure(
         accounting.records.length === 2 &&
           accounting.records
-            .filter(({ record }) => record.payload._tag === "SubtreeBudgetReserved")
-            .map(({ record }) => record.recordId)
-            .join() === "selected,selected-second",
+              .filter(({ record }) => record.payload._tag === 'SubtreeBudgetReserved')
+              .map(({ record }) => record.recordId)
+              .join() === 'selected,selected-second',
         "Worker state excludes conversation and another Run's accounting, retaining completed lifetime reservations",
-      );
+      )
       yield* ensure(
         accounting.tailSequence === tail.lastSequence,
-        "The accounting snapshot carries the full canonical CAS tail",
-      );
+        'The accounting snapshot carries the full canonical CAS tail',
+      )
       // Regression: https://github.com/yielded-dev/agent/blob/c721a292205e06185f0136c3ed05dcf53e29ca66/packages/effect-agent/src/durable/SqlThreadNativeReads.ts#L195-L214
       tail = yield* append(
         threadId,
-        batch("stop-worker", [
+        batch('stop-worker', [
           envelope(
-            "stop-worker",
+            'stop-worker',
             WorkerStopRequested.make({
               principal: yield* Schema.decodeEffect(WorkerStopRequested.fields.principal)(
-                "owner",
+                'owner',
               ).pipe(Effect.orDie),
               command: {
                 worker: origin.worker,
-                idempotencyKey: yield* Schema.decodeEffect(IdempotencyKey)("stop-worker").pipe(
+                idempotencyKey: yield* Schema.decodeEffect(IdempotencyKey)('stop-worker').pipe(
                   Effect.orDie,
                 ),
               },
@@ -820,60 +806,60 @@ const nativeWorkerAccounting = conformanceCase(
           ),
         ]),
         tail,
-      );
+      )
 
       const stopped = yield* Stream.runCollect(
         store.read({
           threadId,
           selection: {
-            _tag: "WorkerStop",
+            _tag: 'WorkerStop',
             workerThreadId,
             throughSequence: tail.lastSequence,
           },
           page: { limit: 1 },
         }),
-      );
+      )
 
       yield* ensure(
-        stopped.some(({ record }) => record.payload._tag === "WorkerStopRequested"),
-        "The exact worker stop selection retains intent after assignment completion",
-      );
+        stopped.some(({ record }) => record.payload._tag === 'WorkerStopRequested'),
+        'The exact worker stop selection retains intent after assignment completion',
+      )
 
-      yield* materialize(workerThreadId);
+      yield* materialize(workerThreadId)
 
       const workerTail = yield* append(
         workerThreadId,
-        batch("worker-execution", [
-          envelope("worker-origin", WorkerOriginRecorded.make({ origin })),
+        batch('worker-execution', [
+          envelope('worker-origin', WorkerOriginRecorded.make({ origin })),
           envelope(
-            "worker-run-input",
-            UserInputRecorded.make({ kind: "user", input: "run", runId: CONFORMANCE_RUN }),
+            'worker-run-input',
+            UserInputRecorded.make({ kind: 'user', input: 'run', runId: CONFORMANCE_RUN }),
           ),
-          envelope("worker-steering", UserInputRecorded.make({ kind: "steering", input: "note" })),
+          envelope('worker-steering', UserInputRecorded.make({ kind: 'steering', input: 'note' })),
         ]),
-      );
+      )
 
       const selectedExecution = store
         .read({
           threadId: workerThreadId,
-          selection: { _tag: "WorkerExecution", expectedTailSequence: workerTail.lastSequence },
+          selection: { _tag: 'WorkerExecution', expectedTailSequence: workerTail.lastSequence },
           page: { limit: 2 },
         })
-        .pipe(Stream.runCollect);
+        .pipe(Stream.runCollect)
 
       const retainsRunInput = (entries: ReadonlyArray<CanonicalRecordEnvelope>) =>
         ensure(
-          entries.length === 1 && entries[0]?.record.recordId === "worker-run-input",
-          "Worker recovery retains its latest Run input across unrelated steering inputs",
-        );
+          entries.length === 1 && entries[0]?.record.recordId === 'worker-run-input',
+          'Worker recovery retains its latest Run input across unrelated steering inputs',
+        )
 
-      yield* retainsRunInput(yield* selectedExecution);
+      yield* retainsRunInput(yield* selectedExecution)
       if (store.work !== undefined) {
-        yield* store.work.rebuild({ threadId: workerThreadId, restart: true }).pipe(Effect.orDie);
-        yield* retainsRunInput(yield* selectedExecution);
+        yield* store.work.rebuild({ threadId: workerThreadId, restart: true }).pipe(Effect.orDie)
+        yield* retainsRunInput(yield* selectedExecution)
       }
     }),
-);
+)
 
 /**
  * The shared, adapter-parameterized ThreadStore contract suite (STORE-010). Every
@@ -888,4 +874,4 @@ export const threadStoreConformanceCases: ReadonlyArray<ThreadStoreConformanceCa
   offsetResumability,
   tailInspection,
   notMaterializedOperations,
-];
+]

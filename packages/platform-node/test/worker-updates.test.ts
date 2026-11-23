@@ -1,172 +1,176 @@
-import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
-import { expect, it } from "@effect/vitest";
-import * as NodeHost from "@yielded/agent-platform-node/node-durable-host";
-import * as Agent from "@yielded/agent/agent";
-import { DurableAgentRuntime } from "@yielded/agent/durable-agent-runtime";
-import { ThreadId } from "@yielded/agent/identifiers";
-import { MessageDeliveryStore } from "@yielded/agent/message-delivery";
-import { DefinitionDigestInput } from "@yielded/agent/records";
-import * as Subagent from "@yielded/agent/subagent";
-import { SubagentHost } from "@yielded/agent/subagent-host";
-import { AbortCommand, IdempotencyKey, Principal } from "@yielded/agent/submission-ledger";
-import { readTestThread } from "@yielded/agent/testing/thread-store-conformance";
-import { ThreadExportRequest, ThreadStore, ThreadReader } from "@yielded/agent/thread-store";
-import { WorkerError, WorkerUpdate } from "@yielded/agent/worker";
-import { WorkerHostAuthorizer } from "@yielded/agent/worker-host";
-import * as LanguageModel from "effect/ai/LanguageModel";
-import * as Model from "effect/ai/Model";
-import type * as Response from "effect/ai/Response";
-import * as Toolkit from "effect/ai/Toolkit";
-import * as Context from "effect/Context";
-import * as Deferred from "effect/Deferred";
-import * as Effect from "effect/Effect";
-import * as Exit from "effect/Exit";
-import * as FileSystem from "effect/FileSystem";
-import * as Layer from "effect/Layer";
-import * as Schema from "effect/Schema";
-import * as Scope from "effect/Scope";
-import * as Stream from "effect/Stream";
+import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
+import { expect, it } from '@effect/vitest'
+import * as NodeHost from '@yielded/agent-platform-node/node-durable-host'
+import * as Agent from '@yielded/agent/agent'
+import { DurableAgentRuntime } from '@yielded/agent/durable-agent-runtime'
+import { ThreadId } from '@yielded/agent/identifiers'
+import { MessageDeliveryStore } from '@yielded/agent/message-delivery'
+import { DefinitionDigestInput } from '@yielded/agent/records'
+import * as Subagent from '@yielded/agent/subagent'
+import { SubagentHost } from '@yielded/agent/subagent-host'
+import { AbortCommand, IdempotencyKey, Principal } from '@yielded/agent/submission-ledger'
+import { readTestThread } from '@yielded/agent/testing/thread-store-conformance'
+import { ThreadExportRequest, ThreadReader, ThreadStore } from '@yielded/agent/thread-store'
+import { WorkerError, WorkerUpdate } from '@yielded/agent/worker'
+import { WorkerHostAuthorizer } from '@yielded/agent/worker-host'
+import * as LanguageModel from 'effect/ai/LanguageModel'
+import * as Model from 'effect/ai/Model'
+import type * as Response from 'effect/ai/Response'
+import * as Toolkit from 'effect/ai/Toolkit'
+import * as Context from 'effect/Context'
+import * as Deferred from 'effect/Deferred'
+import * as Effect from 'effect/Effect'
+import * as Exit from 'effect/Exit'
+import * as FileSystem from 'effect/FileSystem'
+import * as Layer from 'effect/Layer'
+import * as Schema from 'effect/Schema'
+import * as Scope from 'effect/Scope'
+import * as Stream from 'effect/Stream'
 
-const input = Schema.Struct({ question: Schema.String });
-const output = Schema.Struct({ answer: Schema.String });
+const input = Schema.Struct({ question: Schema.String })
+const output = Schema.Struct({ answer: Schema.String })
 
-const areaConcern = Schema.TaggedStruct("AreaConcern", {
+const areaConcern = Schema.TaggedStruct('AreaConcern', {
   area: Schema.String,
   recommendation: Schema.String,
-});
+})
 
 const concern = {
-  _tag: "AreaConcern" as const,
-  area: "Johannesburg CBD",
-  recommendation: "Rosebank",
-};
+  _tag: 'AreaConcern' as const,
+  area: 'Johannesburg CBD',
+  recommendation: 'Rosebank',
+}
 
-const principal = Schema.decodeSync(Principal)("update-owner");
-const threadId = Schema.decodeSync(ThreadId)("johannesburg-parent");
-const key = Schema.decodeSync(IdempotencyKey);
-const usage = { inputTokens: {}, outputTokens: {} };
+const principal = Schema.decodeSync(Principal)('update-owner')
+const threadId = Schema.decodeSync(ThreadId)('johannesburg-parent')
+const key = Schema.decodeSync(IdempotencyKey)
+const usage = { inputTokens: {}, outputTokens: {} }
 
 const finish = (answer: string): ReadonlyArray<Response.StreamPartEncoded> => [
-  { type: "text-start", id: "answer" },
-  { type: "text-delta", id: "answer", delta: JSON.stringify({ answer }) },
-  { type: "text-end", id: "answer" },
-  { type: "finish", reason: "stop", usage },
-];
+  { type: 'text-start', id: 'answer' },
+  { type: 'text-delta', id: 'answer', delta: JSON.stringify({ answer }) },
+  { type: 'text-end', id: 'answer' },
+  { type: 'finish', reason: 'stop', usage },
+]
 
 const calls = (
   ...tools: ReadonlyArray<{ name: string; params: unknown }>
 ): ReadonlyArray<Response.StreamPartEncoded> => [
   ...tools.map(({ name, params }, index) => ({
-    type: "tool-call" as const,
+    type: 'tool-call' as const,
     id: `${name}-${index}-call`,
     name,
     params,
     providerExecuted: false,
   })),
-  { type: "finish", reason: "tool-calls", usage },
-];
+  { type: 'finish', reason: 'tool-calls', usage },
+]
 
-const model = (name: string, streamText: Parameters<typeof LanguageModel.make>[0]["streamText"]) =>
+const model = (name: string, streamText: Parameters<typeof LanguageModel.make>[0]['streamText']) =>
   Model.make(
-    "scripted",
+    'scripted',
     name,
     Layer.effect(
       LanguageModel.LanguageModel,
       LanguageModel.make({ generateText: () => Effect.succeed([]), streamText }),
     ),
-  );
+  )
 
 const authority = Layer.succeed(WorkerHostAuthorizer, {
   authorize: (request) =>
     request.principal === principal
       ? Effect.succeed(principal)
-      : WorkerError.make({ operation: request.operation, reason: "denied" }),
-});
+      : WorkerError.make({ operation: request.operation, reason: 'denied' }),
+})
 
-for (const [parentState, failpoint, abortChild] of [
-  ["completed", "update:after-canonical-append", false],
-  ["aborted", "update:after-canonical-append", false],
-  ["completed", "update:after-canonical-append", true],
-] as const) {
+for (
+  const [parentState, failpoint, abortChild] of [
+    ['completed', 'update:after-canonical-append', false],
+    ['aborted', 'update:after-canonical-append', false],
+    ['completed', 'update:after-canonical-append', true],
+  ] as const
+) {
   it.live(
-    `retains delivered updates after lost acknowledgement at ${failpoint}, restart, and a ${parentState} parent${abortChild ? ", with child abort before recovery" : ""}`,
+    `retains delivered updates after lost acknowledgement at ${failpoint}, restart, and a ${parentState} parent${
+      abortChild ? ', with child abort before recovery' : ''
+    }`,
     () =>
       Effect.scoped(
-        Effect.gen(function* () {
-          const fs = yield* FileSystem.FileSystem;
-          const directory = yield* fs.makeTempDirectoryScoped({ prefix: "update-restart-" });
-          const lostAck = yield* Deferred.make<void>();
-          let childModelCalls = 0;
+        Effect.gen(function*() {
+          const fs = yield* FileSystem.FileSystem
+          const directory = yield* fs.makeTempDirectoryScoped({ prefix: 'update-restart-' })
+          const lostAck = yield* Deferred.make<void>()
+          let childModelCalls = 0
 
-          const child = Agent.make("restart-hotel", {
+          const child = Agent.make('restart-hotel', {
             input,
             output,
             updates: areaConcern,
-            instructions: "Research hotels and report concerns.",
+            instructions: 'Research hotels and report concerns.',
             toolkit: Toolkit.empty,
-            policy: { maxTurns: 2, maxToolCalls: 1, maxDuration: "30 seconds" },
-          });
+            policy: { maxTurns: 2, maxToolCalls: 1, maxDuration: '30 seconds' },
+          })
 
-          const declaration = Subagent.make("restart-hotel", { target: child });
-          let selected = true;
-          let selections = 0;
+          const declaration = Subagent.make('restart-hotel', { target: child })
+          let selected = true
+          let selections = 0
 
-          const start = Subagent.startTool(declaration);
+          const start = Subagent.startTool(declaration)
 
           const reporting = Subagent.reporting(declaration, {
             reportUpdate: () => {
-              selections++;
+              selections++
 
-              return selected;
+              return selected
             },
-          });
+          })
 
           const source = Agent.withModel(
-            Agent.make("restart-parent", {
+            Agent.make('restart-parent', {
               input,
               output,
-              instructions: "Discuss findings.",
+              instructions: 'Discuss findings.',
               toolkit: Toolkit.make(start.tool),
-              policy: { maxTurns: 10, maxToolCalls: 10, maxDuration: "1 minute" },
+              policy: { maxTurns: 10, maxToolCalls: 10, maxDuration: '1 minute' },
             }),
-            model("restart-parent", () => Stream.fromIterable(finish("I have the finding."))),
-          );
+            model('restart-parent', () => Stream.fromIterable(finish('I have the finding.'))),
+          )
 
           const childBinding = Agent.withModel(
             child,
-            model("restart-child", () => {
-              childModelCalls++;
+            model('restart-child', () => {
+              childModelCalls++
 
               return Stream.fromIterable(
                 childModelCalls === 1
-                  ? calls({ name: "emit_update", params: { value: concern } })
-                  : finish("Finding delivered"),
-              );
+                  ? calls({ name: 'emit_update', params: { value: concern } })
+                  : finish('Finding delivered'),
+              )
             }),
-          );
+          )
 
           const registrations = [source, childBinding].map((agent) => ({
             agent,
             reporting: agent === source ? [reporting] : [],
             definitions: DefinitionDigestInput.make({
               agent: agent.definition.id,
-              model: "v1",
+              model: 'v1',
               tools: Object.keys(agent.definition.toolkit.tools),
             }),
-          }));
+          }))
 
           const options = {
             filename: `${directory}/runtime.sqlite`,
-            deploymentId: "restart-updates",
-            producerId: "node",
+            deploymentId: 'restart-updates',
+            producerId: 'node',
             workerConcurrency: 1,
             wakeScanInterval: 10,
             settlementPollInterval: 10,
-          };
+          }
 
-          const firstScope = yield* Scope.make();
+          const firstScope = yield* Scope.make()
 
-          yield* Effect.addFinalizer(() => Scope.close(firstScope, Exit.void));
+          yield* Effect.addFinalizer(() => Scope.close(firstScope, Exit.void))
 
           const first = yield* Layer.build(
             NodeHost.NodeDurableHost.layerRegistered(registrations, {
@@ -176,187 +180,186 @@ for (const [parentState, failpoint, abortChild] of [
                   ? Deferred.succeed(lostAck, undefined).pipe(Effect.andThen(Effect.never))
                   : Effect.void,
             }).pipe(Layer.provide([authority, start.layer])),
-          ).pipe(Scope.provide(firstScope));
+          ).pipe(Scope.provide(firstScope))
 
-          const runtime = Context.get(first, DurableAgentRuntime);
+          const runtime = Context.get(first, DurableAgentRuntime)
 
           const sourceReceipt = yield* runtime.submitRegistered(
             source,
-            { question: "Johannesburg" },
-            { threadId, principal, idempotencyKey: key("source") },
-          );
+            { question: 'Johannesburg' },
+            { threadId, principal, idempotencyKey: key('source') },
+          )
 
-          if (parentState === "completed") yield* runtime.processThreadResolved(threadId);
+          if (parentState === 'completed') yield* runtime.processThreadResolved(threadId)
 
           const owner = yield* runtime.workerHost({
             sourceThreadId: threadId,
             principal,
             sourceSubmissionId: sourceReceipt.submissionId,
-          });
+          })
 
           const started = yield* Subagent.start(
             declaration,
-            { question: "Check the CBD" },
-            { idempotencyKey: key("hotel") },
-          ).pipe(Effect.provideService(SubagentHost, owner));
+            { question: 'Check the CBD' },
+            { idempotencyKey: key('hotel') },
+          ).pipe(Effect.provideService(SubagentHost, owner))
 
-          if (parentState === "aborted") {
+          if (parentState === 'aborted') {
             yield* runtime.abort(
               AbortCommand.make({
                 submissionId: sourceReceipt.submissionId,
                 author: principal,
-                reason: "cancel parent",
+                reason: 'cancel parent',
               }),
-            );
-            yield* runtime.processThreadResolved(threadId);
+            )
+            yield* runtime.processThreadResolved(threadId)
           }
-          expect((yield* runtime.awaitSettlement(sourceReceipt)).outcome).toBe(parentState);
+          expect((yield* runtime.awaitSettlement(sourceReceipt)).outcome).toBe(parentState)
           yield* runtime
             .processThreadResolved(started.worker.threadId)
-            .pipe(Effect.forkIn(firstScope));
-          yield* Deferred.await(lostAck);
+            .pipe(Effect.forkIn(firstScope))
+          yield* Deferred.await(lostAck)
 
           const before = yield* readTestThread(
             Context.get(first, ThreadStore),
             ThreadExportRequest.make({ threadId: started.worker.threadId }),
-          );
+          )
 
           const accepted = before.records.flatMap(({ record }) =>
-            record.payload._tag === "AgentUpdateEmitted" ? [record.payload.update] : [],
-          );
+            record.payload._tag === 'AgentUpdateEmitted' ? [record.payload.update] : []
+          )
 
-          expect(accepted).toHaveLength(1);
+          expect(accepted).toHaveLength(1)
           expect(
-            before.records.filter(({ record }) => record.payload._tag === "ToolCallSettled"),
-          ).toHaveLength(0);
+            before.records.filter(({ record }) => record.payload._tag === 'ToolCallSettled'),
+          ).toHaveLength(0)
           if (abortChild) {
             yield* runtime.abort(
               AbortCommand.make({
                 submissionId: started.delivery.receipt!.submissionId,
                 author: principal,
-                reason: "Stop before recovering the accepted update",
+                reason: 'Stop before recovering the accepted update',
               }),
-            );
+            )
           }
-          yield* Scope.close(firstScope, Exit.void);
-          selected = false;
+          yield* Scope.close(firstScope, Exit.void)
+          selected = false
 
           const second = yield* Layer.build(
             NodeHost.layer(registrations, options).pipe(Layer.provide([authority, start.layer])),
-          );
+          )
 
-          const reopened = Context.get(second, DurableAgentRuntime);
-          const store = Context.get(second, ThreadReader);
-          const deliveries = Context.get(second, MessageDeliveryStore);
+          const reopened = Context.get(second, DurableAgentRuntime)
+          const store = Context.get(second, ThreadReader)
+          const deliveries = Context.get(second, MessageDeliveryStore)
 
-          const read = (id: ThreadId) =>
-            readTestThread(store, ThreadExportRequest.make({ threadId: id }));
+          const read = (id: ThreadId) => readTestThread(store, ThreadExportRequest.make({ threadId: id }))
 
           if (abortChild) {
             expect((yield* reopened.awaitSettlement(started.delivery.receipt!)).outcome).toBe(
-              "aborted",
-            );
-            yield* reopened.runRecovery({ threadId: started.worker.threadId });
-            const recoveredChild = yield* read(started.worker.threadId);
+              'aborted',
+            )
+            yield* reopened.runRecovery({ threadId: started.worker.threadId })
+            const recoveredChild = yield* read(started.worker.threadId)
 
             expect(
               recoveredChild.records.flatMap(({ record }) =>
-                record.payload._tag === "ToolCallSettled" ? [record.payload] : [],
+                record.payload._tag === 'ToolCallSettled' ? [record.payload] : []
               ),
             ).toMatchObject([
               {
-                toolCallId: "emit_update-0-call",
-                toolName: "emit_update",
+                toolCallId: 'emit_update-0-call',
+                toolName: 'emit_update',
                 result: { emitted: true },
                 isFailure: false,
               },
-            ]);
+            ])
             expect(
               recoveredChild.records.flatMap(({ record }) =>
-                record.payload._tag === "WorkerInputCompleted" &&
-                record.payload.submissionId === started.delivery.receipt!.submissionId &&
-                record.payload.effectsResolved
+                record.payload._tag === 'WorkerInputCompleted' &&
+                  record.payload.submissionId === started.delivery.receipt!.submissionId &&
+                  record.payload.effectsResolved
                   ? [record.payload]
-                  : [],
+                  : []
               ),
-            ).toHaveLength(1);
+            ).toHaveLength(1)
             expect(
               recoveredChild.records.flatMap(({ record }) =>
-                record.payload._tag === "AgentUpdateEmitted" ? [record.payload.update] : [],
+                record.payload._tag === 'AgentUpdateEmitted' ? [record.payload.update] : []
               ),
-            ).toEqual(accepted);
+            ).toEqual(accepted)
             expect((yield* reopened.awaitSettlement(started.delivery.receipt!)).outcome).toBe(
-              "aborted",
-            );
-            expect(childModelCalls).toBe(1);
+              'aborted',
+            )
+            expect(childModelCalls).toBe(1)
           }
-          yield* Effect.gen(function* () {
+          yield* Effect.gen(function*() {
             for (;;) {
               const rows = yield* deliveries.list({
                 ownerThreadId: started.worker.threadId,
                 limit: 100,
-              });
+              })
 
               if (
                 rows.items.length > 0 &&
                 rows.items.every((row) => row.receipt !== null && row.receipt !== undefined)
               ) {
-                for (const row of rows.items) yield* reopened.awaitSettlement(row.receipt!);
+                for (const row of rows.items) yield* reopened.awaitSettlement(row.receipt!)
 
-                return;
+                return
               }
-              yield* Effect.sleep(10);
+              yield* Effect.sleep(10)
             }
-          }).pipe(Effect.timeout("5 seconds"));
-          const parentLog = yield* read(threadId);
+          }).pipe(Effect.timeout('5 seconds'))
+          const parentLog = yield* read(threadId)
 
           const messages = parentLog.records.flatMap(({ record }) =>
-            record.payload._tag === "UserInputRecorded" &&
-            Schema.is(WorkerUpdate)(record.payload.messageAdmission)
+            record.payload._tag === 'UserInputRecorded' &&
+              Schema.is(WorkerUpdate)(record.payload.messageAdmission)
               ? [record.payload.messageAdmission]
-              : [],
-          );
+              : []
+          )
 
-          expect(messages).toHaveLength(1);
-          expect(messages[0]).toMatchObject({ worker: started.worker, update: accepted[0] });
-          expect(selections).toBe(1);
-          if (abortChild) return;
+          expect(messages).toHaveLength(1)
+          expect(messages[0]).toMatchObject({ worker: started.worker, update: accepted[0] })
+          expect(selections).toBe(1)
+          if (abortChild) return
           // Human-requested regression: canonical acceptance must also recover the native call.
-          const recovered = yield* read(started.worker.threadId);
+          const recovered = yield* read(started.worker.threadId)
 
           expect(
-            recovered.records.filter(({ record }) => record.payload._tag === "ToolCallUnknown"),
-          ).toHaveLength(0);
+            recovered.records.filter(({ record }) => record.payload._tag === 'ToolCallUnknown'),
+          ).toHaveLength(0)
           expect((yield* reopened.awaitSettlement(started.delivery.receipt!)).outcome).toBe(
-            "completed",
-          );
-          const blocked = yield* read(started.worker.threadId);
+            'completed',
+          )
+          const blocked = yield* read(started.worker.threadId)
 
           expect(
-            blocked.records.filter(({ record }) => record.payload._tag === "AgentUpdateEmitted"),
-          ).toHaveLength(1);
+            blocked.records.filter(({ record }) => record.payload._tag === 'AgentUpdateEmitted'),
+          ).toHaveLength(1)
           expect(
             blocked.records.filter(
               ({ record }) =>
-                record.payload._tag === "SubmissionSettled" &&
-                record.payload.outcome === "completed",
+                record.payload._tag === 'SubmissionSettled' &&
+                record.payload.outcome === 'completed',
             ),
-          ).toHaveLength(1);
-          expect(childModelCalls).toBe(2);
+          ).toHaveLength(1)
+          expect(childModelCalls).toBe(2)
           expect(
-            blocked.records.filter(({ record }) => record.payload._tag === "ToolCallUnknown"),
-          ).toHaveLength(0);
-          const finalChild = yield* read(started.worker.threadId);
+            blocked.records.filter(({ record }) => record.payload._tag === 'ToolCallUnknown'),
+          ).toHaveLength(0)
+          const finalChild = yield* read(started.worker.threadId)
 
           expect(
             finalChild.records.flatMap(({ record }) =>
-              record.payload._tag === "AgentUpdateEmitted" ? [record.payload.update] : [],
+              record.payload._tag === 'AgentUpdateEmitted' ? [record.payload.update] : []
             ),
-          ).toEqual(accepted);
-          expect((yield* reopened.awaitSettlement(sourceReceipt)).outcome).toBe(parentState);
-          expect(childModelCalls).toBe(2);
+          ).toEqual(accepted)
+          expect((yield* reopened.awaitSettlement(sourceReceipt)).outcome).toBe(parentState)
+          expect(childModelCalls).toBe(2)
         }),
       ).pipe(Effect.provide(NodeFileSystem.layer)),
     15_000,
-  );
+  )
 }

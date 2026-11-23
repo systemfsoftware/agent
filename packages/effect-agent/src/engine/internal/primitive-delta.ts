@@ -1,38 +1,38 @@
-import * as Response from "effect/ai/Response";
+import * as Response from 'effect/ai/Response'
 
-import { utf8ByteLength } from "../../core/internal/utf8.ts";
-import { boundedValueFootprint } from "./bounded-value.ts";
+import { utf8ByteLength } from '../../core/internal/utf8.ts'
+import { boundedValueFootprint } from './bounded-value.ts'
 
-const brand = "~effect/ai/Response/Part";
-const keys = [brand, "type", "id", "delta", "metadata"];
-const boundaryKeys = [brand, "type", "id", "metadata"];
+const brand = '~effect/ai/Response/Part'
+const keys = [brand, 'type', 'id', 'delta', 'metadata']
+const boundaryKeys = [brand, 'type', 'id', 'metadata']
 
-const overhead = (type: "text-delta" | "reasoning-delta") => ({
+const overhead = (type: 'text-delta' | 'reasoning-delta') => ({
   source: boundedValueFootprint(
-    Response.makePart(type, { id: "", delta: "" }),
+    Response.makePart(type, { id: '', delta: '' }),
     Number.MAX_SAFE_INTEGER,
   ),
   encoded: boundedValueFootprint(
-    { type, id: "", delta: "", metadata: {} },
+    { type, id: '', delta: '', metadata: {} },
     Number.MAX_SAFE_INTEGER,
   ),
-});
+})
 
 const boundaryOverhead = (
-  type: "text-start" | "text-end" | "reasoning-start" | "reasoning-end",
+  type: 'text-start' | 'text-end' | 'reasoning-start' | 'reasoning-end',
 ) => ({
-  source: boundedValueFootprint(Response.makePart(type, { id: "" }), Number.MAX_SAFE_INTEGER),
-  encoded: boundedValueFootprint({ type, id: "", metadata: {} }, Number.MAX_SAFE_INTEGER),
-});
+  source: boundedValueFootprint(Response.makePart(type, { id: '' }), Number.MAX_SAFE_INTEGER),
+  encoded: boundedValueFootprint({ type, id: '', metadata: {} }, Number.MAX_SAFE_INTEGER),
+})
 
 const overheads = {
-  "text-delta": overhead("text-delta"),
-  "reasoning-delta": overhead("reasoning-delta"),
-  "text-start": boundaryOverhead("text-start"),
-  "text-end": boundaryOverhead("text-end"),
-  "reasoning-start": boundaryOverhead("reasoning-start"),
-  "reasoning-end": boundaryOverhead("reasoning-end"),
-};
+  'text-delta': overhead('text-delta'),
+  'reasoning-delta': overhead('reasoning-delta'),
+  'text-start': boundaryOverhead('text-start'),
+  'text-end': boundaryOverhead('text-end'),
+  'reasoning-start': boundaryOverhead('reasoning-start'),
+  'reasoning-end': boundaryOverhead('reasoning-end'),
+}
 
 /**
  * Capture complete primitive text and reasoning values for native Schema validation.
@@ -43,62 +43,61 @@ const overheads = {
  */
 export const capturePrimitiveTextPart = (part: unknown, maxBytes: number) => {
   try {
-    if (part === null || typeof part !== "object") return undefined;
-    if (Array.isArray(part) || ArrayBuffer.isView(part)) return undefined;
-    const prototype = Object.getPrototypeOf(part);
+    if (part === null || typeof part !== 'object') return undefined
+    if (Array.isArray(part) || ArrayBuffer.isView(part)) return undefined
+    const prototype = Object.getPrototypeOf(part)
 
-    if (prototype !== Object.prototype && prototype !== null) return undefined;
-    const typeDescriptor = Object.getOwnPropertyDescriptor(part, "type");
+    if (prototype !== Object.prototype && prototype !== null) return undefined
+    const typeDescriptor = Object.getOwnPropertyDescriptor(part, 'type')
 
-    if (typeDescriptor === undefined || !("value" in typeDescriptor)) return undefined;
+    if (typeDescriptor === undefined || !('value' in typeDescriptor)) return undefined
 
-    const isDelta =
-      typeDescriptor.value === "text-delta" || typeDescriptor.value === "reasoning-delta";
+    const isDelta = typeDescriptor.value === 'text-delta' || typeDescriptor.value === 'reasoning-delta'
 
-    const selectedKeys = isDelta ? keys : boundaryKeys;
+    const selectedKeys = isDelta ? keys : boundaryKeys
 
-    if (Reflect.ownKeys(part).length !== selectedKeys.length) return undefined;
-    const snapshot: Record<string, unknown> = {};
+    if (Reflect.ownKeys(part).length !== selectedKeys.length) return undefined
+    const snapshot: Record<string, unknown> = {}
 
     for (const key of selectedKeys) {
-      const descriptor = Object.getOwnPropertyDescriptor(part, key);
+      const descriptor = Object.getOwnPropertyDescriptor(part, key)
 
-      if (descriptor === undefined || !("value" in descriptor)) return undefined;
-      snapshot[key] = descriptor.value;
+      if (descriptor === undefined || !('value' in descriptor)) return undefined
+      snapshot[key] = descriptor.value
     }
-    if (snapshot[brand] !== brand) return undefined;
-    const { type, id, delta, metadata } = snapshot;
+    if (snapshot[brand] !== brand) return undefined
+    const { type, id, delta, metadata } = snapshot
 
     if (
-      type !== "text-delta" &&
-      type !== "reasoning-delta" &&
-      type !== "text-start" &&
-      type !== "text-end" &&
-      type !== "reasoning-start" &&
-      type !== "reasoning-end"
+      type !== 'text-delta' &&
+      type !== 'reasoning-delta' &&
+      type !== 'text-start' &&
+      type !== 'text-end' &&
+      type !== 'reasoning-start' &&
+      type !== 'reasoning-end'
     ) {
-      return undefined;
+      return undefined
     }
-    if (isDelta !== (type === "text-delta" || type === "reasoning-delta")) return undefined;
-    if (typeof id !== "string" || (isDelta && typeof delta !== "string")) return undefined;
-    if (metadata === null || typeof metadata !== "object") return undefined;
-    if (Array.isArray(metadata) || ArrayBuffer.isView(metadata)) return undefined;
-    const metadataPrototype = Object.getPrototypeOf(metadata);
+    if (isDelta !== (type === 'text-delta' || type === 'reasoning-delta')) return undefined
+    if (typeof id !== 'string' || (isDelta && typeof delta !== 'string')) return undefined
+    if (metadata === null || typeof metadata !== 'object') return undefined
+    if (Array.isArray(metadata) || ArrayBuffer.isView(metadata)) return undefined
+    const metadataPrototype = Object.getPrototypeOf(metadata)
 
-    if (metadataPrototype !== Object.prototype && metadataPrototype !== null) return undefined;
-    if (Reflect.ownKeys(metadata).length !== 0) return undefined;
-    const fixed = overheads[type];
+    if (metadataPrototype !== Object.prototype && metadataPrototype !== null) return undefined
+    if (Reflect.ownKeys(metadata).length !== 0) return undefined
+    const fixed = overheads[type]
 
-    if (fixed.source === undefined || fixed.encoded === undefined) return undefined;
-    const bytes = utf8ByteLength(id) + (typeof delta === "string" ? utf8ByteLength(delta) : 0);
+    if (fixed.source === undefined || fixed.encoded === undefined) return undefined
+    const bytes = utf8ByteLength(id) + (typeof delta === 'string' ? utf8ByteLength(delta) : 0)
 
-    if (bytes + fixed.source > maxBytes || bytes + fixed.encoded > maxBytes) return undefined;
+    if (bytes + fixed.source > maxBytes || bytes + fixed.encoded > maxBytes) return undefined
     // Never pass the provider's metadata object (or any other object) to the decoder.
-    snapshot.metadata = {};
+    snapshot.metadata = {}
 
-    return { part: snapshot, retainedBytes: bytes + fixed.encoded };
+    return { part: snapshot, retainedBytes: bytes + fixed.encoded }
   } catch {
     // Reflection may throw for proxies. The general path owns the typed failure.
-    return undefined;
+    return undefined
   }
-};
+}

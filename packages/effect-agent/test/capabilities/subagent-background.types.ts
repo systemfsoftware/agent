@@ -1,163 +1,157 @@
-import * as Agent from "@yielded/agent/agent";
-import type { AgentRunDispositionError } from "@yielded/agent/agent-error";
-import { MessageRef, type MessageStatus } from "@yielded/agent/messaging";
-import { IdempotencyKey, type JoinedToHost, Receipt } from "@yielded/agent/receipt";
-import * as Subagent from "@yielded/agent/subagent";
-import { SubagentGrant } from "@yielded/agent/subagent-contract";
-import type {
-  FollowUpWorkerRequest,
-  StartWorkerRequest,
-  SubagentHost,
-} from "@yielded/agent/subagent-host";
-import type { WorkerError } from "@yielded/agent/worker";
-import type * as Tool from "effect/ai/Tool";
-import * as Toolkit from "effect/ai/Toolkit";
-import * as Context from "effect/Context";
-import type * as CryptoDigest from "effect/crypto/Digest";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Schema from "effect/Schema";
-import * as SchemaGetter from "effect/SchemaGetter";
+import * as Agent from '@yielded/agent/agent'
+import type { AgentRunDispositionError } from '@yielded/agent/agent-error'
+import { MessageRef, type MessageStatus } from '@yielded/agent/messaging'
+import { IdempotencyKey, type JoinedToHost, Receipt } from '@yielded/agent/receipt'
+import * as Subagent from '@yielded/agent/subagent'
+import { SubagentGrant } from '@yielded/agent/subagent-contract'
+import type { FollowUpWorkerRequest, StartWorkerRequest, SubagentHost } from '@yielded/agent/subagent-host'
+import type { WorkerError } from '@yielded/agent/worker'
+import type * as Tool from 'effect/ai/Tool'
+import * as Toolkit from 'effect/ai/Toolkit'
+import * as Context from 'effect/Context'
+import type * as CryptoDigest from 'effect/crypto/Digest'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
+import * as Schema from 'effect/Schema'
+import * as SchemaGetter from 'effect/SchemaGetter'
 
-import type { SubagentReservations } from "../../src/capabilities/SubagentReservations.ts";
+import type { SubagentReservations } from '../../src/capabilities/SubagentReservations.ts'
 
-type Equal<A, B> =
-  (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2
-    ? (<T>() => T extends B ? 1 : 2) extends <T>() => T extends A ? 1 : 2
-      ? true
-      : false
-    : false;
-type Assert<Value extends true> = Value;
-type ModelObservation<Value> = Value extends unknown ? Omit<Value, "diagnostic"> : never;
-class Prepare extends Context.Service<Prepare, string>()("background-types/Prepare") {}
-class Project extends Context.Service<Project, string>()("background-types/Project") {}
-class Encoder extends Context.Service<Encoder, string>()("background-types/Encoder") {}
-class Decoder extends Context.Service<Decoder, string>()("background-types/Decoder") {}
+type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2
+  ? (<T>() => T extends B ? 1 : 2) extends <T>() => T extends A ? 1 : 2 ? true
+  : false
+  : false
+type Assert<Value extends true> = Value
+type ModelObservation<Value> = Value extends unknown ? Omit<Value, 'diagnostic'> : never
+class Prepare extends Context.Service<Prepare, string>()('background-types/Prepare') {}
+class Project extends Context.Service<Project, string>()('background-types/Project') {}
+class Encoder extends Context.Service<Encoder, string>()('background-types/Encoder') {}
+class Decoder extends Context.Service<Decoder, string>()('background-types/Decoder') {}
 class ChildInstructions extends Context.Service<ChildInstructions, string>()(
-  "background-types/ChildInstructions",
+  'background-types/ChildInstructions',
 ) {}
-class DeclaredFailure extends Schema.TaggedError<DeclaredFailure>()("DeclaredFailure", {}) {}
+class DeclaredFailure extends Schema.TaggedError<DeclaredFailure>()('DeclaredFailure', {}) {}
 
 const text = Schema.String.pipe(
   Schema.decodeTo(Schema.String, {
     decode: SchemaGetter.transformEffect((value) => Effect.as(Decoder, value)),
     encode: SchemaGetter.transformEffect((value) => Effect.as(Encoder, value)),
   }),
-);
+)
 
-const target = Agent.make("typed-background-child", {
+const target = Agent.make('typed-background-child', {
   input: text,
   output: text,
   instructions: () => ChildInstructions,
   toolkit: Toolkit.empty,
-});
+})
 
-const updateTarget = Agent.make("updating-child", {
+const updateTarget = Agent.make('updating-child', {
   input: Schema.String,
   output: Schema.String,
   updates: Schema.Struct({ finding: text }),
-  instructions: "Report findings.",
+  instructions: 'Report findings.',
   toolkit: Toolkit.empty,
-});
+})
 
 const updateBackground = Subagent.startTool(
-  Subagent.make("updating-child", { target: updateTarget }),
-);
+  Subagent.make('updating-child', { target: updateTarget }),
+)
 
-const updateDeclaration = Subagent.make("updating", { target: updateTarget });
+const updateDeclaration = Subagent.make('updating', { target: updateTarget })
 
 const updateLayerProofs = (model: Layer.Layer<Agent.ModelServices>) => {
-  const modelLayer = Subagent.layer(updateDeclaration, model);
+  const modelLayer = Subagent.layer(updateDeclaration, model)
 
-  const bindingLayer = Subagent.layer(updateDeclaration, Agent.withModel(updateTarget, model));
+  const bindingLayer = Subagent.layer(updateDeclaration, Agent.withModel(updateTarget, model))
 
   const proofs: [
     Assert<Equal<Layer.Services<typeof modelLayer>, Encoder | Decoder | SubagentReservations>>,
     Assert<Equal<Layer.Services<typeof bindingLayer>, Encoder | Decoder | SubagentReservations>>,
     Assert<Equal<Layer.Error<typeof modelLayer>, never>>,
     Assert<Equal<Layer.Error<typeof bindingLayer>, never>>,
-  ] = [true, true, true, true];
+  ] = [true, true, true, true]
 
-  return proofs;
-};
+  return proofs
+}
 
 const updateTypes: [
-  Assert<Equal<typeof updateBackground.tool.name, "updating-child_start">>,
+  Assert<Equal<typeof updateBackground.tool.name, 'updating-child_start'>>,
   Assert<typeof updateDeclaration.target extends typeof updateTarget ? true : false>,
-] = [true, true];
+] = [true, true]
 
-const dispositionTarget = Agent.make("disposition-child", {
+const dispositionTarget = Agent.make('disposition-child', {
   input: Schema.String,
   output: Schema.String,
-  instructions: "Work and report completion.",
+  instructions: 'Work and report completion.',
   toolkit: Toolkit.empty,
   runDisposition: { schema: text, fromOutput: (output) => output },
-});
+})
 
 const dispositionBackground = Subagent.startTool(
-  Subagent.make("disposition-child", { target: dispositionTarget }),
-);
+  Subagent.make('disposition-child', { target: dispositionTarget }),
+)
 
-const dispositionDeclaration = Subagent.make("disposition", {
+const dispositionDeclaration = Subagent.make('disposition', {
   target: dispositionTarget,
   failure: Schema.String,
-});
+})
 
 const dispositionTypes: [
-  Assert<Equal<typeof dispositionBackground.tool.name, "disposition-child_start">>,
+  Assert<Equal<typeof dispositionBackground.tool.name, 'disposition-child_start'>>,
   Assert<typeof dispositionDeclaration.target extends typeof dispositionTarget ? true : false>,
   Assert<Equal<Layer.Services<typeof dispositionBackground.layer>, never>>,
-] = [true, true, true];
+] = [true, true, true]
 
 const dispositionLayerProofs = (model: Layer.Layer<Agent.ModelServices>) => {
   const modelLayer = Subagent.layer(dispositionDeclaration, model, {
     mapChildFailure: (error) => {
       const dispositionFailure: Assert<
         Equal<Extract<typeof error, AgentRunDispositionError>, AgentRunDispositionError>
-      > = true;
+      > = true
 
-      return String(dispositionFailure);
+      return String(dispositionFailure)
     },
-  });
+  })
 
   const bindingLayer = Subagent.layer(
     dispositionDeclaration,
     Agent.withModel(dispositionTarget, model),
-  );
+  )
 
   const proofs: [
     Assert<Equal<Layer.Services<typeof modelLayer>, Encoder | Decoder | SubagentReservations>>,
     Assert<Equal<Layer.Services<typeof bindingLayer>, Encoder | Decoder | SubagentReservations>>,
     Assert<Equal<Layer.Error<typeof modelLayer>, never>>,
     Assert<Equal<Layer.Error<typeof bindingLayer>, never>>,
-  ] = [true, true, true, true];
+  ] = [true, true, true, true]
 
-  return proofs;
-};
+  return proofs
+}
 
-const directDeclaration = Subagent.make("typed-background-child", { target });
-const directStart = Subagent.startTool(directDeclaration);
-const directFollowUp = Subagent.followUpTool(directDeclaration);
-const directInspect = Subagent.inspectTool(directDeclaration);
+const directDeclaration = Subagent.make('typed-background-child', { target })
+const directStart = Subagent.startTool(directDeclaration)
+const directFollowUp = Subagent.followUpTool(directDeclaration)
+const directInspect = Subagent.inspectTool(directDeclaration)
 
 const direct = {
   tools: Toolkit.make(directStart.tool, directFollowUp.tool, directInspect.tool).tools,
   layer: Layer.mergeAll(directStart.layer, directFollowUp.layer, directInspect.layer),
-};
+}
 
 const directTypes: [
   Assert<
     Equal<
       keyof typeof direct.tools,
-      | "typed-background-child_start"
-      | "typed-background-child_follow_up"
-      | "typed-background-child_inspect"
+      | 'typed-background-child_start'
+      | 'typed-background-child_follow_up'
+      | 'typed-background-child_inspect'
     >
   >,
-  Assert<Equal<Tool.Parameters<(typeof direct.tools)["typed-background-child_start"]>, string>>,
+  Assert<Equal<Tool.Parameters<(typeof direct.tools)['typed-background-child_start']>, string>>,
   Assert<
     Equal<
-      Tool.Success<(typeof direct.tools)["typed-background-child_inspect"]>,
+      Tool.Success<(typeof direct.tools)['typed-background-child_inspect']>,
       | MessageStatus
       | ModelObservation<Subagent.WorkerObservation<Subagent.SubagentResult<typeof text>>>
     >
@@ -166,115 +160,115 @@ const directTypes: [
   Assert<Equal<Layer.Error<typeof direct.layer>, never>>,
   Assert<
     Equal<
-      Tool.Failure<(typeof direct.tools)["typed-background-child_start"]>,
+      Tool.Failure<(typeof direct.tools)['typed-background-child_start']>,
       Subagent.SubagentProjectionFailure | Subagent.SubagentPrestartDenied | WorkerError
     >
   >,
-] = [true, true, true, true, true, true];
+] = [true, true, true, true, true, true]
 
-const declaration = Subagent.make("research", {
+const declaration = Subagent.make('research', {
   target,
   parameters: text,
   success: text,
   failure: DeclaredFailure,
   prepareInput: (input, context) => {
-    if (context.source === "tool") {
-      const toolId: string = context.toolCallId;
-      const runId: string = context.parent.runId;
+    if (context.source === 'tool') {
+      const toolId: string = context.toolCallId
+      const runId: string = context.parent.runId
 
-      void toolId;
-      void runId;
+      void toolId
+      void runId
     } else {
       // @ts-expect-error A programmatic source has no fabricated Tool Call.
-      void context.toolCallId;
+      void context.toolCallId
       // @ts-expect-error A programmatic source has no fabricated Run.
-      void context.parent.runId;
+      void context.parent.runId
     }
 
-    return Effect.as(Prepare, input);
+    return Effect.as(Prepare, input)
   },
   projectResult: (output) => Effect.as(Project, output),
-});
+})
 
 const worker = Schema.decodeSync(Subagent.Worker(declaration))({
   schemaVersion: 1,
-  delegationId: "research",
+  delegationId: 'research',
   targetAgentId: target.id,
-  threadId: "worker",
-});
+  threadId: 'worker',
+})
 
 const receipt = Schema.decodeSync(Receipt)({
-  threadId: "worker",
-  receiptId: "receipt",
-  submissionId: "submission",
+  threadId: 'worker',
+  receiptId: 'receipt',
+  submissionId: 'submission',
   queueSequence: 1,
-});
+})
 
-const key = Schema.decodeSync(IdempotencyKey)("start-key");
+const key = Schema.decodeSync(IdempotencyKey)('start-key')
 
-const hostStartTypes = (host: SubagentHost["Service"], request: StartWorkerRequest) => {
-  const prepared = host.start(request);
+const hostStartTypes = (host: SubagentHost['Service'], request: StartWorkerRequest) => {
+  const prepared = host.start(request)
 
   const deferred = host.start({
     ...request,
     prepare: Effect.flatMap(Prepare, () => Effect.fail(DeclaredFailure.make())),
-  });
+  })
 
   const proofs: [
     Assert<Equal<Effect.Error<typeof prepared>, WorkerError>>,
     Assert<Equal<Effect.Services<typeof prepared>, never>>,
     Assert<Equal<Effect.Error<typeof deferred>, WorkerError | DeclaredFailure>>,
     Assert<Equal<Effect.Services<typeof deferred>, Prepare>>,
-  ] = [true, true, true, true];
+  ] = [true, true, true, true]
 
-  return proofs;
-};
+  return proofs
+}
 
-const hostFollowUpTypes = (host: SubagentHost["Service"], request: FollowUpWorkerRequest) => {
-  const prepared = host.followUp(request);
+const hostFollowUpTypes = (host: SubagentHost['Service'], request: FollowUpWorkerRequest) => {
+  const prepared = host.followUp(request)
 
   const deferred = host.followUp({
     ...request,
     prepare: Effect.flatMap(Prepare, () => Effect.fail(DeclaredFailure.make())),
-  });
+  })
 
   const proofs: [
     Assert<Equal<Effect.Error<typeof prepared>, WorkerError>>,
     Assert<Equal<Effect.Services<typeof prepared>, never>>,
     Assert<Equal<Effect.Error<typeof deferred>, WorkerError | DeclaredFailure>>,
     Assert<Equal<Effect.Services<typeof deferred>, Prepare>>,
-  ] = [true, true, true, true];
+  ] = [true, true, true, true]
 
-  return proofs;
-};
+  return proofs
+}
 
-const start = Subagent.start(declaration, "input", { idempotencyKey: key });
-const followUp = Subagent.followUp(declaration, worker, "next", { idempotencyKey: key });
-const inspect = Subagent.inspect(declaration, worker, receipt);
-const message = Schema.decodeSync(MessageRef)({ ownerThreadId: "source", messageId: "delivery" });
-const deliveryStatus = Subagent.inspect(declaration, worker, message);
-const workerSummary = Subagent.inspect(declaration, worker);
-const awaitResult = Subagent.await(declaration, worker, receipt);
-const cancel = Subagent.cancel(declaration, worker, receipt);
-const stopped = Subagent.stop(declaration, worker, { idempotencyKey: key });
+const start = Subagent.start(declaration, 'input', { idempotencyKey: key })
+const followUp = Subagent.followUp(declaration, worker, 'next', { idempotencyKey: key })
+const inspect = Subagent.inspect(declaration, worker, receipt)
+const message = Schema.decodeSync(MessageRef)({ ownerThreadId: 'source', messageId: 'delivery' })
+const deliveryStatus = Subagent.inspect(declaration, worker, message)
+const workerSummary = Subagent.inspect(declaration, worker)
+const awaitResult = Subagent.await(declaration, worker, receipt)
+const cancel = Subagent.cancel(declaration, worker, receipt)
+const stopped = Subagent.stop(declaration, worker, { idempotencyKey: key })
 
 const stopProofs: [
   Assert<Equal<Effect.Services<typeof stopped>, SubagentHost>>,
   Assert<Equal<Effect.Error<typeof stopped>, WorkerError>>,
-] = [true, true];
+] = [true, true]
 
-const listed = Subagent.list(declaration);
-const onlyList = Subagent.listTool(declaration);
-const onlyStart = Subagent.startTool(declaration);
-const onlyInspect = Subagent.inspectTool(declaration);
-const onlyCancel = Subagent.cancelTool(declaration);
+const listed = Subagent.list(declaration)
+const onlyList = Subagent.listTool(declaration)
+const onlyStart = Subagent.startTool(declaration)
+const onlyInspect = Subagent.inspectTool(declaration)
+const onlyCancel = Subagent.cancelTool(declaration)
 
 const selected = {
   toolkit: Toolkit.make(onlyStart.tool, onlyInspect.tool, onlyCancel.tool),
   tools: Toolkit.make(onlyStart.tool, onlyInspect.tool, onlyCancel.tool).tools,
-};
+}
 
-const automatic = { ...onlyStart, reporting: Subagent.reporting(declaration) };
+const automatic = { ...onlyStart, reporting: Subagent.reporting(declaration) }
 
 const automaticServices: Assert<
   Equal<
@@ -282,49 +276,49 @@ const automaticServices: Assert<
     | Effect.Services<ReturnType<typeof automatic.reporting.prepare>>,
     Prepare | Project | Encoder | Decoder
   >
-> = true;
+> = true
 
-const automaticErrors: Assert<Equal<Layer.Error<typeof automatic.layer>, never>> = true;
-const automaticKeys: Assert<Equal<typeof automatic.tool.name, "research_start">> = true;
-const onlySummary = Subagent.summaryTool(declaration);
+const automaticErrors: Assert<Equal<Layer.Error<typeof automatic.layer>, never>> = true
+const automaticKeys: Assert<Equal<typeof automatic.tool.name, 'research_start'>> = true
+const onlySummary = Subagent.summaryTool(declaration)
 
 type StartErrors =
   | DeclaredFailure
   | Subagent.SubagentProjectionFailure
   | Subagent.SubagentPrestartDenied
-  | WorkerError;
-type ProjectionErrors = DeclaredFailure | Subagent.SubagentProjectionFailure | WorkerError;
+  | WorkerError
+type ProjectionErrors = DeclaredFailure | Subagent.SubagentProjectionFailure | WorkerError
 
-const nestedTarget = Agent.make("typed-nested-worker", {
+const nestedTarget = Agent.make('typed-nested-worker', {
   input: text,
   output: text,
-  instructions: "Use the selected background operations.",
+  instructions: 'Use the selected background operations.',
   toolkit: selected.toolkit,
-});
+})
 
-const nested = Subagent.make("builder", {
+const nested = Subagent.make('builder', {
   target: nestedTarget,
   grant: SubagentGrant.make({
     allowedToolNames: Object.keys(selected.tools),
     maxDepth: 2,
-    childLifetimes: ["background"],
+    childLifetimes: ['background'],
   }),
-});
+})
 
-const nestedParameterProof: Assert<Equal<Tool.Parameters<typeof nested.tool>, string>> = true;
+const nestedParameterProof: Assert<Equal<Tool.Parameters<typeof nested.tool>, string>> = true
 
 const nestedSuccessProof: Assert<
   Equal<
     Tool.Success<typeof nested.tool>,
     { readonly output: string; readonly budgetExhausted: boolean }
   >
-> = true;
+> = true
 
 const proofs: [
   Assert<Equal<Effect.Services<typeof deliveryStatus>, SubagentHost>>,
   Assert<Equal<Effect.Error<typeof deliveryStatus>, WorkerError>>,
   Assert<Equal<Effect.Success<typeof deliveryStatus>, MessageStatus>>,
-  Assert<Equal<Effect.Success<typeof start>["delivery"], MessageStatus>>,
+  Assert<Equal<Effect.Success<typeof start>['delivery'], MessageStatus>>,
   Assert<Equal<Effect.Services<typeof workerSummary>, SubagentHost>>,
   Assert<Equal<Effect.Error<typeof workerSummary>, WorkerError>>,
   Assert<Equal<Layer.Services<typeof onlySummary.layer>, never>>,
@@ -338,10 +332,10 @@ const proofs: [
   Assert<Equal<Effect.Error<typeof followUp>, ProjectionErrors>>,
   Assert<Equal<Effect.Error<typeof inspect>, ProjectionErrors>>,
   Assert<Equal<Effect.Error<typeof cancel>, WorkerError | JoinedToHost>>,
-  Assert<Equal<Effect.Success<typeof start>["worker"], Subagent.Worker<"research">>>,
+  Assert<Equal<Effect.Success<typeof start>['worker'], Subagent.Worker<'research'>>>,
   Assert<Equal<Effect.Success<typeof followUp>, MessageStatus>>,
   Assert<
-    Equal<keyof typeof selected.tools, "research_start" | "research_inspect" | "research_cancel">
+    Equal<keyof typeof selected.tools, 'research_start' | 'research_inspect' | 'research_cancel'>
   >,
   Assert<Equal<Tool.Parameters<typeof selected.tools.research_start>, string>>,
   Assert<
@@ -379,49 +373,48 @@ const proofs: [
   true,
   true,
   true,
-];
+]
 
 const rejectInvalidCalls = () => {
   // @ts-expect-error Starts require an explicit idempotency key.
-  void Subagent.start(declaration, "input");
+  void Subagent.start(declaration, 'input')
   // @ts-expect-error Idempotency keys must be Schema-validated.
-  void Subagent.start(declaration, "input", { idempotencyKey: "raw" });
+  void Subagent.start(declaration, 'input', { idempotencyKey: 'raw' })
   // @ts-expect-error Parameter inference is retained.
-  void Subagent.start(declaration, 42, { idempotencyKey: key });
-  const other = Subagent.make("other", { target });
+  void Subagent.start(declaration, 42, { idempotencyKey: key })
+  const other = Subagent.make('other', { target })
 
   const otherWorker = Schema.decodeSync(Subagent.Worker(other))({
     ...worker,
-    delegationId: "other",
-  });
+    delegationId: 'other',
+  })
 
   // @ts-expect-error Worker identities retain their declaration correlation.
-  void Subagent.cancel(declaration, otherWorker, receipt);
+  void Subagent.cancel(declaration, otherWorker, receipt)
   // @ts-expect-error Unselected operations are not in the Tool record.
-  void selected.tools.research_follow_up;
+  void selected.tools.research_follow_up
   // @ts-expect-error The toolkit contains only explicitly installed operations.
-  void direct.tools["typed-background-child_cancel"];
+  void direct.tools['typed-background-child_cancel']
 
   // @ts-expect-error Direct input parameters retain the target schema.
-  const wrongDirectInput: Tool.Parameters<(typeof direct.tools)["typed-background-child_start"]> =
-    42;
+  const wrongDirectInput: Tool.Parameters<(typeof direct.tools)['typed-background-child_start']> = 42
 
-  void wrongDirectInput;
+  void wrongDirectInput
   // @ts-expect-error Models cannot wait through a background tool.
-  Subagent.awaitTool(declaration);
-};
+  Subagent.awaitTool(declaration)
+}
 
 export const verifyPreservesOperationErrorsSchemaServicesAndSelectedNativeToolNames = () => {
-  void typeof updateLayerProofs;
-  void typeof hostStartTypes;
-  void typeof hostFollowUpTypes;
-  void typeof dispositionLayerProofs;
-  void proofs.every(Boolean);
-  void stopProofs.every(Boolean);
-  void directTypes.every(Boolean);
-  void updateTypes.every(Boolean);
-  void dispositionTypes.every(Boolean);
-  void (automaticServices && automaticErrors && automaticKeys);
-  void (nestedParameterProof && nestedSuccessProof);
-  void typeof rejectInvalidCalls;
-};
+  void typeof updateLayerProofs
+  void typeof hostStartTypes
+  void typeof hostFollowUpTypes
+  void typeof dispositionLayerProofs
+  void proofs.every(Boolean)
+  void stopProofs.every(Boolean)
+  void directTypes.every(Boolean)
+  void updateTypes.every(Boolean)
+  void dispositionTypes.every(Boolean)
+  void (automaticServices && automaticErrors && automaticKeys)
+  void (nestedParameterProof && nestedSuccessProof)
+  void typeof rejectInvalidCalls
+}

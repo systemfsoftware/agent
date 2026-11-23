@@ -1,46 +1,46 @@
-import * as Context from "effect/Context";
-import type * as Effect from "effect/Effect";
-import * as Schema from "effect/Schema";
-import * as Stream from "effect/Stream";
+import * as Context from 'effect/Context'
+import type * as Effect from 'effect/Effect'
+import * as Schema from 'effect/Schema'
+import * as Stream from 'effect/Stream'
 
-import type * as Agent from "../core/Agent.ts";
-import type { AgentPolicy } from "../core/AgentPolicy.ts";
-import type { Update } from "../core/AgentUpdates.ts";
-import type * as FailureDiagnostic from "../core/FailureDiagnostic.ts";
-import type { DelegationId, RunId, SettlementId, ThreadId } from "../core/Identifiers.ts";
-import type { MessageRef, MessageStatus } from "../core/Messaging.ts";
-import { type IdempotencyKey, type JoinedToHost, type Receipt } from "../core/Receipt.ts";
-import type { SubagentBudgetReservation, SubagentPolicy } from "../core/SubagentContract.ts";
+import type * as Agent from '../core/Agent.ts'
+import type { AgentPolicy } from '../core/AgentPolicy.ts'
+import type { Update } from '../core/AgentUpdates.ts'
+import type * as FailureDiagnostic from '../core/FailureDiagnostic.ts'
+import type { DelegationId, RunId, SettlementId, ThreadId } from '../core/Identifiers.ts'
+import type { MessageRef, MessageStatus } from '../core/Messaging.ts'
+import { type IdempotencyKey, type JoinedToHost, type Receipt } from '../core/Receipt.ts'
+import type { SubagentBudgetReservation, SubagentPolicy } from '../core/SubagentContract.ts'
 import {
-  WorkerError,
-  type WorkerStop,
-  type WorkerStopped,
-  type WorkerCompletion,
-  type WorkerHistoryEntry,
-  type WorkerContext,
   type WorkerBudgetScope,
-  type WorkerSource,
+  type WorkerCompletion,
+  type WorkerContext,
+  WorkerError,
+  type WorkerHistoryEntry,
   type WorkerPage,
   type WorkerRef,
+  type WorkerSource,
   type WorkerStarted,
+  type WorkerStop,
+  type WorkerStopped,
   type WorkerSummary,
-} from "../core/Worker.ts";
+} from '../core/Worker.ts'
 
 /** Prepared values cross this port only to be Schema-decoded before durable storage. */
 export interface StartWorkerRequest {
-  readonly delegationId: DelegationId;
+  readonly delegationId: DelegationId
   /** Start a distinct assignment using verified completed predecessor authority. */
-  readonly continuationOf?: WorkerRef;
-  readonly target: Agent.AnyDefinition;
-  readonly idempotencyKey: IdempotencyKey;
-  readonly encodedInput: unknown;
-  readonly encodedParameters: unknown;
-  readonly policy: AgentPolicy;
-  readonly budget: SubagentBudgetReservation;
-  readonly encodedGrant: unknown;
-  readonly toolCallAllowance?: number;
+  readonly continuationOf?: WorkerRef
+  readonly target: Agent.AnyDefinition
+  readonly idempotencyKey: IdempotencyKey
+  readonly encodedInput: unknown
+  readonly encodedParameters: unknown
+  readonly policy: AgentPolicy
+  readonly budget: SubagentBudgetReservation
+  readonly encodedGrant: unknown
+  readonly toolCallAllowance?: number
   /** Author-owned request; the durable host must separately authorize worker-run funding. */
-  readonly budgetScope?: WorkerBudgetScope;
+  readonly budgetScope?: WorkerBudgetScope
 }
 
 /**
@@ -51,27 +51,29 @@ export interface StartWorkerRequest {
  * Preparation must be free of external effects: concurrent first admissions can prepare before
  * the retained delivery chooses its first writer.
  */
-export interface DeferredStartWorkerRequest<E = never, R = never> extends Pick<
-  StartWorkerRequest,
-  | "delegationId"
-  | "continuationOf"
-  | "target"
-  | "idempotencyKey"
-  | "encodedParameters"
-  | "encodedGrant"
-  | "budgetScope"
-> {
+export interface DeferredStartWorkerRequest<E = never, R = never> extends
+  Pick<
+    StartWorkerRequest,
+    | 'delegationId'
+    | 'continuationOf'
+    | 'target'
+    | 'idempotencyKey'
+    | 'encodedParameters'
+    | 'encodedGrant'
+    | 'budgetScope'
+  >
+{
   /** Declaration ceilings; the host resolves effective policy and reserves the funded budget. */
-  readonly declarationPolicy?: SubagentPolicy;
-  readonly prepare: Effect.Effect<Pick<StartWorkerRequest, "encodedInput">, E, R>;
+  readonly declarationPolicy?: SubagentPolicy
+  readonly prepare: Effect.Effect<Pick<StartWorkerRequest, 'encodedInput'>, E, R>
 }
 
 export interface FollowUpWorkerRequest {
-  readonly worker: WorkerRef;
-  readonly target: Agent.AnyDefinition;
-  readonly idempotencyKey: IdempotencyKey;
-  readonly encodedInput: unknown;
-  readonly encodedParameters: unknown;
+  readonly worker: WorkerRef
+  readonly target: Agent.AnyDefinition
+  readonly idempotencyKey: IdempotencyKey
+  readonly encodedInput: unknown
+  readonly encodedParameters: unknown
 }
 
 /**
@@ -79,23 +81,25 @@ export interface FollowUpWorkerRequest {
  * lookup. Replays compare declared parameters and reuse the original input and worker authority.
  * Preparation must be free of external effects because concurrent first admissions can prepare.
  */
-export interface DeferredFollowUpWorkerRequest<E = never, R = never> extends Omit<
-  FollowUpWorkerRequest,
-  "encodedInput"
-> {
-  readonly prepare: Effect.Effect<Pick<FollowUpWorkerRequest, "encodedInput">, E, R>;
+export interface DeferredFollowUpWorkerRequest<E = never, R = never> extends
+  Omit<
+    FollowUpWorkerRequest,
+    'encodedInput'
+  >
+{
+  readonly prepare: Effect.Effect<Pick<FollowUpWorkerRequest, 'encodedInput'>, E, R>
 }
 
 export interface WorkerReceiptRequest {
-  readonly worker: WorkerRef;
-  readonly target: Agent.AnyDefinition;
-  readonly receipt: Receipt;
+  readonly worker: WorkerRef
+  readonly target: Agent.AnyDefinition
+  readonly receipt: Receipt
 }
 
 export interface WorkerMessageRequest {
-  readonly worker: WorkerRef;
-  readonly target: Agent.AnyDefinition;
-  readonly message: MessageRef;
+  readonly worker: WorkerRef
+  readonly target: Agent.AnyDefinition
+  readonly message: MessageRef
 }
 
 /**
@@ -103,34 +107,34 @@ export interface WorkerMessageRequest {
  * and target output and applies its declared result projection. Child E does not survive settlement.
  */
 export type WorkerObservation =
-  | { readonly _tag: "Pending"; readonly receipt: Receipt }
+  | { readonly _tag: 'Pending'; readonly receipt: Receipt }
   | {
-      readonly _tag: "Settled";
-      readonly receipt: Receipt;
-      /** Absent when an input failed or was cancelled before any Run started. */
-      readonly runId?: RunId;
-      readonly settlementId: SettlementId;
-      readonly outcome: "completed" | "failed" | "aborted";
-      readonly encodedParameters: unknown;
-      readonly encodedResult: unknown;
-      /** Operator-private failed-settlement evidence; never part of a model Tool result. */
-      readonly diagnostic?: FailureDiagnostic.Failure;
-      readonly budgetExhausted: boolean;
-    };
+    readonly _tag: 'Settled'
+    readonly receipt: Receipt
+    /** Absent when an input failed or was cancelled before any Run started. */
+    readonly runId?: RunId
+    readonly settlementId: SettlementId
+    readonly outcome: 'completed' | 'failed' | 'aborted'
+    readonly encodedParameters: unknown
+    readonly encodedResult: unknown
+    /** Operator-private failed-settlement evidence; never part of a model Tool result. */
+    readonly diagnostic?: FailureDiagnostic.Failure
+    readonly budgetExhausted: boolean
+  }
 
 /** One actual canonical Run, independent of how many input Receipts joined it. */
 export interface WorkerRunReport {
-  readonly worker: WorkerRef;
-  readonly context: WorkerContext;
-  readonly observation: Extract<WorkerObservation, { readonly _tag: "Settled" }> & {
-    readonly runId: RunId;
-  };
+  readonly worker: WorkerRef
+  readonly context: WorkerContext
+  readonly observation: Extract<WorkerObservation, { readonly _tag: 'Settled' }> & {
+    readonly runId: RunId
+  }
 }
 
 /** A bounded projection failure; raw application errors never enter durable report records. */
 export class WorkerReportPreparationFailure extends Schema.TaggedError<WorkerReportPreparationFailure>()(
-  "WorkerReportPreparationFailure",
-  { stage: Schema.Literals(["projection", "input", "preparation"]) },
+  'WorkerReportPreparationFailure',
+  { stage: Schema.Literals(['projection', 'input', 'preparation']) },
 ) {}
 
 /**
@@ -139,19 +143,19 @@ export class WorkerReportPreparationFailure extends Schema.TaggedError<WorkerRep
  * bounded preparation failure rather than serializing arbitrary application errors.
  */
 export interface WorkerReporting<E = never, R = never> {
-  readonly delegationId: DelegationId;
-  readonly target: Agent.AnyDefinition;
+  readonly delegationId: DelegationId
+  readonly target: Agent.AnyDefinition
   /** Pure first-emission selection. False retains the canonical update without parent delivery. */
-  readonly reportUpdate?: (update: Update) => boolean;
+  readonly reportUpdate?: (update: Update) => boolean
   /** False retains a filtered report receipt without waking the parent. */
-  readonly reportCompletion?: (report: WorkerRunReport) => boolean;
+  readonly reportCompletion?: (report: WorkerRunReport) => boolean
   readonly prepare: (report: WorkerRunReport) => Effect.Effect<
     {
-      readonly message: WorkerCompletion;
+      readonly message: WorkerCompletion
     },
     E | WorkerReportPreparationFailure,
     R
-  >;
+  >
 }
 
 /**
@@ -162,66 +166,66 @@ export interface WorkerReporting<E = never, R = never> {
 export class SubagentHost extends Context.Service<
   SubagentHost,
   {
-    readonly context: Effect.Effect<WorkerContext, WorkerError>;
+    readonly context: Effect.Effect<WorkerContext, WorkerError>
     /** Prepared callers retain strict input/policy conflicts; deferred callers replay the saved capture. */
     readonly start: <E = never, R = never>(
       request: StartWorkerRequest | DeferredStartWorkerRequest<E, R>,
-    ) => Effect.Effect<WorkerStarted, WorkerError | E, R>;
+    ) => Effect.Effect<WorkerStarted, WorkerError | E, R>
     /** Prepared callers retain strict input conflicts; deferred callers replay the saved capture. */
     readonly followUp: <E = never, R = never>(
       request: FollowUpWorkerRequest | DeferredFollowUpWorkerRequest<E, R>,
-    ) => Effect.Effect<MessageStatus, WorkerError | E, R>;
+    ) => Effect.Effect<MessageStatus, WorkerError | E, R>
     readonly inspect: (
       request: WorkerReceiptRequest | WorkerMessageRequest,
-    ) => Effect.Effect<WorkerObservation | MessageStatus, WorkerError>;
+    ) => Effect.Effect<WorkerObservation | MessageStatus, WorkerError>
     /** Inspect the continuing worker using the same summary contract as discovery. */
     readonly summary: (request: {
-      readonly worker: WorkerRef;
-      readonly target: Agent.AnyDefinition;
-    }) => Effect.Effect<WorkerSummary, WorkerError>;
+      readonly worker: WorkerRef
+      readonly target: Agent.AnyDefinition
+    }) => Effect.Effect<WorkerSummary, WorkerError>
     /** A finite snapshot through the captured tail; resume with the last sequence as `after`. */
     readonly observe: (request: {
-      readonly worker: WorkerRef;
-      readonly target: Agent.AnyDefinition;
-      readonly after?: number;
-    }) => Stream.Stream<WorkerHistoryEntry, WorkerError>;
+      readonly worker: WorkerRef
+      readonly target: Agent.AnyDefinition
+      readonly after?: number
+    }) => Stream.Stream<WorkerHistoryEntry, WorkerError>
     /** Interrupting this wait never requests cancellation of accepted work. */
     readonly await: (
       request: WorkerReceiptRequest,
-    ) => Effect.Effect<WorkerObservation, WorkerError>;
+    ) => Effect.Effect<WorkerObservation, WorkerError>
     readonly list: (request: {
-      readonly delegationId: DelegationId;
-      readonly target: Agent.AnyDefinition;
-      readonly limit: number;
-      readonly after?: ThreadId;
-    }) => Effect.Effect<WorkerPage, WorkerError>;
+      readonly delegationId: DelegationId
+      readonly target: Agent.AnyDefinition
+      readonly limit: number
+      readonly after?: ThreadId
+    }) => Effect.Effect<WorkerPage, WorkerError>
     /** Seal the whole worker; retries reconcile the same command, including a lost acknowledgement. */
     readonly stop: (
       request: WorkerStop & { readonly target: Agent.AnyDefinition },
-    ) => Effect.Effect<WorkerStopped, WorkerError>;
+    ) => Effect.Effect<WorkerStopped, WorkerError>
     /** Cancel exactly this Receipt; preserve JoinedToHost without broadening its target. */
     readonly cancel: (
       request: WorkerReceiptRequest,
-    ) => Effect.Effect<void, WorkerError | JoinedToHost>;
+    ) => Effect.Effect<void, WorkerError | JoinedToHost>
   }
->()("@effect-agent/engine/SubagentHost") {
-  static readonly unavailable: SubagentHost["Service"] = {
-    context: WorkerError.make({ operation: "context", reason: "unavailable" }),
-    start: () => WorkerError.make({ operation: "start", reason: "unavailable" }),
-    followUp: () => WorkerError.make({ operation: "followUp", reason: "unavailable" }),
-    inspect: () => WorkerError.make({ operation: "inspect", reason: "unavailable" }),
-    summary: () => WorkerError.make({ operation: "inspect", reason: "unavailable" }),
-    observe: () => Stream.fail(WorkerError.make({ operation: "observe", reason: "unavailable" })),
-    await: () => WorkerError.make({ operation: "await", reason: "unavailable" }),
-    list: () => WorkerError.make({ operation: "list", reason: "unavailable" }),
-    stop: () => WorkerError.make({ operation: "stop", reason: "unavailable" }),
-    cancel: () => WorkerError.make({ operation: "cancel", reason: "unavailable" }),
-  };
+>()('@effect-agent/engine/SubagentHost') {
+  static readonly unavailable: SubagentHost['Service'] = {
+    context: WorkerError.make({ operation: 'context', reason: 'unavailable' }),
+    start: () => WorkerError.make({ operation: 'start', reason: 'unavailable' }),
+    followUp: () => WorkerError.make({ operation: 'followUp', reason: 'unavailable' }),
+    inspect: () => WorkerError.make({ operation: 'inspect', reason: 'unavailable' }),
+    summary: () => WorkerError.make({ operation: 'inspect', reason: 'unavailable' }),
+    observe: () => Stream.fail(WorkerError.make({ operation: 'observe', reason: 'unavailable' })),
+    await: () => WorkerError.make({ operation: 'await', reason: 'unavailable' }),
+    list: () => WorkerError.make({ operation: 'list', reason: 'unavailable' }),
+    stop: () => WorkerError.make({ operation: 'stop', reason: 'unavailable' }),
+    cancel: () => WorkerError.make({ operation: 'cancel', reason: 'unavailable' }),
+  }
 
   /** Runtime-owned per-call binding. Unconfigured Runs deny background operations. */
   static readonly forTool = Context.Reference<
-    (source: Extract<WorkerSource, { readonly _tag: "tool" }>) => SubagentHost["Service"]
-  >("@effect-agent/engine/SubagentHost/forTool", {
+    (source: Extract<WorkerSource, { readonly _tag: 'tool' }>) => SubagentHost['Service']
+  >('@effect-agent/engine/SubagentHost/forTool', {
     defaultValue: () => () => SubagentHost.unavailable,
-  });
+  })
 }

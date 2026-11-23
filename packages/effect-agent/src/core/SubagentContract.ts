@@ -1,28 +1,26 @@
-import * as Context from "effect/Context";
-import * as Duration from "effect/Duration";
-import * as Schema from "effect/Schema";
+import * as Context from 'effect/Context'
+import * as Duration from 'effect/Duration'
+import * as Schema from 'effect/Schema'
 
-import { AgentId, ThreadId, DelegationId, RunId, ToolCallId, SubmissionId } from "./Identifiers.ts";
+import { AgentId, DelegationId, RunId, SubmissionId, ThreadId, ToolCallId } from './Identifiers.ts'
 
-const Natural = Schema.Natural;
+const Natural = Schema.Natural
 
-const PositiveInt = Schema.Int.check(Schema.isGreaterThan(0));
+const PositiveInt = Schema.Int.check(Schema.isGreaterThan(0))
 
 const FinitePositiveDuration = Schema.Duration.pipe(
   Schema.refine(
-    (duration): duration is Duration.Duration =>
-      Duration.isFinite(duration) && Duration.isPositive(duration),
-    { expected: "a finite positive duration" },
+    (duration): duration is Duration.Duration => Duration.isFinite(duration) && Duration.isPositive(duration),
+    { expected: 'a finite positive duration' },
   ),
-);
+)
 
 const FiniteNonNegativeDuration = Schema.Duration.pipe(
   Schema.refine(
-    (duration): duration is Duration.Duration =>
-      Duration.isFinite(duration) && !Duration.isNegative(duration),
-    { expected: "a finite nonnegative duration" },
+    (duration): duration is Duration.Duration => Duration.isFinite(duration) && !Duration.isNegative(duration),
+    { expected: 'a finite nonnegative duration' },
   ),
-);
+)
 
 const SubagentPolicyFields = Schema.Struct({
   /** Total invocation slots, including reserved descendants, available through this delegation budget. */
@@ -46,19 +44,19 @@ const SubagentPolicyFields = Schema.Struct({
   maxOutputTokens: Schema.optionalKey(PositiveInt),
   maxCostMicrousd: Schema.optionalKey(Natural),
   maxResultBytes: Schema.optionalKey(PositiveInt),
-});
+})
 
-type SubagentPolicyFields = typeof SubagentPolicyFields.Type;
+type SubagentPolicyFields = typeof SubagentPolicyFields.Type
 
 /** Inputs normalized and validated by `SubagentPolicy.make`. */
 export type SubagentPolicyInput = Readonly<
-  Omit<SubagentPolicyFields, "maxDuration" | "parentReserveDuration"> & {
+  Omit<SubagentPolicyFields, 'maxDuration' | 'parentReserveDuration'> & {
     /** Finite, positive wall-clock duration accepted in any Effect Duration input form. */
-    readonly maxDuration: Duration.Input;
+    readonly maxDuration: Duration.Input
     /** Finite, nonnegative time reserved for the in-process parent to finish. */
-    readonly parentReserveDuration?: Duration.Input;
+    readonly parentReserveDuration?: Duration.Input
   }
->;
+>
 
 /**
  * Finite delegation bounds declared by one Subagent capability.
@@ -67,11 +65,11 @@ export type SubagentPolicyInput = Readonly<
  * reporting allows.
  */
 export class SubagentPolicy extends Schema.Class<SubagentPolicy>(
-  "@effect-agent/capabilities/SubagentPolicy",
+  '@effect-agent/capabilities/SubagentPolicy',
 )(SubagentPolicyFields) {
   /** Normalize and validate finite delegation bounds, throwing on invalid input. */
   static override make(input: SubagentPolicyInput): SubagentPolicy {
-    const { maxDuration, parentReserveDuration, ...bounds } = input;
+    const { maxDuration, parentReserveDuration, ...bounds } = input
 
     return super.make({
       ...bounds,
@@ -79,19 +77,19 @@ export class SubagentPolicy extends Schema.Class<SubagentPolicy>(
       ...(parentReserveDuration === undefined
         ? {}
         : { parentReserveDuration: Duration.fromInputUnsafe(parentReserveDuration) }),
-    });
+    })
   }
 }
 
 /** Tree authority ceiling. Each child exposes only its own Toolkit's permitted names. */
 export class SubagentGrant extends Schema.Class<SubagentGrant>(
-  "@effect-agent/capabilities/SubagentGrant",
+  '@effect-agent/capabilities/SubagentGrant',
 )({
   allowedToolNames: Schema.Array(Schema.NonEmptyString).check(Schema.isMaxLength(128)),
   maxDepth: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 16 })),
   /** Omitted permits either lifetime within the depth and reserved subtree budgets. */
   childLifetimes: Schema.optionalKey(
-    Schema.Array(Schema.Literals(["attached", "background"])).check(Schema.isMaxLength(2)),
+    Schema.Array(Schema.Literals(['attached', 'background'])).check(Schema.isMaxLength(2)),
   ),
 }) {}
 
@@ -103,18 +101,16 @@ export const narrowSubagentGrant = (
   inherited === undefined
     ? declared
     : SubagentGrant.make({
-        allowedToolNames: declared.allowedToolNames.filter((name) =>
-          inherited.allowedToolNames.includes(name),
-        ),
-        maxDepth: Math.min(declared.maxDepth, inherited.maxDepth),
-        childLifetimes: (declared.childLifetimes ?? ["attached", "background"]).filter((lifetime) =>
-          (inherited.childLifetimes ?? ["attached", "background"]).includes(lifetime),
-        ),
-      });
+      allowedToolNames: declared.allowedToolNames.filter((name) => inherited.allowedToolNames.includes(name)),
+      maxDepth: Math.min(declared.maxDepth, inherited.maxDepth),
+      childLifetimes: (declared.childLifetimes ?? ['attached', 'background']).filter((lifetime) =>
+        (inherited.childLifetimes ?? ['attached', 'background']).includes(lifetime)
+      ),
+    })
 
 /** Finite delegable caps for one parent Run. Absent means not configured; present values are finite. */
 export class SubagentDelegationCaps extends Schema.Class<SubagentDelegationCaps>(
-  "@effect-agent/capabilities/SubagentDelegationCaps",
+  '@effect-agent/capabilities/SubagentDelegationCaps',
 )({
   maxTotalChildInvocations: Schema.optionalKey(Natural),
   maxConcurrentChildren: Schema.optionalKey(Natural),
@@ -135,11 +131,11 @@ const AmountFields = {
   outputTokens: Natural,
   costMicrousd: Natural,
   resultBytes: Natural,
-} as const;
+} as const
 
 /** Exact amounts across every reservable delegation dimension. */
 export class SubagentReservationAmounts extends Schema.Class<SubagentReservationAmounts>(
-  "@effect-agent/capabilities/SubagentReservationAmounts",
+  '@effect-agent/capabilities/SubagentReservationAmounts',
 )(AmountFields) {}
 
 /** One child reservation against the parent Run's shared delegation pool. */
@@ -148,34 +144,34 @@ export const SubagentBudgetReservation = Schema.Struct({
   allocation: SubagentReservationAmounts,
   /** Slots reserved for every descendant input beneath this input; absent reserves none. */
   descendantInvocations: Schema.optionalKey(Natural),
-});
+})
 
-export type SubagentBudgetReservation = typeof SubagentBudgetReservation.Type;
+export type SubagentBudgetReservation = typeof SubagentBudgetReservation.Type
 
 /** Root-relative delegation depth; the direct child of a top-level run has depth 1. */
-export const DelegationDepth = Schema.Int.check(Schema.isGreaterThanOrEqualTo(1));
-export type DelegationDepth = typeof DelegationDepth.Type;
+export const DelegationDepth = Schema.Int.check(Schema.isGreaterThanOrEqualTo(1))
+export type DelegationDepth = typeof DelegationDepth.Type
 
 /** Marks a Tool implementing the idempotent Subagent establishment protocol. */
-export const DelegationTool = Context.Reference<boolean>("@effect-agent/core/DelegationTool", {
+export const DelegationTool = Context.Reference<boolean>('@effect-agent/core/DelegationTool', {
   defaultValue: () => false,
-});
+})
 
 /** Marks a host-managed idempotent worker operation, independently of its Tool name. */
 export const WorkerOperationTool = Context.Reference<boolean>(
-  "@effect-agent/core/WorkerOperationTool",
+  '@effect-agent/core/WorkerOperationTool',
   {
     defaultValue: () => false,
   },
-);
+)
 
 /** Identifies the background launch operation within a generated management Toolkit. */
 export const BackgroundSpawnTool = Context.Reference<boolean>(
-  "@effect-agent/core/BackgroundSpawnTool",
+  '@effect-agent/core/BackgroundSpawnTool',
   {
     defaultValue: () => false,
   },
-);
+)
 
 /** Declaration metadata and inherited authority determine the effective visible Tool set. */
 export const isSubagentToolAllowed = (
@@ -188,26 +184,26 @@ export const isSubagentToolAllowed = (
   (grant.allowedToolNames.includes(name) &&
     (Context.get(annotations, BackgroundSpawnTool)
       ? depth < grant.maxDepth &&
-        (grant.childLifetimes ?? ["attached", "background"]).includes("background")
+        (grant.childLifetimes ?? ['attached', 'background']).includes('background')
       : Context.get(annotations, DelegationTool)
-        ? depth < grant.maxDepth &&
-          (grant.childLifetimes ?? ["attached", "background"]).includes("attached")
-        : true));
+      ? depth < grant.maxDepth &&
+        (grant.childLifetimes ?? ['attached', 'background']).includes('attached')
+      : true))
 
 /** Persisted preparation classification, checked against the resolved Tool before replay. */
-export const ToolExecutionKind = Schema.Literals(["ordinary", "delegation", "orchestration"]);
-export type ToolExecutionKind = typeof ToolExecutionKind.Type;
+export const ToolExecutionKind = Schema.Literals(['ordinary', 'delegation', 'orchestration'])
+export type ToolExecutionKind = typeof ToolExecutionKind.Type
 
 /** Resolve only trusted declaration metadata; names never authorize automatic replay. */
 export const getToolExecutionKind = (annotations: Context.Context<never>): ToolExecutionKind =>
   Context.get(annotations, WorkerOperationTool)
-    ? "orchestration"
+    ? 'orchestration'
     : Context.get(annotations, DelegationTool)
-      ? "delegation"
-      : "ordinary";
+    ? 'delegation'
+    : 'ordinary'
 
 /** Immutable lineage from a child Thread to the parent identity that established it. */
-export class SubagentParentLink extends Schema.Class<SubagentParentLink>("SubagentParentLink")({
+export class SubagentParentLink extends Schema.Class<SubagentParentLink>('SubagentParentLink')({
   delegationId: DelegationId,
   parentAgentId: AgentId,
   parentThreadId: ThreadId,
@@ -228,18 +224,17 @@ export class SubagentParentLink extends Schema.Class<SubagentParentLink>("Subage
  * versions that required an explicit durable digest declaration.
  */
 export const SubagentExecutionFailureClassification = Schema.Literals([
-  "child-failed",
-  "child-aborted",
-  "child-compatibility",
-  "establishment-denied",
-  "declaration-unavailable",
-]);
+  'child-failed',
+  'child-aborted',
+  'child-compatibility',
+  'establishment-denied',
+  'declaration-unavailable',
+])
 
-export type SubagentExecutionFailureClassification =
-  typeof SubagentExecutionFailureClassification.Type;
+export type SubagentExecutionFailureClassification = typeof SubagentExecutionFailureClassification.Type
 
-export const maxErrorTagLength = 256;
-const BoundedErrorTag = Schema.NonEmptyString.check(Schema.isMaxLength(maxErrorTagLength));
+export const maxErrorTagLength = 256
+const BoundedErrorTag = Schema.NonEmptyString.check(Schema.isMaxLength(maxErrorTagLength))
 
 /**
  * Bounded framework projection of a durable child failure, shared by attached joins and reports.
@@ -253,7 +248,7 @@ const BoundedErrorTag = Schema.NonEmptyString.check(Schema.isMaxLength(maxErrorT
  * extension.
  */
 export class SubagentExecutionFailure extends Schema.TaggedError<SubagentExecutionFailure>()(
-  "SubagentExecutionFailure",
+  'SubagentExecutionFailure',
   {
     delegationId: DelegationId,
     targetAgentId: AgentId,

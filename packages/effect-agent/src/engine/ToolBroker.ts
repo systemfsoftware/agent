@@ -1,8 +1,8 @@
-import type * as Tool from "effect/ai/Tool";
-import type * as Toolkit from "effect/ai/Toolkit";
-import * as Context from "effect/Context";
-import type * as Effect from "effect/Effect";
-import * as Schema from "effect/Schema";
+import type * as Tool from 'effect/ai/Tool'
+import type * as Toolkit from 'effect/ai/Toolkit'
+import * as Context from 'effect/Context'
+import type * as Effect from 'effect/Effect'
+import * as Schema from 'effect/Schema'
 
 /**
  * Programmatic Tool invocation seam for Code Mode (runtime spec §12.1,
@@ -18,17 +18,17 @@ import * as Schema from "effect/Schema";
 /** One programmatic invocation request. Data only: the broker owns identity. */
 export interface ProgrammaticToolInput {
   /** The exact Effect AI Tool name resolved by the capability's namespace map. */
-  readonly toolName: string;
+  readonly toolName: string
   /** Schema-encoded (wire-form) parameters, exactly as they cross the sandbox. */
-  readonly encodedArguments: unknown;
+  readonly encodedArguments: unknown
 }
 
 /** The handler ran and settled with an owned JSON snapshot of its encoded success value. */
 export interface ProgrammaticCallSuccess {
-  readonly _tag: "ProgrammaticCallSuccess";
+  readonly _tag: 'ProgrammaticCallSuccess'
   /** Broker-owned invocation index within the pass; rejected calls leave gaps. */
-  readonly index: number;
-  readonly encodedResult: unknown;
+  readonly index: number
+  readonly encodedResult: unknown
 }
 
 /**
@@ -37,9 +37,9 @@ export interface ProgrammaticCallSuccess {
  * branch on it.
  */
 export interface ProgrammaticCallFailure {
-  readonly _tag: "ProgrammaticCallFailure";
-  readonly index: number;
-  readonly encodedResult: unknown;
+  readonly _tag: 'ProgrammaticCallFailure'
+  readonly index: number
+  readonly encodedResult: unknown
 }
 
 /**
@@ -52,10 +52,10 @@ export interface ProgrammaticCallFailure {
  * actually started (preflight rejections consume no identity and no budget).
  */
 export interface ProgrammaticCallError {
-  readonly _tag: "ProgrammaticCallError";
-  readonly index: number | undefined;
-  readonly errorTag: string;
-  readonly message: string;
+  readonly _tag: 'ProgrammaticCallError'
+  readonly index: number | undefined
+  readonly errorTag: string
+  readonly message: string
 }
 
 /**
@@ -67,7 +67,7 @@ export interface ProgrammaticCallError {
 export type ProgrammaticCallOutcome =
   | ProgrammaticCallSuccess
   | ProgrammaticCallFailure
-  | ProgrammaticCallError;
+  | ProgrammaticCallError
 
 /**
  * Ephemeral execution evidence, ordered by invocation rather than completion. No arguments or
@@ -77,28 +77,28 @@ export type ProgrammaticCallOutcome =
 export const ProgrammaticCallRecord = Schema.Struct({
   sequenceIndex: Schema.Natural,
   toolName: Schema.String,
-  status: Schema.Literals(["not-started", "succeeded", "failed", "uncertain"]),
+  status: Schema.Literals(['not-started', 'succeeded', 'failed', 'uncertain']),
   errorTag: Schema.optionalKey(Schema.String),
-});
+})
 
-export type ProgrammaticCallRecord = typeof ProgrammaticCallRecord.Type;
+export type ProgrammaticCallRecord = typeof ProgrammaticCallRecord.Type
 
 /** Broker-owned per-pass policy for results crossing back into the sandbox. */
 export interface ToolBrokerPassOptions {
   /** Maximum active invocations in this pass, from one through 64. Defaults to four. */
-  readonly concurrency?: number | undefined;
+  readonly concurrency?: number | undefined
   /**
    * Maximum UTF-8 byte size of one encoded success result at the sandbox
    * boundary. The returned value is decoded from the exact JSON representation
    * admitted by this bound, after redaction. Later handler or redactor mutations
    * cannot change it. The executor enforces its own transport bound independently.
    */
-  readonly maxResultBytes: number;
+  readonly maxResultBytes: number
   /**
    * Optional broker-owned redaction pass applied to every encoded success
    * result before the size bound. It must be total; a defect stays a defect.
    */
-  readonly redactResult?: ((encodedResult: unknown) => Effect.Effect<unknown>) | undefined;
+  readonly redactResult?: ((encodedResult: unknown) => Effect.Effect<unknown>) | undefined
 }
 
 /**
@@ -107,14 +107,14 @@ export interface ToolBrokerPassOptions {
  * its Scope. Results return as soon as they settle, without waiting for unrelated earlier calls.
  */
 export interface ToolBrokerPass {
-  readonly invoke: (input: ProgrammaticToolInput) => Effect.Effect<ProgrammaticCallOutcome>;
+  readonly invoke: (input: ProgrammaticToolInput) => Effect.Effect<ProgrammaticCallOutcome>
   /** Owned snapshot in invocation order, including interrupted and rejected calls. Never replay it. */
-  readonly snapshot: Effect.Effect<ReadonlyArray<ProgrammaticCallRecord>>;
+  readonly snapshot: Effect.Effect<ReadonlyArray<ProgrammaticCallRecord>>
 }
 
 /** The broker was used outside a live Tool batch; there is nothing to bind to. */
 export class ToolBrokerUnavailableError extends Schema.TaggedError<ToolBrokerUnavailableError>()(
-  "ToolBrokerUnavailableError",
+  'ToolBrokerUnavailableError',
   {
     message: Schema.String,
   },
@@ -125,7 +125,7 @@ export class ToolBrokerUnavailableError extends Schema.TaggedError<ToolBrokerUna
  * a positive safe integer, which would make the size comparison fail open.
  */
 export class ToolBrokerConfigurationError extends Schema.TaggedError<ToolBrokerConfigurationError>()(
-  "ToolBrokerConfigurationError",
+  'ToolBrokerConfigurationError',
   {
     message: Schema.String,
   },
@@ -146,7 +146,7 @@ export interface ToolBrokerService {
     ToolBrokerPass,
     ToolBrokerUnavailableError | ToolBrokerConfigurationError,
     Tool.HandlerServices<Tools[keyof Tools]>
-  >;
+  >
 }
 
 /**
@@ -155,5 +155,5 @@ export interface ToolBrokerService {
  * invocation; the interpreter supplies it, and an application Layer must not.
  */
 export class ToolBroker extends Context.Service<ToolBroker, ToolBrokerService>()(
-  "@effect-agent/engine/ToolBroker",
+  '@effect-agent/engine/ToolBroker',
 ) {}

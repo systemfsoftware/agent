@@ -1,47 +1,47 @@
-import * as MemoryNamespace from "@yielded/agent/memory-namespace";
-import * as Effect from "effect/Effect";
-import * as Schema from "effect/Schema";
-import { describe, expect, it } from "vite-plus/test";
+import * as MemoryNamespace from '@yielded/agent/memory-namespace'
+import * as Effect from 'effect/Effect'
+import * as Schema from 'effect/Schema'
+import { describe, expect, it } from 'vitest'
 
 const definition = MemoryNamespace.define({
-  name: "app/user-conversations",
+  name: 'app/user-conversations',
   version: 1,
   identity: Schema.Struct({ tenantId: Schema.String, userId: Schema.String }),
-});
+})
 
-describe("memory namespace addresses", () => {
-  it("uses independently specified canonical fixtures and restores a definition", async () => {
+describe('memory namespace addresses', () => {
+  it('uses independently specified canonical fixtures and restores a definition', async () => {
     const fixtures = [
       [
-        { tenantId: "a:b", userId: "c" },
+        { tenantId: 'a:b', userId: 'c' },
         '[1,"app/user-conversations",1,{"tenantId":"a:b","userId":"c"}]',
       ],
       [
-        { tenantId: "a", userId: "b:c" },
+        { tenantId: 'a', userId: 'b:c' },
         '[1,"app/user-conversations",1,{"tenantId":"a","userId":"b:c"}]',
       ],
-    ] as const;
+    ] as const
 
     for (const [identity, address] of fixtures) {
-      const value = definition.make(identity);
+      const value = definition.make(identity)
 
-      expect(value.address).toBe(address);
-      const restored = await Effect.runPromise(definition.restore(address));
+      expect(value.address).toBe(address)
+      const restored = await Effect.runPromise(definition.restore(address))
 
-      expect(restored.identity).toEqual(identity);
+      expect(restored.identity).toEqual(identity)
     }
-  });
+  })
 
-  it("sorts nested keys without Unicode aliases", () => {
-    const records = MemoryNamespace.define({ name: "records", version: 1, identity: Schema.Json });
+  it('sorts nested keys without Unicode aliases', () => {
+    const records = MemoryNamespace.define({ name: 'records', version: 1, identity: Schema.Json })
 
     expect(records.make({ z: { b: 2, a: 1 }, a: 3 }).address).toBe(
       '[1,"records",1,{"a":3,"z":{"a":1,"b":2}}]',
-    );
+    )
     expect(records.make({ a: 3, z: { a: 1, b: 2 } }).address).toBe(
       records.make({ z: { b: 2, a: 1 }, a: 3 }).address,
-    );
-    expect(records.make({ "10": 10, "2": 2 }).address).toBe('[1,"records",1,{"10":10,"2":2}]');
-    expect(records.make("é").address).not.toBe(records.make("é").address);
-  });
-});
+    )
+    expect(records.make({ '10': 10, '2': 2 }).address).toBe('[1,"records",1,{"10":10,"2":2}]')
+    expect(records.make('é').address).not.toBe(records.make('é').address)
+  })
+})

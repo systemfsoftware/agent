@@ -28,12 +28,59 @@
     "./sqlite-message-delivery-store": "./src/SqliteMessageDeliveryStore.ts"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "./sqlite-activity-store": {
+        "types": "./dist/SqliteActivityStore.d.mts",
+        "default": "./dist/SqliteActivityStore.mjs"
+      },
+      "./sqlite-schedule-store": {
+        "types": "./dist/SqliteScheduleStore.d.mts",
+        "default": "./dist/SqliteScheduleStore.mjs"
+      },
+      "./sqlite-storage-config": {
+        "types": "./dist/SqliteStorageConfig.d.mts",
+        "default": "./dist/SqliteStorageConfig.mjs"
+      },
+      "./sqlite-storage-error": {
+        "types": "./dist/SqliteStorageError.d.mts",
+        "default": "./dist/SqliteStorageError.mjs"
+      },
+      "./sqlite-storage-failpoint": {
+        "types": "./dist/SqliteStorageFailpoint.d.mts",
+        "default": "./dist/SqliteStorageFailpoint.mjs"
+      },
+      "./sqlite-storage-version": {
+        "types": "./dist/SqliteStorageVersion.d.mts",
+        "default": "./dist/SqliteStorageVersion.mjs"
+      },
+      "./sqlite-submission-ledger": {
+        "types": "./dist/SqliteSubmissionLedger.d.mts",
+        "default": "./dist/SqliteSubmissionLedger.mjs"
+      },
+      "./sqlite-subscription-store": {
+        "types": "./dist/SqliteSubscriptionStore.d.mts",
+        "default": "./dist/SqliteSubscriptionStore.mjs"
+      },
+      "./sqlite-thread-store": {
+        "types": "./dist/SqliteThreadStore.d.mts",
+        "default": "./dist/SqliteThreadStore.mjs"
+      },
+      "./sqlite-message-delivery-store": {
+        "types": "./dist/SqliteMessageDeliveryStore.d.mts",
+        "default": "./dist/SqliteMessageDeliveryStore.mjs"
+      }
+    }
   },
   "scripts": {
-    "build": "vp pack",
-    "check": "effect-tsgo tsrs --noEmit -p tsconfig.json",
-    "test": "vp test --passWithNoTests"
+    "build": "tsdown",
+    "typecheck": "effect-tsgo tsrs --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "check:pack": "pnpm pack --pack-destination .pack && attw .pack/*.tgz --profile esm-only; s=$?; rm -rf .pack; exit $s"
   },
   "dependencies": {
     "@effect/platform-node": "catalog:",
@@ -42,11 +89,11 @@
     "@yielded/agent-storage-sql": "workspace:*"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "catalog:",
     "@effect/vitest": "catalog:",
     "effect": "catalog:",
+    "tsdown": "catalog:",
     "typescript": "catalog:",
-    "vite": "catalog:",
-    "vite-plus": "catalog:",
     "vitest": "catalog:"
   },
   "peerDependencies": {

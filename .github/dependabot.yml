@@ -1,17 +1,16 @@
-# Dependabot keeps Actions current and surfaces Bun dependency drift.
-# Bun lockfiles get version updates only; security advisories arrive through
-# Dependabot alerts on the dependency graph and are fixed by hand with `vp install`.
+# Dependabot keeps Actions and npm dependencies current. Security advisories arrive through
+# Dependabot alerts on the dependency graph.
 version: 2
 updates:
   - package-ecosystem: "github-actions"
-    directories: ["/", "/.github/actions/*", "/action"]
+    directories: ["/", "/.github/actions/*"]
     schedule:
       interval: "weekly"
     groups:
       actions:
         patterns: ["*"]
 
-  - package-ecosystem: "bun"
+  - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"

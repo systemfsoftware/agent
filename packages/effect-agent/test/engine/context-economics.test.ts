@@ -1,52 +1,50 @@
-import * as OpenAiClient from "@effect/ai-openai/OpenAiClient";
-import * as OpenAiLanguageModel from "@effect/ai-openai/OpenAiLanguageModel";
-import { expect, layer } from "@effect/vitest";
-import * as Agent from "@yielded/agent/agent";
-import { ContextBudgetError } from "@yielded/agent/agent-error";
-import { AgentPolicy } from "@yielded/agent/agent-policy";
-import { ModelCallContext } from "@yielded/agent/context-window";
-import { IdGenerator } from "@yielded/agent/id-generator";
-import { ThreadId, RunId, TurnId } from "@yielded/agent/identifiers";
-import { type RunEvent } from "@yielded/agent/run-event";
-import { ToolResultBounds, TruncatedToolResult } from "@yielded/agent/tool-result";
-import { ToolResultStorage, ToolResultStorageError } from "@yielded/agent/tool-result-storage";
-import * as LanguageModel from "effect/ai/LanguageModel";
-import * as Model from "effect/ai/Model";
-import * as OpenAiStructuredOutput from "effect/ai/OpenAiStructuredOutput";
-import type * as Prompt from "effect/ai/Prompt";
-import type * as Response from "effect/ai/Response";
-import * as Tool from "effect/ai/Tool";
-import * as Toolkit from "effect/ai/Toolkit";
-import * as Cause from "effect/Cause";
-import * as Effect from "effect/Effect";
-import * as Exit from "effect/Exit";
-import * as HttpClient from "effect/http/HttpClient";
-import * as HttpClientResponse from "effect/http/HttpClientResponse";
-import * as HttpServerResponse from "effect/http/HttpServerResponse";
-import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
-import * as Ref from "effect/Ref";
-import * as Schema from "effect/Schema";
-import * as Stream from "effect/Stream";
+import * as OpenAiClient from '@effect/ai-openai/OpenAiClient'
+import * as OpenAiLanguageModel from '@effect/ai-openai/OpenAiLanguageModel'
+import { expect, layer } from '@effect/vitest'
+import * as Agent from '@yielded/agent/agent'
+import { ContextBudgetError } from '@yielded/agent/agent-error'
+import { AgentPolicy } from '@yielded/agent/agent-policy'
+import { ModelCallContext } from '@yielded/agent/context-window'
+import { IdGenerator } from '@yielded/agent/id-generator'
+import { RunId, ThreadId, TurnId } from '@yielded/agent/identifiers'
+import { type RunEvent } from '@yielded/agent/run-event'
+import { ToolResultBounds, TruncatedToolResult } from '@yielded/agent/tool-result'
+import { ToolResultStorage, ToolResultStorageError } from '@yielded/agent/tool-result-storage'
+import * as LanguageModel from 'effect/ai/LanguageModel'
+import * as Model from 'effect/ai/Model'
+import * as OpenAiStructuredOutput from 'effect/ai/OpenAiStructuredOutput'
+import type * as Prompt from 'effect/ai/Prompt'
+import type * as Response from 'effect/ai/Response'
+import * as Tool from 'effect/ai/Tool'
+import * as Toolkit from 'effect/ai/Toolkit'
+import * as Cause from 'effect/Cause'
+import * as Effect from 'effect/Effect'
+import * as Exit from 'effect/Exit'
+import * as HttpClient from 'effect/http/HttpClient'
+import * as HttpClientResponse from 'effect/http/HttpClientResponse'
+import * as HttpServerResponse from 'effect/http/HttpServerResponse'
+import * as Layer from 'effect/Layer'
+import * as Option from 'effect/Option'
+import * as Ref from 'effect/Ref'
+import * as Schema from 'effect/Schema'
+import * as Stream from 'effect/Stream'
 
-import * as AgentRuntime from "../../src/engine/internal/agent-runtime.ts";
-import { type RunDurabilityHook } from "../../src/engine/internal/interpreter-options.ts";
-import { RunContextPreparationPassthrough } from "../../src/engine/RunOptions.ts";
-import { ThreadHistory } from "../../src/engine/ThreadHistory.ts";
+import * as AgentRuntime from '../../src/engine/internal/agent-runtime.ts'
+import { type RunDurabilityHook } from '../../src/engine/internal/interpreter-options.ts'
+import { RunContextPreparationPassthrough } from '../../src/engine/RunOptions.ts'
+import { ThreadHistory } from '../../src/engine/ThreadHistory.ts'
 
-let threadSequence = 0;
+let threadSequence = 0
 
 const identifiers = Layer.succeed(IdGenerator, {
-  nextThreadId: Effect.suspend(() =>
-    Schema.decodeEffect(ThreadId)(`thread-1-${++threadSequence}`).pipe(Effect.orDie),
-  ),
-  nextRunId: Effect.succeed(Schema.decodeSync(RunId)("run-1")),
-  nextTurnId: Effect.succeed(Schema.decodeSync(TurnId)("turn-1")),
-});
+  nextThreadId: Effect.suspend(() => Schema.decodeEffect(ThreadId)(`thread-1-${++threadSequence}`).pipe(Effect.orDie)),
+  nextRunId: Effect.succeed(Schema.decodeSync(RunId)('run-1')),
+  nextTurnId: Effect.succeed(Schema.decodeSync(TurnId)('turn-1')),
+})
 
-type FinishUsage = Extract<Response.StreamPartEncoded, { readonly type: "finish" }>["usage"];
+type FinishUsage = Extract<Response.StreamPartEncoded, { readonly type: 'finish' }>['usage']
 
-const emptyUsage: FinishUsage = { inputTokens: {}, outputTokens: {} };
+const emptyUsage: FinishUsage = { inputTokens: {}, outputTokens: {} }
 
 const emptyPolicyUsage = {
   committedTurns: 0,
@@ -54,7 +52,7 @@ const emptyPolicyUsage = {
   programmaticToolCalls: 0,
   consecutiveToolFailures: 0,
   finalizationUsed: false,
-};
+}
 
 const emptyResumeUsage = {
   ...emptyPolicyUsage,
@@ -64,17 +62,17 @@ const emptyResumeUsage = {
   lastInputTokens: 0,
   lastOutputTokens: 0,
   costMicrousd: 0,
-};
+}
 
 const finalParts = (
   text: string,
   usage: FinishUsage = emptyUsage,
 ): ReadonlyArray<Response.StreamPartEncoded> => [
-  { type: "text-start", id: "answer" },
-  { type: "text-delta", id: "answer", delta: text },
-  { type: "text-end", id: "answer" },
-  { type: "finish", reason: "stop", usage },
-];
+  { type: 'text-start', id: 'answer' },
+  { type: 'text-delta', id: 'answer', delta: text },
+  { type: 'text-end', id: 'answer' },
+  { type: 'finish', reason: 'stop', usage },
+]
 
 const toolCallParts = (
   id: string,
@@ -82,237 +80,233 @@ const toolCallParts = (
   params: Record<string, unknown>,
   usage: FinishUsage = emptyUsage,
 ): ReadonlyArray<Response.StreamPartEncoded> => [
-  { type: "tool-call", id, name, params, providerExecuted: false },
-  { type: "finish", reason: "tool-calls", usage },
-];
+  { type: 'tool-call', id, name, params, providerExecuted: false },
+  { type: 'finish', reason: 'tool-calls', usage },
+]
 
 interface CapturedRequest {
-  readonly prompt: Prompt.Prompt;
-  readonly toolCount: number;
-  readonly toolChoice: unknown;
+  readonly prompt: Prompt.Prompt
+  readonly toolCount: number
+  readonly toolChoice: unknown
 }
 
 /** Scripted multi-call model: one parts script per model request, with request capture. */
 const scriptedModel = (script: ReadonlyArray<ReadonlyArray<Response.StreamPartEncoded>>) => {
-  const requests: Array<CapturedRequest> = [];
+  const requests: Array<CapturedRequest> = []
 
   const model = Model.make(
-    "scripted",
-    "context-economics",
+    'scripted',
+    'context-economics',
     Layer.effect(
       LanguageModel.LanguageModel,
       LanguageModel.make({
         generateText: () => Effect.succeed([]),
         streamText: (request) => {
-          const index = Math.min(requests.length, script.length - 1);
+          const index = Math.min(requests.length, script.length - 1)
 
           requests.push({
             prompt: request.prompt,
             toolCount: request.tools.length,
             toolChoice: request.toolChoice,
-          });
+          })
 
-          return Stream.fromIterable(script[index] ?? []);
+          return Stream.fromIterable(script[index] ?? [])
         },
       }),
     ),
-  );
+  )
 
-  return { model, requests };
-};
+  return { model, requests }
+}
 
 const toolResultValues = (prompt: Prompt.Prompt): ReadonlyArray<unknown> =>
   prompt.content.flatMap((message) =>
-    typeof message.content === "string"
+    typeof message.content === 'string'
       ? []
-      : message.content.flatMap((part) =>
-          part.type === "tool-result" ? [part.result as unknown] : [],
-        ),
-  );
+      : message.content.flatMap((part) => part.type === 'tool-result' ? [part.result as unknown] : [])
+  )
 
 const failureFrom = <E>(exit: Exit.Exit<unknown, E>): E => {
-  expect(Exit.isFailure(exit)).toBe(true);
+  expect(Exit.isFailure(exit)).toBe(true)
   if (Exit.isSuccess(exit)) {
-    throw new Error("Expected the Effect to fail");
+    throw new Error('Expected the Effect to fail')
   }
-  const failure = Cause.findErrorOption(exit.cause);
+  const failure = Cause.findErrorOption(exit.cause)
 
-  expect(Option.isSome(failure)).toBe(true);
+  expect(Option.isSome(failure)).toBe(true)
   if (Option.isNone(failure)) {
-    throw new Error("Expected a typed failure in the Cause");
+    throw new Error('Expected a typed failure in the Cause')
   }
 
-  return failure.value;
-};
+  return failure.value
+}
 
-const EmitTool = Tool.make("emit", {
+const EmitTool = Tool.make('emit', {
   parameters: Schema.Struct({}),
   success: Schema.Struct({ data: Schema.String }),
-});
+})
 
-const emitToolkit = Toolkit.make(EmitTool);
+const emitToolkit = Toolkit.make(EmitTool)
 
-const answerOutput = Schema.Struct({ answer: Schema.String });
+const answerOutput = Schema.Struct({ answer: Schema.String })
 
 const testLayer = Layer.mergeAll(
   identifiers,
   ThreadHistory.layer,
   RunContextPreparationPassthrough,
-);
+)
 
-layer(testLayer)("context economics — bounding, tracking, status, exhaustion", (it) => {
+layer(testLayer)('context economics — bounding, tracking, status, exhaustion', (it) => {
   // ---------------------------------------------------------------- RUN-022
 
   it.effect(
-    "RUN-022: bounds an oversized application Tool result into the TruncatedToolResult envelope for prompt and events",
+    'RUN-022: bounds an oversized application Tool result into the TruncatedToolResult envelope for prompt and events',
     () =>
-      Effect.gen(function* () {
-        const bigData = "x".repeat(3_000);
+      Effect.gen(function*() {
+        const bigData = 'x'.repeat(3_000)
 
-        const definition = Agent.make("bounds-oversized", {
+        const definition = Agent.make('bounds-oversized', {
           input: Schema.Struct({ question: Schema.String }),
           output: answerOutput,
-          instructions: "Use the tool once, then answer.",
+          instructions: 'Use the tool once, then answer.',
           toolkit: emitToolkit,
           policy: AgentPolicy.make({
             maxTurns: 3,
             maxToolCalls: 2,
-            maxDuration: "30 seconds",
+            maxDuration: '30 seconds',
             toolConcurrency: 1,
             toolResultBounds: ToolResultBounds.make({ maxBytes: 1_024 }),
           }),
-        });
+        })
 
         const { model, requests } = scriptedModel([
-          toolCallParts("emit-1", "emit", {}),
+          toolCallParts('emit-1', 'emit', {}),
           finalParts('{"answer":"done"}'),
-        ]);
+        ])
 
         const toolLayer = emitToolkit.toLayer({
           emit: () => Effect.succeed({ data: bigData }),
-        });
+        })
 
-        const events = yield* Ref.make<ReadonlyArray<RunEvent>>([]);
+        const events = yield* Ref.make<ReadonlyArray<RunEvent>>([])
 
         yield* AgentRuntime.stream(Agent.withModel(definition, model), {
-          question: "big",
+          question: 'big',
         }).pipe(
           Stream.tap((event) => Ref.update(events, (all) => [...all, event])),
           Stream.runDrain,
           Effect.provide(toolLayer),
-        );
+        )
 
-        expect(requests).toHaveLength(2);
-        const second = requests[1];
+        expect(requests).toHaveLength(2)
+        const second = requests[1]
 
-        if (second === undefined) throw new Error("expected a second model request");
-        const results = toolResultValues(second.prompt);
+        if (second === undefined) throw new Error('expected a second model request')
+        const results = toolResultValues(second.prompt)
 
-        expect(results).toHaveLength(1);
+        expect(results).toHaveLength(1)
 
         const envelope = yield* Schema.decodeUnknownEffect(TruncatedToolResult)(results[0]).pipe(
           Effect.orDie,
-        );
+        )
 
-        const originalEncoded = JSON.stringify({ data: bigData });
+        const originalEncoded = JSON.stringify({ data: bigData })
 
-        expect(envelope.originalBytes).toBe(originalEncoded.length);
-        expect(originalEncoded.startsWith(envelope.head)).toBe(true);
-        expect(originalEncoded.endsWith(envelope.tail)).toBe(true);
-        expect(JSON.stringify(results[0]).length).toBeLessThanOrEqual(1_024);
+        expect(envelope.originalBytes).toBe(originalEncoded.length)
+        expect(originalEncoded.startsWith(envelope.head)).toBe(true)
+        expect(originalEncoded.endsWith(envelope.tail)).toBe(true)
+        expect(JSON.stringify(results[0]).length).toBeLessThanOrEqual(1_024)
 
         // The success event carries the same bounded value as the prompt.
         const succeeded = (yield* Ref.get(events)).find(
-          (event) => event._tag === "ToolCallSucceeded",
-        );
+          (event) => event._tag === 'ToolCallSucceeded',
+        )
 
-        expect(succeeded).toBeDefined();
-        if (succeeded === undefined || succeeded._tag !== "ToolCallSucceeded") {
-          throw new Error("expected ToolCallSucceeded");
+        expect(succeeded).toBeDefined()
+        if (succeeded === undefined || succeeded._tag !== 'ToolCallSucceeded') {
+          throw new Error('expected ToolCallSucceeded')
         }
-        expect(succeeded.result).toEqual(results[0]);
+        expect(succeeded.result).toEqual(results[0])
       }),
-  );
+  )
 
   // Requested red/green seam: preserve the middle of an oversized result while
   // the canonical event and the next model prompt remain within their byte budget.
-  it.effect("retains full oversized output behind a bounded result reference", () =>
-    Effect.gen(function* () {
-      const data = `${"x".repeat(30_000)}omitted-middle-evidence${"y".repeat(30_000)}`;
-      const saved: Array<{ readonly threadId: ThreadId; readonly text: string }> = [];
-      const id = "a".repeat(64);
+  it.effect('retains full oversized output behind a bounded result reference', () =>
+    Effect.gen(function*() {
+      const data = `${'x'.repeat(30_000)}omitted-middle-evidence${'y'.repeat(30_000)}`
+      const saved: Array<{ readonly threadId: ThreadId; readonly text: string }> = []
+      const id = 'a'.repeat(64)
 
       const storage = Layer.succeed(ToolResultStorage, {
         save: (request) =>
           Effect.sync(() => {
-            saved.push(request);
+            saved.push(request)
 
-            return id;
+            return id
           }),
-        read: () =>
-          Effect.fail(ToolResultStorageError.make({ reason: "not-found", message: "unused" })),
-      });
+        read: () => Effect.fail(ToolResultStorageError.make({ reason: 'not-found', message: 'unused' })),
+      })
 
-      const definition = Agent.make("retained-result", {
-        instructions: "Use the tool once, then answer.",
+      const definition = Agent.make('retained-result', {
+        instructions: 'Use the tool once, then answer.',
         input: Schema.String,
         output: answerOutput,
         toolkit: emitToolkit,
         policy: { maxTurns: 3, maxToolCalls: 2, toolResultBounds: { maxBytes: 256 } },
-      });
+      })
 
       const { model, requests } = scriptedModel([
-        toolCallParts("emit-retained", "emit", {}),
+        toolCallParts('emit-retained', 'emit', {}),
         finalParts('{"answer":"done"}'),
-      ]);
+      ])
 
-      const events = yield* AgentRuntime.stream(Agent.withModel(definition, model), "read").pipe(
+      const events = yield* AgentRuntime.stream(Agent.withModel(definition, model), 'read').pipe(
         Stream.runCollect,
         Effect.provide(
           Layer.merge(storage, emitToolkit.toLayer({ emit: () => Effect.succeed({ data }) })),
         ),
-      );
+      )
 
-      expect(saved).toHaveLength(1);
-      expect(saved[0]?.text).toBe(JSON.stringify({ data }));
-      const prompt = requests[1]?.prompt;
+      expect(saved).toHaveLength(1)
+      expect(saved[0]?.text).toBe(JSON.stringify({ data }))
+      const prompt = requests[1]?.prompt
 
-      if (prompt === undefined) throw new Error("expected a continuation");
-      const result = toolResultValues(prompt)[0];
+      if (prompt === undefined) throw new Error('expected a continuation')
+      const result = toolResultValues(prompt)[0]
 
-      expect(result).toMatchObject({ truncatedToolResult: true, fullResultId: id });
-      expect(new TextEncoder().encode(JSON.stringify(result)).length).toBeLessThanOrEqual(256);
-      const event = events.find((event) => event._tag === "ToolCallSucceeded");
+      expect(result).toMatchObject({ truncatedToolResult: true, fullResultId: id })
+      expect(new TextEncoder().encode(JSON.stringify(result)).length).toBeLessThanOrEqual(256)
+      const event = events.find((event) => event._tag === 'ToolCallSucceeded')
 
-      expect(event).toMatchObject({ result });
-    }),
-  );
+      expect(event).toMatchObject({ result })
+    }))
 
   it.effect(
-    "reserves grace before provider execution and never grants it again after interruption",
+    'reserves grace before provider execution and never grants it again after interruption',
     () =>
-      Effect.gen(function* () {
-        const definition = Agent.make("resume-grace", {
+      Effect.gen(function*() {
+        const definition = Agent.make('resume-grace', {
           input: Schema.String,
           output: answerOutput,
-          instructions: "Answer.",
+          instructions: 'Answer.',
           toolkit: Toolkit.empty,
           policy: AgentPolicy.make({
             maxTurns: 1,
             maxToolCalls: 1,
-            maxDuration: "30 seconds",
+            maxDuration: '30 seconds',
             toolConcurrency: 1,
           }),
-        });
+        })
 
-        const { model, requests } = scriptedModel([finalParts('{"answer":"never"}')]);
-        let reserved = false;
+        const { model, requests } = scriptedModel([finalParts('{"answer":"never"}')])
+        let reserved = false
 
         const durability: RunDurabilityHook = {
           toolResultMaxBytes: 1024 * 1024,
           checkpoint: Effect.void,
           initialize: () => Effect.void,
-          commitTurn: () => Effect.succeed("committed"),
+          commitTurn: () => Effect.succeed('committed'),
           checkToolDispatch: Effect.void,
           commitCompaction: () => Effect.void,
           noteTurnUsage: () => Effect.void,
@@ -323,64 +317,64 @@ layer(testLayer)("context economics — bounding, tracking, status, exhaustion",
           },
           reservePolicyUsage: (usage) =>
             Effect.sync(() => {
-              reserved = usage.finalizationUsed;
+              reserved = usage.finalizationUsed
             }).pipe(Effect.andThen(Effect.interrupt)),
-        };
+        }
 
-        const seed = { ...emptyResumeUsage, committedTurns: 1, modelCalls: 1 };
+        const seed = { ...emptyResumeUsage, committedTurns: 1, modelCalls: 1 }
 
-        const interrupted = yield* AgentRuntime.run(Agent.withModel(definition, model), "q", {
+        const interrupted = yield* AgentRuntime.run(Agent.withModel(definition, model), 'q', {
           resumeUsage: seed,
           durability,
-        }).pipe(Effect.exit);
+        }).pipe(Effect.exit)
 
-        expect(Exit.isFailure(interrupted) && Cause.hasInterrupts(interrupted.cause)).toBe(true);
-        expect(reserved).toBe(true);
+        expect(Exit.isFailure(interrupted) && Cause.hasInterrupts(interrupted.cause)).toBe(true)
+        expect(reserved).toBe(true)
 
-        const replacement = yield* AgentRuntime.run(Agent.withModel(definition, model), "q", {
+        const replacement = yield* AgentRuntime.run(Agent.withModel(definition, model), 'q', {
           resumeUsage: { ...seed, finalizationUsed: reserved },
-        }).pipe(Effect.exit);
+        }).pipe(Effect.exit)
 
         expect(failureFrom(replacement)).toMatchObject({
-          _tag: "AgentPolicyError",
-          limit: "turns",
-        });
-        expect(requests).toHaveLength(0);
+          _tag: 'AgentPolicyError',
+          limit: 'turns',
+        })
+        expect(requests).toHaveLength(0)
       }),
-  );
+  )
 
   // Regression: https://github.com/yielded-dev/agent/commit/2259fc0
   // KOM-125: a transformed Class retains provider definitions that Schema.toEncoded removes.
-  it.effect("admits original Tool schemas exactly as native OpenAI serializes them", () =>
-    Effect.gen(function* () {
-      class CredentialLookup extends Schema.Class<CredentialLookup>("CredentialLookupEncoded")({
+  it.effect('admits original Tool schemas exactly as native OpenAI serializes them', () =>
+    Effect.gen(function*() {
+      class CredentialLookup extends Schema.Class<CredentialLookup>('CredentialLookupEncoded')({
         bindingId: Schema.String.annotate({
-          description: "Reserved credential metadata. ".repeat(200),
+          description: 'Reserved credential metadata. '.repeat(200),
         }),
       }) {}
 
-      const lookup = Tool.make("credential_lookup", {
+      const lookup = Tool.make('credential_lookup', {
         parameters: CredentialLookup,
         success: Schema.String,
-      });
+      })
 
-      const toolkit = Toolkit.make(lookup);
+      const toolkit = Toolkit.make(lookup)
 
-      const definition = Agent.make("original-tool-provider-schema", {
+      const definition = Agent.make('original-tool-provider-schema', {
         input: Schema.String,
         output: Schema.String,
-        instructions: "Return a JSON string.",
+        instructions: 'Return a JSON string.',
         toolkit,
-        policy: { maxTurns: 2, maxToolCalls: 2, maxDuration: "30 seconds", runStatus: "off" },
-      });
+        policy: { maxTurns: 2, maxToolCalls: 2, maxDuration: '30 seconds', runStatus: 'off' },
+      })
 
-      const run = Effect.fn(function* (capacity: number) {
-        const admittedSchemas: Array<unknown> = [];
-        const wireSchemas: Array<unknown> = [];
+      const run = Effect.fn(function*(capacity: number) {
+        const admittedSchemas: Array<unknown> = []
+        const wireSchemas: Array<unknown> = []
 
         const client = HttpClient.make((request) =>
-          Effect.gen(function* () {
-            if (request.body._tag !== "Uint8Array") throw new Error("Expected JSON request body");
+          Effect.gen(function*() {
+            if (request.body._tag !== 'Uint8Array') throw new Error('Expected JSON request body')
 
             const body = yield* HttpClientResponse.fromWeb(
               request,
@@ -396,44 +390,44 @@ layer(testLayer)("context economics — bounding, tracking, status, exhaustion",
                 ),
               ),
               Effect.orDie,
-            );
+            )
 
-            expect(body.tools.map(({ name }) => name)).toEqual(["credential_lookup"]);
-            wireSchemas.push(body.tools[0]?.parameters);
+            expect(body.tools.map(({ name }) => name)).toEqual(['credential_lookup'])
+            wireSchemas.push(body.tools[0]?.parameters)
 
             const message = {
-              type: "message",
-              id: "message-schema",
-              role: "assistant",
-              status: "completed",
-              content: [{ type: "output_text", text: '"done"', annotations: [] }],
-            };
+              type: 'message',
+              id: 'message-schema',
+              role: 'assistant',
+              status: 'completed',
+              content: [{ type: 'output_text', text: '"done"', annotations: [] }],
+            }
 
             const response = {
-              id: "response-schema",
-              object: "response",
-              model: "gpt-6-sol",
+              id: 'response-schema',
+              object: 'response',
+              model: 'gpt-6-sol',
               created_at: 0,
               output: [message],
-            };
+            }
 
             const events = [
-              { type: "response.created", response: { ...response, output: [] } },
+              { type: 'response.created', response: { ...response, output: [] } },
               {
-                type: "response.output_item.added",
+                type: 'response.output_item.added',
                 output_index: 0,
-                item: { ...message, status: "in_progress", content: [] },
+                item: { ...message, status: 'in_progress', content: [] },
               },
               {
-                type: "response.output_text.delta",
+                type: 'response.output_text.delta',
                 item_id: message.id,
                 output_index: 0,
                 content_index: 0,
                 delta: '"done"',
               },
-              { type: "response.output_item.done", output_index: 0, item: message },
-              { type: "response.completed", response },
-            ];
+              { type: 'response.output_item.done', output_index: 0, item: message },
+              { type: 'response.completed', response },
+            ]
 
             return HttpClientResponse.fromWeb(
               request,
@@ -444,31 +438,31 @@ layer(testLayer)("context economics — bounding, tracking, status, exhaustion",
                       (event, sequence_number) =>
                         `event: ${event.type}\ndata: ${JSON.stringify({ ...event, sequence_number })}\n\n`,
                     )
-                    .join(""),
-                  { contentType: "text/event-stream" },
+                    .join(''),
+                  { contentType: 'text/event-stream' },
                 ),
               ),
-            );
-          }),
-        );
+            )
+          })
+        )
 
-        const provider = yield* OpenAiClient.make({ apiUrl: "https://provider.invalid/v1" }).pipe(
+        const provider = yield* OpenAiClient.make({ apiUrl: 'https://provider.invalid/v1' }).pipe(
           Effect.provideService(HttpClient.HttpClient, client),
-        );
+        )
 
-        const model = OpenAiLanguageModel.model("gpt-6-sol").pipe(
+        const model = OpenAiLanguageModel.model('gpt-6-sol').pipe(
           Layer.provide(Layer.succeed(OpenAiClient.OpenAiClient, provider)),
-        );
+        )
 
         const transformer: LanguageModel.CodecTransformer = (schema) => {
-          const transformed = OpenAiStructuredOutput.toCodecOpenAI(schema);
+          const transformed = OpenAiStructuredOutput.toCodecOpenAI(schema)
 
-          admittedSchemas.push(transformed.jsonSchema);
+          admittedSchemas.push(transformed.jsonSchema)
 
-          return transformed;
-        };
+          return transformed
+        }
 
-        const exit = yield* AgentRuntime.run(Agent.withModel(definition, model), "input", {
+        const exit = yield* AgentRuntime.run(Agent.withModel(definition, model), 'input', {
           context: {
             prepare: (request) =>
               Effect.succeed({
@@ -485,25 +479,24 @@ layer(testLayer)("context economics — bounding, tracking, status, exhaustion",
               }),
           },
         }).pipe(
-          Effect.provide(toolkit.toLayer({ credential_lookup: () => Effect.succeed("unused") })),
+          Effect.provide(toolkit.toLayer({ credential_lookup: () => Effect.succeed('unused') })),
           Effect.exit,
-        );
+        )
 
-        return { exit, admittedSchemas, wireSchemas };
-      });
+        return { exit, admittedSchemas, wireSchemas }
+      })
 
-      const fitting = yield* run(20_000);
+      const fitting = yield* run(20_000)
 
-      expect(Exit.isSuccess(fitting.exit)).toBe(true);
-      expect(fitting.wireSchemas).toHaveLength(1);
-      expect(fitting.admittedSchemas).toEqual(fitting.wireSchemas);
+      expect(Exit.isSuccess(fitting.exit)).toBe(true)
+      expect(fitting.wireSchemas).toHaveLength(1)
+      expect(fitting.admittedSchemas).toEqual(fitting.wireSchemas)
       expect(fitting.wireSchemas[0]).toEqual(
         OpenAiStructuredOutput.toCodecOpenAI(CredentialLookup).jsonSchema,
-      );
-      const tooSmall = yield* run(2_400);
+      )
+      const tooSmall = yield* run(2_400)
 
-      expect(failureFrom(tooSmall.exit)).toBeInstanceOf(ContextBudgetError);
-      expect(tooSmall.wireSchemas).toHaveLength(0);
-    }),
-  );
-});
+      expect(failureFrom(tooSmall.exit)).toBeInstanceOf(ContextBudgetError)
+      expect(tooSmall.wireSchemas).toHaveLength(0)
+    }))
+})

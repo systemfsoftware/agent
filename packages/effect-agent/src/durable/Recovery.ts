@@ -1,20 +1,20 @@
-import * as Effect from "effect/Effect";
-import * as Schema from "effect/Schema";
+import * as Effect from 'effect/Effect'
+import * as Schema from 'effect/Schema'
 
-import { ThreadId, SettlementId, SubmissionId, ToolCallId } from "../core/Identifiers.ts";
-import { ApprovalDecision, SettlementOutcome, DeclaredToolCall } from "./Records.ts";
+import { SettlementId, SubmissionId, ThreadId, ToolCallId } from '../core/Identifiers.ts'
+import { ApprovalDecision, DeclaredToolCall, SettlementOutcome } from './Records.ts'
 import {
-  ChildReservationId,
-  submissionSettlementId,
-  WaitingChild,
   type ChildAttachmentSnapshot,
   type ChildBudgetReservationSnapshot,
+  ChildReservationId,
   type RecoverySnapshot,
-} from "./SubmissionLedger.ts";
+  submissionSettlementId,
+  WaitingChild,
+} from './SubmissionLedger.ts'
 
 /** One declared operation that may have executed without a canonical outcome (DUR-009). */
 export class OpenToolCallEvidence extends Schema.Class<OpenToolCallEvidence>(
-  "@effect-agent/thread/OpenToolCallEvidence",
+  '@effect-agent/thread/OpenToolCallEvidence',
 )({
   toolCallId: ToolCallId,
   toolName: DeclaredToolCall.fields.toolName,
@@ -27,7 +27,7 @@ export class OpenToolCallEvidence extends Schema.Class<OpenToolCallEvidence>(
  * that an absent preparation proves nonexecution.
  */
 export class DeclaredPendingBatchEvidence extends Schema.Class<DeclaredPendingBatchEvidence>(
-  "@effect-agent/thread/DeclaredPendingBatchEvidence",
+  '@effect-agent/thread/DeclaredPendingBatchEvidence',
 )({
   turn: DeclaredToolCall.fields.turn,
   callCount: Schema.Int.check(Schema.isGreaterThan(0)),
@@ -42,7 +42,7 @@ export class DeclaredPendingBatchEvidence extends Schema.Class<DeclaredPendingBa
 
 /** One canonical `ToolApprovalRequested` without a canonical `ToolApprovalDecided`. */
 export class PendingApprovalEvidence extends Schema.Class<PendingApprovalEvidence>(
-  "@effect-agent/thread/PendingApprovalEvidence",
+  '@effect-agent/thread/PendingApprovalEvidence',
 )({
   toolCallId: ToolCallId,
   turn: DeclaredToolCall.fields.turn,
@@ -56,12 +56,12 @@ export class PendingApprovalEvidence extends Schema.Class<PendingApprovalEvidenc
  * (fail-closed: only a proven `not-admitted` ever permits an admission attempt).
  */
 export const DelegationAdmissionEvidence = Schema.Literals([
-  "not-admitted",
-  "admitted",
-  "indeterminate",
-]);
+  'not-admitted',
+  'admitted',
+  'indeterminate',
+])
 
-export type DelegationAdmissionEvidence = typeof DelegationAdmissionEvidence.Type;
+export type DelegationAdmissionEvidence = typeof DelegationAdmissionEvidence.Type
 
 /**
  * One declared-without-outcome parent Tool Call that IS a delegation (plan §4.1), separated from
@@ -75,7 +75,7 @@ export type DelegationAdmissionEvidence = typeof DelegationAdmissionEvidence.Typ
  * them.
  */
 export class OpenDelegationCallEvidence extends Schema.Class<OpenDelegationCallEvidence>(
-  "@effect-agent/thread/OpenDelegationCallEvidence",
+  '@effect-agent/thread/OpenDelegationCallEvidence',
 )({
   toolCallId: ToolCallId,
   toolName: DeclaredToolCall.fields.toolName,
@@ -110,7 +110,7 @@ export class OpenDelegationCallEvidence extends Schema.Class<OpenDelegationCallE
  * record, present exactly when that record exists.
  */
 export class RecoveryEvidence extends Schema.Class<RecoveryEvidence>(
-  "@effect-agent/thread/RecoveryEvidence",
+  '@effect-agent/thread/RecoveryEvidence',
 )({
   /** The Thread exists in the ThreadStore. */
   threadMaterialized: Schema.Boolean,
@@ -159,37 +159,37 @@ export class RecoveryEvidence extends Schema.Class<RecoveryEvidence>(
 /** Ledger admission committed but the Thread is not durable: finish materialization,
  * append `ThreadCreated`, and mark readiness (crash between admit and materialize). */
 export class CompleteMaterialization extends Schema.TaggedClass<CompleteMaterialization>(
-  "@effect-agent/thread/CompleteMaterialization",
-)("CompleteMaterialization", { submissionId: SubmissionId }) {}
+  '@effect-agent/thread/CompleteMaterialization',
+)('CompleteMaterialization', { submissionId: SubmissionId }) {}
 
 /** Thread durable but the readiness marker is missing: idempotent `markReady`. */
 export class RepairReadiness extends Schema.TaggedClass<RepairReadiness>(
-  "@effect-agent/thread/RepairReadiness",
-)("RepairReadiness", { submissionId: SubmissionId }) {}
+  '@effect-agent/thread/RepairReadiness',
+)('RepairReadiness', { submissionId: SubmissionId }) {}
 
 /** No canonical input yet: append the deterministic `UserInputRecorded` record and mark it. */
-export class ApplyInput extends Schema.TaggedClass<ApplyInput>("@effect-agent/thread/ApplyInput")(
-  "ApplyInput",
+export class ApplyInput extends Schema.TaggedClass<ApplyInput>('@effect-agent/thread/ApplyInput')(
+  'ApplyInput',
   { submissionId: SubmissionId },
 ) {}
 
 /** Canonical input exists but the ledger marker was lost: repair the marker only (DUR-015). */
 export class RepairInputMarker extends Schema.TaggedClass<RepairInputMarker>(
-  "@effect-agent/thread/RepairInputMarker",
-)("RepairInputMarker", { submissionId: SubmissionId }) {}
+  '@effect-agent/thread/RepairInputMarker',
+)('RepairInputMarker', { submissionId: SubmissionId }) {}
 
 /** Input applied and no canonical terminal outcome: a worker resumes the Run from the last committed
  * Turn boundary (D6; the model may be re-invoked, duplicate cost is observable — the resuming
  * worker appends `ModelResponseInterrupted` when superseding a prior owner, durability §9). */
 export class ResumeFromTurnBoundary extends Schema.TaggedClass<ResumeFromTurnBoundary>(
-  "@effect-agent/thread/ResumeFromTurnBoundary",
-)("ResumeFromTurnBoundary", { submissionId: SubmissionId }) {}
+  '@effect-agent/thread/ResumeFromTurnBoundary',
+)('ResumeFromTurnBoundary', { submissionId: SubmissionId }) {}
 
 /** The canonical settlement record exists: rebuild/finalize the ledger from history and never
  * rewrite history from the cached ledger status (DUR-011, DUR-015). */
 export class FinalizeLedgerFromHistory extends Schema.TaggedClass<FinalizeLedgerFromHistory>(
-  "@effect-agent/thread/FinalizeLedgerFromHistory",
-)("FinalizeLedgerFromHistory", {
+  '@effect-agent/thread/FinalizeLedgerFromHistory',
+)('FinalizeLedgerFromHistory', {
   submissionId: SubmissionId,
   settlementId: SettlementId,
   outcome: SettlementOutcome,
@@ -200,16 +200,16 @@ export class FinalizeLedgerFromHistory extends Schema.TaggedClass<FinalizeLedger
  * `ToolCallUnknown` audit records for any open ordinary calls — abort settles the obligation but
  * never asserts external rollback (durability §13). */
 export class SettleAborted extends Schema.TaggedClass<SettleAborted>(
-  "@effect-agent/thread/SettleAborted",
-)("SettleAborted", { submissionId: SubmissionId }) {}
+  '@effect-agent/thread/SettleAborted',
+)('SettleAborted', { submissionId: SubmissionId }) {}
 
 /** Declared ordinary Tool Calls have no canonical outcome: the executor reconciles each open
  * call (recovered result / never-started / safe-retry) and marks the remainder Unknown — never
  * an automatic replay (DUR-009/DUR-017). Delegation calls are excluded: their establishment is
  * idempotent by construction and routes through the Subagent rows instead (plan §4.3). */
 export class MarkUnknown extends Schema.TaggedClass<MarkUnknown>(
-  "@effect-agent/thread/MarkUnknown",
-)("MarkUnknown", {
+  '@effect-agent/thread/MarkUnknown',
+)('MarkUnknown', {
   submissionId: SubmissionId,
   reason: Schema.String,
   openToolCallIds: Schema.Array(ToolCallId),
@@ -220,8 +220,8 @@ export class MarkUnknown extends Schema.TaggedClass<MarkUnknown>(
  * routes an open delegation call WITHOUT establishment evidence here (spec §13 row 1): the
  * declared batch re-executes and the idempotent establishment converges on one child. */
 export class ResumePendingToolBatch extends Schema.TaggedClass<ResumePendingToolBatch>(
-  "@effect-agent/thread/ResumePendingToolBatch",
-)("ResumePendingToolBatch", {
+  '@effect-agent/thread/ResumePendingToolBatch',
+)('ResumePendingToolBatch', {
   submissionId: SubmissionId,
   turn: DeclaredPendingBatchEvidence.fields.turn,
 }) {}
@@ -229,44 +229,44 @@ export class ResumePendingToolBatch extends Schema.TaggedClass<ResumePendingTool
 /** Canonically requested approvals lack decisions: the lane waits durably (the executor repairs
  * the ledger suspension from history when the suspend transition itself was lost). */
 export class AwaitApprovalDecision extends Schema.TaggedClass<AwaitApprovalDecision>(
-  "@effect-agent/thread/AwaitApprovalDecision",
-)("AwaitApprovalDecision", { submissionId: SubmissionId }) {}
+  '@effect-agent/thread/AwaitApprovalDecision',
+)('AwaitApprovalDecision', { submissionId: SubmissionId }) {}
 
 /** Every pending approval has a durable decision: a worker resumes the declared batch via the
  * batch-resume seam, appending the canonical `ToolApprovalDecided` records first. */
 export class ResumeSuspended extends Schema.TaggedClass<ResumeSuspended>(
-  "@effect-agent/thread/ResumeSuspended",
-)("ResumeSuspended", { submissionId: SubmissionId }) {}
+  '@effect-agent/thread/ResumeSuspended',
+)('ResumeSuspended', { submissionId: SubmissionId }) {}
 
 /** Unknown Outcomes lack covering resolutions: this Submission stays parked awaiting the authorized
  * DUR-017 resolution path; the obligation stays visible, nothing replays. */
 export class AwaitUnknownResolution extends Schema.TaggedClass<AwaitUnknownResolution>(
-  "@effect-agent/thread/AwaitUnknownResolution",
-)("AwaitUnknownResolution", { submissionId: SubmissionId }) {}
+  '@effect-agent/thread/AwaitUnknownResolution',
+)('AwaitUnknownResolution', { submissionId: SubmissionId }) {}
 
 /** Durable resolution intents cover every open call: wake the original Submission when its
  * required retry contract is supported. Canonical outcomes are applied by the next claim. */
 export class ApplyUnknownResolutions extends Schema.TaggedClass<ApplyUnknownResolutions>(
-  "@effect-agent/thread/ApplyUnknownResolutions",
-)("ApplyUnknownResolutions", { submissionId: SubmissionId }) {}
+  '@effect-agent/thread/ApplyUnknownResolutions',
+)('ApplyUnknownResolutions', { submissionId: SubmissionId }) {}
 
 /** `joining` without a canonical `input:{sid}` record: revert to `ready` — the input was never
  * consumed and will be delivered exactly once later (DUR-016). */
 export class RevertJoining extends Schema.TaggedClass<RevertJoining>(
-  "@effect-agent/thread/RevertJoining",
-)("RevertJoining", { submissionId: SubmissionId }) {}
+  '@effect-agent/thread/RevertJoining',
+)('RevertJoining', { submissionId: SubmissionId }) {}
 
 /** The canonical input exists but the `joined` marker was lost: repair the marker only, exactly
  * like `RepairInputMarker` (DUR-015/DUR-016); the input reattaches, never duplicates. */
 export class RepairJoinMarker extends Schema.TaggedClass<RepairJoinMarker>(
-  "@effect-agent/thread/RepairJoinMarker",
-)("RepairJoinMarker", { submissionId: SubmissionId }) {}
+  '@effect-agent/thread/RepairJoinMarker',
+)('RepairJoinMarker', { submissionId: SubmissionId }) {}
 
 /** The host Run settled canonically: settle this joined Submission with the host outcome
  * (each joined Submission is owed its own settlement, DUR-002). */
 export class SettleJoinedWithHost extends Schema.TaggedClass<SettleJoinedWithHost>(
-  "@effect-agent/thread/SettleJoinedWithHost",
-)("SettleJoinedWithHost", {
+  '@effect-agent/thread/SettleJoinedWithHost',
+)('SettleJoinedWithHost', {
   submissionId: SubmissionId,
   outcome: SettlementOutcome,
 }) {}
@@ -274,8 +274,8 @@ export class SettleJoinedWithHost extends Schema.TaggedClass<SettleJoinedWithHos
 /** The Submission is `joined` and its host Run is still live: nothing to repair — the input
  * reattaches through the host's resume and the Submission settles with the host. */
 export class AwaitHostSettlement extends Schema.TaggedClass<AwaitHostSettlement>(
-  "@effect-agent/thread/AwaitHostSettlement",
-)("AwaitHostSettlement", {
+  '@effect-agent/thread/AwaitHostSettlement',
+)('AwaitHostSettlement', {
   submissionId: SubmissionId,
   hostSubmissionId: Schema.optionalKey(SubmissionId),
 }) {}
@@ -286,8 +286,8 @@ export class AwaitHostSettlement extends Schema.TaggedClass<AwaitHostSettlement>
  * materialize the child Thread, append its immutable lineage, and mark it ready. No live
  * delegation handler is required (spec §13, SUB-016/SUB-031). */
 export class CompleteChildAdmission extends Schema.TaggedClass<CompleteChildAdmission>(
-  "@effect-agent/thread/CompleteChildAdmission",
-)("CompleteChildAdmission", {
+  '@effect-agent/thread/CompleteChildAdmission',
+)('CompleteChildAdmission', {
   submissionId: SubmissionId,
   toolCallId: ToolCallId,
 }) {}
@@ -297,8 +297,8 @@ export class CompleteChildAdmission extends Schema.TaggedClass<CompleteChildAdmi
  * Absence from a projection is never proof of absence and a second admission NEVER occurs
  * (spec §12, SUB-031). */
 export class AwaitChildAdmissionResolution extends Schema.TaggedClass<AwaitChildAdmissionResolution>(
-  "@effect-agent/thread/AwaitChildAdmissionResolution",
-)("AwaitChildAdmissionResolution", {
+  '@effect-agent/thread/AwaitChildAdmissionResolution',
+)('AwaitChildAdmissionResolution', {
   submissionId: SubmissionId,
   toolCallId: ToolCallId,
 }) {}
@@ -308,8 +308,8 @@ export class AwaitChildAdmissionResolution extends Schema.TaggedClass<AwaitChild
  * and append the exact deterministic start record, then attach the child to its reservation —
  * the same Receipt on every replay (spec §13, SUB-016/SUB-017). */
 export class RepairSubagentStartLink extends Schema.TaggedClass<RepairSubagentStartLink>(
-  "@effect-agent/thread/RepairSubagentStartLink",
-)("RepairSubagentStartLink", {
+  '@effect-agent/thread/RepairSubagentStartLink',
+)('RepairSubagentStartLink', {
   submissionId: SubmissionId,
   toolCallId: ToolCallId,
 }) {}
@@ -319,8 +319,8 @@ export class RepairSubagentStartLink extends Schema.TaggedClass<RepairSubagentSt
  * permit while each child runs on its own lane. Recovery reattaches the one existing child and
  * NEVER spawns a replacement (spec §13, SUB-018/SUB-030). */
 export class EnsureWaitingForChild extends Schema.TaggedClass<EnsureWaitingForChild>(
-  "@effect-agent/thread/EnsureWaitingForChild",
-)("EnsureWaitingForChild", {
+  '@effect-agent/thread/EnsureWaitingForChild',
+)('EnsureWaitingForChild', {
   submissionId: SubmissionId,
   children: Schema.NonEmptyArray(WaitingChild),
 }) {}
@@ -330,16 +330,16 @@ export class EnsureWaitingForChild extends Schema.TaggedClass<EnsureWaitingForCh
  * it durably (spec §12 step 10). An unresolved ordinary Tool inside a child keeps the parent
  * here honestly — the obligation stays visible and aged, nothing is fabricated (SUB-021). */
 export class AwaitChildSettlement extends Schema.TaggedClass<AwaitChildSettlement>(
-  "@effect-agent/thread/AwaitChildSettlement",
-)("AwaitChildSettlement", { submissionId: SubmissionId }) {}
+  '@effect-agent/thread/AwaitChildSettlement',
+)('AwaitChildSettlement', { submissionId: SubmissionId }) {}
 
 /** Every relevant child is provably settled but the parent has not joined (legacy data, or a
  * canonical settlement whose idempotent wake still needs replay): record/replay the durable wake
  * so a claiming worker resumes the declared batch and joins each child's canonical Settlement —
  * the join itself needs the parent Binding and is deferred to that worker (spec §13). */
 export class ResumeWaitingParent extends Schema.TaggedClass<ResumeWaitingParent>(
-  "@effect-agent/thread/ResumeWaitingParent",
-)("ResumeWaitingParent", {
+  '@effect-agent/thread/ResumeWaitingParent',
+)('ResumeWaitingParent', {
   submissionId: SubmissionId,
   children: Schema.NonEmptyArray(WaitingChild),
 }) {}
@@ -349,8 +349,8 @@ export class ResumeWaitingParent extends Schema.TaggedClass<ResumeWaitingParent>
  * apply `releaseChildBudget` — budget stays unavailable until repair, never available twice
  * (spec §12 join step 6, DUR-015). */
 export class ApplyJoinAccounting extends Schema.TaggedClass<ApplyJoinAccounting>(
-  "@effect-agent/thread/ApplyJoinAccounting",
-)("ApplyJoinAccounting", {
+  '@effect-agent/thread/ApplyJoinAccounting',
+)('ApplyJoinAccounting', {
   submissionId: SubmissionId,
   toolCallId: ToolCallId,
   reservationId: ChildReservationId,
@@ -362,8 +362,8 @@ export class ApplyJoinAccounting extends Schema.TaggedClass<ApplyJoinAccounting>
  * child intent unchanged, so the intent row IS the propagation marker (spec §13.1, SUB-022,
  * DUR-012). */
 export class PropagateChildAbort extends Schema.TaggedClass<PropagateChildAbort>(
-  "@effect-agent/thread/PropagateChildAbort",
-)("PropagateChildAbort", {
+  '@effect-agent/thread/PropagateChildAbort',
+)('PropagateChildAbort', {
   submissionId: SubmissionId,
   children: Schema.NonEmptyArray(WaitingChild),
 }) {}
@@ -373,8 +373,8 @@ export class PropagateChildAbort extends Schema.TaggedClass<PropagateChildAbort>
  * deterministic zero-consumed accounting decision and release the unused allocation exactly
  * once (spec §13/§14: "releases the reservation exactly once"). */
 export class ReleaseOrphanChildReservation extends Schema.TaggedClass<ReleaseOrphanChildReservation>(
-  "@effect-agent/thread/ReleaseOrphanChildReservation",
-)("ReleaseOrphanChildReservation", {
+  '@effect-agent/thread/ReleaseOrphanChildReservation',
+)('ReleaseOrphanChildReservation', {
   submissionId: SubmissionId,
   reservationIds: Schema.NonEmptyArray(ChildReservationId),
 }) {}
@@ -388,16 +388,16 @@ export class ReleaseOrphanChildReservation extends Schema.TaggedClass<ReleaseOrp
  * safety repair — the join already fails closed without lineage (SUB-019).
  */
 export class AwaitParentEstablishment extends Schema.TaggedClass<AwaitParentEstablishment>(
-  "@effect-agent/thread/AwaitParentEstablishment",
-)("AwaitParentEstablishment", {
+  '@effect-agent/thread/AwaitParentEstablishment',
+)('AwaitParentEstablishment', {
   submissionId: SubmissionId,
   parentSubmissionId: SubmissionId,
   parentToolCallId: ToolCallId,
 }) {}
 
 /** The Submission is settled; nothing is owed. */
-export class NoAction extends Schema.TaggedClass<NoAction>("@effect-agent/thread/NoAction")(
-  "NoAction",
+export class NoAction extends Schema.TaggedClass<NoAction>('@effect-agent/thread/NoAction')(
+  'NoAction',
   { submissionId: SubmissionId },
 ) {}
 
@@ -431,31 +431,31 @@ export const RecoveryDecision = Schema.Union([
   ReleaseOrphanChildReservation,
   AwaitParentEstablishment,
   NoAction,
-]);
+])
 
-export type RecoveryDecision = typeof RecoveryDecision.Type;
+export type RecoveryDecision = typeof RecoveryDecision.Type
 
 /**
  * The classifier's merged per-call view of one delegation Tool Call: canonical parent-log flags
  * from the evidence, the reservation row, and the child attachment from the ledger snapshot.
  */
 interface DelegationCallView {
-  readonly toolCallId: ToolCallId;
-  turn: number | undefined;
+  readonly toolCallId: ToolCallId
+  turn: number | undefined
   /** An original delegation declaration authorizes idempotent batch resumption. */
-  open: boolean;
-  requested: boolean;
-  started: boolean;
-  joined: boolean;
-  admission: DelegationAdmissionEvidence | undefined;
-  childSubmissionId: SubmissionId | undefined;
-  reservation: ChildBudgetReservationSnapshot | undefined;
-  attachment: ChildAttachmentSnapshot | undefined;
+  open: boolean
+  requested: boolean
+  started: boolean
+  joined: boolean
+  admission: DelegationAdmissionEvidence | undefined
+  childSubmissionId: SubmissionId | undefined
+  reservation: ChildBudgetReservationSnapshot | undefined
+  attachment: ChildAttachmentSnapshot | undefined
 }
 
 /** The attachment proves the child's canonical Settlement exists. */
 const isTerminalAttachment = (attachment: ChildAttachmentSnapshot): boolean =>
-  attachment.childState === "settled" || attachment.childOutcome !== undefined;
+  attachment.childState === 'settled' || attachment.childOutcome !== undefined
 
 /**
  * Merge every durable delegation-detection source into per-call views (plan §4.1): the
@@ -466,12 +466,12 @@ const delegationViewsOf = (
   snapshot: RecoverySnapshot,
   evidence: RecoveryEvidence,
 ): Array<DelegationCallView> => {
-  const views = new Map<ToolCallId, DelegationCallView>();
+  const views = new Map<ToolCallId, DelegationCallView>()
 
   const ensure = (toolCallId: ToolCallId): DelegationCallView => {
-    const existing = views.get(toolCallId);
+    const existing = views.get(toolCallId)
 
-    if (existing !== undefined) return existing;
+    if (existing !== undefined) return existing
 
     const created: DelegationCallView = {
       toolCallId,
@@ -484,55 +484,55 @@ const delegationViewsOf = (
       childSubmissionId: undefined,
       reservation: undefined,
       attachment: undefined,
-    };
+    }
 
-    views.set(toolCallId, created);
+    views.set(toolCallId, created)
 
-    return created;
-  };
+    return created
+  }
 
   for (const call of evidence.openDelegationCalls) {
-    const view = ensure(call.toolCallId);
+    const view = ensure(call.toolCallId)
 
-    view.turn = call.turn;
-    view.open = true;
-    view.requested = call.requested;
-    view.started = call.started;
-    view.joined = call.joined;
-    view.admission = call.admission;
-    view.childSubmissionId = call.childSubmissionId;
+    view.turn = call.turn
+    view.open = true
+    view.requested = call.requested
+    view.started = call.started
+    view.joined = call.joined
+    view.admission = call.admission
+    view.childSubmissionId = call.childSubmissionId
   }
   for (const reservation of snapshot.childReservations) {
-    let view = views.get(reservation.parentToolCallId);
+    let view = views.get(reservation.parentToolCallId)
 
     if (view === undefined) {
-      view = ensure(reservation.parentToolCallId);
+      view = ensure(reservation.parentToolCallId)
     }
-    view.reservation = reservation;
+    view.reservation = reservation
     if (view.childSubmissionId === undefined && reservation.childSubmissionId !== undefined) {
-      view.childSubmissionId = reservation.childSubmissionId;
+      view.childSubmissionId = reservation.childSubmissionId
     }
   }
   for (const attachment of snapshot.childAttachments) {
-    const view = ensure(attachment.toolCallId);
+    const view = ensure(attachment.toolCallId)
 
-    view.attachment = attachment;
+    view.attachment = attachment
     if (view.childSubmissionId === undefined) {
-      view.childSubmissionId = attachment.childSubmissionId;
+      view.childSubmissionId = attachment.childSubmissionId
     }
   }
 
-  return [...views.values()];
-};
+  return [...views.values()]
+}
 
 const waitingChildOf = (view: DelegationCallView, childSubmissionId: SubmissionId): WaitingChild =>
-  WaitingChild.make({ toolCallId: view.toolCallId, childSubmissionId });
+  WaitingChild.make({ toolCallId: view.toolCallId, childSubmissionId })
 
 const nonEmpty = <A>(values: ReadonlyArray<A>): readonly [A, ...Array<A>] | undefined => {
-  const [first, ...rest] = values;
+  const [first, ...rest] = values
 
-  return first === undefined ? undefined : [first, ...rest];
-};
+  return first === undefined ? undefined : [first, ...rest]
+}
 
 /**
  * The reservation's frozen accounting decision has not been applied: whether frozen by a
@@ -543,17 +543,17 @@ const nonEmpty = <A>(values: ReadonlyArray<A>): readonly [A, ...Array<A>] | unde
 const releasePendingReservation = (
   view: DelegationCallView,
 ): ChildBudgetReservationSnapshot | undefined =>
-  view.reservation !== undefined && view.reservation.status === "releasePending"
+  view.reservation !== undefined && view.reservation.status === 'releasePending'
     ? view.reservation
-    : undefined;
+    : undefined
 
 /** The reservation still holds unfrozen allocation (`reserved`). */
 const reservedReservation = (
   view: DelegationCallView,
 ): ChildBudgetReservationSnapshot | undefined =>
-  view.reservation !== undefined && view.reservation.status === "reserved"
+  view.reservation !== undefined && view.reservation.status === 'reserved'
     ? view.reservation
-    : undefined;
+    : undefined
 
 /**
  * The spec §13 Subagent rows for a live (non-suspended) parent WITHOUT a durable abort intent,
@@ -564,121 +564,121 @@ const classifyDelegationRepairs = (
   submissionId: SubmissionId,
   views: ReadonlyArray<DelegationCallView>,
 ): RecoveryDecision | undefined => {
-  const applyJoins: Array<DelegationCallView> = [];
-  const completeAdmissions: Array<DelegationCallView> = [];
-  const repairStartLinks: Array<DelegationCallView> = [];
-  const awaitAdmissions: Array<DelegationCallView> = [];
-  const resumeBatches: Array<DelegationCallView> = [];
-  const waiting: Array<WaitingChild> = [];
-  const terminalUnjoined: Array<WaitingChild> = [];
-  const orphanReservations: Array<ChildBudgetReservationSnapshot> = [];
+  const applyJoins: Array<DelegationCallView> = []
+  const completeAdmissions: Array<DelegationCallView> = []
+  const repairStartLinks: Array<DelegationCallView> = []
+  const awaitAdmissions: Array<DelegationCallView> = []
+  const resumeBatches: Array<DelegationCallView> = []
+  const waiting: Array<WaitingChild> = []
+  const terminalUnjoined: Array<WaitingChild> = []
+  const orphanReservations: Array<ChildBudgetReservationSnapshot> = []
 
   for (const view of views) {
-    if (view.reservation !== undefined && view.reservation.status === "released") {
+    if (view.reservation !== undefined && view.reservation.status === 'released') {
       // The reservation lifecycle is complete: release happens only after the canonical join
       // (or a provably-childless orphan decision), so no parent-side budget or waiting
       // obligation remains on this call.
-      continue;
+      continue
     }
     if (releasePendingReservation(view) !== undefined) {
       // Row: budget release incomplete with the accounting decision already frozen → finish
       // the idempotent release; a second freeze would conflict.
-      applyJoins.push(view);
-      continue;
+      applyJoins.push(view)
+      continue
     }
     if (view.joined) {
       // Row: parent join canonical, budget release incomplete → apply the canonical accounting.
-      if (reservedReservation(view) !== undefined) applyJoins.push(view);
-      continue;
+      if (reservedReservation(view) !== undefined) applyJoins.push(view)
+      continue
     }
     if (view.started && view.childSubmissionId !== undefined) {
       // Rows: started + child nonterminal → waiting; child terminal + join missing → wake.
-      const child = waitingChildOf(view, view.childSubmissionId);
+      const child = waitingChildOf(view, view.childSubmissionId)
 
       if (view.attachment !== undefined && isTerminalAttachment(view.attachment)) {
-        terminalUnjoined.push(child);
+        terminalUnjoined.push(child)
       } else {
-        waiting.push(child);
+        waiting.push(child)
       }
-      continue;
+      continue
     }
-    if (view.started || view.childSubmissionId !== undefined || view.admission === "admitted") {
+    if (view.started || view.childSubmissionId !== undefined || view.admission === 'admitted') {
       // Row: child admitted, parent start record missing (or the start/attachment link is
       // incomplete) → resolve the same child by key and append the exact link.
-      repairStartLinks.push(view);
-      continue;
+      repairStartLinks.push(view)
+      continue
     }
     if (view.requested) {
       // Rows: requested + notAdmitted → admit exactly one child; indeterminate (or unqueried,
       // fail-closed) → wait/retry the authoritative owner, never a second admission.
-      if (view.admission === "not-admitted") completeAdmissions.push(view);
-      else awaitAdmissions.push(view);
-      continue;
+      if (view.admission === 'not-admitted') completeAdmissions.push(view)
+      else awaitAdmissions.push(view)
+      continue
     }
     if (view.open) {
       // Row: no reservation and no request (or reservation without a request on a live parent)
       // → the declared batch re-executes; establishment is idempotent by construction.
-      resumeBatches.push(view);
-      continue;
+      resumeBatches.push(view)
+      continue
     }
-    const reservation = reservedReservation(view);
+    const reservation = reservedReservation(view)
 
     if (reservation !== undefined) {
       // Row: reservation exists, request absent, no resumable batch → release exactly once.
-      orphanReservations.push(reservation);
+      orphanReservations.push(reservation)
     }
   }
 
-  const applyJoin = applyJoins[0];
+  const applyJoin = applyJoins[0]
 
   if (applyJoin?.reservation !== undefined) {
     return ApplyJoinAccounting.make({
       submissionId,
       toolCallId: applyJoin.toolCallId,
       reservationId: applyJoin.reservation.reservationId,
-    });
+    })
   }
-  const completeAdmission = completeAdmissions[0];
+  const completeAdmission = completeAdmissions[0]
 
   if (completeAdmission !== undefined) {
-    return CompleteChildAdmission.make({ submissionId, toolCallId: completeAdmission.toolCallId });
+    return CompleteChildAdmission.make({ submissionId, toolCallId: completeAdmission.toolCallId })
   }
-  const repairStartLink = repairStartLinks[0];
+  const repairStartLink = repairStartLinks[0]
 
   if (repairStartLink !== undefined) {
-    return RepairSubagentStartLink.make({ submissionId, toolCallId: repairStartLink.toolCallId });
+    return RepairSubagentStartLink.make({ submissionId, toolCallId: repairStartLink.toolCallId })
   }
-  const awaitAdmission = awaitAdmissions[0];
+  const awaitAdmission = awaitAdmissions[0]
 
   if (awaitAdmission !== undefined) {
     return AwaitChildAdmissionResolution.make({
       submissionId,
       toolCallId: awaitAdmission.toolCallId,
-    });
+    })
   }
-  const resumeBatch = resumeBatches[0];
+  const resumeBatch = resumeBatches[0]
 
   if (resumeBatch?.turn !== undefined) {
-    return ResumePendingToolBatch.make({ submissionId, turn: resumeBatch.turn });
+    return ResumePendingToolBatch.make({ submissionId, turn: resumeBatch.turn })
   }
-  const waitingChildren = nonEmpty([...waiting, ...terminalUnjoined]);
+  const waitingChildren = nonEmpty([...waiting, ...terminalUnjoined])
 
   if (waiting.length > 0 && waitingChildren !== undefined) {
-    return EnsureWaitingForChild.make({ submissionId, children: waitingChildren });
+    return EnsureWaitingForChild.make({ submissionId, children: waitingChildren })
   }
-  const settledChildren = nonEmpty(terminalUnjoined);
+  const settledChildren = nonEmpty(terminalUnjoined)
 
   if (settledChildren !== undefined) {
-    return ResumeWaitingParent.make({ submissionId, children: settledChildren });
+    return ResumeWaitingParent.make({ submissionId, children: settledChildren })
   }
-  const orphans = nonEmpty(orphanReservations.map((reservation) => reservation.reservationId));
+  const orphans = nonEmpty(orphanReservations.map((reservation) => reservation.reservationId))
 
   if (orphans !== undefined) {
-    return ReleaseOrphanChildReservation.make({ submissionId, reservationIds: orphans });
+    return ReleaseOrphanChildReservation.make({ submissionId, reservationIds: orphans })
   }
 
-  return undefined;
-};
+  return undefined
+}
 
 /**
  * The spec §13/§13.1 Subagent rows under a canonical parent abort intent: request-abort-and-join
@@ -691,111 +691,111 @@ const classifyDelegationAbort = (
   submissionId: SubmissionId,
   views: ReadonlyArray<DelegationCallView>,
 ): RecoveryDecision | undefined => {
-  const awaitAdmissions: Array<DelegationCallView> = [];
-  const repairStartLinks: Array<DelegationCallView> = [];
-  const nonterminal: Array<WaitingChild> = [];
-  const terminalUnjoined: Array<WaitingChild> = [];
-  const applyJoins: Array<DelegationCallView> = [];
-  const orphanReservations: Array<ChildBudgetReservationSnapshot> = [];
+  const awaitAdmissions: Array<DelegationCallView> = []
+  const repairStartLinks: Array<DelegationCallView> = []
+  const nonterminal: Array<WaitingChild> = []
+  const terminalUnjoined: Array<WaitingChild> = []
+  const applyJoins: Array<DelegationCallView> = []
+  const orphanReservations: Array<ChildBudgetReservationSnapshot> = []
 
   for (const view of views) {
-    if (view.reservation !== undefined && view.reservation.status === "released") {
+    if (view.reservation !== undefined && view.reservation.status === 'released') {
       // Fully closed (release only follows the canonical join or a provably-childless orphan
       // decision): nothing left to abort, join, or release for this call.
-      continue;
+      continue
     }
     if (releasePendingReservation(view) !== undefined) {
       // The accounting decision is already frozen: finish the idempotent release; a second
       // (zero-consumed) freeze would conflict with the frozen decision.
-      applyJoins.push(view);
-      continue;
+      applyJoins.push(view)
+      continue
     }
     if (view.joined) {
-      if (reservedReservation(view) !== undefined) applyJoins.push(view);
-      continue;
+      if (reservedReservation(view) !== undefined) applyJoins.push(view)
+      continue
     }
     if (view.childSubmissionId !== undefined) {
       if (!view.started) {
         // The child exists but the canonical start link is missing: repair it first so the
         // abort command targets a canonically linked child.
-        repairStartLinks.push(view);
-        continue;
+        repairStartLinks.push(view)
+        continue
       }
-      const child = waitingChildOf(view, view.childSubmissionId);
+      const child = waitingChildOf(view, view.childSubmissionId)
 
       if (view.attachment !== undefined && isTerminalAttachment(view.attachment)) {
-        terminalUnjoined.push(child);
+        terminalUnjoined.push(child)
       } else {
-        nonterminal.push(child);
+        nonterminal.push(child)
       }
-      continue;
+      continue
     }
-    if (view.started || view.admission === "admitted") {
-      repairStartLinks.push(view);
-      continue;
+    if (view.started || view.admission === 'admitted') {
+      repairStartLinks.push(view)
+      continue
     }
     if (view.requested) {
-      if (view.admission === "not-admitted") {
+      if (view.admission === 'not-admitted') {
         // Provably childless request under abort: never admit a child merely to abort it;
         // release the unused reservation exactly once.
-        const reservation = reservedReservation(view);
+        const reservation = reservedReservation(view)
 
-        if (reservation !== undefined) orphanReservations.push(reservation);
+        if (reservation !== undefined) orphanReservations.push(reservation)
       } else {
         // Indeterminate or unqueried: a child may exist — never release, settle, or re-admit
         // until the authoritative owner answers (SUB-031).
-        awaitAdmissions.push(view);
+        awaitAdmissions.push(view)
       }
-      continue;
+      continue
     }
-    const reservation = reservedReservation(view);
+    const reservation = reservedReservation(view)
 
-    if (reservation !== undefined) orphanReservations.push(reservation);
+    if (reservation !== undefined) orphanReservations.push(reservation)
     // An open delegation call with no reservation carries no child obligation: establishment
     // never started, so the ordinary aborted settlement (with its unknown-audit for open
     // calls) is honest.
   }
 
-  const awaitAdmission = awaitAdmissions[0];
+  const awaitAdmission = awaitAdmissions[0]
 
   if (awaitAdmission !== undefined) {
     return AwaitChildAdmissionResolution.make({
       submissionId,
       toolCallId: awaitAdmission.toolCallId,
-    });
+    })
   }
-  const repairStartLink = repairStartLinks[0];
+  const repairStartLink = repairStartLinks[0]
 
   if (repairStartLink !== undefined) {
-    return RepairSubagentStartLink.make({ submissionId, toolCallId: repairStartLink.toolCallId });
+    return RepairSubagentStartLink.make({ submissionId, toolCallId: repairStartLink.toolCallId })
   }
-  const abortChildren = nonEmpty(nonterminal);
+  const abortChildren = nonEmpty(nonterminal)
 
   if (abortChildren !== undefined) {
-    return PropagateChildAbort.make({ submissionId, children: abortChildren });
+    return PropagateChildAbort.make({ submissionId, children: abortChildren })
   }
-  const settledChildren = nonEmpty(terminalUnjoined);
+  const settledChildren = nonEmpty(terminalUnjoined)
 
   if (settledChildren !== undefined) {
-    return ResumeWaitingParent.make({ submissionId, children: settledChildren });
+    return ResumeWaitingParent.make({ submissionId, children: settledChildren })
   }
-  const applyJoin = applyJoins[0];
+  const applyJoin = applyJoins[0]
 
   if (applyJoin?.reservation !== undefined) {
     return ApplyJoinAccounting.make({
       submissionId,
       toolCallId: applyJoin.toolCallId,
       reservationId: applyJoin.reservation.reservationId,
-    });
+    })
   }
-  const orphans = nonEmpty(orphanReservations.map((reservation) => reservation.reservationId));
+  const orphans = nonEmpty(orphanReservations.map((reservation) => reservation.reservationId))
 
   if (orphans !== undefined) {
-    return ReleaseOrphanChildReservation.make({ submissionId, reservationIds: orphans });
+    return ReleaseOrphanChildReservation.make({ submissionId, reservationIds: orphans })
   }
 
-  return undefined;
-};
+  return undefined
+}
 
 /** The first undecided request the engine can reach before a declaration-ordered denial. */
 export const pendingApprovalForRecovery = (
@@ -804,23 +804,25 @@ export const pendingApprovalForRecovery = (
 ): PendingApprovalEvidence | undefined => {
   const decisions = new Map(
     snapshot.approvalDecisions.map((intent) => [intent.toolCallId, intent.decision]),
-  );
+  )
 
-  const batch = evidence.declaredPendingBatch;
+  const batch = evidence.declaredPendingBatch
 
-  if (batch === undefined)
-    return evidence.approvalsPending.find((pending) => !decisions.has(pending.toolCallId));
-
-  for (const approval of batch.approvals) {
-    const decision = approval.decision ?? decisions.get(approval.toolCallId);
-
-    if (decision === "denied") return undefined;
-    if (decision === undefined)
-      return PendingApprovalEvidence.make({ toolCallId: approval.toolCallId, turn: batch.turn });
+  if (batch === undefined) {
+    return evidence.approvalsPending.find((pending) => !decisions.has(pending.toolCallId))
   }
 
-  return undefined;
-};
+  for (const approval of batch.approvals) {
+    const decision = approval.decision ?? decisions.get(approval.toolCallId)
+
+    if (decision === 'denied') return undefined
+    if (decision === undefined) {
+      return PendingApprovalEvidence.make({ toolCallId: approval.toolCallId, turn: batch.turn })
+    }
+  }
+
+  return undefined
+}
 
 /**
  * Pure recovery classifier (durability §14, DUR-013): a finite persisted snapshot plus canonical
@@ -884,30 +886,30 @@ export const classifyRecovery = (
   snapshot: RecoverySnapshot,
   evidence: RecoveryEvidence,
 ): RecoveryDecision => {
-  const submissionId = snapshot.submission.submissionId;
-  const state = snapshot.submission.state;
+  const submissionId = snapshot.submission.submissionId
+  const state = snapshot.submission.state
 
-  if (state === "settled") {
-    return NoAction.make({ submissionId });
+  if (state === 'settled') {
+    return NoAction.make({ submissionId })
   }
   if (evidence.recordedSettlementOutcome !== undefined) {
     return FinalizeLedgerFromHistory.make({
       submissionId,
       settlementId: submissionSettlementId(submissionId),
       outcome: evidence.recordedSettlementOutcome,
-    });
+    })
   }
-  if (state === "joining") {
+  if (state === 'joining') {
     return evidence.inputRecorded
       ? RepairJoinMarker.make({ submissionId })
-      : RevertJoining.make({ submissionId });
+      : RevertJoining.make({ submissionId })
   }
-  if (state === "joined") {
+  if (state === 'joined') {
     if (evidence.hostSettlementOutcome !== undefined) {
       return SettleJoinedWithHost.make({
         submissionId,
         outcome: evidence.hostSettlementOutcome,
-      });
+      })
     }
 
     return AwaitHostSettlement.make({
@@ -915,106 +917,106 @@ export const classifyRecovery = (
       ...(snapshot.hostSubmissionId === undefined
         ? {}
         : { hostSubmissionId: snapshot.hostSubmissionId }),
-    });
+    })
   }
-  const delegationViews = delegationViewsOf(snapshot, evidence);
+  const delegationViews = delegationViewsOf(snapshot, evidence)
 
   if (snapshot.abortIntent !== undefined) {
     return (
       classifyDelegationAbort(submissionId, delegationViews) ?? SettleAborted.make({ submissionId })
-    );
+    )
   }
 
   const delegationCallIds = new Set<string>(
     evidence.openDelegationCalls.map((call) => call.toolCallId),
-  );
+  )
 
   const ordinaryOpenCalls = evidence.openToolCalls.filter(
     (call) => !delegationCallIds.has(call.toolCallId),
-  );
+  )
 
-  if (state !== "unknown" && ordinaryOpenCalls.length > 0) {
+  if (state !== 'unknown' && ordinaryOpenCalls.length > 0) {
     return MarkUnknown.make({
       submissionId,
-      reason: "An ordinary Tool call may have executed without a canonical outcome",
+      reason: 'An ordinary Tool call may have executed without a canonical outcome',
       openToolCallIds: ordinaryOpenCalls.map((call) => call.toolCallId),
-    });
+    })
   }
-  if (state === "unknown") {
+  if (state === 'unknown') {
     const resolved = new Set(
       snapshot.unknownResolutions.map((resolution) => resolution.toolCallId),
-    );
+    )
 
-    const covered = ordinaryOpenCalls.every((call) => resolved.has(call.toolCallId));
+    const covered = ordinaryOpenCalls.every((call) => resolved.has(call.toolCallId))
 
     return covered
       ? ApplyUnknownResolutions.make({ submissionId })
-      : AwaitUnknownResolution.make({ submissionId });
+      : AwaitUnknownResolution.make({ submissionId })
   }
-  const awaitsApproval = pendingApprovalForRecovery(snapshot, evidence) !== undefined;
+  const awaitsApproval = pendingApprovalForRecovery(snapshot, evidence) !== undefined
 
-  if (state === "suspended") {
-    const reason = snapshot.suspension?.reason;
+  if (state === 'suspended') {
+    const reason = snapshot.suspension?.reason
 
-    if (reason !== undefined && reason._tag === "WaitingForChild") {
+    if (reason !== undefined && reason._tag === 'WaitingForChild') {
       const terminalChildIds = new Set(
         snapshot.childAttachments
           .filter(isTerminalAttachment)
           .map((attachment) => attachment.childSubmissionId),
-      );
+      )
 
       return reason.children.every((child) => terminalChildIds.has(child.childSubmissionId))
         ? ResumeWaitingParent.make({ submissionId, children: reason.children })
-        : AwaitChildSettlement.make({ submissionId });
+        : AwaitChildSettlement.make({ submissionId })
     }
 
     return awaitsApproval
       ? AwaitApprovalDecision.make({ submissionId })
-      : ResumeSuspended.make({ submissionId });
+      : ResumeSuspended.make({ submissionId })
   }
   if (awaitsApproval) {
-    return AwaitApprovalDecision.make({ submissionId });
+    return AwaitApprovalDecision.make({ submissionId })
   }
-  const delegationDecision = classifyDelegationRepairs(submissionId, delegationViews);
+  const delegationDecision = classifyDelegationRepairs(submissionId, delegationViews)
 
   if (delegationDecision !== undefined) {
-    return delegationDecision;
+    return delegationDecision
   }
   if (evidence.declaredPendingBatch !== undefined) {
     return ResumePendingToolBatch.make({
       submissionId,
       turn: evidence.declaredPendingBatch.turn,
-    });
+    })
   }
-  const workerCall = evidence.openWorkerCalls?.[0];
+  const workerCall = evidence.openWorkerCalls?.[0]
 
   if (workerCall !== undefined) {
-    return ResumePendingToolBatch.make({ submissionId, turn: workerCall.turn });
+    return ResumePendingToolBatch.make({ submissionId, turn: workerCall.turn })
   }
-  if (state === "admitted") {
+  if (state === 'admitted') {
     // A parent-linked child never self-repairs readiness before its immutable
     // lineage record is canonical — the parent's establishment appends lineage BEFORE
     // markReady, so the parent completes the child idempotently.
-    const linkage = snapshot.submission.parentLinkage ?? snapshot.parentLinkage;
+    const linkage = snapshot.submission.parentLinkage ?? snapshot.parentLinkage
 
     if (linkage !== undefined && !evidence.subagentLineageRecorded) {
       return AwaitParentEstablishment.make({
         submissionId,
         parentSubmissionId: linkage.parentSubmissionId,
         parentToolCallId: linkage.parentToolCallId,
-      });
+      })
     }
 
     return evidence.threadMaterialized
       ? RepairReadiness.make({ submissionId })
-      : CompleteMaterialization.make({ submissionId });
+      : CompleteMaterialization.make({ submissionId })
   }
   if (!evidence.inputRecorded) {
-    return ApplyInput.make({ submissionId });
+    return ApplyInput.make({ submissionId })
   }
   if (snapshot.inputApplied === undefined) {
-    return RepairInputMarker.make({ submissionId });
+    return RepairInputMarker.make({ submissionId })
   }
 
-  return ResumeFromTurnBoundary.make({ submissionId });
-};
+  return ResumeFromTurnBoundary.make({ submissionId })
+}

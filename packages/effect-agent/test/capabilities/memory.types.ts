@@ -1,11 +1,7 @@
-import * as Memory from "@yielded/agent/memory";
-import {
-  type MemoryLookup,
-  MemoryRecallError,
-  MemoryRecallLimits,
-} from "@yielded/agent/memory-reference";
-import * as Context from "effect/Context";
-import * as Effect from "effect/Effect";
+import * as Memory from '@yielded/agent/memory'
+import { type MemoryLookup, MemoryRecallError, MemoryRecallLimits } from '@yielded/agent/memory-reference'
+import * as Context from 'effect/Context'
+import * as Effect from 'effect/Effect'
 
 const limits = MemoryRecallLimits.make({
   maxSources: 8,
@@ -13,18 +9,18 @@ const limits = MemoryRecallLimits.make({
   maxBytes: 16_384,
   maxTokens: 16_384,
   timeoutMillis: 1_000,
-});
+})
 
 class Corpus extends Context.Service<
   Corpus,
-  { readonly read: Effect.Effect<MemoryLookup, "remote-failure"> }
->()("memory-test/Corpus") {}
+  { readonly read: Effect.Effect<MemoryLookup, 'remote-failure'> }
+>()('memory-test/Corpus') {}
 
 export const verifyPreservesReaderERAndDischargesOnlyTheRecallOwnedScope = () => {
   const program = Memory.recall(
     [
       {
-        id: "typed",
+        id: 'typed',
         essential: true,
         read: Effect.acquireRelease(
           Effect.flatMap(Corpus, (corpus) => corpus.read),
@@ -33,21 +29,20 @@ export const verifyPreservesReaderERAndDischargesOnlyTheRecallOwnedScope = () =>
       },
     ],
     limits,
-  );
+  )
 
-  const error: Effect.Error<typeof program> = "remote-failure";
+  const error: Effect.Error<typeof program> = 'remote-failure'
 
   const taggedError: Effect.Error<typeof program> = MemoryRecallError.make({
-    reason: "timeout",
-    message: "timed out",
-  });
+    reason: 'timeout',
+    message: 'timed out',
+  })
 
-  const requirement: [Effect.Services<typeof program>] extends [Corpus] ? true : false = true;
-  const readerRequired: [Corpus] extends [Effect.Services<typeof program>] ? true : false = true;
+  const requirement: [Effect.Services<typeof program>] extends [Corpus] ? true : false = true
+  const readerRequired: [Corpus] extends [Effect.Services<typeof program>] ? true : false = true
 
-  const exactErrors: [Effect.Error<typeof program>] extends ["remote-failure" | MemoryRecallError]
-    ? true
-    : false = true;
+  const exactErrors: [Effect.Error<typeof program>] extends ['remote-failure' | MemoryRecallError] ? true
+    : false = true
 
-  void [error, taggedError._tag, requirement, readerRequired, exactErrors];
-};
+  void [error, taggedError._tag, requirement, readerRequired, exactErrors]
+}

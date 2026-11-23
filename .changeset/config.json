@@ -7,20 +7,12 @@
     }
   ],
   "commit": false,
-  "format": "oxfmt",
   "fixed": [
     [
-      "@yielded/agent-ai-decision",
-      "@yielded/agent-platform-cloudflare",
+      "@yielded/agent",
       "@yielded/agent-platform-node",
-      "@yielded/agent-pr-review",
-      "@yielded/agent-storage-cloudflare",
-      "@yielded/agent-storage-memory",
-      "@yielded/agent-storage-postgres",
       "@yielded/agent-storage-sql",
-      "@yielded/agent-storage-sqlite",
-      "@yielded/agent-testing",
-      "@yielded/agent"
+      "@yielded/agent-storage-sqlite"
     ]
   ],
   "linked": [],

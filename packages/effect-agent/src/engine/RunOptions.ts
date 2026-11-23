@@ -1,110 +1,104 @@
-import type * as LanguageModel from "effect/ai/LanguageModel";
-import type * as Model from "effect/ai/Model";
-import type * as Prompt from "effect/ai/Prompt";
-import type * as Response from "effect/ai/Response";
-import type * as Cause from "effect/Cause";
-import * as Context from "effect/Context";
-import type * as DateTime from "effect/DateTime";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Schema from "effect/Schema";
+import type * as LanguageModel from 'effect/ai/LanguageModel'
+import type * as Model from 'effect/ai/Model'
+import type * as Prompt from 'effect/ai/Prompt'
+import type * as Response from 'effect/ai/Response'
+import type * as Cause from 'effect/Cause'
+import * as Context from 'effect/Context'
+import type * as DateTime from 'effect/DateTime'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
+import * as Schema from 'effect/Schema'
 
-import { type AgentInputError, type AgentToolAuthorizationCheckError } from "../core/AgentError.ts";
-import {
-  type AgentId,
-  type ThreadId,
-  type RunId,
-  type ToolCallId,
-  type TurnId,
-} from "../core/Identifiers.ts";
-import { type MemoryRecallError } from "../core/MemoryReference.ts";
-import { type ToolExecutionKind } from "../core/SubagentContract.ts";
-import type { Selection } from "../core/ToolExposure.ts";
-import type { ModelCallUsage } from "../core/Usage.ts";
-import type { FrameworkMessage } from "../core/Worker.ts";
-import type { CompactionError, ContextMessageTokenEstimator } from "./ContextCompactor.ts";
-import type { ContextRolloverSelection, ModelCallContext } from "./ContextWindow.ts";
-import type { ToolExecutionClassValue } from "./DurableStep.ts";
+import { type AgentInputError, type AgentToolAuthorizationCheckError } from '../core/AgentError.ts'
+import { type AgentId, type RunId, type ThreadId, type ToolCallId, type TurnId } from '../core/Identifiers.ts'
+import { type MemoryRecallError } from '../core/MemoryReference.ts'
+import { type ToolExecutionKind } from '../core/SubagentContract.ts'
+import type { Selection } from '../core/ToolExposure.ts'
+import type { ModelCallUsage } from '../core/Usage.ts'
+import type { FrameworkMessage } from '../core/Worker.ts'
+import type { CompactionError, ContextMessageTokenEstimator } from './ContextCompactor.ts'
+import type { ContextRolloverSelection, ModelCallContext } from './ContextWindow.ts'
+import type { ToolExecutionClassValue } from './DurableStep.ts'
 
 /** Live, trusted application diagnostics. Never persisted, transported, or automatically logged. */
 interface ToolFailureIdentity {
-  readonly agentId: AgentId;
-  readonly threadId: ThreadId;
-  readonly runId: RunId;
-  readonly turnId: TurnId;
-  readonly toolName: string;
+  readonly agentId: AgentId
+  readonly threadId: ThreadId
+  readonly runId: RunId
+  readonly turnId: TurnId
+  readonly toolName: string
   /** Best-effort error tag, with the existing `UnknownError` fallback. */
-  readonly tag: string;
+  readonly tag: string
 }
 
 /** A model-declared call failed validation or returned a declared failure without failing the Run. */
 export interface ModelToolFailure extends ToolFailureIdentity {
-  readonly _tag: "ModelToolFailure";
-  readonly kind: "declared-failure" | "parameter-rejection";
+  readonly _tag: 'ModelToolFailure'
+  readonly kind: 'declared-failure' | 'parameter-rejection'
   /** Raw provider identity, without the telemetry ID filter. */
-  readonly toolCallId: ToolCallId;
-  readonly executionClass: ToolExecutionClassValue;
-  readonly message?: never;
+  readonly toolCallId: ToolCallId
+  readonly executionClass: ToolExecutionClassValue
+  readonly message?: never
   /** Original private failure; never automatically logged or included in RunEvents. */
-  readonly cause: Cause.Cause<unknown>;
+  readonly cause: Cause.Cause<unknown>
 }
 
 interface ProgrammaticToolFailureIdentity extends ToolFailureIdentity {
-  readonly _tag: "ProgrammaticToolFailure";
+  readonly _tag: 'ProgrammaticToolFailure'
   /** `${parentToolCallId}#${sequenceIndex}`, raw and unique only within this in-memory pass. */
-  readonly toolCallId: string;
-  readonly parentToolCallId: ToolCallId;
+  readonly toolCallId: string
+  readonly parentToolCallId: ToolCallId
   /** Presence means the Handler started and consumed budget; side effects may exist. */
-  readonly sequenceIndex: number;
-  readonly executionClass: ToolExecutionClassValue;
+  readonly sequenceIndex: number
+  readonly executionClass: ToolExecutionClassValue
 }
 
 interface ProgrammaticDeclaredFailure extends ProgrammaticToolFailureIdentity {
-  readonly kind: "declared-failure";
-  readonly message?: never;
+  readonly kind: 'declared-failure'
+  readonly message?: never
   /** Original private failure; never automatically logged or included in RunEvents. */
-  readonly cause: Cause.Cause<unknown>;
+  readonly cause: Cause.Cause<unknown>
 }
 
 interface ProgrammaticHandlerFailure extends ProgrammaticToolFailureIdentity {
-  readonly kind: "handler-error";
-  readonly message?: never;
+  readonly kind: 'handler-error'
+  readonly message?: never
   /** The original, uncollapsed Cause captured before the broker's diagnostic projection. */
-  readonly cause: Cause.Cause<unknown>;
+  readonly cause: Cause.Cause<unknown>
 }
 
 interface ProgrammaticDiagnosticFailure extends ProgrammaticToolFailureIdentity {
-  readonly kind: "infrastructure" | "protocol";
+  readonly kind: 'infrastructure' | 'protocol'
   /** At most 4096 UTF-8 bytes. Never a declared payload. */
-  readonly message: string;
+  readonly message: string
   /** Original Cause when one exists; never fabricated from a source-less rejection. */
-  readonly cause?: Cause.Cause<unknown> | undefined;
+  readonly cause?: Cause.Cause<unknown> | undefined
 }
 
 /** A programmatic Handler started and its failure became a broker outcome. */
 export type ProgrammaticToolFailure =
   | ProgrammaticDeclaredFailure
   | ProgrammaticHandlerFailure
-  | ProgrammaticDiagnosticFailure;
+  | ProgrammaticDiagnosticFailure
 
 /** A programmatic invocation was rejected before its Handler started. No inner identity exists. */
 export interface ProgrammaticPreflightFailure extends ToolFailureIdentity {
-  readonly _tag: "ProgrammaticPreflightFailure";
-  readonly kind: "infrastructure" | "protocol";
-  readonly parentToolCallId: ToolCallId;
+  readonly _tag: 'ProgrammaticPreflightFailure'
+  readonly kind: 'infrastructure' | 'protocol'
+  readonly parentToolCallId: ToolCallId
   /** Absent if the Tool could not be resolved. */
-  readonly executionClass?: ToolExecutionClassValue | undefined;
+  readonly executionClass?: ToolExecutionClassValue | undefined
   /** At most 4096 UTF-8 bytes. */
-  readonly message: string;
+  readonly message: string
   /** Original Cause only for Cause-backed rejection, never fabricated from an outcome. */
-  readonly cause?: Cause.Cause<unknown> | undefined;
+  readonly cause?: Cause.Cause<unknown> | undefined
 }
 
 /** Plain readonly interfaces, intentionally not persisted or transported Schemas (RUN-036). */
 export type ToolFailureObservation =
   | ModelToolFailure
   | ProgrammaticToolFailure
-  | ProgrammaticPreflightFailure;
+  | ProgrammaticPreflightFailure
 
 /**
  * Trusted in-process observation of non-propagating application Tool failures (RUN-036).
@@ -115,27 +109,27 @@ export type ToolFailureObservation =
  * Never reenter ToolBroker, RunEventSink, or Agent execution, or intentionally self-interrupt.
  */
 export interface RunToolFailureObserver {
-  readonly observe: (observation: ToolFailureObservation) => Effect.Effect<void>;
+  readonly observe: (observation: ToolFailureObservation) => Effect.Effect<void>
 }
 
 /** Resolved once per Run; durable coordinators capture it at Layer acquisition. Default absent. */
 export const CurrentToolFailureObserver = Context.Reference<RunToolFailureObserver | undefined>(
-  "@effect-agent/engine/CurrentToolFailureObserver",
+  '@effect-agent/engine/CurrentToolFailureObserver',
   { defaultValue: () => undefined },
-);
+)
 
 /** The sole installation seam, shared by ephemeral Runs and durable platform options. */
 export const toolFailureObserverLayer = (observer: RunToolFailureObserver): Layer.Layer<never> =>
-  Layer.succeed(CurrentToolFailureObserver)(observer);
+  Layer.succeed(CurrentToolFailureObserver)(observer)
 
 /** Number of queued inputs consumed at one documented Turn seam. */
-export const CommandDrainPolicy = Schema.Literals(["one", "all"]);
-export type CommandDrainPolicy = typeof CommandDrainPolicy.Type;
+export const CommandDrainPolicy = Schema.Literals(['one', 'all'])
+export type CommandDrainPolicy = typeof CommandDrainPolicy.Type
 
 /** Engine-normalized input command. Capability packages may adapt richer audit records to it. */
 export interface RunInputCommand {
-  readonly kind: "steering" | "follow-up";
-  readonly input: Prompt.RawInput;
+  readonly kind: 'steering' | 'follow-up'
+  readonly input: Prompt.RawInput
 }
 
 /**
@@ -152,7 +146,7 @@ export interface RunInputHook<Error = never, Requirements = never> {
    * authority and retain any claimed input for `drain`, even when this wait is interrupted.
    * Used only with `restartOnJoinedInput`; each wait belongs to the model stream's Scope.
    */
-  readonly awaitJoin?: Effect.Effect<void, Error, Requirements> | undefined;
+  readonly awaitJoin?: Effect.Effect<void, Error, Requirements> | undefined
   /**
    * Claim an eligible join without appending it to history, and report whether one exists. At a
    * model stop the engine calls this first and calls `drain` only after `true`, so the stopped
@@ -160,38 +154,38 @@ export interface RunInputHook<Error = never, Requirements = never> {
    */
   readonly hasJoin?:
     | ((policy: CommandDrainPolicy) => Effect.Effect<boolean, Error, Requirements>)
-    | undefined;
-  readonly start?: (() => Effect.Effect<void, Error, Requirements>) | undefined;
+    | undefined
+  readonly start?: (() => Effect.Effect<void, Error, Requirements>) | undefined
   readonly drain: (
     policy: CommandDrainPolicy,
-  ) => Effect.Effect<ReadonlyArray<RunInputCommand>, Error, Requirements>;
-  readonly end?: (() => Effect.Effect<void, never, Requirements>) | undefined;
+  ) => Effect.Effect<ReadonlyArray<RunInputCommand>, Error, Requirements>
+  readonly end?: (() => Effect.Effect<void, never, Requirements>) | undefined
 }
 
 /** Decision returned by an ephemeral approval adapter. */
 export type RunApprovalDecision =
   | {
-      readonly _tag: "approved";
-      readonly reason?: string | undefined;
-    }
+    readonly _tag: 'approved'
+    readonly reason?: string | undefined
+  }
   | {
-      readonly _tag: "denied";
-      readonly reason?: string | undefined;
-    }
+    readonly _tag: 'denied'
+    readonly reason?: string | undefined
+  }
   | {
-      readonly _tag: "unresolved";
-      readonly reason?: string | undefined;
-    };
+    readonly _tag: 'unresolved'
+    readonly reason?: string | undefined
+  }
 
 /** Native Effect AI approval request enriched with stable Run identities. */
 export interface RunApprovalRequest {
-  readonly request: Response.ToolApprovalRequestPart;
-  readonly threadId: ThreadId;
-  readonly runId: RunId;
-  readonly turnId: TurnId;
-  readonly toolCallId: ToolCallId;
-  readonly toolName: string;
-  readonly parameters: unknown;
+  readonly request: Response.ToolApprovalRequestPart
+  readonly threadId: ThreadId
+  readonly runId: RunId
+  readonly turnId: TurnId
+  readonly toolCallId: ToolCallId
+  readonly toolName: string
+  readonly parameters: unknown
 }
 
 /** Approval policy preparation is deadline-bounded; canonical acceptance stays host-owned. */
@@ -199,26 +193,26 @@ export interface RunApprovalHook<Error = never, Requirements = never> {
   /** Retain a nonempty batch's required requests before any decision can release dispatch proof. */
   readonly prepareBatch?:
     | ((requests: ReadonlyArray<RunApprovalRequest>) => Effect.Effect<void, Error, Requirements>)
-    | undefined;
+    | undefined
   /** Prepare a decision without publishing canonical facts; this shares the Run duration deadline. */
   readonly request: (
     request: RunApprovalRequest,
-  ) => Effect.Effect<RunApprovalDecision, Error, Requirements>;
+  ) => Effect.Effect<RunApprovalDecision, Error, Requirements>
   /** Accept the prepared decision canonically before the engine honors it, outside preparation timers. */
   readonly commit?:
     | ((
-        request: RunApprovalRequest,
-        decision: RunApprovalDecision,
-      ) => Effect.Effect<void, Error, Requirements>)
-    | undefined;
+      request: RunApprovalRequest,
+      decision: RunApprovalDecision,
+    ) => Effect.Effect<void, Error, Requirements>)
+    | undefined
 }
 
 /** Input passed to ordered context transformation and compaction adapters. */
 export interface RunContextRequest {
-  readonly threadId: ThreadId;
-  readonly runId: RunId;
-  readonly turnId: TurnId;
-  readonly turn: number;
+  readonly threadId: ThreadId
+  readonly runId: RunId
+  readonly turnId: TurnId
+  readonly turn: number
   /**
    * Official engine history for this Attempt before context preparation. The
    * engine never replaces or mutates this value. Durable prompt
@@ -226,7 +220,7 @@ export interface RunContextRequest {
    * adapters that need canonical retrieval should key it by the supplied Run
    * identities rather than infer durable state from this Prompt alone.
    */
-  readonly source: Prompt.Prompt;
+  readonly source: Prompt.Prompt
   /**
    * Durable coordinator's exact prior-Run prefix length in `source`. A preparation hook
    * can replace `source.content.slice(0, priorRunPrefixLength)` with application context
@@ -234,7 +228,7 @@ export interface RunContextRequest {
    * This is a model-only transformation: canonical records and retry receipts are retained.
    * Absent for non-durable Runs; never infer this boundary from message roles or text.
    */
-  readonly priorRunPrefixLength?: number | undefined;
+  readonly priorRunPrefixLength?: number | undefined
   /**
    * The exact model-visible final-output contract the engine appends to the
    * prepared prompt after this hook returns (RUN-028), or
@@ -243,7 +237,7 @@ export interface RunContextRequest {
    * overhead in its own window calculation; the hook can size for the
    * contract but cannot remove or alter it.
    */
-  readonly outputContract?: string | undefined;
+  readonly outputContract?: string | undefined
 }
 
 /**
@@ -253,8 +247,8 @@ export interface RunContextRequest {
  * Layer once per Turn and keeps it through compaction, dispatch, accounting, and overflow retry.
  */
 export interface ResolvedModelCall {
-  readonly model: Layer.Layer<LanguageModel.LanguageModel | Model.ProviderName | Model.ModelName>;
-  readonly context: ModelCallContext;
+  readonly model: Layer.Layer<LanguageModel.LanguageModel | Model.ProviderName | Model.ModelName>
+  readonly context: ModelCallContext
   /**
    * The selected provider's native Tool schema transformer, such as toCodecOpenAI or
    * toCodecAnthropic. Omission uses generic JSON Schema and is suitable only when the provider
@@ -262,7 +256,7 @@ export interface ResolvedModelCall {
    * Provider-defined Tools count their native name/configuration arguments instead; their
    * provider-generated call parameter schemas are never transformed into function declarations.
    */
-  readonly toolSchemaTransformer?: LanguageModel.CodecTransformer | undefined;
+  readonly toolSchemaTransformer?: LanguageModel.CodecTransformer | undefined
   /**
    * Replace the entire estimate of a message, including its framing, with a non-negative finite
    * integer. Undefined uses the native structural estimate for that message. Capture any model
@@ -271,16 +265,16 @@ export interface ResolvedModelCall {
    * The engine shares it across admission, built-in compaction sizing, and default summaries.
    * Do not also charge a replaced message through uncountedOverheadTokens.
    */
-  readonly estimateMessageTokens?: ContextMessageTokenEstimator | undefined;
+  readonly estimateMessageTokens?: ContextMessageTokenEstimator | undefined
 }
 
 /** Prepared model-only context returned by a context adapter. */
 export interface PreparedRunContext {
   /** Replace non-pinned registered native Tools at this Turn boundary. */
-  readonly toolSelection?: Selection | undefined;
-  readonly prompt: Prompt.Prompt;
+  readonly toolSelection?: Selection | undefined
+  readonly prompt: Prompt.Prompt
   /** Resolves actual model selection and admission together, once at this Turn boundary. */
-  readonly modelCall?: ResolvedModelCall | undefined;
+  readonly modelCall?: ResolvedModelCall | undefined
   /**
    * Start a fresh native context window even below capacity. Coverage must map to a complete
    * canonical prefix for durable Runs and cannot discard protected input or split Tool pairs.
@@ -288,7 +282,7 @@ export interface PreparedRunContext {
    * is a no-op when no prior prefix remains, including after a committed reset is recovered.
    * Leave the source prefix intact; the engine commits and applies the selected rollover.
    */
-  readonly rollover?: ContextRolloverSelection | undefined;
+  readonly rollover?: ContextRolloverSelection | undefined
 }
 
 /**
@@ -304,7 +298,7 @@ export interface RunContextHook<Error = never, Requirements = never> {
    */
   readonly prepare: (
     request: RunContextRequest,
-  ) => Effect.Effect<PreparedRunContext, Error, Requirements>;
+  ) => Effect.Effect<PreparedRunContext, Error, Requirements>
 }
 
 /**
@@ -320,11 +314,11 @@ export interface RunContextHook<Error = never, Requirements = never> {
 export interface RunTransientContextHook<Error = never, Requirements = never> {
   readonly load: (
     request: RunContextRequest,
-  ) => Effect.Effect<Prompt.RawInput, Error, Requirements>;
+  ) => Effect.Effect<Prompt.RawInput, Error, Requirements>
 }
 
 /** Context service failures retain their concrete tags and structured fields. */
-export type RunContextPreparationError = AgentInputError | MemoryRecallError | CompactionError;
+export type RunContextPreparationError = AgentInputError | MemoryRecallError | CompactionError
 
 /**
  * One usage delta. Turn-boundary consumption charges `modelCalls: 1` after a
@@ -333,44 +327,44 @@ export type RunContextPreparationError = AgentInputError | MemoryRecallError | C
  * (RUN-017).
  */
 export interface RunUsageDelta {
-  readonly modelCalls: 0 | 1;
-  readonly inputTokens: number;
-  readonly outputTokens: number;
-  readonly totalTokens: number;
-  readonly toolCalls: number;
-  readonly costMicrousd: number;
-  readonly usage: Response.Usage;
+  readonly modelCalls: 0 | 1
+  readonly inputTokens: number
+  readonly outputTokens: number
+  readonly totalTokens: number
+  readonly toolCalls: number
+  readonly costMicrousd: number
+  readonly usage: Response.Usage
   /** Present for model-call deltas; absent for programmatic Tool-only charges. */
-  readonly modelUsage?: ModelCallUsage | undefined;
+  readonly modelUsage?: ModelCallUsage | undefined
 }
 
 /** Stable pricing identity returned alongside a host's microdollar estimate. */
 export interface RunCostEstimate {
-  readonly costMicrousd: number;
-  readonly serviceTier?: string | undefined;
-  readonly pricingVersion?: string | undefined;
+  readonly costMicrousd: number
+  readonly serviceTier?: string | undefined
+  readonly pricingVersion?: string | undefined
   /** Unknown estimates do not prove a free call and fail an explicit cost budget after usage is retained. */
-  readonly pricingStatus?: "estimated" | "unknown" | undefined;
+  readonly pricingStatus?: 'estimated' | 'unknown' | undefined
 }
 
 /** Provider usage and identity supplied for one model-call estimate. */
 export interface RunCostEstimateRequest {
   /** Observed hosted web search calls, separately billed from tokens. */
-  readonly webSearchCalls?: number | undefined;
-  readonly provider: string;
+  readonly webSearchCalls?: number | undefined
+  readonly provider: string
   /** Configured binding identity; only response.model identifies the returned model. */
-  readonly model: string;
-  readonly usage: Response.Usage;
+  readonly model: string
+  readonly usage: Response.Usage
   /** Actual provider response fields, never the configured binding name. */
   readonly response?:
     | {
-        readonly id?: string | undefined;
-        readonly model?: string | undefined;
-      }
-    | undefined;
+      readonly id?: string | undefined
+      readonly model?: string | undefined
+    }
+    | undefined
   /** Native Effect AI provider metadata, runtime-only; HTTP details are excluded. */
-  readonly finishMetadata?: Response.FinishPart["metadata"] | undefined;
-  readonly purpose?: "turn" | "summary" | undefined;
+  readonly finishMetadata?: Response.FinishPart['metadata'] | undefined
+  readonly purpose?: 'turn' | 'summary' | undefined
 }
 
 /**
@@ -378,7 +372,7 @@ export interface RunCostEstimateRequest {
  */
 export type RunCostEstimator<Error = never, Requirements = never> = (
   request: RunCostEstimateRequest,
-) => Effect.Effect<RunCostEstimate, Error, Requirements>;
+) => Effect.Effect<RunCostEstimate, Error, Requirements>
 
 /**
  * Dependency-neutral hierarchical budget hook. A typed failure at a Turn-seam
@@ -395,8 +389,8 @@ export interface RunBudgetHook<Error = never, Requirements = never> {
    */
   readonly guard: <A, E, R>(
     effect: Effect.Effect<A, E, R>,
-  ) => Effect.Effect<A, E | Error, R | Requirements>;
-  readonly consume: (delta: RunUsageDelta) => Effect.Effect<void, Error, Requirements>;
+  ) => Effect.Effect<A, E | Error, R | Requirements>
+  readonly consume: (delta: RunUsageDelta) => Effect.Effect<void, Error, Requirements>
 }
 
 /**
@@ -406,25 +400,25 @@ export interface RunBudgetHook<Error = never, Requirements = never> {
  * `"uncertain"` for unannotated Tools).
  */
 export interface RunToolCallDescriptor {
-  readonly toolCallId: ToolCallId;
-  readonly toolName: string;
+  readonly toolCallId: ToolCallId
+  readonly toolName: string
   /** Encoded JSON parameters — the same value official history and canonical records carry. */
-  readonly parameters: unknown;
-  readonly executionClass: ToolExecutionClassValue;
+  readonly parameters: unknown
+  readonly executionClass: ToolExecutionClassValue
   /** Definition-owned classification; never inferred from the Tool name. */
-  readonly executionKind: ToolExecutionKind;
+  readonly executionKind: ToolExecutionKind
 }
 
 /** Decision returned by a host's action-time Tool authorization policy. */
 export type RunToolAuthorizationDecision =
-  | { readonly _tag: "allowed" }
+  | { readonly _tag: 'allowed' }
   | {
-      readonly _tag: "denied";
-      /** Safe model-facing explanation. */
-      readonly reason: string;
-      /** Original local policy evidence; retained privately at native Run settlement. */
-      readonly cause?: Cause.Cause<unknown>;
-    };
+    readonly _tag: 'denied'
+    /** Safe model-facing explanation. */
+    readonly reason: string
+    /** Original local policy evidence; retained privately at native Run settlement. */
+    readonly cause?: Cause.Cause<unknown>
+  }
 
 /**
  * Exact authority presented before one application Tool Handler may start.
@@ -435,27 +429,27 @@ export type RunToolAuthorizationDecision =
  * reauthorized because no Handler can start for them.
  */
 export interface RunToolAuthorizationRequest {
-  readonly frameworkMessage?: FrameworkMessage;
-  readonly threadId: ThreadId;
-  readonly runId: RunId;
-  readonly turnId: TurnId;
-  readonly turn: number;
-  readonly input: unknown;
-  readonly call: RunToolCallDescriptor;
+  readonly frameworkMessage?: FrameworkMessage
+  readonly threadId: ThreadId
+  readonly runId: RunId
+  readonly turnId: TurnId
+  readonly turn: number
+  readonly input: unknown
+  readonly call: RunToolCallDescriptor
   /** Present for an ephemeral inner invocation; the outer Tool's approval grants no inner authority. */
   readonly programmatic?:
     | {
-        readonly parentToolCallId: ToolCallId;
-        readonly sequenceIndex: number;
-      }
-    | undefined;
+      readonly parentToolCallId: ToolCallId
+      readonly sequenceIndex: number
+    }
+    | undefined
 }
 
 /** Host policy invoked before each executable native or programmatic application call. */
 export interface RunToolAuthorizationHook<Error = never, Requirements = never> {
   readonly authorize: (
     request: RunToolAuthorizationRequest,
-  ) => Effect.Effect<RunToolAuthorizationDecision, Error, Requirements>;
+  ) => Effect.Effect<RunToolAuthorizationDecision, Error, Requirements>
 }
 
 /**
@@ -471,18 +465,18 @@ export class RunContextPreparation extends Context.Service<
   RunContextPreparation,
   {
     /** Optional transformation of the model-visible prompt. */
-    readonly hook?: RunContextHook<RunContextPreparationError, never> | undefined;
+    readonly hook?: RunContextHook<RunContextPreparationError, never> | undefined
     /** Optional per-Turn reference context, excluded from history and compaction coverage. */
     readonly transientContext?:
       | RunTransientContextHook<RunContextPreparationError, never>
-      | undefined;
+      | undefined
   }
->()("@effect-agent/engine/RunContextPreparation") {}
+>()('@effect-agent/engine/RunContextPreparation') {}
 
 /** Explicit no-preparer Layer used by compatible runtime assemblies. */
 export const RunContextPreparationPassthrough: Layer.Layer<RunContextPreparation> = Layer.succeed(
   RunContextPreparation,
-)({});
+)({})
 
 /**
  * Host action-time authority for native and programmatic application Tools. Implementations close over
@@ -496,28 +490,28 @@ export const RunContextPreparationPassthrough: Layer.Layer<RunContextPreparation
 export class RunToolAuthorization extends Context.Service<
   RunToolAuthorization,
   RunToolAuthorizationHook<AgentToolAuthorizationCheckError>
->()("@effect-agent/engine/RunToolAuthorization") {
+>()('@effect-agent/engine/RunToolAuthorization') {
   /** Immutable built-in policy; its identity lets the interpreter omit absent host checks. */
   static readonly allowAllPolicy: RunToolAuthorizationHook = Object.freeze({
-    authorize: () => Effect.succeed({ _tag: "allowed" as const }),
-  });
+    authorize: () => Effect.succeed({ _tag: 'allowed' as const }),
+  })
 
   /** Explicit compatibility policy: Tool execution requires no additional host authorization. */
   static readonly allowAll: Layer.Layer<RunToolAuthorization> = Layer.succeed(
     RunToolAuthorization,
     RunToolAuthorization.allowAllPolicy,
-  );
+  )
 }
 
 /** Positive concurrency ceiling for one Run. One is sequential; the Agent's bound can only tighten. */
-export const RunSchedulingOverride = Schema.Int.check(Schema.isGreaterThan(0));
+export const RunSchedulingOverride = Schema.Int.check(Schema.isGreaterThan(0))
 
-export type RunSchedulingOverride = typeof RunSchedulingOverride.Type;
+export type RunSchedulingOverride = typeof RunSchedulingOverride.Type
 
 /** Dependency-neutral scheduling policy surrounding native Effect AI Tool handlers. */
 export interface RunSchedulingHook {
-  readonly runOverride?: RunSchedulingOverride | undefined;
-  readonly toolRequiresSequential?: ((toolName: string) => boolean) | undefined;
+  readonly runOverride?: RunSchedulingOverride | undefined
+  readonly toolRequiresSequential?: ((toolName: string) => boolean) | undefined
 }
 
 /**
@@ -527,9 +521,9 @@ export interface RunSchedulingHook {
  * Ephemeral Runs may override this reference with `RunOptions.scheduling`.
  */
 export const RunToolScheduling = Context.Reference<RunSchedulingHook>(
-  "@effect-agent/engine/RunToolScheduling",
+  '@effect-agent/engine/RunToolScheduling',
   { defaultValue: () => ({}) },
-);
+)
 
 /**
  * Tightening-only memory limits for one Run. The engine supplies finite ceilings for every field;
@@ -537,19 +531,19 @@ export const RunToolScheduling = Context.Reference<RunSchedulingHook>(
  */
 export interface RunBufferLimits {
   /** Maximum decoded response parts retained from one model call, including compaction calls. */
-  readonly maxModelResponseParts?: number | undefined;
+  readonly maxModelResponseParts?: number | undefined
   /** Maximum conservative retained-byte estimate for one model response. */
-  readonly maxModelResponseBytes?: number | undefined;
+  readonly maxModelResponseBytes?: number | undefined
   /** Maximum observed Run events, including the terminal event; headless execution has no event cap. */
-  readonly maxRunEvents?: number | undefined;
+  readonly maxRunEvents?: number | undefined
   /**
    * Maximum cumulative UTF-8 JSON bytes in Tool progress, including unobserved and provider
    * progress. Defaults to 8 MiB. Invalid or oversized application progress
    * fails with ModelProtocolError; terminal Tool results use the Agent's toolResultBounds.
    */
-  readonly maxToolProgressBytes?: number | undefined;
+  readonly maxToolProgressBytes?: number | undefined
   /** Maximum events buffered by the public stream before its execution producer waits. */
-  readonly maxBufferedEvents?: number | undefined;
+  readonly maxBufferedEvents?: number | undefined
 }
 
 /**
@@ -560,10 +554,10 @@ export interface RunBufferLimits {
  */
 export interface RunOptions<HookError = never, HookRequirements = never> {
   /** Finite per-Run limits: accepted update count and cumulative UTF-8 JSON value bytes. Defaults: 32 and 16384. */
-  readonly updates?: { readonly maxCount?: number; readonly maxBytes?: number };
+  readonly updates?: { readonly maxCount?: number; readonly maxBytes?: number }
 
   /** Initial or canonically restored run-scoped native selection. */
-  readonly toolSelection?: Selection | undefined;
+  readonly toolSelection?: Selection | undefined
   /**
    * Host preparation boundary before each new or replacement model call, including context preparation
    * and compaction calls. The preceding Tool batch and history advance have finished. A resumed
@@ -571,15 +565,15 @@ export interface RunOptions<HookError = never, HookRequirements = never> {
    * reset the Run deadline or change prompt protection, and is not automatically inherited by spawned children.
    * Resources acquired here close with the current Turn, before the next Turn starts.
    */
-  readonly beforeTurn?: (() => Effect.Effect<void, HookError, HookRequirements>) | undefined;
+  readonly beforeTurn?: (() => Effect.Effect<void, HookError, HookRequirements>) | undefined
   /** Reuse a Thread identity, including retained history, instead of allocating one. */
-  readonly threadId?: ThreadId | undefined;
+  readonly threadId?: ThreadId | undefined
   /**
    * Preallocated Run identity used instead of `IdGenerator` when supplied.
    * The S1 Subagent seam preallocates child Run identity through this option
    * so `SubagentRequested` can carry the intended child identity.
    */
-  readonly runId?: RunId | undefined;
+  readonly runId?: RunId | undefined
 
   /**
    * Seed or append-only extension for an in-memory Thread. ThreadHistory.layer retains this
@@ -587,12 +581,12 @@ export interface RunOptions<HookError = never, HookRequirements = never> {
    * this Run's evaluated instructions and rendered input. PersistentHistory rejects this option;
    * durable hosts supply the history reconstructed from their journal.
    */
-  readonly history?: Prompt.Prompt | undefined;
-  readonly commandDrainPolicy?: CommandDrainPolicy | undefined;
-  readonly input?: RunInputHook<HookError, HookRequirements> | undefined;
-  readonly approval?: RunApprovalHook<HookError, HookRequirements> | undefined;
+  readonly history?: Prompt.Prompt | undefined
+  readonly commandDrainPolicy?: CommandDrainPolicy | undefined
+  readonly input?: RunInputHook<HookError, HookRequirements> | undefined
+  readonly approval?: RunApprovalHook<HookError, HookRequirements> | undefined
   /** Per-Run override of RunContextPreparation.hook, preserving application-specific E/R. */
-  readonly context?: RunContextHook<HookError, HookRequirements> | undefined;
+  readonly context?: RunContextHook<HookError, HookRequirements> | undefined
   /**
    * Per-Run override of RunContextPreparation.transientContext. Use the service
    * for host configuration; this generic hook preserves application-specific E/R.
@@ -602,8 +596,8 @@ export interface RunOptions<HookError = never, HookRequirements = never> {
    * compaction coverage. A same-Turn provider-overflow retry reuses the Turn's
    * loaded snapshot.
    */
-  readonly transientContext?: RunTransientContextHook<HookError, HookRequirements> | undefined;
-  readonly budget?: RunBudgetHook<HookError, HookRequirements> | undefined;
+  readonly transientContext?: RunTransientContextHook<HookError, HookRequirements> | undefined
+  readonly budget?: RunBudgetHook<HookError, HookRequirements> | undefined
   /**
    * Host-owned action-time authorization for model-declared application Tool batches. The engine
    * uses this per-Run override when present, otherwise the provided RunToolAuthorization service.
@@ -614,7 +608,7 @@ export interface RunOptions<HookError = never, HookRequirements = never> {
    * execution, with their parent identity in `programmatic`. Inner denials become catchable
    * outcomes; other independent calls may already have completed.
    */
-  readonly toolAuthorization?: RunToolAuthorizationHook<HookError, HookRequirements> | undefined;
+  readonly toolAuthorization?: RunToolAuthorizationHook<HookError, HookRequirements> | undefined
   /**
    * Optional absolute deadline for the Run's `maxDuration` rail. The engine
    * uses the earlier of this value and the fresh policy deadline, so callers
@@ -623,7 +617,7 @@ export interface RunOptions<HookError = never, HookRequirements = never> {
    * deployment downtime does not consume it. An immutable worker grant can
    * impose an earlier absolute expiry. Turn, Tool and cost budgets remain Run-wide.
    */
-  readonly durationDeadline?: DateTime.Utc | undefined;
+  readonly durationDeadline?: DateTime.Utc | undefined
   /**
    * Per-Run Tool Call allowance (RUN-021): a TIGHTENING-ONLY bound below the
    * Agent Policy's `maxToolCalls` — the effective limit is
@@ -633,18 +627,18 @@ export interface RunOptions<HookError = never, HookRequirements = never> {
    * orchestrator grants a delegated child a budget extension by re-invoking
    * with a larger allowance up to the child Definition's policy.
    */
-  readonly toolCallAllowance?: number | undefined;
+  readonly toolCallAllowance?: number | undefined
   /**
    * Per-Run Turn allowance (RUN-021): tightening-only below the Agent
    * Policy's `maxTurns`, with the same normalization and the same
    * `onExhaustion` resolution (RUN-019 grace) at the effective limit.
    */
-  readonly turnAllowance?: number | undefined;
+  readonly turnAllowance?: number | undefined
   /** Required when the core policy declares `costBudgetMicrousd`. */
-  readonly estimateCostMicrousd?: RunCostEstimator<HookError, HookRequirements> | undefined;
-  readonly scheduling?: RunSchedulingHook | undefined;
+  readonly estimateCostMicrousd?: RunCostEstimator<HookError, HookRequirements> | undefined
+  readonly scheduling?: RunSchedulingHook | undefined
   /** Optional tightening-only overrides for the engine's finite in-memory buffer ceilings. */
-  readonly bufferLimits?: RunBufferLimits | undefined;
+  readonly bufferLimits?: RunBufferLimits | undefined
   /**
    * Incremental history observer. ThreadHistory.layer retains each complete update first.
    * Invoked inline with the source Prompt and its retained compacted model context whenever
@@ -657,14 +651,14 @@ export interface RunOptions<HookError = never, HookRequirements = never> {
    */
   readonly onHistory?:
     | ((
-        history: Prompt.Prompt,
-        modelContext: Prompt.Prompt,
-      ) => Effect.Effect<void, HookError, HookRequirements>)
-    | undefined;
+      history: Prompt.Prompt,
+      modelContext: Prompt.Prompt,
+    ) => Effect.Effect<void, HookError, HookRequirements>)
+    | undefined
 }
 
-export type RunOptionsError<Options> =
-  Options extends RunOptions<infer Error, infer _Requirements> ? Error : never;
+export type RunOptionsError<Options> = Options extends RunOptions<infer Error, infer _Requirements> ? Error : never
 
-export type RunOptionsRequirements<Options> =
-  Options extends RunOptions<infer _Error, infer Requirements> ? Requirements : never;
+export type RunOptionsRequirements<Options> = Options extends RunOptions<infer _Error, infer Requirements>
+  ? Requirements
+  : never

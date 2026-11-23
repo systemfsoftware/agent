@@ -39,22 +39,113 @@
     "./sql-canonical-storage": "./src/SqlCanonicalStorage.ts"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "./sql-run-storage": {
+        "types": "./dist/SqlRunStorage.d.mts",
+        "default": "./dist/SqlRunStorage.mjs"
+      },
+      "./sql-storage": {
+        "types": "./dist/SqlStorage.d.mts",
+        "default": "./dist/SqlStorage.mjs"
+      },
+      "./sql-storage-failpoint": {
+        "types": "./dist/SqlStorageFailpoint.d.mts",
+        "default": "./dist/SqlStorageFailpoint.mjs"
+      },
+      "./sql-journal": {
+        "types": "./dist/SqlJournal.d.mts",
+        "default": "./dist/SqlJournal.mjs"
+      },
+      "./sql-thread-work": {
+        "types": "./dist/SqlThreadWork.d.mts",
+        "default": "./dist/SqlThreadWork.mjs"
+      },
+      "./sql-thread-store": {
+        "types": "./dist/SqlThreadStore.d.mts",
+        "default": "./dist/SqlThreadStore.mjs"
+      },
+      "./sql-submission-ledger": {
+        "types": "./dist/SqlSubmissionLedger.d.mts",
+        "default": "./dist/SqlSubmissionLedger.mjs"
+      },
+      "./sql-submission-rows": {
+        "types": "./dist/SqlSubmissionRows.d.mts",
+        "default": "./dist/SqlSubmissionRows.mjs"
+      },
+      "./sql-observation-offset": {
+        "types": "./dist/SqlObservationOffset.d.mts",
+        "default": "./dist/SqlObservationOffset.mjs"
+      },
+      "./sql-admission-facts": {
+        "types": "./dist/SqlAdmissionFacts.d.mts",
+        "default": "./dist/SqlAdmissionFacts.mjs"
+      },
+      "./sql-activity-store": {
+        "types": "./dist/SqlActivityStore.d.mts",
+        "default": "./dist/SqlActivityStore.mjs"
+      },
+      "./sql-schedule-store": {
+        "types": "./dist/SqlScheduleStore.d.mts",
+        "default": "./dist/SqlScheduleStore.mjs"
+      },
+      "./sqlite-layout-inspection": {
+        "types": "./dist/SqliteLayoutInspection.d.mts",
+        "default": "./dist/SqliteLayoutInspection.mjs"
+      },
+      "./sql-thread-native-reads": {
+        "types": "./dist/SqlThreadNativeReads.d.mts",
+        "default": "./dist/SqlThreadNativeReads.mjs"
+      },
+      "./sql-message-delivery-store": {
+        "types": "./dist/SqlMessageDeliveryStore.d.mts",
+        "default": "./dist/SqlMessageDeliveryStore.mjs"
+      },
+      "./sql-subscription-store": {
+        "types": "./dist/SqlSubscriptionStore.d.mts",
+        "default": "./dist/SqlSubscriptionStore.mjs"
+      },
+      "./sql-lifecycle-publication": {
+        "types": "./dist/SqlLifecyclePublication.d.mts",
+        "default": "./dist/SqlLifecyclePublication.mjs"
+      },
+      "./sql-storage-progress": {
+        "types": "./dist/SqlStorageProgress.d.mts",
+        "default": "./dist/SqlStorageProgress.mjs"
+      },
+      "./sql-thread-import": {
+        "types": "./dist/SqlThreadImport.d.mts",
+        "default": "./dist/SqlThreadImport.mjs"
+      },
+      "./sql-thread-archive-range": {
+        "types": "./dist/SqlThreadArchiveRange.d.mts",
+        "default": "./dist/SqlThreadArchiveRange.mjs"
+      },
+      "./sql-canonical-storage": {
+        "types": "./dist/SqlCanonicalStorage.d.mts",
+        "default": "./dist/SqlCanonicalStorage.mjs"
+      }
+    }
   },
   "scripts": {
-    "build": "vp pack",
-    "check": "effect-tsgo tsrs --noEmit -p tsconfig.json",
-    "test": "vp test --passWithNoTests"
+    "build": "tsdown",
+    "typecheck": "effect-tsgo tsrs --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "check:pack": "pnpm pack --pack-destination .pack && attw .pack/*.tgz --profile esm-only; s=$?; rm -rf .pack; exit $s"
   },
   "dependencies": {
     "@yielded/agent": "workspace:*"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "catalog:",
     "@effect/vitest": "catalog:",
     "effect": "catalog:",
+    "tsdown": "catalog:",
     "typescript": "catalog:",
-    "vite": "catalog:",
-    "vite-plus": "catalog:",
     "vitest": "catalog:"
   },
   "peerDependencies": {

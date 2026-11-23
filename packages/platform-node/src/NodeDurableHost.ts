@@ -1,12 +1,12 @@
-import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
+import * as NodeCrypto from '@effect/platform-node/NodeCrypto'
 import {
   type AgentRegistration,
-  type ResolvedBinding,
   type DurableBindingFailure,
-} from "@yielded/agent/agent-registration";
+  type ResolvedBinding,
+} from '@yielded/agent/agent-registration'
 import {
-  DurableAgentRuntime,
   type DurableAbortFailure,
+  DurableAgentRuntime,
   type DurableAwaitFailure,
   type DurableObserveOptions,
   type DurableSubmitAgent,
@@ -16,60 +16,52 @@ import {
   type Receipt,
   type RecoveryBlocked,
   type RecoveryReport,
-} from "@yielded/agent/durable-agent-runtime";
-import {
-  MessageDeliveryStore,
-  MessageDeliveryDriver,
-  type MessageDeliveryError,
-} from "@yielded/agent/message-delivery";
-import { type OperationDenied } from "@yielded/agent/operation-authorizer";
-import { PreparedInputAdmission } from "@yielded/agent/prepared-input-admission";
-import { type CanonicalRecordEnvelope } from "@yielded/agent/records";
+} from '@yielded/agent/durable-agent-runtime'
+import { MessageDeliveryDriver, type MessageDeliveryError, MessageDeliveryStore } from '@yielded/agent/message-delivery'
+import { type OperationDenied } from '@yielded/agent/operation-authorizer'
+import { PreparedInputAdmission } from '@yielded/agent/prepared-input-admission'
+import { type CanonicalRecordEnvelope } from '@yielded/agent/records'
 import {
   type AbortCommand,
   type AbortIntent,
   type Settlement,
   SubmissionLedger,
-} from "@yielded/agent/submission-ledger";
-import {
-  ThreadReader,
-  type ThreadNotMaterialized,
-  type ThreadStoreError,
-} from "@yielded/agent/thread-store";
-import { MAX_RECOVERY_WORK_ITEMS } from "@yielded/agent/thread-work";
-import { WakeScheduler } from "@yielded/agent/wake-scheduler";
-import * as Context from "effect/Context";
-import * as Effect from "effect/Effect";
-import * as Fiber from "effect/Fiber";
-import * as Layer from "effect/Layer";
-import * as Ref from "effect/Ref";
-import * as Schema from "effect/Schema";
-import type * as Stream from "effect/Stream";
+} from '@yielded/agent/submission-ledger'
+import { type ThreadNotMaterialized, ThreadReader, type ThreadStoreError } from '@yielded/agent/thread-store'
+import { MAX_RECOVERY_WORK_ITEMS } from '@yielded/agent/thread-work'
+import { WakeScheduler } from '@yielded/agent/wake-scheduler'
+import * as Context from 'effect/Context'
+import * as Effect from 'effect/Effect'
+import * as Fiber from 'effect/Fiber'
+import * as Layer from 'effect/Layer'
+import * as Ref from 'effect/Ref'
+import * as Schema from 'effect/Schema'
+import type * as Stream from 'effect/Stream'
 
-import { applicationInvocationContext } from "./internal/application-context.ts";
-import { ExclusiveSqliteHost } from "./internal/exclusive-host.ts";
-import { runNodeMessageDeliveries } from "./internal/message-delivery.ts";
-import { makeNodePreparedInputAdmission, NodeAdmission } from "./internal/prepared-admission.ts";
-import { runNodeWorkerDispatch } from "./internal/worker-dispatch.ts";
+import { applicationInvocationContext } from './internal/application-context.ts'
+import { ExclusiveSqliteHost } from './internal/exclusive-host.ts'
+import { runNodeMessageDeliveries } from './internal/message-delivery.ts'
+import { makeNodePreparedInputAdmission, NodeAdmission } from './internal/prepared-admission.ts'
+import { runNodeWorkerDispatch } from './internal/worker-dispatch.ts'
 import {
   NodeDurableAgentRuntime,
   NodeDurableAgentRuntimeConfig,
   type NodeDurableAgentRuntimeOptions,
-} from "./NodeDurableAgentRuntime.ts";
+} from './NodeDurableAgentRuntime.ts'
 
 /**
  * Admission is not open on this host: it is shutting down (deployment §6 step 1, DEPLOY-005).
  * Accepted work is unaffected — only NEW admissions are refused.
  */
-export class AdmissionClosed extends Schema.TaggedError<AdmissionClosed>()("AdmissionClosed", {
+export class AdmissionClosed extends Schema.TaggedError<AdmissionClosed>()('AdmissionClosed', {
   message: Schema.String,
 }) {}
 
-const makeHost = Effect.fnUntraced(function* (
+const makeHost = Effect.fnUntraced(function*(
   managedWorkers?: Effect.Effect<void, DurableWorkerFailure | DurableBindingFailure>,
 ) {
-  const runtime = yield* DurableAgentRuntime;
-  const config = yield* NodeDurableAgentRuntimeConfig;
+  const runtime = yield* DurableAgentRuntime
+  const config = yield* NodeDurableAgentRuntimeConfig
 
   // Startup gate (deployment §5, plan §host): configuration decoding and storage compatibility
   // already gated this Layer's dependencies; the last gate before admission opens is recovering
@@ -77,47 +69,47 @@ const makeHost = Effect.fnUntraced(function* (
   // stays a visible obligation for `runWorkers`; submissions parked on an Unknown Outcome are
   // reported `unknown` and wait for the authorized `resolveUnknown` path (DUR-017) — they consume
   // no worker permit while the settlement obligation stays owed and later input can run.
-  let recoveryCursor: string | undefined;
-  let startupReports: ReadonlyArray<RecoveryReport> = [];
+  let recoveryCursor: string | undefined
+  let startupReports: ReadonlyArray<RecoveryReport> = []
 
   do {
     const recovered = yield* runtime.runRecovery(
       recoveryCursor === undefined ? undefined : { cursor: recoveryCursor },
-    );
+    )
 
     // This host opens one shared pool; every selected owner must pass the readiness gate.
-    const blocked = recovered.blocked[0];
+    const blocked = recovered.blocked[0]
 
-    if (blocked !== undefined) return yield* blocked;
-    startupReports = [...startupReports, ...recovered.reports].slice(-MAX_RECOVERY_WORK_ITEMS);
-    recoveryCursor = recovered.cursor;
-  } while (recoveryCursor !== undefined);
+    if (blocked !== undefined) return yield* blocked
+    startupReports = [...startupReports, ...recovered.reports].slice(-MAX_RECOVERY_WORK_ITEMS)
+    recoveryCursor = recovered.cursor
+  } while (recoveryCursor !== undefined)
 
-  const admission = yield* Ref.make(true);
+  const admission = yield* Ref.make(true)
 
   const requireAdmission: Effect.Effect<void, AdmissionClosed> = Ref.get(admission).pipe(
     Effect.flatMap((open) =>
       open
         ? Effect.void
         : Effect.fail(
-            AdmissionClosed.make({ message: "The host is shutting down; admission is closed." }),
-          ),
+          AdmissionClosed.make({ message: 'The host is shutting down; admission is closed.' }),
+        )
     ),
-  );
+  )
 
   const submit = <InputSchema extends Schema.Top>(
     agent: DurableSubmitAgent<InputSchema>,
-    input: InputSchema["Type"],
+    input: InputSchema['Type'],
     options: DurableSubmitOptions,
   ): Effect.Effect<
     Receipt,
     AdmissionClosed | DurableSubmitFailure,
-    InputSchema["EncodingServices"]
-  > => requireAdmission.pipe(Effect.andThen(runtime.submit(agent, input, options)));
+    InputSchema['EncodingServices']
+  > => requireAdmission.pipe(Effect.andThen(runtime.submit(agent, input, options)))
 
   const deliveryServices = (yield* Effect.context<MessageDeliveryStore>()).pipe(
     Context.pick(MessageDeliveryStore),
-  );
+  )
 
   const deliveryContext = yield* Layer.build(
     MessageDeliveryDriver.layer({
@@ -133,52 +125,50 @@ const makeHost = Effect.fnUntraced(function* (
         ),
       ),
     ),
-  );
+  )
 
   const runDeliveries = Effect.contextWith((live: Context.Context<never>) =>
     runNodeMessageDeliveries(config.wakeScanInterval).pipe(
       Effect.setContext(
         Context.mergeAll(applicationInvocationContext(live), deliveryServices, deliveryContext),
       ),
-    ),
-  );
+    )
+  )
 
   const withDeliveries = <A, E, R>(worker: Effect.Effect<A, E, R>): Effect.Effect<void, E, R> =>
     Effect.scoped(
       // Either side exiting stops and joins the other; delivery interruption cannot leave
       // an apparently healthy worker pool running without message recovery.
       Effect.raceFirst(worker, runDeliveries).pipe(Effect.asVoid),
-    );
+    )
 
   const runWorkers = <A, E, R>(worker: Effect.Effect<A, E, R>): Effect.Effect<void, E, R> =>
     withDeliveries(
       Effect.forEach(
         Array.from({ length: config.workerConcurrency }, (_, index) => index),
         () => worker,
-        { concurrency: "unbounded", discard: true },
+        { concurrency: 'unbounded', discard: true },
       ),
-    );
+    )
 
   // Managed hosts dispatch each lane once. Bare host layers retain their existing service
   // requirements and generic worker-loop composition.
-  const runResolvedWorkers =
-    managedWorkers === undefined
-      ? runWorkers(runtime.runResolvedWorker)
-      : withDeliveries(managedWorkers);
+  const runResolvedWorkers = managedWorkers === undefined
+    ? runWorkers(runtime.runResolvedWorker)
+    : withDeliveries(managedWorkers)
 
-  const run =
-    managedWorkers !== undefined
-      ? Fiber.join(
-          yield* runResolvedWorkers.pipe(
-            Effect.onExit(() => Ref.set(admission, false)),
-            Effect.forkScoped,
-          ),
-        )
-      : runResolvedWorkers;
+  const run = managedWorkers !== undefined
+    ? Fiber.join(
+      yield* runResolvedWorkers.pipe(
+        Effect.onExit(() => Ref.set(admission, false)),
+        Effect.forkScoped,
+      ),
+    )
+    : runResolvedWorkers
 
   // Register after the worker fiber: close admission, interrupt/join workers, close
   // local owner generations, then close storage and captured application services.
-  yield* Effect.addFinalizer(() => Ref.set(admission, false));
+  yield* Effect.addFinalizer(() => Ref.set(admission, false))
 
   return NodeDurableHost.of({
     startupRecovery: startupReports,
@@ -191,8 +181,8 @@ const makeHost = Effect.fnUntraced(function* (
     runWorkers,
     run,
     runResolvedWorkers: run,
-  });
-});
+  })
+})
 
 /**
  * Operational host service. Prefer the module's `layer` and `run` for managed workers.
@@ -218,38 +208,38 @@ export class NodeDurableHost extends Context.Service<
      * They retain their settlement obligation while later input can run; authorized resolution
      * or abort advances the parked Submission.
      */
-    readonly startupRecovery: ReadonlyArray<RecoveryReport>;
+    readonly startupRecovery: ReadonlyArray<RecoveryReport>
     /** Admission-role readiness (deployment §7): true until shutdown begins. */
-    readonly admissionOpen: Effect.Effect<boolean>;
+    readonly admissionOpen: Effect.Effect<boolean>
     /** Observe the managed worker pool, preserving its failure. Manual hosts start their pool here. */
-    readonly run: Effect.Effect<void, DurableWorkerFailure | DurableBindingFailure>;
+    readonly run: Effect.Effect<void, DurableWorkerFailure | DurableBindingFailure>
     /** `DurableAgentRuntime.submit` behind the host admission gate. */
     readonly submit: <InputSchema extends Schema.Top>(
       agent: DurableSubmitAgent<InputSchema>,
-      input: InputSchema["Type"],
+      input: InputSchema['Type'],
       options: DurableSubmitOptions,
     ) => Effect.Effect<
       Receipt,
       AdmissionClosed | DurableSubmitFailure,
-      InputSchema["EncodingServices"]
-    >;
-    readonly submissionStatus: DurableAgentRuntime["Service"]["submissionStatus"];
-    readonly awaitSettlement: (receipt: Receipt) => Effect.Effect<Settlement, DurableAwaitFailure>;
+      InputSchema['EncodingServices']
+    >
+    readonly submissionStatus: DurableAgentRuntime['Service']['submissionStatus']
+    readonly awaitSettlement: (receipt: Receipt) => Effect.Effect<Settlement, DurableAwaitFailure>
     readonly observe: (
       receipt: Receipt,
       options?: DurableObserveOptions,
     ) => Stream.Stream<
       CanonicalRecordEnvelope,
       ThreadStoreError | ThreadNotMaterialized | OperationDenied
-    >;
-    readonly abort: (command: AbortCommand) => Effect.Effect<AbortIntent, DurableAbortFailure>;
+    >
+    readonly abort: (command: AbortCommand) => Effect.Effect<AbortIntent, DurableAbortFailure>
     /**
      * Run `workerConcurrency` copies of the given worker effect (typically
      * `DurableAgentRuntime.runResolvedWorker`) until the caller's Scope interrupts them. The
      * same Scope drives pending message admission and settlement observation independently
      * of Submission liveness. The host never forks daemon fibers.
      */
-    readonly runWorkers: <A, E, R>(worker: Effect.Effect<A, E, R>) => Effect.Effect<void, E, R>;
+    readonly runWorkers: <A, E, R>(worker: Effect.Effect<A, E, R>) => Effect.Effect<void, E, R>
     /**
      * Run `workerConcurrency` copies of `DurableAgentRuntime.runResolvedWorker` over the host's
      * registered Bindings: every claimed head resolves the current Binding for its stable
@@ -257,9 +247,9 @@ export class NodeDurableHost extends Context.Service<
      * Hosts built with the module-level `layer` instead join their existing pool, which
      * dispatches distinct Thread lanes through one bounded queue.
      */
-    readonly runResolvedWorkers: Effect.Effect<void, DurableWorkerFailure | DurableBindingFailure>;
+    readonly runResolvedWorkers: Effect.Effect<void, DurableWorkerFailure | DurableBindingFailure>
   }
->()("@effect-agent/platform-node/NodeDurableHost") {
+>()('@effect-agent/platform-node/NodeDurableHost') {
   /**
    * Compile typed registrations and acquire the complete host in one Layer Scope.
    * Node supplies Digest and SecureRandom; model, tool, instruction, and schema services remain required.
@@ -287,7 +277,7 @@ export class NodeDurableHost extends Context.Service<
   ) {
     return NodeDurableHost.layer.pipe(
       Layer.provideMerge(NodeDurableAgentRuntime.layerRegistered(registrations, options)),
-    );
+    )
   }
 
   /**
@@ -298,7 +288,7 @@ export class NodeDurableHost extends Context.Service<
     NodeDurableHost,
     DurableWorkerFailure | RecoveryBlocked | MessageDeliveryError,
     DurableAgentRuntime | NodeDurableAgentRuntimeConfig | MessageDeliveryStore
-  > = Layer.effect(NodeDurableHost)(makeHost());
+  > = Layer.effect(NodeDurableHost)(makeHost())
 
   /** The complete DN host: `NodeDurableAgentRuntime.layer(options)` plus the host lifecycle gates. */
   static layerStack<
@@ -309,20 +299,22 @@ export class NodeDurableHost extends Context.Service<
     ReconcilerError = never,
     ReconcilerRequirements = never,
   >(
-    options: NodeDurableAgentRuntimeOptions<
-      ContextError,
-      ContextRequirements,
-      AuthorizationError,
-      AuthorizationRequirements,
-      ReconcilerError,
-      ReconcilerRequirements
-    > & { readonly bindings?: ReadonlyArray<ResolvedBinding> },
+    options:
+      & NodeDurableAgentRuntimeOptions<
+        ContextError,
+        ContextRequirements,
+        AuthorizationError,
+        AuthorizationRequirements,
+        ReconcilerError,
+        ReconcilerRequirements
+      >
+      & { readonly bindings?: ReadonlyArray<ResolvedBinding> },
   ) {
-    const { bindings = [], ...runtimeOptions } = options;
+    const { bindings = [], ...runtimeOptions } = options
 
     return NodeDurableHost.layer.pipe(
       Layer.provideMerge(NodeDurableAgentRuntime.layerWithBindings(bindings, runtimeOptions)),
-    );
+    )
   }
 }
 
@@ -355,31 +347,31 @@ export const layer = <
   >,
 ) =>
   Layer.effectContext(
-    Effect.gen(function* () {
+    Effect.gen(function*() {
       // The runtime compiles registrations in application Context before acquiring storage.
       const services = yield* Layer.build(
         NodeDurableAgentRuntime.layerRegistered(registrations, options).pipe(
           Layer.provide(Layer.succeed(ExclusiveSqliteHost, true)),
         ),
-      );
+      )
 
-      const config = Context.get(services, NodeDurableAgentRuntimeConfig);
+      const config = Context.get(services, NodeDurableAgentRuntimeConfig)
 
       const workerServices = services.pipe(
         Context.pick(DurableAgentRuntime, SubmissionLedger, WakeScheduler),
-      );
+      )
 
       const hostServices = services.pipe(
         Context.pick(DurableAgentRuntime, NodeDurableAgentRuntimeConfig, MessageDeliveryStore),
-      );
+      )
 
       const host = yield* makeHost(
         Effect.contextWith((live: Context.Context<never>) =>
           runNodeWorkerDispatch(config.workerConcurrency).pipe(
             Effect.setContext(Context.merge(applicationInvocationContext(live), workerServices)),
-          ),
+          )
         ),
-      ).pipe(Effect.provide(hostServices));
+      ).pipe(Effect.provide(hostServices))
 
       // Export actual capabilities: canonical reads and the separately owned delivery queue.
       // Raw SQL, canonical writes and submission ownership remain private.
@@ -391,17 +383,17 @@ export const layer = <
           MessageDeliveryStore,
         ),
         Context.add(NodeDurableHost, host),
-      );
+      )
     }),
-  );
+  )
 
 /**
  * Supervise the host's existing workers without starting another pool. Use with
  * `Effect.provide(HostLive)` and `NodeRuntime.runMain`; race it with a server Effect when
  * the same process also serves requests. Unlike `Layer.launch`, this observes worker failures.
  */
-export const run = Effect.gen(function* () {
-  const host = yield* NodeDurableHost;
+export const run = Effect.gen(function*() {
+  const host = yield* NodeDurableHost
 
-  return yield* host.run;
-});
+  return yield* host.run
+})

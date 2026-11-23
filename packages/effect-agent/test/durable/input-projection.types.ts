@@ -1,68 +1,66 @@
-import * as Agent from "@yielded/agent/agent";
-import { AgentPolicy } from "@yielded/agent/agent-policy";
-import { type DurableWorkerRequirements } from "@yielded/agent/durable-agent-runtime";
-import type * as LanguageModel from "effect/ai/LanguageModel";
-import type * as Model from "effect/ai/Model";
-import * as Tool from "effect/ai/Tool";
-import * as Toolkit from "effect/ai/Toolkit";
-import * as Context from "effect/Context";
-import type * as CryptoDigest from "effect/crypto/Digest";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Schema from "effect/Schema";
-import * as SchemaGetter from "effect/SchemaGetter";
+import * as Agent from '@yielded/agent/agent'
+import { AgentPolicy } from '@yielded/agent/agent-policy'
+import { type DurableWorkerRequirements } from '@yielded/agent/durable-agent-runtime'
+import type * as LanguageModel from 'effect/ai/LanguageModel'
+import type * as Model from 'effect/ai/Model'
+import * as Tool from 'effect/ai/Tool'
+import * as Toolkit from 'effect/ai/Toolkit'
+import * as Context from 'effect/Context'
+import type * as CryptoDigest from 'effect/crypto/Digest'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
+import * as Schema from 'effect/Schema'
+import * as SchemaGetter from 'effect/SchemaGetter'
 
-import { compileRegistrations } from "../../src/durable/internal/agent-registration.ts";
-import { DefinitionDigestInput } from "../../src/durable/Records.ts";
+import { compileRegistrations } from '../../src/durable/internal/agent-registration.ts'
+import { DefinitionDigestInput } from '../../src/durable/Records.ts'
 
-type Equal<Left, Right> =
-  (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2
-    ? (<Value>() => Value extends Right ? 1 : 2) extends <Value>() => Value extends Left ? 1 : 2
-      ? true
-      : false
-    : false;
-type Assert<Value extends true> = Value;
+type Equal<Left, Right> = (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2
+  ? (<Value>() => Value extends Right ? 1 : 2) extends <Value>() => Value extends Left ? 1 : 2 ? true
+  : false
+  : false
+type Assert<Value extends true> = Value
 
 class InputProjectionFailure extends Schema.TaggedError<InputProjectionFailure>()(
-  "InputProjectionFailure",
+  'InputProjectionFailure',
   {},
 ) {}
 
 class InputProjection extends Context.Service<
   InputProjection,
   { readonly render: (question: string) => Effect.Effect<string, InputProjectionFailure> }
->()("@effect-agent/thread/test/InputProjection") {}
+>()('@effect-agent/thread/test/InputProjection') {}
 
 class InstructionContext extends Context.Service<InstructionContext, { readonly text: string }>()(
-  "@effect-agent/thread/test/InstructionContext",
+  '@effect-agent/thread/test/InstructionContext',
 ) {}
 
 class ProviderInfrastructure extends Context.Service<ProviderInfrastructure, string>()(
-  "@effect-agent/thread/test/ProviderInfrastructure",
+  '@effect-agent/thread/test/ProviderInfrastructure',
 ) {}
 
 class SecondProviderInfrastructure extends Context.Service<SecondProviderInfrastructure, string>()(
-  "@effect-agent/thread/test/SecondProviderInfrastructure",
+  '@effect-agent/thread/test/SecondProviderInfrastructure',
 ) {}
 
 class SchemaDecoder extends Context.Service<SchemaDecoder, string>()(
-  "@effect-agent/thread/test/SchemaDecoder",
+  '@effect-agent/thread/test/SchemaDecoder',
 ) {}
 
 class SchemaEncoder extends Context.Service<SchemaEncoder, string>()(
-  "@effect-agent/thread/test/SchemaEncoder",
+  '@effect-agent/thread/test/SchemaEncoder',
 ) {}
 
 class LookupDependency extends Context.Service<LookupDependency, string>()(
-  "@effect-agent/thread/test/LookupDependency",
+  '@effect-agent/thread/test/LookupDependency',
 ) {}
 
 class AuditDependency extends Context.Service<AuditDependency, string>()(
-  "@effect-agent/thread/test/AuditDependency",
+  '@effect-agent/thread/test/AuditDependency',
 ) {}
 
 class ReportDependency extends Context.Service<ReportDependency, string>()(
-  "@effect-agent/thread/test/ReportDependency",
+  '@effect-agent/thread/test/ReportDependency',
 ) {}
 
 const ServiceString = Schema.String.pipe(
@@ -70,51 +68,51 @@ const ServiceString = Schema.String.pipe(
     decode: SchemaGetter.transformEffect((value) => Effect.as(SchemaEncoder, value)),
     encode: SchemaGetter.transformEffect((value) => Effect.as(SchemaDecoder, value)),
   }),
-);
+)
 
-const Lookup = Tool.make("lookup", {
+const Lookup = Tool.make('lookup', {
   parameters: Schema.Struct({ query: ServiceString }),
   success: ServiceString,
   dependencies: [LookupDependency],
-});
+})
 
-const Audit = Tool.make("audit", {
+const Audit = Tool.make('audit', {
   parameters: Schema.Struct({ value: ServiceString }),
   success: ServiceString,
   dependencies: [AuditDependency],
-});
+})
 
-const secondDefinition = Agent.make("durable-heterogeneous-registration-types", {
+const secondDefinition = Agent.make('durable-heterogeneous-registration-types', {
   input: Schema.Struct({ question: ServiceString }),
   output: ServiceString,
-  instructions: "Use both tools.",
+  instructions: 'Use both tools.',
   toolkit: Toolkit.make(Lookup, Audit),
   policy: AgentPolicy.make({
     maxTurns: 2,
     maxToolCalls: 2,
-    maxDuration: "30 seconds",
+    maxDuration: '30 seconds',
     toolConcurrency: 2,
   }),
-});
+})
 
-const definition = Agent.make("durable-input-projection-types", {
+const definition = Agent.make('durable-input-projection-types', {
   input: Schema.Struct({ question: Schema.String, hostOnly: Schema.String }),
   output: Schema.String,
   instructions: () => Effect.map(InstructionContext, ({ text }) => text),
   inputPrompt: ({ question }) =>
-    question === "" ? [] : Effect.flatMap(InputProjection, ({ render }) => render(question)),
+    question === '' ? [] : Effect.flatMap(InputProjection, ({ render }) => render(question)),
   toolkit: Toolkit.empty,
   policy: AgentPolicy.make({
     maxTurns: 2,
     maxToolCalls: 1,
-    maxDuration: "30 seconds",
+    maxDuration: '30 seconds',
     toolConcurrency: 1,
   }),
   runDisposition: {
-    schema: Schema.Literal("answered"),
-    fromOutput: () => "answered",
+    schema: Schema.Literal('answered'),
+    fromOutput: () => 'answered',
   },
-});
+})
 
 export const proveRegistrationRequirements = (
   firstModel: Layer.Layer<
@@ -129,45 +127,44 @@ export const proveRegistrationRequirements = (
   >,
   enabled: boolean,
 ) => {
-  const first = Agent.withModel(definition, firstModel);
-  const second = Agent.withModel(secondDefinition, secondModel);
+  const first = Agent.withModel(definition, firstModel)
+  const second = Agent.withModel(secondDefinition, secondModel)
 
   const compiled = compileRegistrations([
     {
       agent: definition,
       model: firstModel,
-      definitions: DefinitionDigestInput.make({ agent: "first", model: "first", tools: [] }),
+      definitions: DefinitionDigestInput.make({ agent: 'first', model: 'first', tools: [] }),
     },
     {
       agent: second,
       definitions: DefinitionDigestInput.make({
-        agent: "second",
-        model: "second",
-        tools: ["lookup", "audit"],
+        agent: 'second',
+        model: 'second',
+        tools: ['lookup', 'audit'],
       }),
     },
-  ]);
+  ])
 
   const conditionalEntry = {
     agent: first,
-    definitions: DefinitionDigestInput.make({ agent: "conditional", model: "first", tools: [] }),
-  };
+    definitions: DefinitionDigestInput.make({ agent: 'conditional', model: 'first', tools: [] }),
+  }
 
-  const attemptLayer = () =>
-    Layer.effect(InstructionContext)(Effect.map(ReportDependency, (text) => ({ text })));
+  const attemptLayer = () => Layer.effect(InstructionContext)(Effect.map(ReportDependency, (text) => ({ text })))
 
   const conditionalAttempt = compileRegistrations([
     { ...conditionalEntry, attemptLayer: enabled ? attemptLayer : undefined },
-  ]);
+  ])
 
   const optionalOptions = (options: { readonly attemptLayer?: typeof attemptLayer }) =>
     compileRegistrations([
       { ...conditionalEntry, ...options },
       {
         agent: second,
-        definitions: DefinitionDigestInput.make({ agent: "second", model: "second", tools: [] }),
+        definitions: DefinitionDigestInput.make({ agent: 'second', model: 'second', tools: [] }),
       },
-    ]);
+    ])
 
   const conditionalRequirements: readonly [
     Assert<
@@ -185,43 +182,41 @@ export const proveRegistrationRequirements = (
         | ReportDependency
       >
     >,
-  ] = [true, true];
+  ] = [true, true]
 
-  void conditionalRequirements;
+  void conditionalRequirements
 
   const scoped = compileRegistrations([
     {
       agent: definition,
       model: firstModel,
-      definitions: DefinitionDigestInput.make({ agent: "direct", model: "direct", tools: [] }),
-      attemptLayer: () =>
-        Layer.effect(InstructionContext)(Effect.map(LookupDependency, (text) => ({ text }))),
+      definitions: DefinitionDigestInput.make({ agent: 'direct', model: 'direct', tools: [] }),
+      attemptLayer: () => Layer.effect(InstructionContext)(Effect.map(LookupDependency, (text) => ({ text }))),
     },
     {
       agent: first,
-      definitions: DefinitionDigestInput.make({ agent: "scoped", model: "scoped", tools: [] }),
-      attemptLayer: () =>
-        Layer.effect(InstructionContext)(Effect.map(LookupDependency, (text) => ({ text }))),
+      definitions: DefinitionDigestInput.make({ agent: 'scoped', model: 'scoped', tools: [] }),
+      attemptLayer: () => Layer.effect(InstructionContext)(Effect.map(LookupDependency, (text) => ({ text }))),
     },
-  ]);
+  ])
 
   const scopedRequirements: Assert<
     Equal<
       Effect.Services<typeof scoped>,
       CryptoDigest.Digest | InputProjection | ProviderInfrastructure | LookupDependency
     >
-  > = true;
+  > = true
 
-  void scopedRequirements;
+  void scopedRequirements
 
-  type Services = Effect.Services<typeof compiled>;
+  type Services = Effect.Services<typeof compiled>
   type Expected =
     | CryptoDigest.Digest
     | DurableWorkerRequirements<typeof first>
-    | DurableWorkerRequirements<typeof second>;
-  type CompleteUnion = Assert<Equal<Services, Expected>>;
+    | DurableWorkerRequirements<typeof second>
+  type CompleteUnion = Assert<Equal<Services, Expected>>
 
-  const proofs: readonly [CompleteUnion] = [true];
+  const proofs: readonly [CompleteUnion] = [true]
 
-  return proofs;
-};
+  return proofs
+}

@@ -1,16 +1,16 @@
-import * as Prompt from "effect/ai/Prompt";
-import * as Effect from "effect/Effect";
-import * as Schema from "effect/Schema";
+import * as Prompt from 'effect/ai/Prompt'
+import * as Effect from 'effect/Effect'
+import * as Schema from 'effect/Schema'
 
-import { RunId } from "../core/Identifiers.ts";
-import { contextWindowId } from "../engine/Compaction.ts";
-import { ContextHistoryError, ContextHistorySearch } from "../engine/ContextHistory.ts";
-import type { CanonicalRecordEnvelope } from "./Records.ts";
-import { CanonicalSequence, PersistedJson, RecordId } from "./Records.ts";
+import { RunId } from '../core/Identifiers.ts'
+import { contextWindowId } from '../engine/Compaction.ts'
+import { ContextHistoryError, ContextHistorySearch } from '../engine/ContextHistory.ts'
+import type { CanonicalRecordEnvelope } from './Records.ts'
+import { CanonicalSequence, PersistedJson, RecordId } from './Records.ts'
 
 /** Full retained recall text from one canonical record; never raw discarded Tool output. */
 export class ContextHistoryEvidence extends Schema.Class<ContextHistoryEvidence>(
-  "@effect-agent/thread/ContextHistoryEvidence",
+  '@effect-agent/thread/ContextHistoryEvidence',
 )({
   recordId: RecordId,
   sequence: CanonicalSequence,
@@ -20,7 +20,7 @@ export class ContextHistoryEvidence extends Schema.Class<ContextHistoryEvidence>
 
 /** The committing position and covered position are distinct; membership uses coversThrough. */
 export class ContextHistoryBoundary extends Schema.Class<ContextHistoryBoundary>(
-  "@effect-agent/thread/ContextHistoryBoundary",
+  '@effect-agent/thread/ContextHistoryBoundary',
 )({
   sequence: CanonicalSequence,
   coversThrough: CanonicalSequence,
@@ -29,7 +29,7 @@ export class ContextHistoryBoundary extends Schema.Class<ContextHistoryBoundary>
 
 /** An empty projection still consumes its canonical position in an index watermark. */
 export class ContextHistoryProjection extends Schema.Class<ContextHistoryProjection>(
-  "@effect-agent/thread/ContextHistoryProjection",
+  '@effect-agent/thread/ContextHistoryProjection',
 )({
   evidence: Schema.optionalKey(ContextHistoryEvidence),
   boundary: Schema.optionalKey(ContextHistoryBoundary),
@@ -37,88 +37,91 @@ export class ContextHistoryProjection extends Schema.Class<ContextHistoryProject
 
 const unavailable = () =>
   ContextHistoryError.make({
-    reason: "unavailable",
-    message: "Canonical context history is unavailable",
-  });
+    reason: 'unavailable',
+    message: 'Canonical context history is unavailable',
+  })
 
-const jsonText = Effect.fnUntraced(function* (value: unknown) {
+const jsonText = Effect.fnUntraced(function*(value: unknown) {
   const json = yield* Schema.decodeUnknownEffect(PersistedJson)(value).pipe(
     Effect.mapError(unavailable),
-  );
+  )
 
-  return JSON.stringify(json);
-});
+  return JSON.stringify(json)
+})
 
-const promptText = Effect.fnUntraced(function* (value: PersistedJson) {
+const promptText = Effect.fnUntraced(function*(value: PersistedJson) {
   const prompt = yield* Schema.decodeUnknownEffect(Prompt.Prompt)(value).pipe(
     Effect.mapError(unavailable),
-  );
+  )
 
-  const messages: Array<string> = [];
+  const messages: Array<string> = []
 
   for (const message of prompt.content) {
     // Provider options, system instructions, reasoning, and attachment bytes are not recall data.
-    if (message.role === "system") continue;
-    const parts: Array<string> = [];
+    if (message.role === 'system') continue
+    const parts: Array<string> = []
 
     for (const part of message.content) {
       switch (part.type) {
-        case "text":
-          parts.push(part.text);
-          break;
-        case "tool-call":
-          parts.push(`tool call ${part.name} (${part.id}):\n${yield* jsonText(part.params)}`);
-          break;
-        case "tool-result":
+        case 'text':
+          parts.push(part.text)
+          break
+        case 'tool-call':
+          parts.push(`tool call ${part.name} (${part.id}):\n${yield* jsonText(part.params)}`)
+          break
+        case 'tool-result':
           parts.push(
-            `tool result ${part.name} (${part.id}; ${part.isFailure ? "failure" : "success"}):\n${yield* jsonText(part.result)}`,
-          );
-          break;
-        case "file":
-          parts.push("[attachment omitted]");
-          break;
-        case "reasoning":
-        case "tool-approval-request":
-        case "tool-approval-response":
-          break;
+            `tool result ${part.name} (${part.id}; ${part.isFailure ? 'failure' : 'success'}):\n${yield* jsonText(
+              part.result,
+            )}`,
+          )
+          break
+        case 'file':
+          parts.push('[attachment omitted]')
+          break
+        case 'reasoning':
+        case 'tool-approval-request':
+        case 'tool-approval-response':
+          break
       }
     }
-    if (parts.length > 0) messages.push(`${message.role}:\n${parts.join("\n")}`);
+    if (parts.length > 0) messages.push(`${message.role}:\n${parts.join('\n')}`)
   }
 
-  return messages.join("\n\n");
-});
+  return messages.join('\n\n')
+})
 
-const retainedEvidence = Effect.fnUntraced(function* (
+const retainedEvidence = Effect.fnUntraced(function*(
   envelope: CanonicalRecordEnvelope,
 ): Effect.fn.Return<ContextHistoryEvidence | undefined, ContextHistoryError> {
-  const payload = envelope.record.payload;
-  let text: string;
+  const payload = envelope.record.payload
+  let text: string
 
-  if (payload._tag === "ModelResponseRecorded") {
-    text = yield* promptText(payload.messages);
-  } else if (payload._tag === "ModelCompleted") {
-    text =
-      payload.messages === undefined
-        ? `assistant output:\n${yield* jsonText(payload.output)}`
-        : yield* promptText(payload.messages);
-  } else if (payload._tag === "ToolCallSettled") {
-    text = `tool result ${payload.toolName} (${payload.toolCallId}; ${payload.isFailure ? "failure" : "success"}):\n${yield* jsonText(payload.result)}`;
+  if (payload._tag === 'ModelResponseRecorded') {
+    text = yield* promptText(payload.messages)
+  } else if (payload._tag === 'ModelCompleted') {
+    text = payload.messages === undefined
+      ? `assistant output:\n${yield* jsonText(payload.output)}`
+      : yield* promptText(payload.messages)
+  } else if (payload._tag === 'ToolCallSettled') {
+    text = `tool result ${payload.toolName} (${payload.toolCallId}; ${
+      payload.isFailure ? 'failure' : 'success'
+    }):\n${yield* jsonText(payload.result)}`
   } else {
     // Raw submission input can contain fields excluded by the Agent's input projection.
     // Step outputs, approvals, failure diagnostics, and operational records stay private.
-    return undefined;
+    return undefined
   }
 
   return text.length === 0
     ? undefined
     : ContextHistoryEvidence.make({
-        recordId: envelope.record.recordId,
-        sequence: envelope.sequence,
-        runId: payload.runId,
-        text,
-      });
-});
+      recordId: envelope.record.recordId,
+      sequence: envelope.sequence,
+      runId: payload.runId,
+      text,
+    })
+})
 
 /**
  * Project one decoded canonical record without reading storage or retaining mutable state.
@@ -136,13 +139,13 @@ const retainedEvidence = Effect.fnUntraced(function* (
  * Do not restrict rollover boundaries to the anchor: later commits may assign older evidence
  * to a window. An ID or an index row alone does not establish existence, eligibility, or access.
  */
-export const project = Effect.fnUntraced(function* (
+export const project = Effect.fnUntraced(function*(
   envelope: CanonicalRecordEnvelope,
 ): Effect.fn.Return<ContextHistoryProjection, ContextHistoryError> {
-  const payload = envelope.record.payload;
+  const payload = envelope.record.payload
 
-  if (payload._tag === "CompactionCreated" && payload.kind === "rollover") {
-    if (payload.coversThrough >= envelope.sequence) return yield* unavailable();
+  if (payload._tag === 'CompactionCreated' && payload.kind === 'rollover') {
+    if (payload.coversThrough >= envelope.sequence) return yield* unavailable()
 
     return ContextHistoryProjection.make({
       boundary: ContextHistoryBoundary.make({
@@ -150,49 +153,50 @@ export const project = Effect.fnUntraced(function* (
         coversThrough: payload.coversThrough,
         windowId: contextWindowId(payload.runId, payload.turn),
       }),
-    });
+    })
   }
-  const evidence = yield* retainedEvidence(envelope);
+  const evidence = yield* retainedEvidence(envelope)
 
-  return ContextHistoryProjection.make(evidence === undefined ? {} : { evidence });
-});
+  return ContextHistoryProjection.make(evidence === undefined ? {} : { evidence })
+})
 
 /** JavaScript case folding for literal substring lookup; do not substitute SQL lower or FTS. */
-export const normalizeText = (text: string): string => text.toLowerCase();
+export const normalizeText = (text: string): string => text.toLowerCase()
 
 /** Validate, trim, and case-fold a search query using the native history contract. */
-export const normalizeQuery = Effect.fnUntraced(function* (
+export const normalizeQuery = Effect.fnUntraced(function*(
   query: string,
 ): Effect.fn.Return<string, ContextHistoryError> {
   const decoded = yield* Schema.decodeEffect(ContextHistorySearch.fields.query)(query).pipe(
     Effect.mapError(() =>
       ContextHistoryError.make({
-        reason: "invalid-input",
-        message: "Invalid context history search",
-      }),
+        reason: 'invalid-input',
+        message: 'Invalid context history search',
+      })
     ),
-  );
+  )
 
-  const normalized = normalizeText(decoded.trim());
+  const normalized = normalizeText(decoded.trim())
 
-  if (normalized.length === 0)
+  if (normalized.length === 0) {
     return yield* ContextHistoryError.make({
-      reason: "invalid-input",
-      message: "Context history search requires non-whitespace text",
-    });
+      reason: 'invalid-input',
+      message: 'Context history search requires non-whitespace text',
+    })
+  }
 
-  return normalized;
-});
+  return normalized
+})
 
 /** Match a normalized query and retain the native 200-character lead and 2,000-character page. */
 export const matchText = (text: string, normalizedQuery: string): string | undefined => {
-  const index = normalizeText(text).indexOf(normalizedQuery);
+  const index = normalizeText(text).indexOf(normalizedQuery)
 
-  if (index < 0) return undefined;
-  const start = Math.max(0, index - 200);
+  if (index < 0) return undefined
+  const start = Math.max(0, index - 200)
 
-  return text.slice(start, start + 2_000);
-};
+  return text.slice(start, start + 2_000)
+}
 
 /**
  * Boundaries must be in canonical order with nondecreasing coversThrough and belong to the
@@ -204,12 +208,12 @@ export const windowIdFor = (
   evidence: ContextHistoryEvidence,
   boundaries: ReadonlyArray<ContextHistoryBoundary>,
 ): string => {
-  let windowId = contextWindowId(evidence.runId, 0);
+  let windowId = contextWindowId(evidence.runId, 0)
 
   for (const boundary of boundaries) {
-    if (evidence.sequence <= boundary.coversThrough) break;
-    windowId = boundary.windowId;
+    if (evidence.sequence <= boundary.coversThrough) break
+    windowId = boundary.windowId
   }
 
-  return windowId;
-};
+  return windowId
+}

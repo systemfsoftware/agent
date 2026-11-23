@@ -1,7 +1,7 @@
-import * as Context from "effect/Context";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Schema from "effect/Schema";
+import * as Context from 'effect/Context'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
+import * as Schema from 'effect/Schema'
 
 /**
  * Coordinator-owned failpoint locations (plan §Failpoints). Locations normally sit immediately
@@ -18,69 +18,69 @@ import * as Schema from "effect/Schema";
  * transitions.
  */
 export const DurableRuntimeFailpointLocation = Schema.Literals([
-  "submit:after-admit",
-  "submit:after-materialize",
-  "claim:after-claim",
-  "input:after-canonical-append",
-  "run:before-start-append",
-  "run:after-start-append",
-  "run:before-duration-append",
-  "run:after-duration-append",
-  "turn:after-canonical-append",
-  "turn:after-response-append",
-  "turn:after-results-append",
-  "compaction:before-canonical-append",
-  "compaction:after-canonical-append",
-  "tools:after-dispatch-fence",
-  "tools:before-dispatch-fence",
-  "tools:before-unavailable-append",
-  "tools:after-unavailable-append",
-  "policy:before-reservation-append",
-  "policy:after-reservation-append",
-  "step:after-step-append",
-  "approval:after-request-append",
-  "approval:after-suspend",
-  "join:after-claim",
-  "join:after-canonical-append",
-  "resolve:after-intent",
-  "terminalize:before-publication",
-  "terminalize:after-canonical-append",
-  "abort:after-intent",
-  "subagent:after-reserve",
-  "subagent:after-request-append",
-  "subagent:after-admit",
-  "subagent:after-child-ready",
-  "subagent:after-start-append",
-  "subagent:after-sibling-settle",
-  "subagent:after-suspend",
-  "subagent:after-child-abort-intent",
-  "subagent:before-join-append",
-  "subagent:after-join-append",
-  "subagent:after-release-pending",
-  "subagent:after-release",
-  "worker:before-stop-append",
-  "worker:after-stop-append",
-  "worker:before-stop-seal",
-  "worker:after-stop-seal",
-  "worker:before-source-append",
-  "worker:after-source-append",
-  "worker:before-origin-append",
-  "worker:after-origin-append",
-  "worker:before-completion-append",
-  "worker:after-completion-append",
-  "worker:before-subtree-append",
-  "worker:after-subtree-append",
-  "worker:before-report-append",
-  "worker:after-report-append",
-  "update:before-canonical-append",
-  "update:after-canonical-append",
-]);
+  'submit:after-admit',
+  'submit:after-materialize',
+  'claim:after-claim',
+  'input:after-canonical-append',
+  'run:before-start-append',
+  'run:after-start-append',
+  'run:before-duration-append',
+  'run:after-duration-append',
+  'turn:after-canonical-append',
+  'turn:after-response-append',
+  'turn:after-results-append',
+  'compaction:before-canonical-append',
+  'compaction:after-canonical-append',
+  'tools:after-dispatch-fence',
+  'tools:before-dispatch-fence',
+  'tools:before-unavailable-append',
+  'tools:after-unavailable-append',
+  'policy:before-reservation-append',
+  'policy:after-reservation-append',
+  'step:after-step-append',
+  'approval:after-request-append',
+  'approval:after-suspend',
+  'join:after-claim',
+  'join:after-canonical-append',
+  'resolve:after-intent',
+  'terminalize:before-publication',
+  'terminalize:after-canonical-append',
+  'abort:after-intent',
+  'subagent:after-reserve',
+  'subagent:after-request-append',
+  'subagent:after-admit',
+  'subagent:after-child-ready',
+  'subagent:after-start-append',
+  'subagent:after-sibling-settle',
+  'subagent:after-suspend',
+  'subagent:after-child-abort-intent',
+  'subagent:before-join-append',
+  'subagent:after-join-append',
+  'subagent:after-release-pending',
+  'subagent:after-release',
+  'worker:before-stop-append',
+  'worker:after-stop-append',
+  'worker:before-stop-seal',
+  'worker:after-stop-seal',
+  'worker:before-source-append',
+  'worker:after-source-append',
+  'worker:before-origin-append',
+  'worker:after-origin-append',
+  'worker:before-completion-append',
+  'worker:after-completion-append',
+  'worker:before-subtree-append',
+  'worker:after-subtree-append',
+  'worker:before-report-append',
+  'worker:after-report-append',
+  'update:before-canonical-append',
+  'update:after-canonical-append',
+])
 
-export type DurableRuntimeFailpointLocation = typeof DurableRuntimeFailpointLocation.Type;
+export type DurableRuntimeFailpointLocation = typeof DurableRuntimeFailpointLocation.Type
 
 /** Injected coordinator fault. Reaching the caller means the preceding durable step committed. */
 export class DurableRuntimeFailpointError extends Schema.TaggedError<DurableRuntimeFailpointError>()(
-  "DurableRuntimeFailpointError",
+  'DurableRuntimeFailpointError',
   {
     location: DurableRuntimeFailpointLocation,
   },
@@ -88,9 +88,9 @@ export class DurableRuntimeFailpointError extends Schema.TaggedError<DurableRunt
 
 export type DurableRuntimeFailpointHandler = (
   location: DurableRuntimeFailpointLocation,
-) => Effect.Effect<void, DurableRuntimeFailpointError>;
+) => Effect.Effect<void, DurableRuntimeFailpointError>
 
-const noFailpoint: DurableRuntimeFailpointHandler = () => Effect.void;
+const noFailpoint: DurableRuntimeFailpointHandler = () => Effect.void
 
 /**
  * Explicit fault-injection authority used at durable coordinator step boundaries. The process
@@ -100,9 +100,9 @@ const noFailpoint: DurableRuntimeFailpointHandler = () => Effect.void;
 export class DurableRuntimeFailpoint extends Context.Service<
   DurableRuntimeFailpoint,
   {
-    readonly hit: DurableRuntimeFailpointHandler;
+    readonly hit: DurableRuntimeFailpointHandler
   }
->()("@effect-agent/thread/DurableRuntimeFailpoint") {
+>()('@effect-agent/thread/DurableRuntimeFailpoint') {
   /** Production default: no fault injection. */
-  static readonly layer = Layer.succeed(this)({ hit: noFailpoint });
+  static readonly layer = Layer.succeed(this)({ hit: noFailpoint })
 }

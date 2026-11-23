@@ -1,18 +1,18 @@
-import * as Duration from "effect/Duration";
-import * as Schema from "effect/Schema";
-import * as SchemaTransformation from "effect/SchemaTransformation";
+import * as Duration from 'effect/Duration'
+import * as Schema from 'effect/Schema'
+import * as SchemaTransformation from 'effect/SchemaTransformation'
 
-import { ToolResultBounds } from "./ToolResult.ts";
+import { ToolResultBounds } from './ToolResult.ts'
 
-const PositiveInt = Schema.Int.check(Schema.isGreaterThan(0));
+const PositiveInt = Schema.Int.check(Schema.isGreaterThan(0))
 
 // Unbounded counts use Infinity only in memory; their wire representation is null.
 const ResolvedCountLimit = Schema.Union([
   PositiveInt,
   Schema.declare((limit): limit is number => limit === Infinity, {
-    identifier: "UnboundedCount",
+    identifier: 'UnboundedCount',
   }),
-]);
+])
 
 const CountLimit = Schema.NullOr(PositiveInt).pipe(
   Schema.decodeTo(
@@ -22,22 +22,22 @@ const CountLimit = Schema.NullOr(PositiveInt).pipe(
       encode: (limit) => (limit === Infinity ? null : limit),
     }),
   ),
-);
+)
 
-const NonNegativeInt = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0));
+const NonNegativeInt = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))
 
-const CompactionMode = Schema.Literals(["prune", "summarize", "prune-then-summarize"]);
+const CompactionMode = Schema.Literals(['prune', 'summarize', 'prune-then-summarize'])
 
 /** Inputs normalized and validated by `CompactionPolicy.make`. */
 export type CompactionPolicyInput = Readonly<{
   /** Estimated tokens of recent history preserved verbatim across a compaction; defaults to `20_000`. */
-  readonly keepRecentTokens?: number;
+  readonly keepRecentTokens?: number
   /** Compaction strategy order; defaults to `"prune-then-summarize"`. */
-  readonly mode?: typeof CompactionMode.Type;
-}>;
+  readonly mode?: typeof CompactionMode.Type
+}>
 
 /** How the engine reduces model context when `contextTokenLimit` is crossed. */
-export class CompactionPolicy extends Schema.Class<CompactionPolicy>("CompactionPolicy")({
+export class CompactionPolicy extends Schema.Class<CompactionPolicy>('CompactionPolicy')({
   keepRecentTokens: PositiveInt,
   mode: CompactionMode,
 }) {
@@ -45,18 +45,17 @@ export class CompactionPolicy extends Schema.Class<CompactionPolicy>("Compaction
   static override make(input: CompactionPolicyInput = {}): CompactionPolicy {
     return super.make({
       keepRecentTokens: input.keepRecentTokens ?? 20_000,
-      mode: input.mode ?? "prune-then-summarize",
-    });
+      mode: input.mode ?? 'prune-then-summarize',
+    })
   }
 }
 
 const FinitePositiveDuration = Schema.Duration.pipe(
   Schema.refine(
-    (duration): duration is Duration.Duration =>
-      Duration.isFinite(duration) && Duration.isPositive(duration),
-    { expected: "a finite positive duration" },
+    (duration): duration is Duration.Duration => Duration.isFinite(duration) && Duration.isPositive(duration),
+    { expected: 'a finite positive duration' },
   ),
-);
+)
 
 /**
  * Resolution when `maxTurns`, `maxToolCalls`, or `tokenBudget` is exhausted:
@@ -68,7 +67,7 @@ const FinitePositiveDuration = Schema.Duration.pipe(
  * Duration, cost, and repeated-failure bounds are hard rails regardless of
  * this setting.
  */
-const OnExhaustion = Schema.Literals(["final-answer", "fail"]);
+const OnExhaustion = Schema.Literals(['final-answer', 'fail'])
 
 const AgentPolicyFields = Schema.Struct({
   /** Null in declarations/JSON disables this ceiling; resolved policies use Infinity. */
@@ -91,7 +90,7 @@ const AgentPolicyFields = Schema.Struct({
   /** Per-model-call live-context bound; crossing it triggers compaction rather than failure. */
   contextTokenLimit: Schema.optionalKey(PositiveInt),
   toolResultBounds: ToolResultBounds,
-  runStatus: Schema.Literals(["appended", "off"]),
+  runStatus: Schema.Literals(['appended', 'off']),
   /** Restart a disposable model call on joined input, at most twice per Run. Default off. */
   restartOnJoinedInput: Schema.optionalKey(Schema.Boolean),
   /**
@@ -105,58 +104,58 @@ const AgentPolicyFields = Schema.Struct({
   Schema.makeFilter((policy) =>
     policy.tokenBudget !== undefined && policy.completionReserveTokens > policy.tokenBudget
       ? {
-          path: ["completionReserveTokens"],
-          issue: "completionReserveTokens cannot exceed tokenBudget",
-        }
-      : undefined,
+        path: ['completionReserveTokens'],
+        issue: 'completionReserveTokens cannot exceed tokenBudget',
+      }
+      : undefined
   ),
-);
+)
 
-type AgentPolicyFields = typeof AgentPolicyFields.Type;
+type AgentPolicyFields = typeof AgentPolicyFields.Type
 
 /** Inputs normalized and validated by `AgentPolicy.make`. */
 export type AgentPolicyInput = Readonly<
   Omit<
     AgentPolicyFields,
-    | "maxTurns"
-    | "maxToolCalls"
-    | "maxDuration"
-    | "repeatedFailureLimit"
-    | "onExhaustion"
-    | "toolResultBounds"
-    | "runStatus"
-    | "compaction"
-    | "completionReserveTokens"
+    | 'maxTurns'
+    | 'maxToolCalls'
+    | 'maxDuration'
+    | 'repeatedFailureLimit'
+    | 'onExhaustion'
+    | 'toolResultBounds'
+    | 'runStatus'
+    | 'compaction'
+    | 'completionReserveTokens'
   > & {
     /** Maximum model turns, or null to leave turn count unbounded. */
-    readonly maxTurns: number | null;
+    readonly maxTurns: number | null
     /** Maximum declared and programmatic Tool Calls, or null to leave count unbounded. */
-    readonly maxToolCalls: number | null;
+    readonly maxToolCalls: number | null
     /** Finite, positive wall-clock duration accepted in any Effect Duration input form. */
-    readonly maxDuration: Duration.Input;
+    readonly maxDuration: Duration.Input
     /** Non-negative repeated-failure bound; defaults to `3`. */
-    readonly repeatedFailureLimit?: number;
+    readonly repeatedFailureLimit?: number
     /** Turn/Tool-Call/token exhaustion resolution; defaults to `"final-answer"`. */
-    readonly onExhaustion?: typeof OnExhaustion.Type;
+    readonly onExhaustion?: typeof OnExhaustion.Type
     /** Byte bound for each encoded Tool result; defaults to `50 KiB`. */
-    readonly toolResultBounds?: ToolResultBounds;
+    readonly toolResultBounds?: ToolResultBounds
     /** Whether a derived run-status message is appended to each model call; defaults to `"off"` to preserve retained prompt cache boundaries. */
-    readonly runStatus?: AgentPolicyFields["runStatus"];
+    readonly runStatus?: AgentPolicyFields['runStatus']
     /** Tokens reserved for final delivery; defaults to 20% of tokenBudget, capped at 4,096. */
-    readonly completionReserveTokens?: number;
+    readonly completionReserveTokens?: number
     /** Compaction strategy applied when `contextTokenLimit` is crossed; defaults documented on `CompactionPolicy`. */
-    readonly compaction?: CompactionPolicy;
+    readonly compaction?: CompactionPolicy
   }
->;
+>
 
 /** Schema class for agent run limits; wall-clock duration remains finite. */
-export class AgentPolicy extends Schema.Class<AgentPolicy>("AgentPolicy")(AgentPolicyFields) {
+export class AgentPolicy extends Schema.Class<AgentPolicy>('AgentPolicy')(AgentPolicyFields) {
   /** Resolve an optional declaration against standalone or inherited defaults. */
   static resolve(input: Partial<AgentPolicyInput> = {}, parent?: AgentPolicy): AgentPolicy {
     return AgentPolicy.make({
       maxTurns: 12,
       maxToolCalls: 24,
-      maxDuration: "5 minutes",
+      maxDuration: '5 minutes',
       toolConcurrency: 4,
       ...parent,
       ...input,
@@ -164,21 +163,20 @@ export class AgentPolicy extends Schema.Class<AgentPolicy>("AgentPolicy")(AgentP
       ...(input.completionReserveTokens !== undefined || parent === undefined
         ? {}
         : {
-            completionReserveTokens: Math.min(
-              parent.completionReserveTokens,
-              input.tokenBudget ?? parent.tokenBudget ?? parent.completionReserveTokens,
-            ),
-          }),
-    });
+          completionReserveTokens: Math.min(
+            parent.completionReserveTokens,
+            input.tokenBudget ?? parent.tokenBudget ?? parent.completionReserveTokens,
+          ),
+        }),
+    })
   }
 
   /** Normalize and validate policy bounds, throwing on invalid input. */
   static override make(input: AgentPolicyInput): AgentPolicy {
-    const completionReserveTokens =
-      input.completionReserveTokens ??
+    const completionReserveTokens = input.completionReserveTokens ??
       (input.tokenBudget === undefined
         ? 4_096
-        : Math.min(4_096, Math.floor(input.tokenBudget / 5)));
+        : Math.min(4_096, Math.floor(input.tokenBudget / 5)))
 
     return super.make({
       ...input,
@@ -186,11 +184,11 @@ export class AgentPolicy extends Schema.Class<AgentPolicy>("AgentPolicy")(AgentP
       maxToolCalls: input.maxToolCalls === null ? Infinity : input.maxToolCalls,
       maxDuration: Duration.fromInputUnsafe(input.maxDuration),
       repeatedFailureLimit: input.repeatedFailureLimit ?? 3,
-      onExhaustion: input.onExhaustion ?? "final-answer",
+      onExhaustion: input.onExhaustion ?? 'final-answer',
       toolResultBounds: input.toolResultBounds ?? ToolResultBounds.make({ maxBytes: 50 * 1024 }),
-      runStatus: input.runStatus ?? "off",
+      runStatus: input.runStatus ?? 'off',
       completionReserveTokens,
       compaction: input.compaction ?? CompactionPolicy.make(),
-    });
+    })
   }
 }

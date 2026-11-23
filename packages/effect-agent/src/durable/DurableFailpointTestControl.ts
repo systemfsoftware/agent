@@ -1,27 +1,24 @@
-import * as Context from "effect/Context";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Ref from "effect/Ref";
+import * as Context from 'effect/Context'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
+import * as Ref from 'effect/Ref'
 
-import {
-  DurableRuntimeFailpoint,
-  type DurableRuntimeFailpointHandler,
-} from "./DurableFailpoint.ts";
+import { DurableRuntimeFailpoint, type DurableRuntimeFailpointHandler } from './DurableFailpoint.ts'
 
-const noFailpoint: DurableRuntimeFailpointHandler = () => Effect.void;
+const noFailpoint: DurableRuntimeFailpointHandler = () => Effect.void
 
 /** Test-only control for replacing the active coordinator failpoint handler. */
 export class DurableRuntimeFailpointTestControl extends Context.Service<
   DurableRuntimeFailpointTestControl,
   {
-    readonly clear: Effect.Effect<void>;
-    readonly setHandler: (handler: DurableRuntimeFailpointHandler) => Effect.Effect<void>;
+    readonly clear: Effect.Effect<void>
+    readonly setHandler: (handler: DurableRuntimeFailpointHandler) => Effect.Effect<void>
   }
->()("@effect-agent/thread/DurableRuntimeFailpointTestControl") {
+>()('@effect-agent/thread/DurableRuntimeFailpointTestControl') {
   /** Reusable test Layer with a control service backed by the same handler Ref. */
   static readonly layer = Layer.effectContext(
-    Effect.gen(function* () {
-      const handler = yield* Ref.make<DurableRuntimeFailpointHandler>(noFailpoint);
+    Effect.gen(function*() {
+      const handler = yield* Ref.make<DurableRuntimeFailpointHandler>(noFailpoint)
 
       return Context.make(
         DurableRuntimeFailpoint,
@@ -36,7 +33,7 @@ export class DurableRuntimeFailpointTestControl extends Context.Service<
             setHandler: (next) => Ref.set(handler, next),
           }),
         ),
-      );
+      )
     }),
-  );
+  )
 }

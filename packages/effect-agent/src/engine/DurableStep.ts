@@ -1,25 +1,25 @@
-import * as Context from "effect/Context";
-import type * as Effect from "effect/Effect";
-import type * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
+import * as Context from 'effect/Context'
+import type * as Effect from 'effect/Effect'
+import type * as Option from 'effect/Option'
+import * as Schema from 'effect/Schema'
 
-import { ToolCallId } from "../core/Identifiers.ts";
+import { ToolCallId } from '../core/Identifiers.ts'
 
 export {
-  ToolExecutionClass,
   getToolExecutionClass,
+  ToolExecutionClass,
   type ToolExecutionClassValue,
-} from "../core/internal/tool-execution.ts";
+} from '../core/internal/tool-execution.ts'
 
 /** Stable identity of one Step within one Tool Call: `(toolCallId, stepName)`. */
 export interface RunStepKey {
-  readonly toolCallId: ToolCallId;
-  readonly stepName: string;
+  readonly toolCallId: ToolCallId
+  readonly stepName: string
 }
 
 /** A previously committed Step result in its canonical encoded form. */
 export interface PersistedStepResult {
-  readonly encodedOutput: unknown;
+  readonly encodedOutput: unknown
 }
 
 /**
@@ -36,13 +36,13 @@ export interface PersistedStepResult {
 export interface RunStepHook<Error = never, Requirements = never> {
   readonly lookup: (
     key: RunStepKey,
-  ) => Effect.Effect<Option.Option<PersistedStepResult>, Error, Requirements>;
+  ) => Effect.Effect<Option.Option<PersistedStepResult>, Error, Requirements>
   /** Reserve one maximum-sized valid result before execution; release on every exit. */
-  readonly reserve: (key: RunStepKey) => Effect.Effect<Effect.Effect<void>, Error, Requirements>;
+  readonly reserve: (key: RunStepKey) => Effect.Effect<Effect.Effect<void>, Error, Requirements>
   readonly commit: (
     key: RunStepKey,
     encodedOutput: unknown,
-  ) => Effect.Effect<void, Error, Requirements>;
+  ) => Effect.Effect<void, Error, Requirements>
 }
 
 /**
@@ -54,17 +54,17 @@ export interface RunStepHook<Error = never, Requirements = never> {
  * replay-with-different-content conflict: a committed result that no longer
  * decodes through the declared output Schema is never silently accepted.
  */
-export class DurableStepError extends Schema.TaggedError<DurableStepError>()("DurableStepError", {
+export class DurableStepError extends Schema.TaggedError<DurableStepError>()('DurableStepError', {
   stepName: Schema.String,
   reason: Schema.Literals([
-    "duplicate-step-name",
-    "lookup-failed",
-    "capacity-exhausted",
-    "reservation-failed",
-    "recorded-result-invalid",
-    "output-encoding-failed",
-    "commit-failed",
-    "no-active-tool-call",
+    'duplicate-step-name',
+    'lookup-failed',
+    'capacity-exhausted',
+    'reservation-failed',
+    'recorded-result-invalid',
+    'output-encoding-failed',
+    'commit-failed',
+    'no-active-tool-call',
   ]),
   message: Schema.String.check(Schema.isMaxLength(4_096)),
   toolCallId: Schema.optionalKey(ToolCallId),
@@ -90,12 +90,12 @@ export interface DurableStepService {
   readonly do: <Output extends Schema.Top, BodyError, BodyServices>(
     name: string,
     output: Output,
-    execute: Effect.Effect<Output["Type"], BodyError, BodyServices>,
+    execute: Effect.Effect<Output['Type'], BodyError, BodyServices>,
   ) => Effect.Effect<
-    Output["Type"],
+    Output['Type'],
     DurableStepError | BodyError,
-    BodyServices | Output["DecodingServices"] | Output["EncodingServices"]
-  >;
+    BodyServices | Output['DecodingServices'] | Output['EncodingServices']
+  >
 }
 
 /**
@@ -111,5 +111,5 @@ export interface DurableStepService {
  * records nothing — the durable claim attaches to the runtime, not the Tool.
  */
 export class DurableStep extends Context.Service<DurableStep, DurableStepService>()(
-  "@effect-agent/engine/DurableStep",
+  '@effect-agent/engine/DurableStep',
 ) {}

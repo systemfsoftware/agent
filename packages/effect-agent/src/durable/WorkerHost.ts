@@ -1,22 +1,22 @@
-import * as Context from "effect/Context";
-import * as Effect from "effect/Effect";
-import type * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
+import * as Context from 'effect/Context'
+import * as Effect from 'effect/Effect'
+import type * as Option from 'effect/Option'
+import * as Schema from 'effect/Schema'
 
-import type * as Agent from "../core/Agent.ts";
-import type { AgentPolicy } from "../core/AgentPolicy.ts";
-import type { AgentId, SubmissionId, ThreadId } from "../core/Identifiers.ts";
-import type { SubagentBudgetReservation } from "../core/SubagentContract.ts";
-import { WorkerError, type WorkerRef, type WorkerSource } from "../core/Worker.ts";
+import type * as Agent from '../core/Agent.ts'
+import type { AgentPolicy } from '../core/AgentPolicy.ts'
+import type { AgentId, SubmissionId, ThreadId } from '../core/Identifiers.ts'
+import type { SubagentBudgetReservation } from '../core/SubagentContract.ts'
+import { WorkerError, type WorkerRef, type WorkerSource } from '../core/Worker.ts'
 import type {
   CanonicalSequence,
   DefinitionDigests,
   Digest,
   PersistedJson,
-  WorkerOrigin,
   WorkerContinuation,
-} from "./Records.ts";
-import type { Principal, SubmissionSnapshot } from "./SubmissionLedger.ts";
+  WorkerOrigin,
+} from './Records.ts'
+import type { Principal, SubmissionSnapshot } from './SubmissionLedger.ts'
 
 /**
  * One successful start authorization at an exact source tail. This host-created hint is
@@ -25,44 +25,46 @@ import type { Principal, SubmissionSnapshot } from "./SubmissionLedger.ts";
  * current access checks at commit boundaries. A retry or changed tail gets no old grant.
  */
 export interface WorkerStartAdmission {
-  readonly sourceThreadId: ThreadId;
-  readonly sourceSubmissionId?: SubmissionId;
-  readonly requestedPrincipal: Principal;
-  readonly principal: Principal;
-  readonly targetAgentId: AgentId;
-  readonly continuationOf?: WorkerContinuation;
-  readonly access: "send";
-  readonly tailSequence: CanonicalSequence;
+  readonly sourceThreadId: ThreadId
+  readonly sourceSubmissionId?: SubmissionId
+  readonly requestedPrincipal: Principal
+  readonly principal: Principal
+  readonly targetAgentId: AgentId
+  readonly continuationOf?: WorkerContinuation
+  readonly access: 'send'
+  readonly tailSequence: CanonicalSequence
 }
 
 /** Host-verified source input; absence never means the latest input in the Thread. */
 export interface WorkerPolicySource {
-  readonly threadId: ThreadId;
-  readonly definition: Agent.AnyDefinition;
-  readonly definitions: DefinitionDigests;
-  readonly submission?: SubmissionSnapshot;
+  readonly threadId: ThreadId
+  readonly definition: Agent.AnyDefinition
+  readonly definitions: DefinitionDigests
+  readonly submission?: SubmissionSnapshot
 }
 
 /** Initial input is validated again at destination admission, including idempotent replay. */
-export type WorkerPolicyTarget = {
-  readonly definition: Agent.AnyDefinition;
-  readonly definitions: DefinitionDigests;
-  readonly source: WorkerSource;
-} & (
-  | {
-      readonly _tag: "InitialInput";
-      readonly admission?: WorkerStartAdmission;
-      readonly continuationOf?: WorkerContinuation;
-      readonly sourceSubmission?: SubmissionSnapshot;
-      readonly input: PersistedJson;
-      readonly inputDigest: Digest;
+export type WorkerPolicyTarget =
+  & {
+    readonly definition: Agent.AnyDefinition
+    readonly definitions: DefinitionDigests
+    readonly source: WorkerSource
+  }
+  & (
+    | {
+      readonly _tag: 'InitialInput'
+      readonly admission?: WorkerStartAdmission
+      readonly continuationOf?: WorkerContinuation
+      readonly sourceSubmission?: SubmissionSnapshot
+      readonly input: PersistedJson
+      readonly inputDigest: Digest
     }
-  | {
-      readonly _tag: "RetainedWorker";
+    | {
+      readonly _tag: 'RetainedWorker'
       /** Verified against canonical source history before this request reaches the resolver. */
-      readonly origin: WorkerOrigin;
+      readonly origin: WorkerOrigin
     }
-);
+  )
 
 /**
  * Opt-in host authority for policies captured in immutable application input. None preserves
@@ -76,25 +78,25 @@ export type WorkerPolicyTarget = {
 export const WorkerPolicyResolver = Context.Reference<{
   readonly resolveSource: (
     request: WorkerPolicySource,
-  ) => Effect.Effect<Option.Option<AgentPolicy>, WorkerError>;
+  ) => Effect.Effect<Option.Option<AgentPolicy>, WorkerError>
   readonly resolveTarget: (
     request: WorkerPolicyTarget,
-  ) => Effect.Effect<Option.Option<AgentPolicy>, WorkerError>;
-}>("@effect-agent/thread/WorkerPolicyResolver", {
+  ) => Effect.Effect<Option.Option<AgentPolicy>, WorkerError>
+}>('@effect-agent/thread/WorkerPolicyResolver', {
   defaultValue: () => ({
     resolveSource: () => Effect.succeedNone,
     resolveTarget: () => Effect.succeedNone,
   }),
-});
+})
 
-const Positive = Schema.Int.check(Schema.isGreaterThan(0));
+const Positive = Schema.Int.check(Schema.isGreaterThan(0))
 
 /** A host-authorized ceiling on active background workers, not retained workers or Run usage. */
 export const WorkerConcurrencyLimit = Schema.Struct({
   maxActiveWorkersPerSource: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
-});
+})
 
-export type WorkerConcurrencyLimit = typeof WorkerConcurrencyLimit.Type;
+export type WorkerConcurrencyLimit = typeof WorkerConcurrencyLimit.Type
 
 /**
  * Optional source-aware operational authority. Resolution occurs inside every new source
@@ -109,15 +111,15 @@ export type WorkerConcurrencyLimit = typeof WorkerConcurrencyLimit.Type;
  */
 export const WorkerConcurrencyResolver = Context.Reference<{
   readonly resolve: (request: {
-    readonly source: WorkerSource;
-    readonly sourceSubmission?: SubmissionSnapshot;
-    readonly worker: WorkerRef;
-    readonly continuationOf?: WorkerContinuation;
-    readonly principal: Principal;
-  }) => Effect.Effect<Option.Option<WorkerConcurrencyLimit>, WorkerError>;
-}>("@effect-agent/thread/WorkerConcurrencyResolver", {
+    readonly source: WorkerSource
+    readonly sourceSubmission?: SubmissionSnapshot
+    readonly worker: WorkerRef
+    readonly continuationOf?: WorkerContinuation
+    readonly principal: Principal
+  }) => Effect.Effect<Option.Option<WorkerConcurrencyLimit>, WorkerError>
+}>('@effect-agent/thread/WorkerConcurrencyResolver', {
   defaultValue: () => ({ resolve: () => Effect.succeedNone }),
-});
+})
 
 /** Host ceilings apply across all declarations owned by one source Thread. */
 export const WorkerHostLimits = Schema.Struct({
@@ -132,19 +134,19 @@ export const WorkerHostLimits = Schema.Struct({
   reportPreparationTimeoutMillis: Schema.optionalKey(
     Positive.check(Schema.isLessThanOrEqualTo(30_000)),
   ),
-});
+})
 
-export type WorkerHostLimits = typeof WorkerHostLimits.Type;
+export type WorkerHostLimits = typeof WorkerHostLimits.Type
 
 export const WorkerHostConfig = Context.Reference<WorkerHostLimits>(
-  "@effect-agent/thread/WorkerHostConfig",
+  '@effect-agent/thread/WorkerHostConfig',
   {
     defaultValue: () => ({
       maxPendingInputsPerWorker: 8,
       lifetimeMillis: 86_400_000,
     }),
   },
-);
+)
 
 /**
  * Authenticate every acquisition/operation and authorize its exact source Thread. A returned
@@ -153,32 +155,32 @@ export const WorkerHostConfig = Context.Reference<WorkerHostLimits>(
  * identifiers alone never confer any of them.
  */
 export interface WorkerHostAuthorizationRequest {
-  readonly admission?: WorkerStartAdmission;
-  readonly sourceThreadId: ThreadId;
+  readonly admission?: WorkerStartAdmission
+  readonly sourceThreadId: ThreadId
   /** An explicitly selected owner input; authorize this locator as well as the Thread. */
-  readonly sourceSubmissionId?: SubmissionId;
-  readonly principal: Principal;
-  readonly operation: WorkerError["operation"];
+  readonly sourceSubmissionId?: SubmissionId
+  readonly principal: Principal
+  readonly operation: WorkerError['operation']
   /** Report access follows native frozen-message proof and preserves the destination principal. */
-  readonly access: "context" | "read" | "send" | "control" | "report";
-  readonly worker?: WorkerRef;
+  readonly access: 'context' | 'read' | 'send' | 'control' | 'report'
+  readonly worker?: WorkerRef
   /** Native-verified successful predecessor, never a caller-supplied authorization grant. */
-  readonly continuationOf?: WorkerContinuation;
+  readonly continuationOf?: WorkerContinuation
 }
 
 export const WorkerHostAuthorizer = Context.Reference<{
   readonly authorize: (
     request: WorkerHostAuthorizationRequest,
-  ) => Effect.Effect<Principal, WorkerError>;
-}>("@effect-agent/thread/WorkerHostAuthorizer", {
+  ) => Effect.Effect<Principal, WorkerError>
+}>('@effect-agent/thread/WorkerHostAuthorizer', {
   defaultValue: () => ({
     authorize: (request) =>
       WorkerError.make({
         operation: request.operation,
-        reason: "denied",
+        reason: 'denied',
       }),
   }),
-});
+})
 
 /**
  * Deployment-owned permission to fund a root's background worker independently. The decision
@@ -187,16 +189,16 @@ export const WorkerHostAuthorizer = Context.Reference<{
  */
 export const WorkerBudgetAuthorizer = Context.Reference<{
   readonly authorize: (request: {
-    readonly source: WorkerSource;
-    readonly admission?: WorkerStartAdmission;
-    readonly principal: Principal;
-    readonly worker: WorkerRef;
-    readonly continuationOf?: WorkerContinuation;
-    readonly policy: AgentPolicy;
-    readonly budget: SubagentBudgetReservation;
-  }) => Effect.Effect<void, WorkerError>;
-}>("@effect-agent/thread/WorkerBudgetAuthorizer", {
+    readonly source: WorkerSource
+    readonly admission?: WorkerStartAdmission
+    readonly principal: Principal
+    readonly worker: WorkerRef
+    readonly continuationOf?: WorkerContinuation
+    readonly policy: AgentPolicy
+    readonly budget: SubagentBudgetReservation
+  }) => Effect.Effect<void, WorkerError>
+}>('@effect-agent/thread/WorkerBudgetAuthorizer', {
   defaultValue: () => ({
-    authorize: () => WorkerError.make({ operation: "start", reason: "denied" }),
+    authorize: () => WorkerError.make({ operation: 'start', reason: 'denied' }),
   }),
-});
+})

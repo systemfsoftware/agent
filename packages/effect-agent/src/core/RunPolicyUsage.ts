@@ -1,4 +1,4 @@
-import * as Schema from "effect/Schema";
+import * as Schema from 'effect/Schema'
 
 /**
  * Cumulative policy accounting for one logical Run across replacement Attempts.
@@ -14,6 +14,6 @@ export const RunPolicyUsage = Schema.Struct({
   finalizationUsed: Schema.Boolean,
   /** Joined-input replacements already reserved; absent before this feature. */
   modelRestarts: Schema.optionalKey(Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 2 }))),
-});
+})
 
-export type RunPolicyUsage = typeof RunPolicyUsage.Type;
+export type RunPolicyUsage = typeof RunPolicyUsage.Type
