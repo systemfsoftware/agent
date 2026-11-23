@@ -1,12 +1,13 @@
 name: CI
 
 # One full gate per tree. A pull request runs it on its head; a merge-queue draft runs it on the merged tree. A push
-# to main runs it once for the commit that landed. A newer push to a pull request cancels its older run.
+# to main runs it once for the commit that landed. A newer push to a pull request cancels its older run. Commit
+# linting of the squashed message lives in `squash-message.yml`, so a title or body edit never re-runs this gate.
 on:
   push:
     branches: [main]
   pull_request:
-    types: [opened, synchronize, reopened, edited]
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
 
 permissions:
@@ -41,12 +42,6 @@ jobs:
         with:
           mode: save
           key: ${{ steps.pnpm-store.outputs.key }}
-      # The squash merge takes the pull request title and body as the commit message, so that is what is linted.
-      - if: github.event_name == 'pull_request'
-        env:
-          TITLE: ${{ github.event.pull_request.title }}
-          BODY: ${{ github.event.pull_request.body }}
-        run: printf '%s\n\n%s\n' "$TITLE" "$BODY" | pnpm exec commitlint
       - run: pnpm format:check
       - run: pnpm lint
       - run: pnpm typecheck

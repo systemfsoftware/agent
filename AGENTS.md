@@ -1,252 +1,56 @@
-# Learning more about the Effect
+# agent
 
-This repository uses the Effect Typescript library.
+Effect-native agents with durable Threads, published as four packages: `@yielded/agent`,
+`@yielded/agent-storage-sql`, `@yielded/agent-storage-sqlite` and `@yielded/agent-platform-node`.
+This repository is public: nothing private goes in files, commit messages, pull requests or comments.
 
-Before writing any Effect code, first read `node_modules/effect/AGENTS.md`
-**completely**, and follow the links in the file when required.
+## Commands
 
-If you need to learn more about particular Effect apis and concepts that the
-guide doesn't cover, search through the source code in `node_modules/effect/src`.
+Work inside `nix develop` when the repository has a flake; until then Node 24 and pnpm 12.9.0 are enough.
 
-In `packages/*`, import Effect modules through namespace subpaths, for example
-`import * as Effect from "effect/Effect"`. The shared TypeScript configuration
-enforces this with `preferNamespaceImport`.
-
-# Effect Atom client boundary
-
-This repository consumes APIs through Effect Atom clients (`@effect/atom-react`).
-Keep business logic in Effect: compose multi-step client workflows as atoms,
-declare cross-query invalidation as reactivity keys on mutations, and keep
-promise-mode dispatches at the React boundary logic-free — no `.then` chains
-in components or routes.
-
-## Project command policy
-
-The toolchain is pnpm, tsdown, vitest, oxlint (the `@systemfsoftware` preset), dprint, commitlint and
-`effect-tsgo`. `package.json` owns what each script runs.
-
-Use these repository commands:
-
-- Install dependencies: `pnpm install --ignore-scripts && pnpm run prepare`.
-- Format check: `pnpm format:check`; format fixes: `pnpm format`.
-- Lint: `pnpm lint`.
-- Typecheck: `pnpm typecheck`.
-- Build: `pnpm build`.
-- Tests: `pnpm test`, or one package with `pnpm --filter <package> test`.
-- Repository export, record-format and purity checks: `pnpm check:exports`, `pnpm check:record-format`
-  and `pnpm check:package-purity`.
-
-# Instructions for implementation agents
-
-This repository is designed to be implemented by a large, parallel AI-assisted project. Every
-agent must preserve a common domain language, dependency direction, and durability contract.
-
-## Required reading
-
-Before editing code:
-
-1. Read `README.md`.
-2. Read `GLOSSARY.md` when changing domain concepts or public terminology.
-3. Before changing runtime, storage, or platform packages, read the READMEs and API comments of the
-   packages in scope. The runtime model guide returns with the documentation rebuild.
-4. Read the relevant guide, API comments, and neighboring tests for the modules in scope.
-5. Read `node_modules/effect/AGENTS.md` before writing Effect code (the canonical Effect
-   guidance; `.agents/skills` carries the focused task skills).
-6. Read `.agents/skills/effect/references/cli/index.md` before creating or changing repository scripts.
-7. Inspect neighboring package tests before introducing a new pattern.
-
-Use the repository's exact `.agents/skills` paths for required workflows; do not rely on a client choosing these over skills installed elsewhere. Read `.agents/skills/effect/SKILL.md` for Effect work and `.agents/skills/cloudflare/SKILL.md` for Cloudflare work, then follow the relevant references. The installed Effect package's `AGENTS.md` remains authoritative for its APIs.
-
-Keep user-facing behavior in existing guides, implementation contracts beside the code, and
-verification evidence in the task or PR artifacts. Explain change rationale in the pull request.
-Do not commit separate specifications, planning documents, decision registers, ADRs, roadmaps,
-or investigation logs to the product repository.
-
-## Documentation
-
-Documentation helps humans evaluate and understand the current library, then use it.
-Keep it terse and edit whole pages for a clear reading path. Agents can read source
-and API comments; product documentation is not their implementation context.
-A feature or fix usually needs a small change to existing guidance, not another section.
-
-- Guides explain the mental model, ownership, and essential usage. Use one focused
-  example and link to runnable examples for complete setup.
-- References describe public options, defaults, and caller-visible limitations in
-  a scannable form. Keep essential security and recovery caveats beside their API.
-- Source, schemas, and API comments own implementation contracts. Keep SQL query
-  plans, predicate inventories, internal state-machine walkthroughs, and exhaustive
-  failure explanations out of guides and reference pages. Move an enduring contract
-  into its owning API comment when it is missing there.
-- PRs and release notes own release history, package-version availability,
-  `main`/unreleased warnings, old-version fallbacks, migration stories, investigation
-  findings, and verification results. Keep these out of product documentation,
-  including banners, callouts, compatibility sections, and annotated examples.
-- Review every changed page as a whole before handoff. Remove repetition and material
-  that does not help a reader evaluate the library, use an API, or avoid a concrete
-  pitfall. Preserve the actual constraint briefly; put its implementation rationale
-  in source or the PR. Documentation is not a work log or feature inventory.
-- Use small diagrams when they clarify ownership or usage. Draw architecture flows
-  with `FlowMap` and request sequences with `Trace` from
-  `@yielded/starlight-theme/components`, in `.mdx`. Give each `FlowMap` a `title` and
-  `description`; the shared theme owns layout, ownership colors, and theming.
-- Use `bun add` for consumer installation examples. Package manifests and the root
-  catalog own package versions and peer compatibility. Never repeat Effect's current
-  version in documentation or installation commands; use plain `effect`. Retain
-  protocol identifiers and contributor toolchain requirements where needed for usage.
-
-## Non-negotiable architecture rules
-
-1. Public asynchronous operations return `Effect` or `Stream`, not naked `Promise` values.
-2. Expected failures remain typed in `E`; dependency requirements remain visible in `R`.
-3. Effect `Schema` is the canonical source for persisted, transported, tool, and structured model
-   values.
-4. Every acquired resource belongs to `Scope`. The engine must not create daemon fibers.
-5. Use the pinned Effect v4 AI primitives directly. Do not introduce framework-owned copies of
-   Effect AI `Tool`, `Toolkit`, `LanguageModel`, `Prompt`, `Response`, or `Model`.
-6. Provider SDK values never become canonical thread records. Effect AI values may be used
-   by the interpreter, but durable records remain explicit, versioned Schemas.
-7. The canonical log is append-only and owns conversation content, operation evidence and terminal
-   outcomes. An unfinished Run's versioned checkpoint is authoritative operational state, committed
-   atomically with its new history under the single owner's mutation gate and revision check. Delete
-   it at canonical settlement; unresolved operations and handoffs retain their own rows. Projections and lookup indexes
-   remain disposable. `verify` checks retained history and active checkpoints, including original
-   context consistency through `historyDigest`; it does not attest discarded intermediate
-   checkpoint revisions or provide tamper evidence. Storage validates schema, version, identity,
-   sequence and atomic commit boundaries without a hash chain or per-record integrity digests.
-8. No code may claim exactly-once external side-effect execution.
-9. An unresolved ordinary tool call is never automatically replayed after ownership loss.
-   One process owns a Thread at a time on every backend. Local owner generations reject late
-   results; distributed claims, ownership leases and multi-worker PostgreSQL are out of scope.
-10. Tool/model/subagent concurrency is bounded and deterministic at commit time. Tool batches use
-    Effect structured concurrency and Semaphore permits rather than a separate Promise scheduler.
-11. Security decisions are fail-closed. Model output is untrusted input.
-12. Node platform assumptions must not enter core domain modules.
-
-## Package dependency direction
-
-```text
-effect <- ai-decision (thread model selection)
-@yielded/agent <- storage-sql <- storage-sqlite / storage-postgres / storage-cloudflare
-@yielded/agent <- storage-memory
-@yielded/agent + selected adapters <- platform packages
-@yielded/agent <- testing
-@yielded/agent <- pr-review
+```bash
+pnpm install --ignore-scripts && pnpm run prepare
+pnpm typecheck
+pnpm lint
+pnpm format:check
+pnpm build
+pnpm --filter <package> test
 ```
 
-Within `packages/effect-agent/src`, dependencies point inward:
-`core <- engine <- capabilities <- durable` and `core <- sandbox <- capabilities`.
-Public module paths address these implementations directly; source directories are not separate
-packages. Keep core and sandbox contracts platform-neutral. The export check enforces these
-internal boundaries as well as package imports.
+`package.json` owns what each script runs, so read it before you assume. `pnpm check:exports`,
+`pnpm check:record-format`, `pnpm check:package-purity` and `pnpm check:pack` guard the published
+surface. A pull request merges only through the Mergify queue, whose result on the merged tree is the
+gate. Never pass `--no-verify`.
 
-An inward package must not import an outward package. If a feature appears to require that, define
-or deepen an inward port and implement an outward adapter.
+Use an Effect API only if it exists in the installed `node_modules/effect`, which the pnpm catalog pins.
 
-Framework code lives only in `packages/*`; do not create an `apps/` workspace. Create a new framework package only for a
-genuinely new framework concern agreed with the repository owner. Provider integrations remain upstream Effect AI Layers, not framework provider
-packages.
+## Routing
 
-## Toolchain rules
+Load a doc when its trigger fires, not before.
 
-- pnpm `12.9.0` is the package manager. Use `catalog:` (declared in `pnpm-workspace.yaml`) for shared
-  dependencies and `workspace:*` for repository packages.
-- The catalog is the single source for the exact Effect v4 version. Do not pin Effect
-  independently in a package.
-- After changing an Effect-family version, run `pnpm install` and `pnpm typecheck`.
-- Shared contributor skills under `.agents/skills` are authored in [danieljvdm/skills](https://github.com/danieljvdm/skills) and distributed by Dev Kit. Copies track their source in a `.dev-kit-origin.json` receipt. Check for upstream updates with `bunx @danieljvdm/dev-kit@latest skills status`, and fast-forward an unmodified skill with `bunx @danieljvdm/dev-kit@latest skills update <name>`; a skill with local edits is left for an agent merge instead of being overwritten. Add a new skill from the approved catalog with `bunx @danieljvdm/dev-kit@latest skills add <name>`.
-- Contributor agent skills are repository tooling. They are not runtime Skill definitions and
-  must not be imported by `@yielded/agent*`.
-- Before handoff, run `pnpm lint`, `pnpm typecheck` and `pnpm test`.
-- For live model calls, use provider keys already in the environment.
-- For lockfile-only PR fixes, push after `pnpm install --frozen-lockfile` passes; finish full validation afterward.
+| Load                                                                                                                                 | When                                                                 |
+| ------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- |
+| `repos/constitution/CODING_STANDARDS.md`, `repos/constitution/REVIEW.md` and this repository's `CODING_STANDARDS.md` and `REVIEW.md` | you plan, write, review or propose a test                            |
+| `repos/constitution/GRADERS.md`                                                                                                      | you build or change a check (a lint rule, CI job, hook or threshold) |
+| `node_modules/effect/AGENTS.md`, then `.agents/skills/effect/SKILL.md`                                                               | you write Effect code                                                |
+| `GLOSSARY.md`                                                                                                                        | you change a domain concept or public terminology                    |
+| the READMEs and API comments of the packages in scope                                                                                | you change runtime, storage or platform code                         |
+| the installed source under `node_modules/<library>`                                                                                  | you use a library API you have not seen used in this tree            |
+| `.agents/skills/simplify/SKILL.md`                                                                                                   | the owner explicitly asks for simplification                         |
 
-Keep shared skills identical to their pinned source. Improve shared guidance in the source repository, then refresh the copies through Dev Kit. Put repository-specific commands, gates, and constraints in this file or linked guidance. `.agents/skills/test-audit` remains local. Keep contributor skills committed so fresh checkouts are self-contained.
+## Boundaries
 
-## Change discipline
+| Surface                                                                                                          | Your limit                                                          |
+| ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Graders: the oxlint, dprint and commitlint configs, `oxlint.baseline.json`, `.github/workflows/`, `.mergify.yml` | Never change one to make your work pass; change the implementation. |
+| Law: `CODING_STANDARDS.md`, `REVIEW.md`, this file                                                               | Change only when the task is to change the law.                     |
+| Vendored: `repos/**`                                                                                             | Read only; update with `git subtree pull`.                          |
+| Human-controlled: merging, deploys, credentials, repository settings                                             | Never do these yourself.                                            |
+| Everything else                                                                                                  | Edit as the task needs.                                             |
 
-- This library is a v0 beta. Prefer simpler machinery and measured performance gains over
-  compatibility with superseded APIs or storage formats.
-- Add or update Effect Schema definitions before implementing new wire or persisted values.
-- Keep ordinary changes lean and scoped to the requested outcome. Load `.agents/skills/simplify/SKILL.md` when the user explicitly asks for simplification; do not automatically run a broad simplify pass. Public APIs and persisted formats may change to simplify the architecture or meet the task's requirements. Do not preserve obsolete paths or add compatibility layers unless the user explicitly requires compatibility. The architecture and durability rules above still apply.
-- Update existing guides or API comments when a change affects their documented behavior.
-- Explain rejected alternatives in the pull request when a future agent could reasonably
-  re-propose them.
-- Do not silently widen errors to `unknown`, `Error`, or `any`.
-- Do not use type assertions to cross a schema boundary.
-- Change canonical history through export → re-encode → import, never through in-place payload
-  rewrites. Export only idle Threads and keep the source quiescent until the archive is complete.
-  Current Run state and operation state carry explicit versions. Storage-layout steps remain
-  adapter-owned, ordered, and atomic.
-  Refuse formats and layouts newer than the running code before mutation.
-- Write changesets as one or two imperative sentences naming the consumer-visible change. Add only
-  a short usage example or an explicit BEHAVIOR CHANGE note when consumers must act; keep IDs,
-  root-cause, review and test stories, and implementation mechanics in the pull request.
+Doppler is the only credential store. Never print a secret.
 
-## Testing policy
+## End of session
 
-Default to no new tests or test infrastructure. Verify requested behavior with
-existing checks and direct workflow evidence. Prefer E2E for complex features;
-this does not require writing an E2E suite or a larger substitute for a rejected
-unit test. Save a verifiable, repeatable artifact without building reporting
-machinery.
-
-Never write unit tests after implementation. If isolation is necessary, first
-write the scoped failure inventory, then the necessary failing tests, then the
-code. New or expanded committed automation requires a current regression or an
-explicit human test request, plus a concrete gap existing proof cannot cover.
-Being a library does not waive this bar or require tests for every transition.
-
-For a new regression, cite its pre-existing public issue or offending commit beside the test. For an explicit human test request, record the requested seam before implementation. A current PR, invented incident, or private identifier is not regression provenance, and a citation alone does not establish test value.
-
-Load the [testing skill](.agents/skills/testing/SKILL.md) before planning proof or adding, retaining, or removing tests. It owns selection, failure-first isolation and evidence reuse. Keep useful public-contract, recovery and authority checks at their strongest boundary; remove redundant matrices and implementation mirrors. The final `pnpm lint`, `pnpm typecheck` and `pnpm test` gate still applies.
-
-Exercise E2E workflows through their real entrypoint to an independently checked outcome, preserving the storage, authorization, orchestration and provider boundaries needed by the proof. Use one representative scenario; add failure or recovery paths only for a requirement or concrete risk in scope. Prefer existing acceptance commands and direct interaction over new harnesses.
-
-Every E2E run, including a failed or interrupted run, must leave inspectable evidence and concise replay instructions: exact steps, tested revision or reconstructable patch, environment and prerequisites, fixture or seed identifiers, setup and cleanup, expected and observed outcomes, and pass/fail/blocked status. Retain enough inputs to rerun the scenario; reuse existing receipts and captures without new reporting machinery. Keep credentials, cookies, private payloads and capability URLs out of artifacts. Store sanitized evidence in the task's artifact directory or an approved artifact store outside the product repository, and link it in the final handoff. Ephemeral console output or a green summary alone is insufficient.
-
-For audits of existing tests, use [test-audit](.agents/skills/test-audit/SKILL.md)
-for read-only discovery, candidate evidence, and retention checks before cleanup.
-
-For performance-sensitive changes, read `.agents/skills/measure-performance/SKILL.md` and use the existing harness that answers the concrete question. For deployed durable runtime comparisons, follow [the durable benchmark](examples/durable-bench/README.md): preview with `--cost-only`, start with the default `screen` preset and deterministic provider, reuse saved fixtures, and avoid new benchmark infrastructure or machine-wide CPU locks. Keep the default run and rolling 24-hour write budgets unless the user explicitly authorizes a higher spending limit; a `--budget-reason` is a record, not authorization. Use quick/full or long histories only for a question the screen cannot answer. For first-request startup or CPU attribution, follow [the cold-start reproduction](examples/cold-start/README.md); collect CPU profiles separately from latency measurements. Documentation-only changes do not require benchmark runs.
-
-Use [pull-requests](.agents/skills/pull-requests/SKILL.md) for concise
-PR descriptions. Add diagrams only for meaningful architecture changes and code
-examples only when they clarify the change.
-
-This is a public library. Keep PR descriptions self-contained and follow any
-required PR template. Omit private tracker links and issue IDs, including Linear
-references; link to public code or guides when useful. Keep company/customer
-names, account identifiers, and private workspace links out of PR text and linked
-evidence unless the user explicitly requests them.
-
-When a bot review blocks a PR, verify its findings against the current code before
-changing anything. Authorized agents can clear a fully fixed, refuted, or explicitly
-accepted review by commenting `@effect-agent dismiss <review-id-or-url>` with evidence
-on subsequent lines. This dismisses the whole review and refreshes its check without
-inference. See the [agent/CLI instructions](action/README.md#dismissing-a-review).
-Resolving an inline conversation alone does not clear a blocking review.
-
-## Parallel work
-
-Parallel agents must own disjoint packages or documents. Shared domain schemas, error unions,
-journal records, and public exports require one designated integrator.
-Before integrating parallel work, review the combined diff and run
-`pnpm lint`, `pnpm typecheck` and `pnpm test`. Add focused verification only for a concrete remaining question;
-do not automatically repeat successful adapter, schema or crash suites.
-
-## Completion standard
-
-Finish when the requested observable outcomes have sufficient evidence, relevant
-public contracts and operational limitations are documented, and `pnpm lint`, `pnpm typecheck` and `pnpm test`
-passes. Choose failure, interruption, resource, recovery and security checks for
-concrete risks in the change; this is not a mandatory scenario matrix. Preserve
-blocked required proof explicitly. A new source file, state transition or public
-API does not imply a new test file.
-
-## Worktree startup
-
-Create worktrees from cached refs; fetch explicitly when a newer base is needed.
-Run `pnpm install` when dependencies or `node_modules/effect/AGENTS.md` are needed.
-Installation uses Bun's shared store and keeps project-specific packages local.
-Start only the development services needed for the task, explicitly. Worktree
-creation itself should not install dependencies or start servers.
+Work on a branch. Never use `git stash`: set work aside by committing it on your own branch. One branch
+carries one PR.

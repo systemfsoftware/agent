@@ -25,7 +25,7 @@ function spellings(key: string): ReadonlyArray<string> {
 
 export default defineConfig({
   extends: [recommended],
-  ignorePatterns: ['.agents/**', '.claude/**', '**/dist/**'],
+  ignorePatterns: ['.agents/**', '.claude/**', 'repos/**', '**/dist/**'],
   overrides: Object.entries(baseline).map(([key, files]) => ({
     files: [...files],
     rules: Object.fromEntries(spellings(key).map((name) => [name, 'off' as const])),
