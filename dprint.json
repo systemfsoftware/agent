@@ -15,6 +15,7 @@
     "**/dist",
     "pnpm-lock.yaml",
     "coverage/**",
+    "repos/**",
     "**/CHANGELOG.md",
     ".agents/**",
     ".claude/**",
