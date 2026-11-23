@@ -81,15 +81,12 @@ setup, installation, and an executable entry point.
 [Platforms](https://yielded.dev/agent/platforms/) ·
 [Packages](https://yielded.dev/agent/reference/packages/)
 
-See the [runnable snippets](docs/snippets/travel-planner/) for a complete application.
-
 ## Development
 
 Framework packages live in `packages/*`. pnpm is the package manager.
 
 ```sh
 pnpm install
-pnpm docs:dev
 pnpm lint && pnpm typecheck && pnpm test
 ```
 

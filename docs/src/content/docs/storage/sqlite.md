@@ -11,17 +11,17 @@ Runs. Use the [Node host](/platforms/node/) when unfinished work must recover to
 
 ```ts twoslash
 // ---cut---
-import { AgentRuntime, PersistentHistory } from "@yielded/agent";
-import { SqliteThreadStore } from "@yielded/agent-storage-sqlite";
-import { Effect, Layer } from "effect";
+import { AgentRuntime, PersistentHistory } from '@yielded/agent'
+import { SqliteThreadStore } from '@yielded/agent-storage-sqlite'
+import { Effect, Layer } from 'effect'
 
-import { planner } from "./node-agent.ts";
+import { planner } from './node-agent.ts'
 
 const History = PersistentHistory.layer.pipe(
-  Layer.provide(SqliteThreadStore.layer({ filename: "./history.sqlite" })),
-);
+  Layer.provide(SqliteThreadStore.layer({ filename: './history.sqlite' })),
+)
 
-const program = AgentRuntime.run(planner, "Plan a trip to Lisbon").pipe(Effect.provide(History));
+const program = AgentRuntime.run(planner, 'Plan a trip to Lisbon').pipe(Effect.provide(History))
 ```
 
 Install `@yielded/agent-storage-sqlite@beta` alongside your application packages.

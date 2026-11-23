@@ -16,12 +16,12 @@ Root exports are module namespaces. Direct module paths use kebab-case and can
 select individual declarations:
 
 ```ts twoslash
-import { Agent, AgentRuntime } from "@yielded/agent";
-import { IdGenerator } from "@yielded/agent/id-generator";
+import { Agent, AgentRuntime } from '@yielded/agent'
+import { IdGenerator } from '@yielded/agent/id-generator'
 
-Agent.make;
-AgentRuntime.run;
-IdGenerator;
+Agent.make
+AgentRuntime.run
+IdGenerator
 ```
 
 The direct equivalents are `@yielded/agent/agent` and

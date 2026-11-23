@@ -240,7 +240,7 @@ layer(testLayer)('native context windows', (it) => {
     }))
 })
 
-// Regression seam: https://linear.app/reve-ai/issue/KOM-125
+// Regression seam: native OpenAI encoding rejected tools whose parameters are an empty Struct.
 layer(testLayer)('resolved model context', (it) => {
   it.effect('freezes routing before transient preparation and admits a smaller next model', () =>
     Effect.gen(function*() {

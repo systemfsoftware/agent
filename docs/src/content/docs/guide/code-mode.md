@@ -10,19 +10,19 @@ not need another model turn. Your host fixes the callable methods and their auth
 ## Build an analyst
 
 ```ts twoslash
-import { CodeMode } from "@yielded/agent";
-import { Schema } from "effect";
-import { Tool } from "effect/ai";
+import { CodeMode } from '@yielded/agent'
+import { Schema } from 'effect'
+import { Tool } from 'effect/ai'
 
-const Sales = Tool.make("read_sales", {
+const Sales = Tool.make('read_sales', {
   parameters: Schema.Struct({ region: Schema.String }),
   success: Schema.Array(Schema.Number),
-});
+})
 
-const Analyze = CodeMode.make("analyze", {
-  description: "Read regional sales and calculate a summary.",
+const Analyze = CodeMode.make('analyze', {
+  description: 'Read regional sales and calculate a summary.',
   tools: { sales: { read: Sales } },
-});
+})
 ```
 
 Give the Agent `Analyze.tool` and provide `Analyze.handlers`, the selected tool handlers, and a

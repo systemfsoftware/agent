@@ -24,7 +24,7 @@ const status = ContextWindowStatus.make({
 })
 
 describe('context window tools', () => {
-  // https://linear.app/reve-ai/issue/KOM-125 — native OpenAI encoding rejected empty Struct parameters.
+  // Regression: native OpenAI encoding rejected tools whose parameters are an empty Struct.
   it.effect('sends native no-argument context and notes tools through OpenAI preparation', () =>
     Effect.gen(function*() {
       const toolkit = Toolkit.make(ContextTools.GetContextRemaining, MemoryNotes.ReadNotes)

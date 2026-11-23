@@ -10,22 +10,22 @@ client. Your host must route each Thread to one live process. The adapter does n
 provide distributed ownership, lease-based takeover, or a worker service.
 
 ```ts twoslash
-import { NodeCrypto } from "@effect/platform-node";
-import { PgClient } from "@effect/sql-pg";
-import { PersistentHistory } from "@yielded/agent";
-import { PostgresStorage } from "@yielded/agent-storage-postgres";
-import { Config, Layer } from "effect";
+import { NodeCrypto } from '@effect/platform-node'
+import { PgClient } from '@effect/sql-pg'
+import { PersistentHistory } from '@yielded/agent'
+import { PostgresStorage } from '@yielded/agent-storage-postgres'
+import { Config, Layer } from 'effect'
 
 const Database = PgClient.layerConfig({
-  url: Config.Redacted("DATABASE_URL"),
-});
+  url: Config.Redacted('DATABASE_URL'),
+})
 
 const Persistence = PostgresStorage.layer.pipe(
   Layer.provideMerge(Database),
   Layer.provide(NodeCrypto.layer),
-);
+)
 
-const History = PersistentHistory.layer.pipe(Layer.provideMerge(Persistence));
+const History = PersistentHistory.layer.pipe(Layer.provideMerge(Persistence))
 ```
 
 Install `@yielded/agent-storage-postgres@beta` and `@effect/sql-pg` alongside your

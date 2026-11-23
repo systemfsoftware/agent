@@ -12,19 +12,19 @@ when the sender also owns the recipient's creation and lifetime.
 ## Send messages through fixed peer routes
 
 ```ts twoslash
-import { Agent, Messaging } from "@yielded/agent";
-import { Schema } from "effect";
-import { Toolkit } from "effect/ai";
+import { Agent, Messaging } from '@yielded/agent'
+import { Schema } from 'effect'
+import { Toolkit } from 'effect/ai'
 
-const advisor = Agent.make("advisor", {
+const advisor = Agent.make('advisor', {
   input: Schema.String,
   output: Schema.String,
-  instructions: "Suggest one next action for the request.",
+  instructions: 'Suggest one next action for the request.',
   toolkit: Toolkit.empty,
-});
+})
 
-const Advisor = Messaging.peer("advisor", { target: advisor });
-const send = Messaging.sendTool(Advisor);
+const Advisor = Messaging.peer('advisor', { target: advisor })
+const send = Messaging.sendTool(Advisor)
 ```
 
 Give the sending Agent `send.toolkit` and provide `send.layer`. Register the destination, then

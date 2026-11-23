@@ -8,22 +8,22 @@ and policy. It owns no conversation, provider connection, or database. Your appl
 supplies those services when the definition runs.
 
 ```ts twoslash
-import { Agent, AgentRuntime } from "@yielded/agent";
-import { Schema } from "effect";
-import { Toolkit } from "effect/ai";
+import { Agent, AgentRuntime } from '@yielded/agent'
+import { Schema } from 'effect'
+import { Toolkit } from 'effect/ai'
 
-const triage = Agent.make("triage", {
+const triage = Agent.make('triage', {
   input: Schema.String,
   output: Schema.Struct({
-    severity: Schema.Literals(["low", "medium", "high", "critical"]),
+    severity: Schema.Literals(['low', 'medium', 'high', 'critical']),
     explanation: Schema.String,
   }),
-  instructions: "Classify the bug report and explain the severity in one sentence.",
+  instructions: 'Classify the bug report and explain the severity in one sentence.',
   toolkit: Toolkit.empty,
-  policy: { maxTurns: 2, maxToolCalls: 1, maxDuration: "30 seconds" },
-});
+  policy: { maxTurns: 2, maxToolCalls: 1, maxDuration: '30 seconds' },
+})
 
-const result = AgentRuntime.run(triage, "Users cannot sign in.");
+const result = AgentRuntime.run(triage, 'Users cannot sign in.')
 ```
 
 `result` is an Effect. The [getting-started example](/guide/getting-started/) supplies its model

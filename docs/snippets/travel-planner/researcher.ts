@@ -1,9 +1,9 @@
-import { Agent } from "@yielded/agent";
-import { Schema } from "effect";
+import { Agent } from '@yielded/agent'
+import { Schema } from 'effect'
 
-import { TravelTools } from "./tools.ts";
+import { TravelTools } from './tools.ts'
 
-export const Researcher = Agent.make("activity-researcher", {
+export const Researcher = Agent.make('activity-researcher', {
   input: Schema.Struct({ city: Schema.String, focus: Schema.String }),
   output: Schema.Struct({
     activities: Schema.Array(Schema.String),
@@ -11,9 +11,9 @@ export const Researcher = Agent.make("activity-researcher", {
   }),
   instructions: ({ city, focus }) =>
     `Use search_activities to find activities in ${city}. Focus on ${focus}. ` +
-    "Return matching activities and notes explaining your selection.",
+    'Return matching activities and notes explaining your selection.',
   toolkit: TravelTools,
   policy: {
     maxToolCalls: 8,
   },
-});
+})

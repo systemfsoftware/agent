@@ -28,23 +28,23 @@ import {
   PageCaptureRequest,
   PageResourcePolicy,
   PageUrlTarget,
-} from "@yielded/agent/page-capture";
-import { Effect } from "effect";
+} from '@yielded/agent/page-capture'
+import { Effect } from 'effect'
 
-const readPage = Effect.gen(function* () {
-  const capture = yield* PageCapture;
+const readPage = Effect.gen(function*() {
+  const capture = yield* PageCapture
   return yield* capture.capture(
     PageCaptureRequest.make({
-      target: PageUrlTarget.make({ url: "https://example.com/" }),
+      target: PageUrlTarget.make({ url: 'https://example.com/' }),
       action: CapturePageMarkdown.make({}),
-      engine: "chromium",
+      engine: 'chromium',
       limits: PageCaptureLimits.make({ maxOutputBytes: 256 * 1024 }),
       resourcePolicy: PageResourcePolicy.make({
-        allowRequestPatterns: ["^https://example\\.com(?:[/?#]|$)"],
+        allowRequestPatterns: ['^https://example\\.com(?:[/?#]|$)'],
       }),
     }),
-  );
-});
+  )
+})
 ```
 
 Supply `browserQuickActionCaptureLayer` with `BrowserQuickActionBrowserBinding.layer({ browser })`
@@ -88,11 +88,11 @@ JavaScript, navigate, or send native input. There is no framework classifier dec
 elements are actionable.
 
 ```ts twoslash
-import { BrowserUse } from "@yielded/agent";
-import { Toolkit } from "effect/ai";
+import { BrowserUse } from '@yielded/agent'
+import { Toolkit } from 'effect/ai'
 
-const browser = BrowserUse.make();
-const tools = Toolkit.make(browser.tool);
+const browser = BrowserUse.make()
+const tools = Toolkit.make(browser.tool)
 ```
 
 Provide `BrowserUse.layer` with the scoped adapter from
@@ -120,17 +120,17 @@ inspection errors with a smaller program and continue authorized work.
 For example, the model can inspect a page with:
 
 ```js
-async () => {
+;(async () => {
   const response = await cdp.send({
-    method: "Runtime.evaluate",
+    method: 'Runtime.evaluate',
     params: {
-      expression: "document.body.innerText.slice(0, 6000)",
+      expression: 'document.body.innerText.slice(0, 6000)',
       returnByValue: true,
       awaitPromise: true,
     },
-  });
-  return response;
-};
+  })
+  return response
+})
 ```
 
 The host authorizes every command with current page and target metadata and sets command,
@@ -178,10 +178,10 @@ and form-recipient origins. Authorize filling itself: input handlers may send da
 For private user entry, prepare the form before showing it to the user:
 
 ```ts
-const binding = yield * session.prepareCredential(form);
+const binding = yield * session.prepareCredential(form)
 // Retain only form, binding, expiry, and a one-use request ID.
 // After private submission, atomically consume the request before filling.
-const result = yield * session.fillCredential({ ...form, credential: requestId, binding });
+const result = yield * session.fillCredential({ ...form, credential: requestId, binding })
 ```
 
 Accept values through a separate authenticated endpoint and supply an invocation-scoped

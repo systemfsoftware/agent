@@ -10,17 +10,17 @@ it does not by itself make execution durable or authorize access.
 ## Reuse a conversation
 
 ```ts twoslash
-import { AgentRuntime, InMemory } from "@yielded/agent";
-import { Effect } from "effect";
+import { AgentRuntime, InMemory } from '@yielded/agent'
+import { Effect } from 'effect'
 
-import { planner, ModelLive, OpenAiLive } from "./node-agent.ts";
+import { ModelLive, OpenAiLive, planner } from './node-agent.ts'
 // ---cut---
-const conversation = Effect.gen(function* () {
-  const first = yield* AgentRuntime.run(planner, "Plan a weekend in Lisbon.");
-  return yield* AgentRuntime.run(planner, "Make it cheaper.", {
+const conversation = Effect.gen(function*() {
+  const first = yield* AgentRuntime.run(planner, 'Plan a weekend in Lisbon.')
+  return yield* AgentRuntime.run(planner, 'Make it cheaper.', {
     threadId: first.threadId,
-  });
-}).pipe(Effect.provide(ModelLive), Effect.provide(OpenAiLive), Effect.provide(InMemory.layer));
+  })
+}).pipe(Effect.provide(ModelLive), Effect.provide(OpenAiLive), Effect.provide(InMemory.layer))
 ```
 
 One Layer surrounds both Runs. In a server, keep the application Layer in one

@@ -23,33 +23,33 @@ use native Effect AI model Layers too.
 Save as `agent.ts`. Supply `OPENAI_API_KEY` through your environment or secret manager.
 
 ```ts twoslash title="agent.ts"
-import { OpenAiClient, OpenAiLanguageModel } from "@effect/ai-openai";
-import { BunRuntime } from "@effect/platform-bun";
-import { Agent, AgentRuntime, InMemory } from "@yielded/agent";
-import { Config, Console, Effect, Schema } from "effect";
-import { Toolkit } from "effect/ai";
-import { FetchHttpClient } from "effect/http";
+import { OpenAiClient, OpenAiLanguageModel } from '@effect/ai-openai'
+import { BunRuntime } from '@effect/platform-bun'
+import { Agent, AgentRuntime, InMemory } from '@yielded/agent'
+import { Config, Console, Effect, Schema } from 'effect'
+import { Toolkit } from 'effect/ai'
+import { FetchHttpClient } from 'effect/http'
 
-const triage = Agent.make("triage", {
+const triage = Agent.make('triage', {
   input: Schema.String,
   output: Schema.Struct({
-    severity: Schema.Literals(["low", "medium", "high", "critical"]),
+    severity: Schema.Literals(['low', 'medium', 'high', 'critical']),
     explanation: Schema.String,
   }),
-  instructions: "Classify the bug report and explain the severity in one sentence.",
+  instructions: 'Classify the bug report and explain the severity in one sentence.',
   toolkit: Toolkit.empty,
-  policy: { maxTurns: 2, maxToolCalls: 1, maxDuration: "30 seconds" },
-});
+  policy: { maxTurns: 2, maxToolCalls: 1, maxDuration: '30 seconds' },
+})
 
-const program = AgentRuntime.run(triage, "Users cannot sign in.").pipe(
+const program = AgentRuntime.run(triage, 'Users cannot sign in.').pipe(
   Effect.tap((result) => Console.log(result.output)),
-  Effect.provide(OpenAiLanguageModel.model("gpt-6-luna")),
-  Effect.provide(OpenAiClient.layerConfig({ apiKey: Config.Redacted("OPENAI_API_KEY") })),
+  Effect.provide(OpenAiLanguageModel.model('gpt-6-luna')),
+  Effect.provide(OpenAiClient.layerConfig({ apiKey: Config.Redacted('OPENAI_API_KEY') })),
   Effect.provide(FetchHttpClient.layer),
   Effect.provide(InMemory.layer),
-);
+)
 
-BunRuntime.runMain(program);
+BunRuntime.runMain(program)
 ```
 
 ```sh

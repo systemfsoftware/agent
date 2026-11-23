@@ -184,7 +184,6 @@ it.effect('answers with one hosted search and carries sources through the next c
         }),
     })
 
-    // @effect-diagnostics-next-line anyUnknownInErrorContext:off -- effect 4.1.4 types a merged provider-defined toolkit as an intersection, so the run Effect carries any
     const first = yield* AgentRuntime.run(agent, 'weather today', {
       estimateCostMicrousd: (request) => {
         expect(request).toMatchObject({ webSearchCalls: requests.length === 1 ? 1 : 0 })
@@ -200,7 +199,6 @@ it.effect('answers with one hosted search and carries sources through the next c
     expect(JSON.stringify(history)).toContain('ws_1')
     expect(JSON.stringify(history)).toContain('url_citation')
 
-    // @effect-diagnostics-next-line anyUnknownInErrorContext:off -- effect 4.1.4 types a merged provider-defined toolkit as an intersection, so the run Effect carries any
     const second = yield* AgentRuntime.run(agent, 'summarize those sources', {
       threadId: first.threadId,
     }).pipe(Effect.provide(handlers))

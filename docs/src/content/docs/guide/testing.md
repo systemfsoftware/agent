@@ -12,29 +12,29 @@ credentials, network calls, or model variance.
 ## Provide a scripted model layer
 
 ```ts twoslash
-import { ScriptedModel } from "@yielded/agent-testing/scripted-model";
-import { Model } from "effect/ai";
+import { ScriptedModel } from '@yielded/agent-testing/scripted-model'
+import { Model } from 'effect/ai'
 
 const TestModel = Model.make(
-  "scripted",
-  "test-model",
+  'scripted',
+  'test-model',
   ScriptedModel.layer([
     {
-      _tag: "Stream",
+      _tag: 'Stream',
       parts: [
-        { type: "text-start", id: "answer" },
-        { type: "text-delta", id: "answer", delta: "ready" },
-        { type: "text-end", id: "answer" },
+        { type: 'text-start', id: 'answer' },
+        { type: 'text-delta', id: 'answer', delta: 'ready' },
+        { type: 'text-end', id: 'answer' },
         {
-          type: "finish",
-          reason: "stop",
+          type: 'finish',
+          reason: 'stop',
           usage: { inputTokens: { total: 1 }, outputTokens: { total: 1 } },
         },
       ],
-      termination: { _tag: "Complete" },
+      termination: { _tag: 'Complete' },
     },
   ]),
-);
+)
 ```
 
 Provide `TestModel` in place of the provider Layer for a text-output Agent. Keep the application's

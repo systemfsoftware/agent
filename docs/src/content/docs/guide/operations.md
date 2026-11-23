@@ -30,14 +30,14 @@ execution. Approval and subagent grants do not replace current resource authoriz
 Start with a read-only explanation:
 
 ```ts twoslash
-import { DurableAgentRuntime } from "@yielded/agent/durable-agent-runtime";
-import { ThreadId } from "@yielded/agent/identifiers";
-import { Effect, Schema } from "effect";
+import { DurableAgentRuntime } from '@yielded/agent/durable-agent-runtime'
+import { ThreadId } from '@yielded/agent/identifiers'
+import { Effect, Schema } from 'effect'
 
-const inspect = Effect.gen(function* () {
-  const runtime = yield* DurableAgentRuntime;
-  return yield* runtime.explainThread(Schema.decodeSync(ThreadId)("support-42"));
-});
+const inspect = Effect.gen(function*() {
+  const runtime = yield* DurableAgentRuntime
+  return yield* runtime.explainThread(Schema.decodeSync(ThreadId)('support-42'))
+})
 ```
 
 Run this through the application's existing host Layer. `explain(submissionId)` narrows the view

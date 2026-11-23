@@ -3,7 +3,6 @@ dist
 .worktrees
 coverage
 .playwright-cli/
-docs/.astro
 *.tsbuildinfo
 .DS_Store
 .env

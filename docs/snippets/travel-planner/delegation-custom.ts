@@ -1,21 +1,21 @@
-import { Subagent } from "@yielded/agent";
-import { Effect, Schema } from "effect";
+import { Subagent } from '@yielded/agent'
+import { Effect, Schema } from 'effect'
 
-import { Researcher } from "./researcher.ts";
+import { Researcher } from './researcher.ts'
 
-export class ResearchFailed extends Schema.TaggedError<ResearchFailed>()("ResearchFailed", {
+export class ResearchFailed extends Schema.TaggedError<ResearchFailed>()('ResearchFailed', {
   reason: Schema.String,
 }) {}
 
-export const Research = Subagent.make("delegate_research_activities", {
-  description: "Delegate activity research for one city and focus. Returns a shortlist.",
+export const Research = Subagent.make('delegate_research_activities', {
+  description: 'Delegate activity research for one city and focus. Returns a shortlist.',
   target: Researcher,
   success: Schema.Struct({
     activities: Schema.Array(Schema.String),
     partial: Schema.Boolean,
   }),
   failure: ResearchFailed,
-  failureMode: "error",
+  failureMode: 'error',
   projectResult: (output, { budgetExhausted }) =>
     Effect.succeed({
       activities: output.activities,
@@ -27,7 +27,7 @@ export const Research = Subagent.make("delegate_research_activities", {
     maxConcurrency: 2,
     maxTurns: 4,
     maxToolCalls: 4,
-    maxDuration: "30 seconds",
+    maxDuration: '30 seconds',
     maxResultBytes: 4_096,
   }),
-});
+})

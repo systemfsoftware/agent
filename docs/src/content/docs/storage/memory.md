@@ -11,17 +11,17 @@ can end with the process. No storage package is required.
 
 ```ts twoslash
 // ---cut---
-import { AgentRuntime, InMemory } from "@yielded/agent";
-import { Effect } from "effect";
+import { AgentRuntime, InMemory } from '@yielded/agent'
+import { Effect } from 'effect'
 
-import { planner } from "./node-agent.ts";
+import { planner } from './node-agent.ts'
 
-const conversation = Effect.gen(function* () {
-  const first = yield* AgentRuntime.run(planner, "Plan a trip to Lisbon");
-  return yield* AgentRuntime.run(planner, "Make it cheaper", {
+const conversation = Effect.gen(function*() {
+  const first = yield* AgentRuntime.run(planner, 'Plan a trip to Lisbon')
+  return yield* AgentRuntime.run(planner, 'Make it cheaper', {
     threadId: first.threadId,
-  });
-}).pipe(Effect.provide(InMemory.layer));
+  })
+}).pipe(Effect.provide(InMemory.layer))
 ```
 
 Supply the agent's model and tool services around this program. The

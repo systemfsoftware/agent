@@ -10,20 +10,19 @@ Yielded Agent validates calls, applies policy, and runs bounded batches.
 ## Define tools once
 
 ```ts twoslash
-import { Effect, Schema } from "effect";
-import { Tool, Toolkit } from "effect/ai";
+import { Effect, Schema } from 'effect'
+import { Tool, Toolkit } from 'effect/ai'
 
-const Search = Tool.make("search_activities", {
-  description: "Find activities in a city.",
+const Search = Tool.make('search_activities', {
+  description: 'Find activities in a city.',
   parameters: Schema.Struct({ city: Schema.String }),
   success: Schema.Array(Schema.String),
-});
+})
 
-const TravelTools = Toolkit.make(Search);
+const TravelTools = Toolkit.make(Search)
 const TravelToolsLive = TravelTools.toLayer({
-  search_activities: ({ city }) =>
-    Effect.succeed(city === "Lisbon" ? ["Riverside walk", "Food market"] : []),
-});
+  search_activities: ({ city }) => Effect.succeed(city === 'Lisbon' ? ['Riverside walk', 'Food market'] : []),
+})
 ```
 
 Set the Agent's `toolkit` to `TravelTools` and provide `TravelToolsLive` alongside the model Layer.

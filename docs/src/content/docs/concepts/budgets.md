@@ -32,24 +32,24 @@ children can inherit the parent's policy within their delegation ceilings.
 | `compaction.mode`             | `"prune-then-summarize"`                                                | Compaction strategy                                                         |
 
 ```ts twoslash
-import { Agent } from "@yielded/agent";
-import { Schema } from "effect";
-import { Toolkit } from "effect/ai";
+import { Agent } from '@yielded/agent'
+import { Schema } from 'effect'
+import { Toolkit } from 'effect/ai'
 // ---cut---
-const researcher = Agent.make("researcher", {
+const researcher = Agent.make('researcher', {
   input: Schema.String,
   output: Schema.Struct({ answer: Schema.String }),
-  instructions: "Answer from the available evidence.",
+  instructions: 'Answer from the available evidence.',
   toolkit: Toolkit.empty,
   policy: {
     maxTurns: 8,
     maxToolCalls: 16,
-    maxDuration: "2 minutes",
+    maxDuration: '2 minutes',
     tokenBudget: 80_000,
     contextTokenLimit: 32_000,
     completionReserveTokens: 4_000,
   },
-});
+})
 ```
 
 [Context management](/guide/context-management/) explains compaction and oversized tool results.

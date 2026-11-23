@@ -47,8 +47,8 @@ Before editing code:
 
 1. Read `README.md`.
 2. Read `GLOSSARY.md` when changing domain concepts or public terminology.
-3. Before changing runtime, storage, or platform packages, also read the authoritative
-   [runtime model](docs/src/content/docs/concepts/runtime-model.mdx).
+3. Before changing runtime, storage, or platform packages, read the READMEs and API comments of the
+   packages in scope. The runtime model guide returns with the documentation rebuild.
 4. Read the relevant guide, API comments, and neighboring tests for the modules in scope.
 5. Read `node_modules/effect/AGENTS.md` before writing Effect code (the canonical Effect
    guidance; `.agents/skills` carries the focused task skills).

@@ -1,3 +1,3 @@
-import { Schema } from "effect";
+import { Schema } from 'effect'
 
-export const CoordinatorInput = Schema.Struct({ text: Schema.String });
+export const CoordinatorInput = Schema.Struct({ text: Schema.String })

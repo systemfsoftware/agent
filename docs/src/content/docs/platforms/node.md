@@ -28,7 +28,6 @@ Its provider reads `OPENAI_API_KEY` from the environment.
 This example imports that agent setup and acquires one shared host:
 
 ```ts twoslash title="node-host.ts" src="snippets/travel-planner/node-host.ts"
-
 ```
 
 Give each process start a distinct `producerId`. Run `NodeDurableHost.run` with

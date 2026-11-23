@@ -30,29 +30,28 @@ provider-defined evidence, not an authorization decision or correctness guarante
 Describe at least two approved native model Layers and give the catalog a version:
 
 ```ts twoslash title="auto-model.ts" src="snippets/travel-planner/auto-model.ts#catalog"
-
 ```
 
 At host admission, authorize Thread access, validate input, and pass only permitted
 task context to `resolve`. Bind its returned native model to the Agent before running:
 
 ```ts twoslash
-import { Agent, AgentRuntime, Identifiers } from "@yielded/agent";
-import { Effect, Schema } from "effect";
+import { Agent, AgentRuntime, Identifiers } from '@yielded/agent'
+import { Effect, Schema } from 'effect'
 
-import { Assistant, ThreadAuthorization, ThreadModels } from "./auto-model.ts";
-declare const threadId: Identifiers.ThreadId;
-declare const rawInput: unknown;
+import { Assistant, ThreadAuthorization, ThreadModels } from './auto-model.ts'
+declare const threadId: Identifiers.ThreadId
+declare const rawInput: unknown
 // ---cut---
-const run = Effect.gen(function* () {
-  const authorization = yield* ThreadAuthorization;
+const run = Effect.gen(function*() {
+  const authorization = yield* ThreadAuthorization
 
-  yield* authorization.authorize(threadId);
-  const input = yield* Schema.decodeUnknownEffect(Assistant.input)(rawInput);
-  const model = yield* ThreadModels.resolve({ threadId, state: { task: input } });
+  yield* authorization.authorize(threadId)
+  const input = yield* Schema.decodeUnknownEffect(Assistant.input)(rawInput)
+  const model = yield* ThreadModels.resolve({ threadId, state: { task: input } })
 
-  return yield* AgentRuntime.run(Agent.withModel(Assistant, model), input, { threadId });
-}).pipe(Effect.timeout("30 seconds"), Effect.scoped);
+  return yield* AgentRuntime.run(Agent.withModel(Assistant, model), input, { threadId })
+}).pipe(Effect.timeout('30 seconds'), Effect.scoped)
 ```
 
 Supply the host's `ThreadAuthorization`, a `DecisionModel`, native provider clients,

@@ -16,7 +16,6 @@
     "pnpm-lock.yaml",
     "coverage/**",
     "**/CHANGELOG.md",
-    "docs/**",
     ".agents/**",
     ".claude/**",
     ".changeset/**"
