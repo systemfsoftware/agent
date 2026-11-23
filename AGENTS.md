@@ -35,7 +35,8 @@ Load a doc when its trigger fires, not before.
 | `node_modules/effect/AGENTS.md`, then `.agents/skills/effect/SKILL.md`                                                               | you write Effect code                                                |
 | `GLOSSARY.md`                                                                                                                        | you change a domain concept or public terminology                    |
 | the READMEs and API comments of the packages in scope                                                                                | you change runtime, storage or platform code                         |
-| the vendored sources declared in `subtrees.toml`                                                                                     | you use a library API you have not seen used in this tree            |
+| the installed source under `node_modules/<library>`                                                                                  | you use a library API you have not seen used in this tree            |
+| `.agents/skills/simplify/SKILL.md`                                                                                                   | the owner explicitly asks for simplification                         |
 
 ## Boundaries
 
