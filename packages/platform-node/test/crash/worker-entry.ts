@@ -1,74 +1,70 @@
-import * as fs from "node:fs";
+import * as fs from 'node:fs'
 
 import {
   NodeDurableAgentRuntime,
   type NodeDurableAgentRuntimeOptions,
-} from "@yielded/agent-platform-node/node-durable-agent-runtime";
-import { NodeDurableHost } from "@yielded/agent-platform-node/node-durable-host";
-import { SqliteStorageFailpointLocation } from "@yielded/agent-storage-sqlite/sqlite-storage-error";
-import { type SqliteStorageFailpointHandler } from "@yielded/agent-storage-sqlite/sqlite-storage-failpoint";
-import * as Agent from "@yielded/agent/agent";
-import { DurableAgentRuntime, type Receipt } from "@yielded/agent/durable-agent-runtime";
-import {
-  DurableRuntimeFailpointLocation,
-  type DurableRuntimeFailpointHandler,
-} from "@yielded/agent/durable-failpoint";
-import { type ThreadId } from "@yielded/agent/identifiers";
-import { childThreadIdFor } from "@yielded/agent/run-journal";
+} from '@yielded/agent-platform-node/node-durable-agent-runtime'
+import { NodeDurableHost } from '@yielded/agent-platform-node/node-durable-host'
+import { SqliteStorageFailpointLocation } from '@yielded/agent-storage-sqlite/sqlite-storage-error'
+import { type SqliteStorageFailpointHandler } from '@yielded/agent-storage-sqlite/sqlite-storage-failpoint'
+import * as Agent from '@yielded/agent/agent'
+import { DurableAgentRuntime, type Receipt } from '@yielded/agent/durable-agent-runtime'
+import { type DurableRuntimeFailpointHandler, DurableRuntimeFailpointLocation } from '@yielded/agent/durable-failpoint'
+import { type ThreadId } from '@yielded/agent/identifiers'
+import { childThreadIdFor } from '@yielded/agent/run-journal'
 import {
   AbortCommand,
   ApprovalDecisionCommand,
   ResolutionNeverHappened,
+  type Settlement,
   SubmissionLedger,
   SubmissionLookupByKey,
-  UnknownResolutionCommand,
-  type Settlement,
   type SubmissionSnapshot,
-} from "@yielded/agent/submission-ledger";
-import type * as Response from "effect/ai/Response";
-import * as Cause from "effect/Cause";
-import * as Duration from "effect/Duration";
-import * as Effect from "effect/Effect";
-import * as Exit from "effect/Exit";
-import * as Fiber from "effect/Fiber";
-import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
-import * as Stream from "effect/Stream";
+  UnknownResolutionCommand,
+} from '@yielded/agent/submission-ledger'
+import type * as Response from 'effect/ai/Response'
+import * as Cause from 'effect/Cause'
+import * as Duration from 'effect/Duration'
+import * as Effect from 'effect/Effect'
+import * as Exit from 'effect/Exit'
+import * as Fiber from 'effect/Fiber'
+import * as Layer from 'effect/Layer'
+import * as Option from 'effect/Option'
+import * as Schema from 'effect/Schema'
+import * as Stream from 'effect/Stream'
 
 import {
-  CHILD_ANSWER,
-  CHILD_PRODUCER_ID,
-  CRASH_DEPLOYMENT_ID,
-  CRASH_QUESTION,
+  approvalDefinition,
+  approvalTools,
   BOOK_CALL_ID,
-  CrashScenario,
-  DELEGATE_CALL_ID,
-  JOIN_QUESTION,
-  KILL_EXIT_CODE,
-  STALE_ANSWER,
   bookDefinition,
   bookIdempotentDefinition,
   bookIdempotentTools,
   bookToolCallParts,
   bookTools,
-  approvalDefinition,
-  approvalTools,
-  sequentialApprovalParts,
-  coordinatorSubmitSlice,
   checkpointContextLayer,
   checkpointDefinition,
   checkpointParts,
-  makeCheckpointToolLayer,
+  CHILD_ANSWER,
+  CHILD_PRODUCER_ID,
+  type ChildMessage,
+  coordinatorSubmitSlice,
+  CRASH_DEPLOYMENT_ID,
+  CRASH_QUESTION,
+  CrashScenario,
   crashSubmitOptions,
   decodeThreadId,
   decodeToolCallId,
+  DELEGATE_CALL_ID,
   encodeChildMessage,
   finalParts,
   itineraryDefinition,
   itineraryToolCallParts,
+  JOIN_QUESTION,
+  KILL_EXIT_CODE,
   makeBlockedBookToolLayer,
   makeBookToolLayer,
+  makeCheckpointToolLayer,
   makeCrashSubagentBindings,
   makeItineraryToolLayer,
   makeScriptedModel,
@@ -76,10 +72,11 @@ import {
   plannerDefinition,
   searchDefinition,
   searchToolLayer,
+  sequentialApprovalParts,
+  STALE_ANSWER,
   supplierCount,
   toolCallParts,
-  type ChildMessage,
-} from "./fixtures.ts";
+} from './fixtures.ts'
 
 /**
  * Crash-harness child entrypoint (plan §Crash matrix). One process = one host "lifetime": it
@@ -101,16 +98,16 @@ const WorkerEnv = Schema.Struct({
   EFFECT_AGENT_RELEASE_FILE: Schema.optionalKey(Schema.NonEmptyString),
   EFFECT_AGENT_SUPPLIER_DIR: Schema.optionalKey(Schema.NonEmptyString),
   EFFECT_AGENT_KILL_REQUIRES_SUPPLIER: Schema.optionalKey(Schema.NonEmptyString),
-  EFFECT_AGENT_DECISION: Schema.optionalKey(Schema.Literals(["approved", "denied"])),
+  EFFECT_AGENT_DECISION: Schema.optionalKey(Schema.Literals(['approved', 'denied'])),
   EFFECT_AGENT_CHILD_BLOCK_FILE: Schema.optionalKey(Schema.NonEmptyString),
   EFFECT_AGENT_CHILD_RELEASE_FILE: Schema.optionalKey(Schema.NonEmptyString),
   EFFECT_AGENT_PROJECT_MARKER_FILE: Schema.optionalKey(Schema.NonEmptyString),
   EFFECT_AGENT_PROJECT_RELEASE_FILE: Schema.optionalKey(Schema.NonEmptyString),
-});
+})
 
-const env = Schema.decodeUnknownSync(WorkerEnv)(process.env);
-const threadId = decodeThreadId(env.EFFECT_AGENT_THREAD);
-const idempotencyKey = env.EFFECT_AGENT_KEY;
+const env = Schema.decodeUnknownSync(WorkerEnv)(process.env)
+const threadId = decodeThreadId(env.EFFECT_AGENT_THREAD)
+const idempotencyKey = env.EFFECT_AGENT_KEY
 
 /**
  * Optional supplier-store gate on an armed kill (`{op}:{key}`): the kill fires only once the
@@ -120,25 +117,23 @@ const idempotencyKey = env.EFFECT_AGENT_KEY;
  * return, before turn:after-results-append").
  */
 const killGateSatisfied = (): boolean => {
-  const gate = env.EFFECT_AGENT_KILL_REQUIRES_SUPPLIER;
+  const gate = env.EFFECT_AGENT_KILL_REQUIRES_SUPPLIER
 
-  if (gate === undefined) return true;
-  const dir = env.EFFECT_AGENT_SUPPLIER_DIR;
+  if (gate === undefined) return true
+  const dir = env.EFFECT_AGENT_SUPPLIER_DIR
 
-  if (dir === undefined) throw new Error("A supplier kill gate requires EFFECT_AGENT_SUPPLIER_DIR");
-  const separator = gate.indexOf(":");
-  const op = gate.slice(0, separator);
-  const key = gate.slice(separator + 1);
+  if (dir === undefined) throw new Error('A supplier kill gate requires EFFECT_AGENT_SUPPLIER_DIR')
+  const separator = gate.indexOf(':')
+  const op = gate.slice(0, separator)
+  const key = gate.slice(separator + 1)
 
-  return supplierCount(dir, op, key) >= 1;
-};
+  return supplierCount(dir, op, key) >= 1
+}
 
 /** A kill failpoint is a crash, not a failure: exit immediately, skipping every finalizer. */
-const hardKill: Effect.Effect<never> = Effect.sync(() => process.exit(KILL_EXIT_CODE));
+const hardKill: Effect.Effect<never> = Effect.sync(() => process.exit(KILL_EXIT_CODE))
 
-const killIfGated: Effect.Effect<void> = Effect.suspend(() =>
-  killGateSatisfied() ? hardKill : Effect.void,
-);
+const killIfGated: Effect.Effect<void> = Effect.suspend(() => killGateSatisfied() ? hardKill : Effect.void)
 
 /**
  * A blocking failpoint (S2 simultaneous-kill rows): the worker proves it reached the location
@@ -146,33 +141,33 @@ const killIfGated: Effect.Effect<void> = Effect.suspend(() =>
  * harness SIGKILLs it, exactly like a process that stalled at that durable step.
  */
 const blockAndHang: Effect.Effect<never> = Effect.suspend(() => {
-  const marker = env.EFFECT_AGENT_MARKER_FILE;
+  const marker = env.EFFECT_AGENT_MARKER_FILE
 
-  if (marker === undefined)
-    throw new Error("EFFECT_AGENT_BLOCK_AT requires EFFECT_AGENT_MARKER_FILE");
-  fs.writeFileSync(marker, "1");
+  if (marker === undefined) {
+    throw new Error('EFFECT_AGENT_BLOCK_AT requires EFFECT_AGENT_MARKER_FILE')
+  }
+  fs.writeFileSync(marker, '1')
 
-  return Effect.never;
-});
+  return Effect.never
+})
 
 const runtimeKill: DurableRuntimeFailpointHandler | undefined =
   env.EFFECT_AGENT_KILL_AT === undefined && env.EFFECT_AGENT_BLOCK_AT === undefined
     ? undefined
     : (location) => {
-        if (env.EFFECT_AGENT_KILL_AT !== undefined && location === env.EFFECT_AGENT_KILL_AT) {
-          return killIfGated;
-        }
-        if (env.EFFECT_AGENT_BLOCK_AT !== undefined && location === env.EFFECT_AGENT_BLOCK_AT) {
-          return blockAndHang;
-        }
+      if (env.EFFECT_AGENT_KILL_AT !== undefined && location === env.EFFECT_AGENT_KILL_AT) {
+        return killIfGated
+      }
+      if (env.EFFECT_AGENT_BLOCK_AT !== undefined && location === env.EFFECT_AGENT_BLOCK_AT) {
+        return blockAndHang
+      }
 
-        return Effect.void;
-      };
+      return Effect.void
+    }
 
-const storageKill: SqliteStorageFailpointHandler | undefined =
-  env.EFFECT_AGENT_KILL_AT_STORAGE === undefined
-    ? undefined
-    : (location) => (location === env.EFFECT_AGENT_KILL_AT_STORAGE ? killIfGated : Effect.void);
+const storageKill: SqliteStorageFailpointHandler | undefined = env.EFFECT_AGENT_KILL_AT_STORAGE === undefined
+  ? undefined
+  : (location) => (location === env.EFFECT_AGENT_KILL_AT_STORAGE ? killIfGated : Effect.void)
 
 const options: NodeDurableAgentRuntimeOptions = {
   filename: env.EFFECT_AGENT_DB,
@@ -183,78 +178,77 @@ const options: NodeDurableAgentRuntimeOptions = {
   wakeScanInterval: 1_000,
   runtimeFailpoint: runtimeKill,
   storageFailpoint: storageKill,
-  ...(env.EFFECT_AGENT_SCENARIO === "run-checkpoint" ? { runContext: checkpointContextLayer } : {}),
-};
+  ...(env.EFFECT_AGENT_SCENARIO === 'run-checkpoint' ? { runContext: checkpointContextLayer } : {}),
+}
 
 const emit = (message: ChildMessage): Effect.Effect<void> =>
   Effect.sync(() => {
-    process.stdout.write(`${JSON.stringify(encodeChildMessage(message))}\n`);
-  });
+    process.stdout.write(`${JSON.stringify(encodeChildMessage(message))}\n`)
+  })
 
 const touch = (path: string): Effect.Effect<void> =>
   Effect.sync(() => {
-    fs.writeFileSync(path, "1");
-  });
+    fs.writeFileSync(path, '1')
+  })
 
 const awaitFile = (path: string): Effect.Effect<void> =>
-  Effect.gen(function* () {
+  Effect.gen(function*() {
     while (!fs.existsSync(path)) {
-      yield* Effect.sleep(Duration.millis(25));
+      yield* Effect.sleep(Duration.millis(25))
     }
-  });
+  })
 
 const requireEnv = (value: string | undefined, name: string): string => {
-  if (value === undefined) throw new Error(`Scenario requires ${name}.`);
+  if (value === undefined) throw new Error(`Scenario requires ${name}.`)
 
-  return value;
-};
+  return value
+}
 
 /** Turn 1 declares a tool call; Turn 2 blocks on the release file after writing the marker. */
 const blockedSearchScript = (
   markerFile: string,
   releaseFile: string,
-): ((call: number) => Stream.Stream<Response.StreamPartEncoded>) => {
+): (call: number) => Stream.Stream<Response.StreamPartEncoded> => {
   return (call) =>
     call === 0
       ? Stream.fromIterable(toolCallParts)
       : Stream.fromEffect(touch(markerFile).pipe(Effect.andThen(awaitFile(releaseFile)))).pipe(
-          Stream.flatMap(() => Stream.fromIterable(finalParts(STALE_ANSWER))),
-        );
-};
+        Stream.flatMap(() => Stream.fromIterable(finalParts(STALE_ANSWER))),
+      )
+}
 
 /** Every call writes the marker, then blocks until interrupted (the abort path). */
 const blockedForeverScript = (
   markerFile: string,
-): ((call: number) => Stream.Stream<Response.StreamPartEncoded>) => {
-  return () => Stream.fromEffect(touch(markerFile).pipe(Effect.andThen(Effect.never)));
-};
+): (call: number) => Stream.Stream<Response.StreamPartEncoded> => {
+  return () => Stream.fromEffect(touch(markerFile).pipe(Effect.andThen(Effect.never)))
+}
 
-const submitPlannerQuestion = Effect.fnUntraced(function* (key: string, question: string) {
-  const runtime = yield* DurableAgentRuntime;
-  const model = yield* makeScriptedModel(() => finalParts(CHILD_ANSWER));
-  const agent = Agent.withModel(plannerDefinition, model);
+const submitPlannerQuestion = Effect.fnUntraced(function*(key: string, question: string) {
+  const runtime = yield* DurableAgentRuntime
+  const model = yield* makeScriptedModel(() => finalParts(CHILD_ANSWER))
+  const agent = Agent.withModel(plannerDefinition, model)
 
   const receipt: Receipt = yield* runtime.submit(
     agent,
     { question },
     crashSubmitOptions(env.EFFECT_AGENT_THREAD, key),
-  );
+  )
 
-  yield* emit({ kind: "receipt", key, receipt });
+  yield* emit({ kind: 'receipt', key, receipt })
 
-  return receipt;
-});
+  return receipt
+})
 
-const submitPlanner = (key: string) => submitPlannerQuestion(key, CRASH_QUESTION);
+const submitPlanner = (key: string) => submitPlannerQuestion(key, CRASH_QUESTION)
 
-const emitSettlements = (settlements: ReadonlyArray<Settlement>) =>
-  emit({ kind: "settlements", settlements });
+const emitSettlements = (settlements: ReadonlyArray<Settlement>) => emit({ kind: 'settlements', settlements })
 
 /** Second-process drivers address the Submission by its durable identity, not shared memory. */
 const lookupSubmission: Effect.Effect<SubmissionSnapshot, never, SubmissionLedger> = Effect.gen(
-  function* () {
-    const ledger = yield* SubmissionLedger;
-    const options = crashSubmitOptions(env.EFFECT_AGENT_THREAD, idempotencyKey);
+  function*() {
+    const ledger = yield* SubmissionLedger
+    const options = crashSubmitOptions(env.EFFECT_AGENT_THREAD, idempotencyKey)
 
     const snapshot = yield* ledger
       .lookup(
@@ -264,18 +258,17 @@ const lookupSubmission: Effect.Effect<SubmissionSnapshot, never, SubmissionLedge
           idempotencyKey: options.idempotencyKey,
         }),
       )
-      .pipe(Effect.orDie);
+      .pipe(Effect.orDie)
 
     if (Option.isNone(snapshot)) {
-      return yield* Effect.die(new Error(`No accepted Submission exists for ${idempotencyKey}`));
+      return yield* Effect.die(new Error(`No accepted Submission exists for ${idempotencyKey}`))
     }
 
-    return snapshot.value;
+    return snapshot.value
   },
-);
+)
 
-const requireSupplierDir = (): string =>
-  requireEnv(env.EFFECT_AGENT_SUPPLIER_DIR, "EFFECT_AGENT_SUPPLIER_DIR");
+const requireSupplierDir = (): string => requireEnv(env.EFFECT_AGENT_SUPPLIER_DIR, 'EFFECT_AGENT_SUPPLIER_DIR')
 
 /**
  * S2 fixture assembly for one worker process (plan §4.4): the coordinator/researcher bindings
@@ -283,383 +276,372 @@ const requireSupplierDir = (): string =>
  * gate taken from the environment. The binding array lets one worker process drive BOTH the
  * parent and the derived child Thread lane.
  */
-const makeSubagentBindings = Effect.gen(function* () {
-  const supplierDir = requireSupplierDir();
+const makeSubagentBindings = Effect.gen(function*() {
+  const supplierDir = requireSupplierDir()
 
-  const childBlock =
-    env.EFFECT_AGENT_CHILD_BLOCK_FILE === undefined
-      ? undefined
-      : {
-          markerFile: env.EFFECT_AGENT_CHILD_BLOCK_FILE,
-          releaseFile: env.EFFECT_AGENT_CHILD_RELEASE_FILE,
-        };
+  const childBlock = env.EFFECT_AGENT_CHILD_BLOCK_FILE === undefined
+    ? undefined
+    : {
+      markerFile: env.EFFECT_AGENT_CHILD_BLOCK_FILE,
+      releaseFile: env.EFFECT_AGENT_CHILD_RELEASE_FILE,
+    }
 
-  const projectionGate =
-    env.EFFECT_AGENT_PROJECT_MARKER_FILE === undefined
-      ? undefined
-      : {
-          markerFile: env.EFFECT_AGENT_PROJECT_MARKER_FILE,
-          releaseFile: requireEnv(
-            env.EFFECT_AGENT_PROJECT_RELEASE_FILE,
-            "EFFECT_AGENT_PROJECT_RELEASE_FILE",
-          ),
-        };
+  const projectionGate = env.EFFECT_AGENT_PROJECT_MARKER_FILE === undefined
+    ? undefined
+    : {
+      markerFile: env.EFFECT_AGENT_PROJECT_MARKER_FILE,
+      releaseFile: requireEnv(
+        env.EFFECT_AGENT_PROJECT_RELEASE_FILE,
+        'EFFECT_AGENT_PROJECT_RELEASE_FILE',
+      ),
+    }
 
   return yield* makeCrashSubagentBindings({
     supplierDir,
-    parentScript: "delegate-then-final",
+    parentScript: 'delegate-then-final',
     childBlock,
     projectionGate,
-  });
-});
+  })
+})
 
-const driveResolved = Effect.fnUntraced(function* (thread: ThreadId) {
-  const runtime = yield* DurableAgentRuntime;
+const driveResolved = Effect.fnUntraced(function*(thread: ThreadId) {
+  const runtime = yield* DurableAgentRuntime
 
-  return yield* runtime.processThreadResolved(thread);
-});
+  return yield* runtime.processThreadResolved(thread)
+})
 
-const submitCoordinator = Effect.fnUntraced(function* (key: string) {
-  const runtime = yield* DurableAgentRuntime;
+const submitCoordinator = Effect.fnUntraced(function*(key: string) {
+  const runtime = yield* DurableAgentRuntime
 
   const receipt: Receipt = yield* runtime.submit(
     coordinatorSubmitSlice,
     { mission: CRASH_QUESTION },
     crashSubmitOptions(env.EFFECT_AGENT_THREAD, key),
-  );
+  )
 
-  yield* emit({ kind: "receipt", key, receipt });
+  yield* emit({ kind: 'receipt', key, receipt })
 
-  return receipt;
-});
+  return receipt
+})
 
-const scenario = Effect.gen(function* () {
-  const runtime = yield* DurableAgentRuntime;
+const scenario = Effect.gen(function*() {
+  const runtime = yield* DurableAgentRuntime
 
   switch (env.EFFECT_AGENT_SCENARIO) {
-    case "submit": {
-      yield* submitPlanner(idempotencyKey);
+    case 'submit': {
+      yield* submitPlanner(idempotencyKey)
 
-      return;
+      return
     }
-    case "abort-queued": {
+    case 'abort-queued': {
       // P7 §7(c): a head plus a QUEUED second Submission; the abort targets the queued row
       // and the kill fires at abort:after-intent, so restart recovery must settle the
       // aborted non-head immediately — without waiting for the head to settle first.
-      yield* submitPlanner(`${idempotencyKey}-head`);
-      const queued = yield* submitPlanner(`${idempotencyKey}-queued`);
+      yield* submitPlanner(`${idempotencyKey}-head`)
+      const queued = yield* submitPlanner(`${idempotencyKey}-queued`)
 
       yield* runtime.abort(
         AbortCommand.make({
           submissionId: queued.submissionId,
-          author: "operator",
-          reason: "crash harness queued abort",
+          author: 'operator',
+          reason: 'crash harness queued abort',
         }),
-      );
+      )
 
-      return;
+      return
     }
-    case "run": {
-      yield* submitPlanner(idempotencyKey);
-      const model = yield* makeScriptedModel(() => finalParts(CHILD_ANSWER));
-      const agent = Agent.withModel(plannerDefinition, model);
+    case 'run': {
+      yield* submitPlanner(idempotencyKey)
+      const model = yield* makeScriptedModel(() => finalParts(CHILD_ANSWER))
+      const agent = Agent.withModel(plannerDefinition, model)
 
-      yield* emitSettlements(yield* runtime.processThread(agent, threadId));
+      yield* emitSettlements(yield* runtime.processThread(agent, threadId))
 
-      return;
+      return
     }
-    case "run-checkpoint": {
-      const model = yield* makeScriptedModel((call) => checkpointParts(call + 1));
-      const agent = Agent.withModel(checkpointDefinition, model);
+    case 'run-checkpoint': {
+      const model = yield* makeScriptedModel((call) => checkpointParts(call + 1))
+      const agent = Agent.withModel(checkpointDefinition, model)
 
       const receipt = yield* runtime.submit(
         agent,
         { question: CRASH_QUESTION },
         crashSubmitOptions(env.EFFECT_AGENT_THREAD, idempotencyKey),
-      );
+      )
 
-      yield* emit({ kind: "receipt", key: idempotencyKey, receipt });
+      yield* emit({ kind: 'receipt', key: idempotencyKey, receipt })
       yield* emitSettlements(
         yield* runtime
           .processThread(agent, threadId)
           .pipe(Effect.provide(makeCheckpointToolLayer(requireSupplierDir()))),
-      );
+      )
 
-      return;
+      return
     }
-    case "run-two": {
-      yield* submitPlanner(`${idempotencyKey}-1`);
-      yield* submitPlanner(`${idempotencyKey}-2`);
-      const model = yield* makeScriptedModel(() => finalParts(CHILD_ANSWER));
-      const agent = Agent.withModel(plannerDefinition, model);
+    case 'run-two': {
+      yield* submitPlanner(`${idempotencyKey}-1`)
+      yield* submitPlanner(`${idempotencyKey}-2`)
+      const model = yield* makeScriptedModel(() => finalParts(CHILD_ANSWER))
+      const agent = Agent.withModel(plannerDefinition, model)
 
-      yield* emitSettlements(yield* runtime.processThread(agent, threadId));
+      yield* emitSettlements(yield* runtime.processThread(agent, threadId))
 
-      return;
+      return
     }
-    case "run-blocked": {
-      const markerFile = requireEnv(env.EFFECT_AGENT_MARKER_FILE, "EFFECT_AGENT_MARKER_FILE");
-      const releaseFile = requireEnv(env.EFFECT_AGENT_RELEASE_FILE, "EFFECT_AGENT_RELEASE_FILE");
-      const model = yield* makeScriptedStreamModel(blockedSearchScript(markerFile, releaseFile));
-      const agent = Agent.withModel(searchDefinition, model);
+    case 'run-blocked': {
+      const markerFile = requireEnv(env.EFFECT_AGENT_MARKER_FILE, 'EFFECT_AGENT_MARKER_FILE')
+      const releaseFile = requireEnv(env.EFFECT_AGENT_RELEASE_FILE, 'EFFECT_AGENT_RELEASE_FILE')
+      const model = yield* makeScriptedStreamModel(blockedSearchScript(markerFile, releaseFile))
+      const agent = Agent.withModel(searchDefinition, model)
 
       const receipt = yield* runtime.submit(
         agent,
         { question: CRASH_QUESTION },
         crashSubmitOptions(env.EFFECT_AGENT_THREAD, idempotencyKey),
-      );
+      )
 
-      yield* emit({ kind: "receipt", key: idempotencyKey, receipt });
-      yield* emitSettlements(yield* runtime.processThread(agent, threadId));
+      yield* emit({ kind: 'receipt', key: idempotencyKey, receipt })
+      yield* emitSettlements(yield* runtime.processThread(agent, threadId))
 
-      return;
+      return
     }
-    case "abort-active": {
-      const markerFile = requireEnv(env.EFFECT_AGENT_MARKER_FILE, "EFFECT_AGENT_MARKER_FILE");
-      const model = yield* makeScriptedStreamModel(blockedForeverScript(markerFile));
-      const agent = Agent.withModel(plannerDefinition, model);
+    case 'abort-active': {
+      const markerFile = requireEnv(env.EFFECT_AGENT_MARKER_FILE, 'EFFECT_AGENT_MARKER_FILE')
+      const model = yield* makeScriptedStreamModel(blockedForeverScript(markerFile))
+      const agent = Agent.withModel(plannerDefinition, model)
 
       const receipt = yield* runtime.submit(
         agent,
         { question: CRASH_QUESTION },
         crashSubmitOptions(env.EFFECT_AGENT_THREAD, idempotencyKey),
-      );
+      )
 
-      yield* emit({ kind: "receipt", key: idempotencyKey, receipt });
-      const running = yield* runtime.processThread(agent, threadId).pipe(Effect.forkScoped);
+      yield* emit({ kind: 'receipt', key: idempotencyKey, receipt })
+      const running = yield* runtime.processThread(agent, threadId).pipe(Effect.forkScoped)
 
       // The harness routes its operator command to this process, the sole database owner.
-      yield* awaitFile(requireEnv(env.EFFECT_AGENT_RELEASE_FILE, "EFFECT_AGENT_RELEASE_FILE"));
+      yield* awaitFile(requireEnv(env.EFFECT_AGENT_RELEASE_FILE, 'EFFECT_AGENT_RELEASE_FILE'))
       yield* runtime.abort(
         AbortCommand.make({
           submissionId: receipt.submissionId,
-          author: "operator",
-          reason: "stop the run",
+          author: 'operator',
+          reason: 'stop the run',
         }),
-      );
-      yield* emitSettlements(yield* Fiber.join(running));
+      )
+      yield* emitSettlements(yield* Fiber.join(running))
 
-      return;
+      return
     }
-    case "run-uncertain": {
-      const dir = requireSupplierDir();
+    case 'run-uncertain': {
+      const dir = requireSupplierDir()
 
-      const model = yield* makeScriptedModel((call) =>
-        call === 0 ? bookToolCallParts : finalParts(CHILD_ANSWER),
-      );
+      const model = yield* makeScriptedModel((call) => call === 0 ? bookToolCallParts : finalParts(CHILD_ANSWER))
 
-      const agent = Agent.withModel(bookDefinition, model);
+      const agent = Agent.withModel(bookDefinition, model)
 
       const receipt = yield* runtime.submit(
         agent,
         { question: CRASH_QUESTION },
         crashSubmitOptions(env.EFFECT_AGENT_THREAD, idempotencyKey),
-      );
+      )
 
-      yield* emit({ kind: "receipt", key: idempotencyKey, receipt });
+      yield* emit({ kind: 'receipt', key: idempotencyKey, receipt })
 
-      const toolLayer =
-        env.EFFECT_AGENT_MARKER_FILE === undefined
-          ? makeBookToolLayer(dir, bookTools)
-          : makeBlockedBookToolLayer(dir, bookTools, env.EFFECT_AGENT_MARKER_FILE);
+      const toolLayer = env.EFFECT_AGENT_MARKER_FILE === undefined
+        ? makeBookToolLayer(dir, bookTools)
+        : makeBlockedBookToolLayer(dir, bookTools, env.EFFECT_AGENT_MARKER_FILE)
 
       yield* emitSettlements(
         yield* runtime.processThread(agent, threadId).pipe(Effect.provide(toolLayer)),
-      );
+      )
 
-      return;
+      return
     }
-    case "run-idempotent": {
-      const dir = requireSupplierDir();
+    case 'run-idempotent': {
+      const dir = requireSupplierDir()
 
-      const model = yield* makeScriptedModel((call) =>
-        call === 0 ? bookToolCallParts : finalParts(CHILD_ANSWER),
-      );
+      const model = yield* makeScriptedModel((call) => call === 0 ? bookToolCallParts : finalParts(CHILD_ANSWER))
 
-      const agent = Agent.withModel(bookIdempotentDefinition, model);
+      const agent = Agent.withModel(bookIdempotentDefinition, model)
 
       const receipt = yield* runtime.submit(
         agent,
         { question: CRASH_QUESTION },
         crashSubmitOptions(env.EFFECT_AGENT_THREAD, idempotencyKey),
-      );
+      )
 
-      yield* emit({ kind: "receipt", key: idempotencyKey, receipt });
+      yield* emit({ kind: 'receipt', key: idempotencyKey, receipt })
       yield* emitSettlements(
         yield* runtime
           .processThread(agent, threadId)
           .pipe(Effect.provide(makeBookToolLayer(dir, bookIdempotentTools))),
-      );
+      )
 
-      return;
+      return
     }
-    case "suspend-approval":
-    case "suspend-sequential-approval": {
-      const dir = requireSupplierDir();
+    case 'suspend-approval':
+    case 'suspend-sequential-approval': {
+      const dir = requireSupplierDir()
 
       const model = yield* makeScriptedModel((call) =>
         call === 0
-          ? env.EFFECT_AGENT_SCENARIO === "suspend-sequential-approval"
+          ? env.EFFECT_AGENT_SCENARIO === 'suspend-sequential-approval'
             ? sequentialApprovalParts
             : bookToolCallParts
-          : finalParts(CHILD_ANSWER),
-      );
+          : finalParts(CHILD_ANSWER)
+      )
 
-      const agent = Agent.withModel(approvalDefinition, model);
+      const agent = Agent.withModel(approvalDefinition, model)
 
       const receipt = yield* runtime.submit(
         agent,
         { question: CRASH_QUESTION },
         crashSubmitOptions(env.EFFECT_AGENT_THREAD, idempotencyKey),
-      );
+      )
 
-      yield* emit({ kind: "receipt", key: idempotencyKey, receipt });
+      yield* emit({ kind: 'receipt', key: idempotencyKey, receipt })
       yield* emitSettlements(
         yield* runtime
           .processThread(agent, threadId)
           .pipe(Effect.provide(makeBookToolLayer(dir, approvalTools))),
-      );
+      )
 
-      return;
+      return
     }
-    case "run-steps": {
-      const dir = requireSupplierDir();
+    case 'run-steps': {
+      const dir = requireSupplierDir()
 
-      const model = yield* makeScriptedModel((call) =>
-        call === 0 ? itineraryToolCallParts : finalParts(CHILD_ANSWER),
-      );
+      const model = yield* makeScriptedModel((call) => call === 0 ? itineraryToolCallParts : finalParts(CHILD_ANSWER))
 
-      const agent = Agent.withModel(itineraryDefinition, model);
+      const agent = Agent.withModel(itineraryDefinition, model)
 
       const receipt = yield* runtime.submit(
         agent,
         { question: CRASH_QUESTION },
         crashSubmitOptions(env.EFFECT_AGENT_THREAD, idempotencyKey),
-      );
+      )
 
-      yield* emit({ kind: "receipt", key: idempotencyKey, receipt });
+      yield* emit({ kind: 'receipt', key: idempotencyKey, receipt })
       yield* emitSettlements(
         yield* runtime
           .processThread(agent, threadId)
           .pipe(Effect.provide(makeItineraryToolLayer(dir))),
-      );
+      )
 
-      return;
+      return
     }
-    case "run-join": {
+    case 'run-join': {
       // Host plus one queued Submission with a DISTINCT payload: the join rows count prompt
       // coverage of the queued text from canonical records alone.
-      yield* submitPlanner(`${idempotencyKey}-1`);
-      yield* submitPlannerQuestion(`${idempotencyKey}-2`, JOIN_QUESTION);
+      yield* submitPlanner(`${idempotencyKey}-1`)
+      yield* submitPlannerQuestion(`${idempotencyKey}-2`, JOIN_QUESTION)
 
-      const model =
-        env.EFFECT_AGENT_MARKER_FILE === undefined
-          ? yield* makeScriptedModel(() => finalParts(CHILD_ANSWER))
-          : // The model blocks AFTER the pre-Turn join drain claimed, appended, and marked the
-            // queued input joined — SIGKILL then leaves `joined` + a nonterminal host.
-            yield* makeScriptedStreamModel(blockedForeverScript(env.EFFECT_AGENT_MARKER_FILE));
+      const model = env.EFFECT_AGENT_MARKER_FILE === undefined
+        ? yield* makeScriptedModel(() => finalParts(CHILD_ANSWER))
+        // The model blocks AFTER the pre-Turn join drain claimed, appended, and marked the
+        // queued input joined — SIGKILL then leaves `joined` + a nonterminal host.
+        : yield* makeScriptedStreamModel(blockedForeverScript(env.EFFECT_AGENT_MARKER_FILE))
 
-      const agent = Agent.withModel(plannerDefinition, model);
+      const agent = Agent.withModel(plannerDefinition, model)
 
-      yield* emitSettlements(yield* runtime.processThread(agent, threadId));
+      yield* emitSettlements(yield* runtime.processThread(agent, threadId))
 
-      return;
+      return
     }
-    case "resolve-approval": {
-      const decision = requireEnv(env.EFFECT_AGENT_DECISION, "EFFECT_AGENT_DECISION");
-      const submission = yield* lookupSubmission;
+    case 'resolve-approval': {
+      const decision = requireEnv(env.EFFECT_AGENT_DECISION, 'EFFECT_AGENT_DECISION')
+      const submission = yield* lookupSubmission
 
       const intent = yield* runtime.resolveApproval(
         ApprovalDecisionCommand.make({
           submissionId: submission.submissionId,
           toolCallId: decodeToolCallId(BOOK_CALL_ID),
-          decision: decision === "approved" ? "approved" : "denied",
-          resolver: "operator",
-          reason: "crash-harness decision from a second process",
+          decision: decision === 'approved' ? 'approved' : 'denied',
+          resolver: 'operator',
+          reason: 'crash-harness decision from a second process',
         }),
-      );
+      )
 
-      yield* emit({ kind: "resolved", value: intent.decision });
+      yield* emit({ kind: 'resolved', value: intent.decision })
 
-      return;
+      return
     }
-    case "resolve-unknown": {
-      const submission = yield* lookupSubmission;
+    case 'resolve-unknown': {
+      const submission = yield* lookupSubmission
 
       const intent = yield* runtime.resolveUnknown(
         UnknownResolutionCommand.make({
           submissionId: submission.submissionId,
           toolCallId: decodeToolCallId(BOOK_CALL_ID),
-          author: "operator",
-          reason: "the supplier store shows the call never started",
+          author: 'operator',
+          reason: 'the supplier store shows the call never started',
           resolution: ResolutionNeverHappened.make(),
         }),
-      );
+      )
 
-      yield* emit({ kind: "resolved", value: intent.resolution._tag });
+      yield* emit({ kind: 'resolved', value: intent.resolution._tag })
 
-      return;
+      return
     }
-    case "subagent-run": {
+    case 'subagent-run': {
       // Establishment → child Settlement → join, all in one process over one pool of resolved
       // Bindings; armed kill/block failpoints land at exactly one durable step of that flow.
-      const receipt = yield* submitCoordinator(idempotencyKey);
+      const receipt = yield* submitCoordinator(idempotencyKey)
 
       const childThread = childThreadIdFor(
         receipt.submissionId,
         decodeToolCallId(DELEGATE_CALL_ID),
-      );
+      )
 
-      const establishment = yield* driveResolved(threadId);
-      const child = yield* driveResolved(childThread);
-      const join = yield* driveResolved(threadId);
+      const establishment = yield* driveResolved(threadId)
+      const child = yield* driveResolved(childThread)
+      const join = yield* driveResolved(threadId)
 
-      yield* emitSettlements([...establishment, ...child, ...join]);
+      yield* emitSettlements([...establishment, ...child, ...join])
 
-      return;
+      return
     }
-    case "subagent-child": {
+    case 'subagent-child': {
       // Second-process child worker: derive the child Thread from the parent Submission's
       // durable identity and drive ONLY that lane (independent ownership, SUB-020).
-      const parent = yield* lookupSubmission;
-      const childThread = childThreadIdFor(parent.submissionId, decodeToolCallId(DELEGATE_CALL_ID));
+      const parent = yield* lookupSubmission
+      const childThread = childThreadIdFor(parent.submissionId, decodeToolCallId(DELEGATE_CALL_ID))
 
-      yield* emitSettlements(yield* driveResolved(childThread));
+      yield* emitSettlements(yield* driveResolved(childThread))
 
-      return;
+      return
     }
-    case "subagent-recover": {
+    case 'subagent-recover': {
       // One host startup-recovery pass over the shared file (binding-free executors only); the
       // armed kill dies mid-pass, e.g. right after the propagated child abort intent commits.
       yield* Effect.scoped(
-        Effect.gen(function* () {
-          const host = yield* NodeDurableHost;
+        Effect.gen(function*() {
+          const host = yield* NodeDurableHost
 
-          yield* emit({ kind: "resolved", value: String(host.startupRecovery.length) });
+          yield* emit({ kind: 'resolved', value: String(host.startupRecovery.length) })
         }).pipe(Effect.provide(NodeDurableHost.layer)),
-      );
+      )
 
-      return;
+      return
     }
   }
-});
+})
 
 const runtimeLayer = Layer.unwrap(
-  Effect.gen(function* () {
-    const bindings =
-      env.EFFECT_AGENT_SCENARIO === "subagent-run" || env.EFFECT_AGENT_SCENARIO === "subagent-child"
-        ? yield* makeSubagentBindings
-        : [];
+  Effect.gen(function*() {
+    const bindings = env.EFFECT_AGENT_SCENARIO === 'subagent-run' || env.EFFECT_AGENT_SCENARIO === 'subagent-child'
+      ? yield* makeSubagentBindings
+      : []
 
-    return NodeDurableAgentRuntime.layerWithBindings(bindings, options);
+    return NodeDurableAgentRuntime.layerWithBindings(bindings, options)
   }),
-);
+)
 
 const exit = await Effect.runPromiseExit(
   scenario.pipe(Effect.scoped, Effect.provide(Layer.mergeAll(runtimeLayer, searchToolLayer))),
-);
+)
 
 if (Exit.isFailure(exit)) {
-  console.error(Cause.pretty(exit.cause));
-  process.exitCode = 1;
+  console.error(Cause.pretty(exit.cause))
+  process.exitCode = 1
 }

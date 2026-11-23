@@ -1,53 +1,53 @@
-import { expect, layer } from "@effect/vitest";
-import * as Agent from "@yielded/agent/agent";
-import { AgentPolicy } from "@yielded/agent/agent-policy";
-import * as AgentRuntime from "@yielded/agent/agent-runtime";
-import { ContextCompactor, type CompactionDecision } from "@yielded/agent/context-compactor";
-import { IdGenerator } from "@yielded/agent/id-generator";
-import { ThreadId, RunId, TurnId } from "@yielded/agent/identifiers";
-import * as LanguageModel from "effect/ai/LanguageModel";
-import * as Model from "effect/ai/Model";
-import * as Prompt from "effect/ai/Prompt";
-import type * as Response from "effect/ai/Response";
-import * as Toolkit from "effect/ai/Toolkit";
-import * as Context from "effect/Context";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Schema from "effect/Schema";
-import * as Stream from "effect/Stream";
+import { expect, layer } from '@effect/vitest'
+import * as Agent from '@yielded/agent/agent'
+import { AgentPolicy } from '@yielded/agent/agent-policy'
+import * as AgentRuntime from '@yielded/agent/agent-runtime'
+import { type CompactionDecision, ContextCompactor } from '@yielded/agent/context-compactor'
+import { IdGenerator } from '@yielded/agent/id-generator'
+import { RunId, ThreadId, TurnId } from '@yielded/agent/identifiers'
+import * as LanguageModel from 'effect/ai/LanguageModel'
+import * as Model from 'effect/ai/Model'
+import * as Prompt from 'effect/ai/Prompt'
+import type * as Response from 'effect/ai/Response'
+import * as Toolkit from 'effect/ai/Toolkit'
+import * as Context from 'effect/Context'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
+import * as Schema from 'effect/Schema'
+import * as Stream from 'effect/Stream'
 
-import { RunContextPreparationPassthrough } from "../../src/engine/RunOptions.ts";
-import { ThreadHistory } from "../../src/engine/ThreadHistory.ts";
+import { RunContextPreparationPassthrough } from '../../src/engine/RunOptions.ts'
+import { ThreadHistory } from '../../src/engine/ThreadHistory.ts'
 
-let threadSequence = 0;
+let threadSequence = 0
 
 const identifiers = Layer.succeed(IdGenerator, {
   nextThreadId: Effect.suspend(() =>
-    Schema.decodeEffect(ThreadId)(`input-prompt-thread-${++threadSequence}`).pipe(Effect.orDie),
+    Schema.decodeEffect(ThreadId)(`input-prompt-thread-${++threadSequence}`).pipe(Effect.orDie)
   ),
-  nextRunId: Effect.succeed(Schema.decodeSync(RunId)("input-prompt-run")),
-  nextTurnId: Effect.succeed(Schema.decodeSync(TurnId)("input-prompt-turn")),
-});
+  nextRunId: Effect.succeed(Schema.decodeSync(RunId)('input-prompt-run')),
+  nextTurnId: Effect.succeed(Schema.decodeSync(TurnId)('input-prompt-turn')),
+})
 
 const policy = AgentPolicy.make({
   maxTurns: 2,
   maxToolCalls: 1,
-  maxDuration: "5 seconds",
+  maxDuration: '5 seconds',
   toolConcurrency: 1,
-  runStatus: "off",
-});
+  runStatus: 'off',
+})
 
 const finalParts = (text: string): ReadonlyArray<Response.StreamPartEncoded> => [
-  { type: "text-start", id: "answer" },
-  { type: "text-delta", id: "answer", delta: text },
-  { type: "text-end", id: "answer" },
-  { type: "finish", reason: "stop", usage: { inputTokens: {}, outputTokens: {} } },
-];
+  { type: 'text-start', id: 'answer' },
+  { type: 'text-delta', id: 'answer', delta: text },
+  { type: 'text-end', id: 'answer' },
+  { type: 'finish', reason: 'stop', usage: { inputTokens: {}, outputTokens: {} } },
+]
 
 const captureModel = (capture: (prompt: Prompt.Prompt) => string) =>
   Model.make(
-    "scripted",
-    "input-prompt-model",
+    'scripted',
+    'input-prompt-model',
     Layer.effect(
       LanguageModel.LanguageModel,
       LanguageModel.make({
@@ -55,61 +55,61 @@ const captureModel = (capture: (prompt: Prompt.Prompt) => string) =>
         streamText: ({ prompt }) => Stream.fromIterable(finalParts(capture(prompt))),
       }),
     ),
-  );
+  )
 
 class InputPromptService extends Context.Service<InputPromptService, { readonly prefix: string }>()(
-  "@effect-agent/engine/test/InputPromptService",
+  '@effect-agent/engine/test/InputPromptService',
 ) {}
 
 const testLayer = Layer.mergeAll(
   identifiers,
   ThreadHistory.layer,
   RunContextPreparationPassthrough,
-);
+)
 
-layer(testLayer)("Agent input prompts", (it) => {
-  it.effect("projects decoded native content before context preparation and summary requests", () =>
-    Effect.gen(function* () {
-      const requests: Array<Prompt.Prompt> = [];
-      const sentinel = "HOST-ONLY-ENGINE-SENTINEL";
+layer(testLayer)('Agent input prompts', (it) => {
+  it.effect('projects decoded native content before context preparation and summary requests', () =>
+    Effect.gen(function*() {
+      const requests: Array<Prompt.Prompt> = []
+      const sentinel = 'HOST-ONLY-ENGINE-SENTINEL'
 
       const file = Prompt.filePart({
-        mediaType: "image/png",
+        mediaType: 'image/png',
         data: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
-      });
+      })
 
       const projected = Prompt.fromMessages([
-        Prompt.userMessage({ content: [Prompt.textPart({ text: "public question:2" }), file] }),
-      ]);
+        Prompt.userMessage({ content: [Prompt.textPart({ text: 'public question:2' }), file] }),
+      ])
 
       const agent = Agent.withModel(
-        Agent.make("native-input-prompt", {
+        Agent.make('native-input-prompt', {
           input: Schema.Struct({
             question: Schema.String,
             count: Schema.FiniteFromString,
             hostOnly: Schema.String,
           }),
           output: Schema.String,
-          instructions: () => Effect.succeed("Answer the public question."),
+          instructions: () => Effect.succeed('Answer the public question.'),
           inputPrompt: (input) =>
             Effect.map(InputPromptService, ({ prefix }) => {
-              expect(input.count).toBe(2);
-              expect(input.hostOnly).toBe(sentinel);
-              expect(`${prefix}${input.question}:${input.count}`).toBe("public question:2");
+              expect(input.count).toBe(2)
+              expect(input.hostOnly).toBe(sentinel)
+              expect(`${prefix}${input.question}:${input.count}`).toBe('public question:2')
 
-              return projected;
+              return projected
             }),
           toolkit: Toolkit.empty,
           policy: AgentPolicy.make({ ...policy, contextTokenLimit: 5_000 }),
         }),
         captureModel((prompt) => {
-          requests.push(prompt);
-          expect(JSON.stringify(prompt)).not.toContain(sentinel);
-          expect(prompt.content).toContainEqual(projected.content[0]);
+          requests.push(prompt)
+          expect(JSON.stringify(prompt)).not.toContain(sentinel)
+          expect(prompt.content).toContainEqual(projected.content[0])
 
-          return requests.length === 1 ? "Prior thread summary." : '"done"';
+          return requests.length === 1 ? 'Prior thread summary.' : '"done"'
         }),
-      );
+      )
 
       const compactor = Layer.succeed(
         ContextCompactor,
@@ -118,41 +118,40 @@ layer(testLayer)("Agent input prompts", (it) => {
           compact: (request) =>
             Stream.fromEffect(
               Effect.sync(() => {
-                expect(JSON.stringify(request.source)).not.toContain(sentinel);
-                expect(JSON.stringify(request.source)).toContain("context-added");
+                expect(JSON.stringify(request.source)).not.toContain(sentinel)
+                expect(JSON.stringify(request.source)).toContain('context-added')
               }).pipe(
                 Effect.andThen(request.summarize(request.source)),
                 Effect.map((summary): CompactionDecision => ({
-                  kind: "summarize",
+                  kind: 'summarize',
                   through: 1,
                   summary,
                 })),
               ),
             ),
         }),
-      );
+      )
 
       const result = yield* AgentRuntime.run(
         agent,
-        { question: "question", count: "2", hostOnly: sentinel },
+        { question: 'question', count: '2', hostOnly: sentinel },
         {
-          history: Prompt.make("old history ".repeat(2_000)),
+          history: Prompt.make('old history '.repeat(2_000)),
           context: {
             prepare: ({ source }) =>
               Effect.sync(() => {
-                expect(JSON.stringify(source)).not.toContain(sentinel);
+                expect(JSON.stringify(source)).not.toContain(sentinel)
 
-                return { prompt: Prompt.concat(source, Prompt.make("context-added")) };
+                return { prompt: Prompt.concat(source, Prompt.make('context-added')) }
               }),
           },
         },
       ).pipe(
-        Effect.provideService(InputPromptService, { prefix: "public " }),
+        Effect.provideService(InputPromptService, { prefix: 'public ' }),
         Effect.provide(compactor),
-      );
+      )
 
-      expect(result.output).toBe("done");
-      expect(requests).toHaveLength(2);
-    }),
-  );
-});
+      expect(result.output).toBe('done')
+      expect(requests).toHaveLength(2)
+    }))
+})

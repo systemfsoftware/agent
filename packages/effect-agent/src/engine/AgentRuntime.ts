@@ -1,37 +1,37 @@
-import type * as Effect from "effect/Effect";
-import type * as Scope from "effect/Scope";
-import type * as Stream from "effect/Stream";
+import type * as Effect from 'effect/Effect'
+import type * as Scope from 'effect/Scope'
+import type * as Stream from 'effect/Stream'
 
-import type * as Agent from "../core/Agent.ts";
-import type { RunEvent } from "../core/RunEvent.ts";
-import * as Internal from "./internal/agent-runtime.ts";
-import type { RunOptions } from "./RunOptions.ts";
+import type * as Agent from '../core/Agent.ts'
+import type { RunEvent } from '../core/RunEvent.ts'
+import * as Internal from './internal/agent-runtime.ts'
+import type { RunOptions } from './RunOptions.ts'
 
 /** Public AgentRuntime API. Implementation helpers remain private. */
 export {
-  AgentResultSchema,
   AgentChildPending,
-  AgentSpawner,
-  SubagentDurability,
-  SubagentDurabilityError,
-  ToolCallWaiting,
-  renderInputPrompt,
+  type AgentCompletionProjectionRequirements,
   type AgentResult,
+  AgentResultSchema,
   type AgentRuntimeFailure,
   type AgentRuntimeRequirements,
-  type AgentCompletionProjectionRequirements,
+  AgentSpawner,
   type AgentSpawnerParent,
   type AgentSpawnerService,
   type DetachedRun,
   type EngineProvidedToolServices,
+  renderInputPrompt,
   type RuntimeBinding,
   type SpawnDelegation,
   type SpawnedChildRun,
   type SpawnRunOptions,
+  SubagentDurability,
   type SubagentDurabilityDurable,
   type SubagentDurabilityEphemeral,
+  SubagentDurabilityError,
   type SubagentDurabilityService,
-} from "./internal/agent-runtime.ts";
+  ToolCallWaiting,
+} from './internal/agent-runtime.ts'
 
 /** Accept schema-encoded input, retaining runtime validation. */
 export const run: <A extends Internal.ExecutableAgent, H = never, R = never>(
@@ -42,7 +42,7 @@ export const run: <A extends Internal.ExecutableAgent, H = never, R = never>(
   Internal.AgentResult<Agent.Output<A>>,
   Internal.AgentRuntimeFailure<A, H>,
   Internal.AgentRuntimeRequirements<A, R>
-> = Internal.run;
+> = Internal.run
 
 /** Decode external input before execution. */
 export const runUnknown: <A extends Internal.ExecutableAgent, H = never, R = never>(
@@ -53,7 +53,7 @@ export const runUnknown: <A extends Internal.ExecutableAgent, H = never, R = nev
   Internal.AgentResult<Agent.Output<A>>,
   Internal.AgentRuntimeFailure<A, H>,
   Internal.AgentRuntimeRequirements<A, R>
-> = Internal.runUnknown;
+> = Internal.runUnknown
 
 /** Accept schema-encoded input, retaining runtime validation. */
 export const start: <A extends Internal.ExecutableAgent, H = never, R = never>(
@@ -64,7 +64,7 @@ export const start: <A extends Internal.ExecutableAgent, H = never, R = never>(
   Internal.DetachedRun<Agent.Output<A>, Internal.AgentRuntimeFailure<A, H>>,
   never,
   Internal.AgentRuntimeRequirements<A, R> | Scope.Scope
-> = Internal.start;
+> = Internal.start
 
 /** Decode external input before execution. */
 export const startUnknown: <A extends Internal.ExecutableAgent, H = never, R = never>(
@@ -75,7 +75,7 @@ export const startUnknown: <A extends Internal.ExecutableAgent, H = never, R = n
   Internal.DetachedRun<Agent.Output<A>, Internal.AgentRuntimeFailure<A, H>>,
   never,
   Internal.AgentRuntimeRequirements<A, R> | Scope.Scope
-> = Internal.startUnknown;
+> = Internal.startUnknown
 
 /** Accept schema-encoded input, retaining runtime validation. */
 export const stream: <A extends Internal.ExecutableAgent, H = never, R = never>(
@@ -86,7 +86,7 @@ export const stream: <A extends Internal.ExecutableAgent, H = never, R = never>(
   RunEvent,
   Internal.AgentRuntimeFailure<A, H>,
   Internal.AgentRuntimeRequirements<A, R>
-> = Internal.stream;
+> = Internal.stream
 
 /** Decode external input before execution. */
 export const streamUnknown: <A extends Internal.ExecutableAgent, H = never, R = never>(
@@ -97,4 +97,4 @@ export const streamUnknown: <A extends Internal.ExecutableAgent, H = never, R = 
   RunEvent,
   Internal.AgentRuntimeFailure<A, H>,
   Internal.AgentRuntimeRequirements<A, R>
-> = Internal.streamUnknown;
+> = Internal.streamUnknown

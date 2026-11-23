@@ -1,14 +1,14 @@
-import type * as Cause from "effect/Cause";
-import * as Effect from "effect/Effect";
-import * as Exit from "effect/Exit";
-import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
-import * as SchemaTransformation from "effect/SchemaTransformation";
-import * as SqlClient from "effect/sql/SqlClient";
-import * as SqlError from "effect/sql/SqlError";
-import type * as Statement from "effect/sql/Statement";
+import type * as Cause from 'effect/Cause'
+import * as Effect from 'effect/Effect'
+import * as Exit from 'effect/Exit'
+import * as Option from 'effect/Option'
+import * as Schema from 'effect/Schema'
+import * as SchemaTransformation from 'effect/SchemaTransformation'
+import * as SqlClient from 'effect/sql/SqlClient'
+import * as SqlError from 'effect/sql/SqlError'
+import type * as Statement from 'effect/sql/Statement'
 
-import type { SqlStorageFailpointLocation } from "./SqlStorageFailpoint.ts";
+import type { SqlStorageFailpointLocation } from './SqlStorageFailpoint.ts'
 
 /** Decode finite SQL numbers and safe native bigints without rounding integer values. */
 export const SqlNumber = Schema.Union([
@@ -27,102 +27,102 @@ export const SqlNumber = Schema.Union([
       encode: (value) => value,
     }),
   ),
-);
+)
 
 /** Apply persisted integer constraints after native numeric decoding. */
-export const SqlInteger = SqlNumber.pipe(Schema.decodeTo(Schema.Int));
+export const SqlInteger = SqlNumber.pipe(Schema.decodeTo(Schema.Int))
 
 // The Unicode flag matches code points, so valid surrogate pairs are accepted.
 const PostgresText = Schema.String.check(
-  Schema.makeFilter((value) => !value.includes("\0") && !/[\uD800-\uDFFF]/u.test(value), {
-    expected: "PostgreSQL text without NUL or unpaired UTF-16 surrogates",
+  Schema.makeFilter((value) => !value.includes('\0') && !/[\uD800-\uDFFF]/u.test(value), {
+    expected: 'PostgreSQL text without NUL or unpaired UTF-16 surrogates',
   }),
-);
+)
 
-const decodePostgresText = Schema.decodeEffect(PostgresText);
+const decodePostgresText = Schema.decodeEffect(PostgresText)
 
 /**
  * Qualify storage relations and execute native statements without application name transforms.
  * PostgreSQL validates text parameters after compilation; escaped canonical JSON stays intact.
  */
-export const makeSqlQuery = Effect.fnUntraced(function* (namespace?: string) {
-  const sql = yield* SqlClient.SqlClient;
-  const postgres = sql.onDialectOrElse({ pg: () => true, orElse: () => false });
+export const makeSqlQuery = Effect.fnUntraced(function*(namespace?: string) {
+  const sql = yield* SqlClient.SqlClient
+  const postgres = sql.onDialectOrElse({ pg: () => true, orElse: () => false })
 
-  const executePostgres = Effect.fnUntraced(function* <A extends object>(
+  const executePostgres = Effect.fnUntraced(function*<A extends object>(
     statement: Statement.Statement<A>,
   ) {
     if (postgres) {
       for (const parameter of statement.compile(true)[1]) {
-        if (typeof parameter === "string") {
+        if (typeof parameter === 'string') {
           yield* decodePostgresText(parameter).pipe(
             Effect.mapError((cause) =>
               SqlError.SqlError.make({
                 reason: SqlError.UnknownError.make({
                   cause,
-                  operation: "encode SQL parameter",
-                  message: "Storage SQL text cannot be represented in PostgreSQL.",
+                  operation: 'encode SQL parameter',
+                  message: 'Storage SQL text cannot be represented in PostgreSQL.',
                 }),
-              }),
+              })
             ),
-          );
+          )
         }
       }
     }
 
-    return yield* statement.withoutTransform;
-  });
+    return yield* statement.withoutTransform
+  })
 
   const execute = postgres
     ? executePostgres
-    : <A extends object>(statement: Statement.Statement<A>) => statement.withoutTransform;
+    : <A extends object>(statement: Statement.Statement<A>) => statement.withoutTransform
 
   return {
     table: (name: string) => sql(namespace === undefined ? name : `${namespace}.${name}`),
     execute,
-  };
-});
+  }
+})
 
 /** Adapter-owned Schema errors remain concrete in shared operation error channels. */
 export interface Diagnostic extends Cause.YieldableError {
-  readonly _tag: string;
+  readonly _tag: string
 }
 
 export interface StorageErrorFields {
-  readonly operation: string;
-  readonly message: string;
-  readonly cause?: unknown;
+  readonly operation: string
+  readonly message: string
+  readonly cause?: unknown
 }
 
 export interface CorruptionErrorFields {
-  readonly table: string;
-  readonly rowKey: string;
-  readonly message: string;
+  readonly table: string
+  readonly rowKey: string
+  readonly message: string
 }
 
 export interface SqlStorageErrors<S extends Diagnostic, C extends Diagnostic> {
-  readonly storage: (fields: StorageErrorFields) => S;
-  readonly corruption: (fields: CorruptionErrorFields) => C;
-  readonly isCorruption: (error: unknown) => error is C;
+  readonly storage: (fields: StorageErrorFields) => S
+  readonly corruption: (fields: CorruptionErrorFields) => C
+  readonly isCorruption: (error: unknown) => error is C
 }
 
 /** The adapter owns connection reservation, isolation, locking and commit/rollback. */
 export interface SqlTransactions<S extends Diagnostic, W extends Diagnostic> {
   readonly withWriteTransaction: (
     operation: string,
-  ) => <A, E, R>(body: Effect.Effect<A, E, R>) => Effect.Effect<A, E | S | W, R>;
+  ) => <A, E, R>(body: Effect.Effect<A, E, R>) => Effect.Effect<A, E | S | W, R>
   readonly withReadTransaction: (
     operation: string,
-  ) => <A, E, R>(body: Effect.Effect<A, E, R>) => Effect.Effect<A, E | S, R>;
-  readonly isTransactionFailure: (error: unknown) => error is S | W;
+  ) => <A, E, R>(body: Effect.Effect<A, E, R>) => Effect.Effect<A, E | S, R>
+  readonly isTransactionFailure: (error: unknown) => error is S | W
 }
 
 export type SqlStorageFailpoint<F extends Diagnostic> = (
   location: SqlStorageFailpointLocation,
-) => Effect.Effect<void, F>;
+) => Effect.Effect<void, F>
 
 /** Native transaction shape used by stores whose errors already belong to their ports. */
-export type SqlWriteTransaction = SqlClient.SqlClient["withTransaction"];
+export type SqlWriteTransaction = SqlClient.SqlClient['withTransaction']
 
 /**
  * Decode database rows once, preserving the adapter's corruption error class.
@@ -133,16 +133,16 @@ export const makeRowDecoder = <C extends Diagnostic>(
   corruption: (fields: CorruptionErrorFields) => C,
 ) => {
   const decodeRows = <A, I>(schema: Schema.Codec<ReadonlyArray<A>, ReadonlyArray<I>>) => {
-    const decode = Schema.decodeUnknownEffect(schema);
+    const decode = Schema.decodeUnknownEffect(schema)
 
     return (table: string, rowKey: string, rows: unknown): Effect.Effect<ReadonlyArray<A>, C> =>
       decode(rows).pipe(
         Effect.mapError((error) => corruption({ table, rowKey, message: String(error) })),
-      );
-  };
+      )
+  }
 
   const decodeSingleRow = <A, I>(schema: Schema.Codec<ReadonlyArray<A>, ReadonlyArray<I>>) => {
-    const decode = decodeRows(schema);
+    const decode = decodeRows(schema)
 
     return (table: string, rowKey: string, rows: unknown): Effect.Effect<A, C> =>
       decode(table, rowKey, rows).pipe(
@@ -150,77 +150,76 @@ export const makeRowDecoder = <C extends Diagnostic>(
           decoded.length === 1
             ? Effect.succeed(decoded[0])
             : Effect.fail(
-                corruption({
-                  table,
-                  rowKey,
-                  message: `Expected exactly one row but found ${decoded.length}.`,
-                }),
-              ),
+              corruption({
+                table,
+                rowKey,
+                message: `Expected exactly one row but found ${decoded.length}.`,
+              }),
+            )
         ),
-      );
-  };
+      )
+  }
 
-  return { decodeRows, decodeSingleRow };
-};
+  return { decodeRows, decodeSingleRow }
+}
 
 /**
  * A top-level transaction on one reserved connection. The caller selects the native locking
  * and snapshot semantics. An ambient SQL transaction fails before reserving another connection.
  */
-export const makeSqlTransaction =
-  (
-    sql: SqlClient.SqlClient,
-    options: {
-      readonly begin:
-        | "BEGIN"
-        | "BEGIN IMMEDIATE"
-        | "BEGIN ISOLATION LEVEL READ COMMITTED"
-        | "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY";
-      readonly prelude?: Effect.Effect<void, SqlError.SqlError>;
-    },
-  ): SqlWriteTransaction =>
-  <A, E, R>(body: Effect.Effect<A, E, R>) =>
-    Effect.uninterruptibleMask((restore) =>
-      Effect.scoped(
-        Effect.gen(function* () {
-          if (Option.isSome(yield* Effect.serviceOption(sql.transactionService))) {
-            return yield* SqlError.SqlError.make({
-              reason: SqlError.UnknownError.make({
-                cause: undefined,
-                operation: "begin storage transaction",
-                message: "Storage transactions cannot run inside an existing SQL transaction.",
-              }),
-            });
-          }
-          const connection = yield* restore(sql.reserve);
+export const makeSqlTransaction = (
+  sql: SqlClient.SqlClient,
+  options: {
+    readonly begin:
+      | 'BEGIN'
+      | 'BEGIN IMMEDIATE'
+      | 'BEGIN ISOLATION LEVEL READ COMMITTED'
+      | 'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY'
+    readonly prelude?: Effect.Effect<void, SqlError.SqlError>
+  },
+): SqlWriteTransaction =>
+<A, E, R>(body: Effect.Effect<A, E, R>) =>
+  Effect.uninterruptibleMask((restore) =>
+    Effect.scoped(
+      Effect.gen(function*() {
+        if (Option.isSome(yield* Effect.serviceOption(sql.transactionService))) {
+          return yield* SqlError.SqlError.make({
+            reason: SqlError.UnknownError.make({
+              cause: undefined,
+              operation: 'begin storage transaction',
+              message: 'Storage transactions cannot run inside an existing SQL transaction.',
+            }),
+          })
+        }
+        const connection = yield* restore(sql.reserve)
 
-          yield* connection.executeUnprepared(options.begin, [], undefined);
+        yield* connection.executeUnprepared(options.begin, [], undefined)
 
-          const exit = yield* restore(
-            Effect.provideService(
-              Effect.andThen(options.prelude ?? Effect.void, body),
-              sql.transactionService,
-              [connection, 0] as const,
-            ),
-          ).pipe(Effect.exit);
+        const exit = yield* restore(
+          Effect.provideService(
+            Effect.andThen(options.prelude ?? Effect.void, body),
+            sql.transactionService,
+            [connection, 0] as const,
+          ),
+        ).pipe(Effect.exit)
 
-          if (Exit.isFailure(exit)) {
-            yield* Effect.orDie(connection.executeUnprepared("ROLLBACK", [], undefined));
+        if (Exit.isFailure(exit)) {
+          yield* Effect.orDie(connection.executeUnprepared('ROLLBACK', [], undefined))
 
-            return yield* exit;
-          }
+          return yield* exit
+        }
 
-          const committed = yield* connection
-            .executeUnprepared("COMMIT", [], undefined)
-            .pipe(Effect.exit);
+        const committed = yield* connection
+          .executeUnprepared('COMMIT', [], undefined)
+          .pipe(Effect.exit)
 
-          if (Exit.isFailure(committed)) {
-            yield* Effect.orDie(connection.executeUnprepared("ROLLBACK", [], undefined));
+        if (Exit.isFailure(committed)) {
+          yield* Effect.orDie(connection.executeUnprepared('ROLLBACK', [], undefined))
 
-            return yield* Effect.failCause(committed.cause);
-          }
+          return yield* Effect.failCause(committed.cause)
+        }
 
-          return exit.value;
-        }),
-      ),
-    );
+        return exit.value
+      }),
+    )
+  )

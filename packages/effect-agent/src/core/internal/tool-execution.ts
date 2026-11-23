@@ -1,5 +1,5 @@
-import type * as Tool from "effect/ai/Tool";
-import * as Context from "effect/Context";
+import type * as Tool from 'effect/ai/Tool'
+import * as Context from 'effect/Context'
 
 /**
  * Declared external execution class of one Tool, used by the durable runtime
@@ -13,7 +13,7 @@ import * as Context from "effect/Context";
  * - `"uncertain"`: no external contract is declared. Prepared/settled records
  *   are written and recovery must reconcile or record an Unknown Outcome.
  */
-export type ToolExecutionClassValue = "readonly" | "idempotent" | "uncertain";
+export type ToolExecutionClassValue = 'readonly' | 'idempotent' | 'uncertain'
 
 /**
  * Effect AI Tool annotation key declaring a Tool's execution class, applied
@@ -24,10 +24,10 @@ export type ToolExecutionClassValue = "readonly" | "idempotent" | "uncertain";
  * from a Tool's shape.
  */
 export const ToolExecutionClass = Context.Reference<ToolExecutionClassValue>(
-  "@effect-agent/engine/ToolExecutionClass",
-  { defaultValue: () => "uncertain" },
-);
+  '@effect-agent/engine/ToolExecutionClass',
+  { defaultValue: () => 'uncertain' },
+)
 
 /** Read a Tool's declared execution class, falling back to the fail-closed `"uncertain"` default. */
 export const getToolExecutionClass = (tool: Tool.Any): ToolExecutionClassValue =>
-  Context.get(tool.annotations, ToolExecutionClass);
+  Context.get(tool.annotations, ToolExecutionClass)

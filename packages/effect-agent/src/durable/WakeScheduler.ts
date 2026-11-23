@@ -1,11 +1,11 @@
-import * as Context from "effect/Context";
-import * as Deferred from "effect/Deferred";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import type * as Scope from "effect/Scope";
-import * as Stream from "effect/Stream";
+import * as Context from 'effect/Context'
+import * as Deferred from 'effect/Deferred'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
+import type * as Scope from 'effect/Scope'
+import * as Stream from 'effect/Stream'
 
-import { type ThreadId } from "../core/Identifiers.ts";
+import { type ThreadId } from '../core/Identifiers.ts'
 
 /**
  * Incarnation-local, thread-keyed wake registrations. A registration is installed before
@@ -16,9 +16,9 @@ export interface WakeSubscriptionHub {
   /** Register one Scope-owned waiter and return its one-shot wake Effect. */
   readonly subscribe: (
     threadId: ThreadId,
-  ) => Effect.Effect<Effect.Effect<void>, never, Scope.Scope>;
+  ) => Effect.Effect<Effect.Effect<void>, never, Scope.Scope>
   /** Wake every currently registered waiter for exactly this Thread. */
-  readonly notify: (threadId: ThreadId) => Effect.Effect<void>;
+  readonly notify: (threadId: ThreadId) => Effect.Effect<void>
 }
 
 /**
@@ -28,42 +28,42 @@ export interface WakeSubscriptionHub {
  * instead of consuming a signal that belongs to another waiter.
  */
 export const makeWakeSubscriptionHub: Effect.Effect<WakeSubscriptionHub> = Effect.sync(() => {
-  const registrations = new Map<ThreadId, Set<Deferred.Deferred<void>>>();
+  const registrations = new Map<ThreadId, Set<Deferred.Deferred<void>>>()
 
   const subscribe = (threadId: ThreadId) =>
     Effect.acquireRelease(
       Effect.sync(() => {
-        const deferred = Deferred.makeUnsafe<void>();
-        let waiters = registrations.get(threadId);
+        const deferred = Deferred.makeUnsafe<void>()
+        let waiters = registrations.get(threadId)
 
         if (waiters === undefined) {
-          waiters = new Set();
-          registrations.set(threadId, waiters);
+          waiters = new Set()
+          registrations.set(threadId, waiters)
         }
-        waiters.add(deferred);
+        waiters.add(deferred)
 
-        return deferred;
+        return deferred
       }),
       (deferred) =>
         Effect.sync(() => {
-          const waiters = registrations.get(threadId);
+          const waiters = registrations.get(threadId)
 
-          if (waiters?.delete(deferred) && waiters.size === 0) registrations.delete(threadId);
+          if (waiters?.delete(deferred) && waiters.size === 0) registrations.delete(threadId)
         }),
-    ).pipe(Effect.map(Deferred.await));
+    ).pipe(Effect.map(Deferred.await))
 
   const notify = (threadId: ThreadId) =>
     Effect.sync(() => {
-      const waiters = registrations.get(threadId);
+      const waiters = registrations.get(threadId)
 
-      if (waiters === undefined) return;
+      if (waiters === undefined) return
       // Detach before resuming: a resumed waiter may register its next wait immediately.
-      registrations.delete(threadId);
-      for (const waiter of waiters) Deferred.doneUnsafe(waiter, Effect.void);
-    });
+      registrations.delete(threadId)
+      for (const waiter of waiters) Deferred.doneUnsafe(waiter, Effect.void)
+    })
 
-  return { subscribe, notify };
-});
+  return { subscribe, notify }
+})
 
 /**
  * Liveness hint channel for durable schedulers. `notify` announces that a Thread lane may
@@ -95,24 +95,24 @@ export class WakeScheduler extends Context.Service<
     readonly withProcessing?: <A, E, R>(
       threadId: ThreadId,
       body: Effect.Effect<A, E, R>,
-    ) => Effect.Effect<A, E, R>;
+    ) => Effect.Effect<A, E, R>
     /**
      * Best-effort hint to workers and all Thread waiters. `progress` may omit settlement waiters,
      * but still reaches workers and progress waiters. Never fails.
      */
-    readonly notify: (threadId: ThreadId, kind?: "progress") => Effect.Effect<void>;
+    readonly notify: (threadId: ThreadId, kind?: 'progress') => Effect.Effect<void>
     /**
      * Scope-owned one-shot registration for exactly one Thread. `settlement` prefers broad hints;
      * conservative adapters may also deliver progress. Every hint still requires an authority read.
      */
     readonly subscribe: (
       threadId: ThreadId,
-      kind?: "settlement",
-    ) => Effect.Effect<Effect.Effect<void>, never, Scope.Scope>;
+      kind?: 'settlement',
+    ) => Effect.Effect<Effect.Effect<void>, never, Scope.Scope>
     /** Scope-owned subscription to wake hints, starting at subscription time. */
-    readonly wakes: Stream.Stream<ThreadId>;
+    readonly wakes: Stream.Stream<ThreadId>
   }
->()("@effect-agent/thread/WakeScheduler") {
+>()('@effect-agent/thread/WakeScheduler') {
   /**
    * Discards every notification and never wakes anyone. Valid because WakeScheduler is only a
    * liveness hint: consumers relying on ledger scans stay correct, merely slower.
@@ -121,5 +121,5 @@ export class WakeScheduler extends Context.Service<
     notify: () => Effect.void,
     subscribe: () => Effect.succeed(Effect.never),
     wakes: Stream.never,
-  });
+  })
 }

@@ -1,31 +1,28 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect, it } from '@effect/vitest'
 
-import {
-  inspectForeignDiagnostic,
-  safeUnknownString,
-} from "../../src/durable/internal/foreign-diagnostic.ts";
+import { inspectForeignDiagnostic, safeUnknownString } from '../../src/durable/internal/foreign-diagnostic.ts'
 
-describe("foreign failure diagnostics", () => {
-  it("keeps hostile getters, proxies, and coercion hooks total", () => {
+describe('foreign failure diagnostics', () => {
+  it('keeps hostile getters, proxies, and coercion hooks total', () => {
     const hostile = new Proxy(Object.create(null), {
       get() {
-        throw new Error("getter escaped");
+        throw new Error('getter escaped')
       },
       getOwnPropertyDescriptor() {
-        throw new Error("descriptor escaped");
+        throw new Error('descriptor escaped')
       },
       ownKeys() {
-        throw new Error("keys escaped");
+        throw new Error('keys escaped')
       },
-    });
+    })
 
     const hostileCoercion = {
       [Symbol.toPrimitive]() {
-        throw new Error("coercion escaped");
+        throw new Error('coercion escaped')
       },
-    };
+    }
 
-    expect(inspectForeignDiagnostic(hostile)).toEqual({});
-    expect(safeUnknownString(hostileCoercion, "fallback")).toBe("fallback");
-  });
-});
+    expect(inspectForeignDiagnostic(hostile)).toEqual({})
+    expect(safeUnknownString(hostileCoercion, 'fallback')).toBe('fallback')
+  })
+})

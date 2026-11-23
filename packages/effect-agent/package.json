@@ -129,26 +129,479 @@
     "./tool-results": "./src/capabilities/ToolResults.ts"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "./activity-store": {
+        "types": "./dist/durable/ActivityStore.d.mts",
+        "default": "./dist/durable/ActivityStore.mjs"
+      },
+      "./admin": {
+        "types": "./dist/durable/Admin.d.mts",
+        "default": "./dist/durable/Admin.mjs"
+      },
+      "./agent": {
+        "types": "./dist/core/Agent.d.mts",
+        "default": "./dist/core/Agent.mjs"
+      },
+      "./agent-error": {
+        "types": "./dist/core/AgentError.d.mts",
+        "default": "./dist/core/AgentError.mjs"
+      },
+      "./agent-policy": {
+        "types": "./dist/core/AgentPolicy.d.mts",
+        "default": "./dist/core/AgentPolicy.mjs"
+      },
+      "./agent-registration": {
+        "types": "./dist/durable/AgentRegistration.d.mts",
+        "default": "./dist/durable/AgentRegistration.mjs"
+      },
+      "./agent-runtime": {
+        "types": "./dist/engine/AgentRuntime.d.mts",
+        "default": "./dist/engine/AgentRuntime.mjs"
+      },
+      "./agent-updates": {
+        "types": "./dist/core/AgentUpdates.d.mts",
+        "default": "./dist/core/AgentUpdates.mjs"
+      },
+      "./browser-use": {
+        "types": "./dist/capabilities/BrowserUse.d.mts",
+        "default": "./dist/capabilities/BrowserUse.mjs"
+      },
+      "./budget": {
+        "types": "./dist/capabilities/Budget.d.mts",
+        "default": "./dist/capabilities/Budget.mjs"
+      },
+      "./code-executor": {
+        "types": "./dist/sandbox/CodeExecutor.d.mts",
+        "default": "./dist/sandbox/CodeExecutor.mjs"
+      },
+      "./code-mode": {
+        "types": "./dist/capabilities/CodeMode.d.mts",
+        "default": "./dist/capabilities/CodeMode.mjs"
+      },
+      "./committed-activity": {
+        "types": "./dist/durable/CommittedActivity.d.mts",
+        "default": "./dist/durable/CommittedActivity.mjs"
+      },
+      "./compaction": {
+        "types": "./dist/engine/Compaction.d.mts",
+        "default": "./dist/engine/Compaction.mjs"
+      },
+      "./context-compactor": {
+        "types": "./dist/engine/ContextCompactor.d.mts",
+        "default": "./dist/engine/ContextCompactor.mjs"
+      },
+      "./context-history": {
+        "types": "./dist/engine/ContextHistory.d.mts",
+        "default": "./dist/engine/ContextHistory.mjs"
+      },
+      "./context-tools": {
+        "types": "./dist/capabilities/ContextTools.d.mts",
+        "default": "./dist/capabilities/ContextTools.mjs"
+      },
+      "./context-window": {
+        "types": "./dist/engine/ContextWindow.d.mts",
+        "default": "./dist/engine/ContextWindow.mjs"
+      },
+      "./digest": {
+        "types": "./dist/durable/Digest.d.mts",
+        "default": "./dist/durable/Digest.mjs"
+      },
+      "./durable-agent-runtime": {
+        "types": "./dist/durable/DurableAgentRuntime.d.mts",
+        "default": "./dist/durable/DurableAgentRuntime.mjs"
+      },
+      "./durable-failpoint": {
+        "types": "./dist/durable/DurableFailpoint.d.mts",
+        "default": "./dist/durable/DurableFailpoint.mjs"
+      },
+      "./durable-step": {
+        "types": "./dist/engine/DurableStep.d.mts",
+        "default": "./dist/engine/DurableStep.mjs"
+      },
+      "./event-source": {
+        "types": "./dist/durable/EventSource.d.mts",
+        "default": "./dist/durable/EventSource.mjs"
+      },
+      "./failure-diagnostic": {
+        "types": "./dist/core/FailureDiagnostic.d.mts",
+        "default": "./dist/core/FailureDiagnostic.mjs"
+      },
+      "./id-generator": {
+        "types": "./dist/core/IdGenerator.d.mts",
+        "default": "./dist/core/IdGenerator.mjs"
+      },
+      "./identifiers": {
+        "types": "./dist/core/Identifiers.d.mts",
+        "default": "./dist/core/Identifiers.mjs"
+      },
+      "./in-memory": {
+        "types": "./dist/InMemory.d.mts",
+        "default": "./dist/InMemory.mjs"
+      },
+      "./interactive-browser": {
+        "types": "./dist/sandbox/InteractiveBrowser.d.mts",
+        "default": "./dist/sandbox/InteractiveBrowser.mjs"
+      },
+      "./memory": {
+        "types": "./dist/core/Memory.d.mts",
+        "default": "./dist/core/Memory.mjs"
+      },
+      "./memory-namespace": {
+        "types": "./dist/core/MemoryNamespace.d.mts",
+        "default": "./dist/core/MemoryNamespace.mjs"
+      },
+      "./memory-notes": {
+        "types": "./dist/capabilities/MemoryNotes.d.mts",
+        "default": "./dist/capabilities/MemoryNotes.mjs"
+      },
+      "./memory-reference": {
+        "types": "./dist/core/MemoryReference.d.mts",
+        "default": "./dist/core/MemoryReference.mjs"
+      },
+      "./memory-revalidation": {
+        "types": "./dist/core/MemoryRevalidation.d.mts",
+        "default": "./dist/core/MemoryRevalidation.mjs"
+      },
+      "./memory-store": {
+        "types": "./dist/core/MemoryStore.d.mts",
+        "default": "./dist/core/MemoryStore.mjs"
+      },
+      "./message-delivery": {
+        "types": "./dist/durable/MessageDelivery.d.mts",
+        "default": "./dist/durable/MessageDelivery.mjs"
+      },
+      "./messaging": {
+        "types": "./dist/capabilities/Messaging.d.mts",
+        "default": "./dist/capabilities/Messaging.mjs"
+      },
+      "./messaging-host": {
+        "types": "./dist/engine/MessagingHost.d.mts",
+        "default": "./dist/engine/MessagingHost.mjs"
+      },
+      "./operation-authorizer": {
+        "types": "./dist/durable/OperationAuthorizer.d.mts",
+        "default": "./dist/durable/OperationAuthorizer.mjs"
+      },
+      "./output": {
+        "types": "./dist/engine/Output.d.mts",
+        "default": "./dist/engine/Output.mjs"
+      },
+      "./page-capture": {
+        "types": "./dist/sandbox/PageCapture.d.mts",
+        "default": "./dist/sandbox/PageCapture.mjs"
+      },
+      "./page-screenshot": {
+        "types": "./dist/sandbox/PageScreenshot.d.mts",
+        "default": "./dist/sandbox/PageScreenshot.mjs"
+      },
+      "./persistent-history": {
+        "types": "./dist/durable/PersistentHistory.d.mts",
+        "default": "./dist/durable/PersistentHistory.mjs"
+      },
+      "./prepared-input-admission": {
+        "types": "./dist/durable/PreparedInputAdmission.d.mts",
+        "default": "./dist/durable/PreparedInputAdmission.mjs"
+      },
+      "./provisional-text": {
+        "types": "./dist/core/ProvisionalText.d.mts",
+        "default": "./dist/core/ProvisionalText.mjs"
+      },
+      "./receipt": {
+        "types": "./dist/core/Receipt.d.mts",
+        "default": "./dist/core/Receipt.mjs"
+      },
+      "./records": {
+        "types": "./dist/durable/Records.d.mts",
+        "default": "./dist/durable/Records.mjs"
+      },
+      "./recovery": {
+        "types": "./dist/durable/Recovery.d.mts",
+        "default": "./dist/durable/Recovery.mjs"
+      },
+      "./redaction": {
+        "types": "./dist/capabilities/Redaction.d.mts",
+        "default": "./dist/capabilities/Redaction.mjs"
+      },
+      "./remembering-store": {
+        "types": "./dist/core/RememberingStore.d.mts",
+        "default": "./dist/core/RememberingStore.mjs"
+      },
+      "./run-event": {
+        "types": "./dist/core/RunEvent.d.mts",
+        "default": "./dist/core/RunEvent.mjs"
+      },
+      "./run-event-sink": {
+        "types": "./dist/engine/RunEventSink.d.mts",
+        "default": "./dist/engine/RunEventSink.mjs"
+      },
+      "./run-hooks": {
+        "types": "./dist/capabilities/RunHooks.d.mts",
+        "default": "./dist/capabilities/RunHooks.mjs"
+      },
+      "./run-journal": {
+        "types": "./dist/durable/RunJournal.d.mts",
+        "default": "./dist/durable/RunJournal.mjs"
+      },
+      "./run-continuation": {
+        "types": "./dist/durable/RunContinuation.d.mts",
+        "default": "./dist/durable/RunContinuation.mjs"
+      },
+      "./thread-work": {
+        "types": "./dist/durable/ThreadWork.d.mts",
+        "default": "./dist/durable/ThreadWork.mjs"
+      },
+      "./run-options": {
+        "types": "./dist/engine/RunOptions.d.mts",
+        "default": "./dist/engine/RunOptions.mjs"
+      },
+      "./run-policy-usage": {
+        "types": "./dist/core/RunPolicyUsage.d.mts",
+        "default": "./dist/core/RunPolicyUsage.mjs"
+      },
+      "./run-storage": {
+        "types": "./dist/durable/RunStorage.d.mts",
+        "default": "./dist/durable/RunStorage.mjs"
+      },
+      "./sandbox": {
+        "types": "./dist/sandbox/Sandbox.d.mts",
+        "default": "./dist/sandbox/Sandbox.mjs"
+      },
+      "./schedule": {
+        "types": "./dist/durable/Schedule.d.mts",
+        "default": "./dist/durable/Schedule.mjs"
+      },
+      "./schedule-transition": {
+        "types": "./dist/durable/ScheduleTransition.d.mts",
+        "default": "./dist/durable/ScheduleTransition.mjs"
+      },
+      "./scheduling": {
+        "types": "./dist/durable/Scheduling.d.mts",
+        "default": "./dist/durable/Scheduling.mjs"
+      },
+      "./semantic-memory": {
+        "types": "./dist/capabilities/SemanticMemory.d.mts",
+        "default": "./dist/capabilities/SemanticMemory.mjs"
+      },
+      "./semantic-memory-index": {
+        "types": "./dist/core/SemanticMemoryIndex.d.mts",
+        "default": "./dist/core/SemanticMemoryIndex.mjs"
+      },
+      "./semantic-memory-revalidation": {
+        "types": "./dist/core/SemanticMemoryRevalidation.d.mts",
+        "default": "./dist/core/SemanticMemoryRevalidation.mjs"
+      },
+      "./settlement-publisher": {
+        "types": "./dist/durable/SettlementPublisher.d.mts",
+        "default": "./dist/durable/SettlementPublisher.mjs"
+      },
+      "./sql-memory-store": {
+        "types": "./dist/durable/SqlMemoryStore.d.mts",
+        "default": "./dist/durable/SqlMemoryStore.mjs"
+      },
+      "./sql-storage-owner": {
+        "types": "./dist/durable/SqlStorageOwner.d.mts",
+        "default": "./dist/durable/SqlStorageOwner.mjs"
+      },
+      "./subagent": {
+        "types": "./dist/capabilities/Subagent.d.mts",
+        "default": "./dist/capabilities/Subagent.mjs"
+      },
+      "./subagent-contract": {
+        "types": "./dist/core/SubagentContract.d.mts",
+        "default": "./dist/core/SubagentContract.mjs"
+      },
+      "./subagent-host": {
+        "types": "./dist/engine/SubagentHost.d.mts",
+        "default": "./dist/engine/SubagentHost.mjs"
+      },
+      "./subagent-reservations": {
+        "types": "./dist/capabilities/SubagentReservations.d.mts",
+        "default": "./dist/capabilities/SubagentReservations.mjs"
+      },
+      "./submission-ledger": {
+        "types": "./dist/durable/SubmissionLedger.d.mts",
+        "default": "./dist/durable/SubmissionLedger.mjs"
+      },
+      "./submission-status": {
+        "types": "./dist/durable/SubmissionStatus.d.mts",
+        "default": "./dist/durable/SubmissionStatus.mjs"
+      },
+      "./subscription": {
+        "types": "./dist/durable/Subscription.d.mts",
+        "default": "./dist/durable/Subscription.mjs"
+      },
+      "./subscription-input": {
+        "types": "./dist/durable/SubscriptionInput.d.mts",
+        "default": "./dist/durable/SubscriptionInput.mjs"
+      },
+      "./subscription-transition": {
+        "types": "./dist/durable/SubscriptionTransition.d.mts",
+        "default": "./dist/durable/SubscriptionTransition.mjs"
+      },
+      "./subscriptions": {
+        "types": "./dist/durable/Subscriptions.d.mts",
+        "default": "./dist/durable/Subscriptions.mjs"
+      },
+      "./testing/durable-failpoint-test-control": {
+        "types": "./dist/durable/DurableFailpointTestControl.d.mts",
+        "default": "./dist/durable/DurableFailpointTestControl.mjs"
+      },
+      "./testing/message-delivery-store-conformance": {
+        "types": "./dist/durable/MessageDeliveryStoreConformance.d.mts",
+        "default": "./dist/durable/MessageDeliveryStoreConformance.mjs"
+      },
+      "./testing/schedule-store-conformance": {
+        "types": "./dist/durable/ScheduleStoreConformance.d.mts",
+        "default": "./dist/durable/ScheduleStoreConformance.mjs"
+      },
+      "./testing/submission-ledger-conformance": {
+        "types": "./dist/durable/SubmissionLedgerConformance.d.mts",
+        "default": "./dist/durable/SubmissionLedgerConformance.mjs"
+      },
+      "./testing/subscription-store-conformance": {
+        "types": "./dist/durable/SubscriptionStoreConformance.d.mts",
+        "default": "./dist/durable/SubscriptionStoreConformance.mjs"
+      },
+      "./testing/thread-store-conformance": {
+        "types": "./dist/durable/ThreadStoreConformance.d.mts",
+        "default": "./dist/durable/ThreadStoreConformance.mjs"
+      },
+      "./thread": {
+        "types": "./dist/core/Thread.d.mts",
+        "default": "./dist/core/Thread.mjs"
+      },
+      "./thread-context-history": {
+        "types": "./dist/durable/ThreadContextHistory.d.mts",
+        "default": "./dist/durable/ThreadContextHistory.mjs"
+      },
+      "./thread-context-history-projection": {
+        "types": "./dist/durable/ThreadContextHistoryProjection.d.mts",
+        "default": "./dist/durable/ThreadContextHistoryProjection.mjs"
+      },
+      "./thread-history": {
+        "types": "./dist/engine/ThreadHistory.d.mts",
+        "default": "./dist/engine/ThreadHistory.mjs"
+      },
+      "./thread-invariants": {
+        "types": "./dist/durable/ThreadInvariants.d.mts",
+        "default": "./dist/durable/ThreadInvariants.mjs"
+      },
+      "./thread-projection-maintenance": {
+        "types": "./dist/durable/ThreadProjectionMaintenance.d.mts",
+        "default": "./dist/durable/ThreadProjectionMaintenance.mjs"
+      },
+      "./thread-reader": {
+        "types": "./dist/durable/ThreadReader.d.mts",
+        "default": "./dist/durable/ThreadReader.mjs"
+      },
+      "./thread-store": {
+        "types": "./dist/durable/ThreadStore.d.mts",
+        "default": "./dist/durable/ThreadStore.mjs"
+      },
+      "./tool-broker": {
+        "types": "./dist/engine/ToolBroker.d.mts",
+        "default": "./dist/engine/ToolBroker.mjs"
+      },
+      "./tool-discovery": {
+        "types": "./dist/capabilities/ToolDiscovery.d.mts",
+        "default": "./dist/capabilities/ToolDiscovery.mjs"
+      },
+      "./tool-exposure": {
+        "types": "./dist/ToolExposure.d.mts",
+        "default": "./dist/ToolExposure.mjs"
+      },
+      "./tool-reconciler": {
+        "types": "./dist/durable/ToolReconciler.d.mts",
+        "default": "./dist/durable/ToolReconciler.mjs"
+      },
+      "./tool-result": {
+        "types": "./dist/core/ToolResult.d.mts",
+        "default": "./dist/core/ToolResult.mjs"
+      },
+      "./usage": {
+        "types": "./dist/core/Usage.d.mts",
+        "default": "./dist/core/Usage.mjs"
+      },
+      "./wake-scheduler": {
+        "types": "./dist/durable/WakeScheduler.d.mts",
+        "default": "./dist/durable/WakeScheduler.mjs"
+      },
+      "./web-capture": {
+        "types": "./dist/capabilities/WebCapture.d.mts",
+        "default": "./dist/capabilities/WebCapture.mjs"
+      },
+      "./web-search": {
+        "types": "./dist/capabilities/WebSearch.d.mts",
+        "default": "./dist/capabilities/WebSearch.mjs"
+      },
+      "./worker": {
+        "types": "./dist/core/Worker.d.mts",
+        "default": "./dist/core/Worker.mjs"
+      },
+      "./worker-admission": {
+        "types": "./dist/durable/WorkerAdmission.d.mts",
+        "default": "./dist/durable/WorkerAdmission.mjs"
+      },
+      "./worker-host": {
+        "types": "./dist/durable/WorkerHost.d.mts",
+        "default": "./dist/durable/WorkerHost.mjs"
+      },
+      "./lifecycle-publication": {
+        "types": "./dist/durable/LifecyclePublication.d.mts",
+        "default": "./dist/durable/LifecyclePublication.mjs"
+      },
+      "./record-format": {
+        "types": "./dist/durable/RecordFormat.d.mts",
+        "default": "./dist/durable/RecordFormat.mjs"
+      },
+      "./thread-import": {
+        "types": "./dist/durable/ThreadImport.d.mts",
+        "default": "./dist/durable/ThreadImport.mjs"
+      },
+      "./thread-archive-range": {
+        "types": "./dist/durable/ThreadArchiveRange.d.mts",
+        "default": "./dist/durable/ThreadArchiveRange.mjs"
+      },
+      "./thread-transfer": {
+        "types": "./dist/durable/ThreadTransfer.d.mts",
+        "default": "./dist/durable/ThreadTransfer.mjs"
+      },
+      "./tool-result-storage": {
+        "types": "./dist/core/ToolResultStorage.d.mts",
+        "default": "./dist/core/ToolResultStorage.mjs"
+      },
+      "./tool-results": {
+        "types": "./dist/capabilities/ToolResults.d.mts",
+        "default": "./dist/capabilities/ToolResults.mjs"
+      }
+    }
   },
   "scripts": {
-    "build": "vp pack",
-    "check": "effect-tsgo tsrs --noEmit -p tsconfig.json",
-    "test": "vp test --passWithNoTests"
+    "build": "tsdown",
+    "typecheck": "effect-tsgo tsrs --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "check:pack": "pnpm pack --pack-destination .pack && attw .pack/*.tgz --profile esm-only; s=$?; rm -rf .pack; exit $s"
   },
   "dependencies": {
     "image-dimensions": "catalog:"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "catalog:",
+    "@effect/ai-anthropic": "catalog:",
+    "@effect/ai-openai": "catalog:",
     "@effect/platform-node": "catalog:",
     "@effect/vitest": "catalog:",
     "effect": "catalog:",
+    "tsdown": "catalog:",
     "typescript": "catalog:",
-    "vite": "catalog:",
-    "vite-plus": "catalog:",
     "vitest": "catalog:"
   },
   "peerDependencies": {
-    "effect": "^4.1.0"
+    "effect": "^4.1.4"
   }
 }

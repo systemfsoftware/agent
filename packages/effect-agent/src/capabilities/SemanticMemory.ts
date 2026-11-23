@@ -1,35 +1,35 @@
-import * as EmbeddingModel from "effect/ai/EmbeddingModel";
-import * as Clock from "effect/Clock";
-import * as CryptoDigest from "effect/crypto/Digest";
-import * as Effect from "effect/Effect";
-import * as Hex from "effect/encoding/Hex";
-import * as Schema from "effect/Schema";
+import * as EmbeddingModel from 'effect/ai/EmbeddingModel'
+import * as Clock from 'effect/Clock'
+import * as CryptoDigest from 'effect/crypto/Digest'
+import * as Effect from 'effect/Effect'
+import * as Hex from 'effect/encoding/Hex'
+import * as Schema from 'effect/Schema'
 
-import { readMemoryDocument } from "../core/internal/memory-document.ts";
-import { utf8ByteLength, utf8Bytes } from "../core/internal/utf8.ts";
-import type * as MemoryNamespace from "../core/MemoryNamespace.ts";
-import { MemoryLookup } from "../core/MemoryReference.ts";
-import { MemoryAccess } from "../core/MemoryRevalidation.ts";
-import type { MemoryDocument } from "../core/MemoryStore.ts";
-import { MemoryKey } from "../core/MemoryStore.ts";
+import { readMemoryDocument } from '../core/internal/memory-document.ts'
+import { utf8ByteLength, utf8Bytes } from '../core/internal/utf8.ts'
+import type * as MemoryNamespace from '../core/MemoryNamespace.ts'
+import { MemoryLookup } from '../core/MemoryReference.ts'
+import { MemoryAccess } from '../core/MemoryRevalidation.ts'
+import type { MemoryDocument } from '../core/MemoryStore.ts'
+import { MemoryKey } from '../core/MemoryStore.ts'
 import {
   MemoryIndexQuery,
   MemoryIndexSource,
   SemanticMemoryChunk,
   SemanticMemoryIndex,
   SemanticMemoryProfile,
-} from "../core/SemanticMemoryIndex.ts";
+} from '../core/SemanticMemoryIndex.ts'
 import {
-  SemanticMemoryError,
-  SemanticCandidateLimits,
   revalidateSemanticMemoryCandidates,
-} from "../core/SemanticMemoryRevalidation.ts";
+  SemanticCandidateLimits,
+  SemanticMemoryError,
+} from '../core/SemanticMemoryRevalidation.ts'
 
-const Timestamp = Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0));
-const InputTokens = Schema.NullOr(Schema.Natural);
+const Timestamp = Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0))
+const InputTokens = Schema.NullOr(Schema.Natural)
 
 export class SemanticIndexLimits extends Schema.Class<SemanticIndexLimits>(
-  "@effect-agent/capabilities/SemanticIndexLimits",
+  '@effect-agent/capabilities/SemanticIndexLimits',
 )({
   maxSourceBytes: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 4_194_304 })),
   maxChunks: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 256 })),
@@ -37,7 +37,7 @@ export class SemanticIndexLimits extends Schema.Class<SemanticIndexLimits>(
 }) {}
 
 export class SemanticQueryLimits extends Schema.Class<SemanticQueryLimits>(
-  "@effect-agent/capabilities/SemanticQueryLimits",
+  '@effect-agent/capabilities/SemanticQueryLimits',
 )({
   maxQueryBytes: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 65_536 })),
   maxCandidates: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 128 })),
@@ -53,10 +53,10 @@ export class SemanticQueryLimits extends Schema.Class<SemanticQueryLimits>(
 }) {}
 
 class SemanticIndexResultWire extends Schema.Class<SemanticIndexResultWire>(
-  "@effect-agent/capabilities/SemanticIndexResult",
+  '@effect-agent/capabilities/SemanticIndexResult',
 )({
   key: MemoryKey.Wire,
-  status: Schema.Literals(["Missing", "Withdrawn", "Indexed"]),
+  status: Schema.Literals(['Missing', 'Withdrawn', 'Indexed']),
   embeddedChunks: Schema.Natural,
   embeddedBytes: Schema.Natural,
   inputTokens: InputTokens,
@@ -64,10 +64,12 @@ class SemanticIndexResultWire extends Schema.Class<SemanticIndexResultWire>(
   finishedAt: Timestamp,
 }) {}
 
-export type SemanticIndexResult<Namespace extends MemoryNamespace.Any = MemoryNamespace.Any> = Omit<
-  SemanticIndexResultWire,
-  "key"
-> & { readonly key: MemoryKey<Namespace> };
+export type SemanticIndexResult<Namespace extends MemoryNamespace.Any = MemoryNamespace.Any> =
+  & Omit<
+    SemanticIndexResultWire,
+    'key'
+  >
+  & { readonly key: MemoryKey<Namespace> }
 
 export const SemanticIndexResult = {
   Wire: SemanticIndexResultWire,
@@ -77,11 +79,11 @@ export const SemanticIndexResult = {
     Object.assign(Schema.decodeUnknownSync(SemanticIndexResultWire)(fields), {
       key: MemoryKey.make(fields.key),
     }),
-};
+}
 
 /** Candidates have already passed current-source checks; compose lookup with Memory.recall. */
 export class SemanticQueryResult extends Schema.Class<SemanticQueryResult>(
-  "@effect-agent/capabilities/SemanticQueryResult",
+  '@effect-agent/capabilities/SemanticQueryResult',
 )({
   lookup: MemoryLookup,
   scannedChunks: Schema.Natural,
@@ -93,15 +95,14 @@ export class SemanticQueryResult extends Schema.Class<SemanticQueryResult>(
   finishedAt: Timestamp,
 }) {}
 
-const invalid = (operation: string) =>
-  SemanticMemoryError.make({ operation, reason: "invalid-input" });
+const invalid = (operation: string) => SemanticMemoryError.make({ operation, reason: 'invalid-input' })
 
 const asSource = (document: MemoryDocument): MemoryIndexSource =>
   MemoryIndexSource.make({
     key: document.key,
     source: document.source,
     sourceGeneration: document.generation,
-  });
+  })
 
 const sameSource = (left: MemoryDocument, right: MemoryDocument): boolean =>
   left.key.namespace.address === right.key.namespace.address &&
@@ -109,65 +110,64 @@ const sameSource = (left: MemoryDocument, right: MemoryDocument): boolean =>
   left.generation === right.generation &&
   left.source.revision === right.source.revision &&
   left.source.locator === right.source.locator &&
-  left._tag === right._tag;
+  left._tag === right._tag
 
-const embeddings = Effect.fnUntraced(function* (
+const embeddings = Effect.fnUntraced(function*(
   inputs: ReadonlyArray<string>,
   profile: SemanticMemoryProfile,
 ) {
-  const model = yield* EmbeddingModel.EmbeddingModel;
+  const model = yield* EmbeddingModel.EmbeddingModel
 
   const response = yield* model.embedMany(inputs).pipe(
     Effect.flatMap(Schema.decodeUnknownEffect(EmbeddingModel.EmbedManyResponse)),
-    Effect.catchTag("SchemaError", () =>
+    Effect.catchTag('SchemaError', () =>
       Effect.fail(
-        SemanticMemoryError.make({ operation: "decode embeddings", reason: "invalid-embedding" }),
-      ),
-    ),
-  );
+        SemanticMemoryError.make({ operation: 'decode embeddings', reason: 'invalid-embedding' }),
+      )),
+  )
 
-  const tokens = response.usage.inputTokens;
+  const tokens = response.usage.inputTokens
 
   if (
     response.embeddings.length !== inputs.length ||
     (tokens !== undefined && (!Number.isSafeInteger(tokens) || tokens < 0)) ||
     response.embeddings.some(({ vector }) => {
-      const norm = vector.reduce((sum, value) => sum + value * value, 0);
+      const norm = vector.reduce((sum, value) => sum + value * value, 0)
 
-      return vector.length !== profile.dimensions || norm <= 0 || !Number.isFinite(norm);
+      return vector.length !== profile.dimensions || norm <= 0 || !Number.isFinite(norm)
     })
   ) {
     return yield* SemanticMemoryError.make({
-      operation: "validate embeddings",
-      reason: "invalid-embedding",
-    });
+      operation: 'validate embeddings',
+      reason: 'invalid-embedding',
+    })
   }
 
-  return response;
-});
+  return response
+})
 
-const chunkText = Effect.fnUntraced(function* (
+const chunkText = Effect.fnUntraced(function*(
   text: string,
   profile: SemanticMemoryProfile,
   limits: SemanticIndexLimits,
 ) {
   if (utf8ByteLength(text) > limits.maxSourceBytes) {
-    return yield* SemanticMemoryError.make({ operation: "chunk source", reason: "budget" });
+    return yield* SemanticMemoryError.make({ operation: 'chunk source', reason: 'budget' })
   }
 
   const chunks: Array<{
-    readonly ordinal: number;
-    readonly startByte: number;
-    readonly endByte: number;
-    readonly text: string;
-  }> = [];
+    readonly ordinal: number
+    readonly startByte: number
+    readonly endByte: number
+    readonly text: string
+  }> = []
 
-  let current = "";
-  let startByte = 0;
-  let currentBytes = 0;
+  let current = ''
+  let startByte = 0
+  let currentBytes = 0
 
   for (const codepoint of text) {
-    const size = utf8ByteLength(codepoint);
+    const size = utf8ByteLength(codepoint)
 
     if (currentBytes + size > profile.maxChunkBytes) {
       chunks.push({
@@ -175,28 +175,29 @@ const chunkText = Effect.fnUntraced(function* (
         startByte,
         endByte: startByte + currentBytes,
         text: current,
-      });
-      startByte += currentBytes;
-      current = "";
-      currentBytes = 0;
+      })
+      startByte += currentBytes
+      current = ''
+      currentBytes = 0
       if (chunks.length >= limits.maxChunks) {
-        return yield* SemanticMemoryError.make({ operation: "chunk source", reason: "budget" });
+        return yield* SemanticMemoryError.make({ operation: 'chunk source', reason: 'budget' })
       }
     }
-    current += codepoint;
-    currentBytes += size;
+    current += codepoint
+    currentBytes += size
   }
-  if (current.length > 0)
+  if (current.length > 0) {
     chunks.push({
       ordinal: chunks.length,
       startByte,
       endByte: startByte + currentBytes,
       text: current,
-    });
-  if (chunks.length === 0) return yield* invalid("chunk empty source");
+    })
+  }
+  if (chunks.length === 0) return yield* invalid('chunk empty source')
 
-  return chunks;
-});
+  return chunks
+})
 
 /**
  * Rebuild one selected source through the native Effect EmbeddingModel. The host binds the
@@ -209,109 +210,107 @@ const chunkText = Effect.fnUntraced(function* (
  * querySemanticMemory always revalidates and excludes such stale candidates.
  * No model or source text is attached to telemetry. Errors retain native provider/index types.
  */
-export const indexMemorySource = Effect.fnUntraced(function* <
+export const indexMemorySource = Effect.fnUntraced(function*<
   Namespace extends MemoryNamespace.Any,
 >(key: MemoryKey<Namespace>, limits: SemanticIndexLimits) {
   yield* Schema.decodeUnknownEffect(MemoryKey.Wire)(key).pipe(
-    Effect.mapError(() => invalid("index key")),
-  );
-  const checkedKey = MemoryKey.make(key);
+    Effect.mapError(() => invalid('index key')),
+  )
+  const checkedKey = MemoryKey.make(key)
 
   const checkedLimits = yield* Schema.decodeEffect(SemanticIndexLimits)(limits).pipe(
-    Effect.mapError(() => invalid("index limits")),
-  );
+    Effect.mapError(() => invalid('index limits')),
+  )
 
-  return yield* Effect.gen(function* () {
-    const startedAt = yield* Clock.currentTimeMillis;
-    const index = yield* SemanticMemoryIndex;
+  return yield* Effect.gen(function*() {
+    const startedAt = yield* Clock.currentTimeMillis
+    const index = yield* SemanticMemoryIndex
 
     const profile = yield* Schema.decodeEffect(SemanticMemoryProfile)(index.profile).pipe(
-      Effect.mapError(() => invalid("index profile")),
-    );
+      Effect.mapError(() => invalid('index profile')),
+    )
 
-    const document = yield* readMemoryDocument(checkedKey);
+    const document = yield* readMemoryDocument(checkedKey)
 
-    if (document === null || document._tag === "WithdrawnMemoryDocument") {
-      if (document !== null) yield* index.withdraw(asSource(document));
+    if (document === null || document._tag === 'WithdrawnMemoryDocument') {
+      if (document !== null) yield* index.withdraw(asSource(document))
 
       return SemanticIndexResult.make({
         key: checkedKey,
-        status: document === null ? "Missing" : "Withdrawn",
+        status: document === null ? 'Missing' : 'Withdrawn',
         embeddedChunks: 0,
         embeddedBytes: 0,
         inputTokens: null,
         startedAt,
         finishedAt: yield* Clock.currentTimeMillis,
-      });
+      })
     }
-    const texts = yield* chunkText(document.content.text, profile, checkedLimits);
+    const texts = yield* chunkText(document.content.text, profile, checkedLimits)
 
     const encodedProfile = yield* Schema.encodeEffect(Schema.fromJsonString(SemanticMemoryProfile))(
       profile,
-    ).pipe(Effect.mapError(() => invalid("encode profile")));
+    ).pipe(Effect.mapError(() => invalid('encode profile')))
 
-    const crypto = yield* CryptoDigest.Digest;
+    const crypto = yield* CryptoDigest.Digest
 
     const fingerprint = yield* crypto.digest(CryptoDigest.sha256, utf8Bytes(encodedProfile)).pipe(
       Effect.map(Hex.encode),
-      Effect.mapError(() =>
-        SemanticMemoryError.make({ operation: "fingerprint profile", reason: "unavailable" }),
-      ),
-    );
+      Effect.mapError(() => SemanticMemoryError.make({ operation: 'fingerprint profile', reason: 'unavailable' })),
+    )
 
     const response = yield* embeddings(
       texts.map((chunk) => chunk.text),
       profile,
-    );
+    )
 
-    const chunks: Array<SemanticMemoryChunk> = [];
+    const chunks: Array<SemanticMemoryChunk> = []
 
     for (const text of texts) {
-      const vector = response.embeddings[text.ordinal]?.vector;
+      const vector = response.embeddings[text.ordinal]?.vector
 
-      if (vector === undefined)
+      if (vector === undefined) {
         return yield* SemanticMemoryError.make({
-          operation: "embedding count",
-          reason: "invalid-embedding",
-        });
+          operation: 'embedding count',
+          reason: 'invalid-embedding',
+        })
+      }
       chunks.push(
         SemanticMemoryChunk.make({
           ...text,
           passageId: `chunk:${fingerprint}:${text.ordinal}`,
           vector: [...vector],
         }),
-      );
+      )
     }
-    const latest = yield* readMemoryDocument(checkedKey);
+    const latest = yield* readMemoryDocument(checkedKey)
 
     if (latest === null || !sameSource(document, latest)) {
-      if (latest?._tag === "WithdrawnMemoryDocument") yield* index.withdraw(asSource(latest));
+      if (latest?._tag === 'WithdrawnMemoryDocument') yield* index.withdraw(asSource(latest))
 
       return yield* SemanticMemoryError.make({
-        operation: "publish current source",
-        reason: "source-changed",
-      });
+        operation: 'publish current source',
+        reason: 'source-changed',
+      })
     }
-    yield* index.replace({ source: asSource(document), profile, chunks });
+    yield* index.replace({ source: asSource(document), profile, chunks })
 
     return SemanticIndexResult.make({
       key: checkedKey,
-      status: "Indexed",
+      status: 'Indexed',
       embeddedChunks: chunks.length,
       embeddedBytes: utf8ByteLength(document.content.text),
       inputTokens: response.usage.inputTokens ?? null,
       startedAt,
       finishedAt: yield* Clock.currentTimeMillis,
-    });
+    })
   }).pipe(
     Effect.scoped,
     Effect.timeoutOrElse({
       duration: checkedLimits.timeoutMillis,
-      orElse: () =>
-        Effect.fail(SemanticMemoryError.make({ operation: "index source", reason: "timeout" })),
+      orElse: () => Effect.fail(SemanticMemoryError.make({ operation: 'index source', reason: 'timeout' })),
     }),
-  );
-});
+  )
+})
 
 /**
  * Query an optional derivative index, then read each distinct source once. Attribution and
@@ -328,44 +327,46 @@ export const indexMemorySource = Effect.fnUntraced(function* <
  * Checks begun before an acknowledged correction/withdrawal may finish with their already
  * captured source view.
  */
-export const querySemanticMemory = Effect.fnUntraced(function* (
+export const querySemanticMemory = Effect.fnUntraced(function*(
   query: string,
   access: MemoryAccess,
   limits: SemanticQueryLimits,
 ) {
   const checkedQuery = yield* Schema.decodeEffect(Schema.NonEmptyString)(query).pipe(
-    Effect.mapError(() => invalid("query text")),
-  );
+    Effect.mapError(() => invalid('query text')),
+  )
 
   const checkedAccess = yield* Schema.decodeEffect(MemoryAccess.Wire)(access).pipe(
-    Effect.mapError(() => invalid("query access")),
-  );
+    Effect.mapError(() => invalid('query access')),
+  )
 
   const checkedLimits = yield* Schema.decodeEffect(SemanticQueryLimits)(limits).pipe(
-    Effect.mapError(() => invalid("query limits")),
-  );
+    Effect.mapError(() => invalid('query limits')),
+  )
 
-  const queryBytes = utf8ByteLength(checkedQuery);
+  const queryBytes = utf8ByteLength(checkedQuery)
 
-  if (queryBytes > checkedLimits.maxQueryBytes)
-    return yield* SemanticMemoryError.make({ operation: "query bytes", reason: "budget" });
+  if (queryBytes > checkedLimits.maxQueryBytes) {
+    return yield* SemanticMemoryError.make({ operation: 'query bytes', reason: 'budget' })
+  }
 
-  return yield* Effect.gen(function* () {
-    const startedAt = yield* Clock.currentTimeMillis;
-    const index = yield* SemanticMemoryIndex;
+  return yield* Effect.gen(function*() {
+    const startedAt = yield* Clock.currentTimeMillis
+    const index = yield* SemanticMemoryIndex
 
     const profile = yield* Schema.decodeEffect(SemanticMemoryProfile)(index.profile).pipe(
-      Effect.mapError(() => invalid("query profile")),
-    );
+      Effect.mapError(() => invalid('query profile')),
+    )
 
-    const response = yield* embeddings([checkedQuery], profile);
-    const vector = response.embeddings[0]?.vector;
+    const response = yield* embeddings([checkedQuery], profile)
+    const vector = response.embeddings[0]?.vector
 
-    if (vector === undefined)
+    if (vector === undefined) {
       return yield* SemanticMemoryError.make({
-        operation: "query embedding count",
-        reason: "invalid-embedding",
-      });
+        operation: 'query embedding count',
+        reason: 'invalid-embedding',
+      })
+    }
 
     const found = yield* index.search(
       MemoryIndexQuery.make({
@@ -375,14 +376,14 @@ export const querySemanticMemory = Effect.fnUntraced(function* (
         minScore: checkedLimits.minScore,
         maxScannedChunks: checkedLimits.maxScannedChunks,
       }),
-    );
+    )
 
     const validated = yield* revalidateSemanticMemoryCandidates(
       found,
       checkedAccess,
       profile,
       checkedLimits,
-    );
+    )
 
     return SemanticQueryResult.make({
       ...validated,
@@ -390,13 +391,12 @@ export const querySemanticMemory = Effect.fnUntraced(function* (
       inputTokens: response.usage.inputTokens ?? null,
       startedAt,
       finishedAt: yield* Clock.currentTimeMillis,
-    });
+    })
   }).pipe(
     Effect.scoped,
     Effect.timeoutOrElse({
       duration: checkedLimits.timeoutMillis,
-      orElse: () =>
-        Effect.fail(SemanticMemoryError.make({ operation: "query memory", reason: "timeout" })),
+      orElse: () => Effect.fail(SemanticMemoryError.make({ operation: 'query memory', reason: 'timeout' })),
     }),
-  );
-});
+  )
+})

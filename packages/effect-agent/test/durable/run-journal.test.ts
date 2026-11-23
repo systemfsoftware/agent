@@ -1,14 +1,10 @@
-import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
-import { describe, expect, layer } from "@effect/vitest";
-import * as Agent from "@yielded/agent/agent";
-import * as AgentRuntime from "@yielded/agent/agent-runtime";
-import {
-  CLEARED_TOOL_RESULT,
-  contextWindowId,
-  contextWindowMessage,
-} from "@yielded/agent/compaction";
-import { ThreadId, SubmissionId, ToolCallId } from "@yielded/agent/identifiers";
-import type { CanonicalBatch } from "@yielded/agent/records";
+import * as NodeCrypto from '@effect/platform-node/NodeCrypto'
+import { describe, expect, layer } from '@effect/vitest'
+import * as Agent from '@yielded/agent/agent'
+import * as AgentRuntime from '@yielded/agent/agent-runtime'
+import { CLEARED_TOOL_RESULT, contextWindowId, contextWindowMessage } from '@yielded/agent/compaction'
+import { SubmissionId, ThreadId, ToolCallId } from '@yielded/agent/identifiers'
+import type { CanonicalBatch } from '@yielded/agent/records'
 import {
   BatchId,
   CanonicalRecordEnvelope,
@@ -21,117 +17,117 @@ import {
   RecordEnvelope,
   ToolCallUnknown,
   ToolOperation,
-} from "@yielded/agent/records";
+} from '@yielded/agent/records'
 import {
-  promptFromCanonicalRecords,
   projectRunJournal,
   projectRunJournalStream,
+  promptFromCanonicalRecords,
   runIdForSubmission,
   toolCallUnknownRecordId,
   turnCanonicalBatch,
   turnIdForRun,
   turnResponseBatch,
   turnResultsBatch,
-} from "@yielded/agent/run-journal";
-import { ThreadHistory } from "@yielded/agent/thread-history";
-import { Selection, Snapshot } from "@yielded/agent/tool-exposure";
-import * as LanguageModel from "effect/ai/LanguageModel";
-import * as Model from "effect/ai/Model";
-import * as Prompt from "effect/ai/Prompt";
-import type * as Response from "effect/ai/Response";
-import * as Tool from "effect/ai/Tool";
-import * as Toolkit from "effect/ai/Toolkit";
-import * as DateTime from "effect/DateTime";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Ref from "effect/Ref";
-import * as Schema from "effect/Schema";
-import * as Stream from "effect/Stream";
+} from '@yielded/agent/run-journal'
+import { ThreadHistory } from '@yielded/agent/thread-history'
+import { Selection, Snapshot } from '@yielded/agent/tool-exposure'
+import * as LanguageModel from 'effect/ai/LanguageModel'
+import * as Model from 'effect/ai/Model'
+import * as Prompt from 'effect/ai/Prompt'
+import type * as Response from 'effect/ai/Response'
+import * as Tool from 'effect/ai/Tool'
+import * as Toolkit from 'effect/ai/Toolkit'
+import * as DateTime from 'effect/DateTime'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
+import * as Ref from 'effect/Ref'
+import * as Schema from 'effect/Schema'
+import * as Stream from 'effect/Stream'
 
-import { makeJournalMetadata } from "../../src/durable/internal/journal-metadata.ts";
+import { makeJournalMetadata } from '../../src/durable/internal/journal-metadata.ts'
 
-const SUBMISSION_ID = Schema.decodeSync(SubmissionId)("submission-journal");
-const RUN_ID = runIdForSubmission(SUBMISSION_ID);
-const LATER_RUN_ID = runIdForSubmission(Schema.decodeSync(SubmissionId)("submission-later"));
-const RUN_NONE_ID = runIdForSubmission(Schema.decodeSync(SubmissionId)("none"));
-const CALL_ONE = Schema.decodeSync(ToolCallId)("call-1");
-const CALL_TWO = Schema.decodeSync(ToolCallId)("call-2");
-const PRODUCER_ID = Schema.decodeSync(ProducerId)("producer-journal");
-const DEPLOYMENT_ID = Schema.decodeSync(DeploymentId)("deployment-journal");
-const CREATED_AT = DateTime.toUtc(DateTime.makeUnsafe(1_000));
-const THREAD_ID = Schema.decodeSync(ThreadId)("thread-journal");
+const SUBMISSION_ID = Schema.decodeSync(SubmissionId)('submission-journal')
+const RUN_ID = runIdForSubmission(SUBMISSION_ID)
+const LATER_RUN_ID = runIdForSubmission(Schema.decodeSync(SubmissionId)('submission-later'))
+const RUN_NONE_ID = runIdForSubmission(Schema.decodeSync(SubmissionId)('none'))
+const CALL_ONE = Schema.decodeSync(ToolCallId)('call-1')
+const CALL_TWO = Schema.decodeSync(ToolCallId)('call-2')
+const PRODUCER_ID = Schema.decodeSync(ProducerId)('producer-journal')
+const DEPLOYMENT_ID = Schema.decodeSync(DeploymentId)('deployment-journal')
+const CREATED_AT = DateTime.toUtc(DateTime.makeUnsafe(1_000))
+const THREAD_ID = Schema.decodeSync(ThreadId)('thread-journal')
 
 /** One tool-declaring Turn: instructions + input + assistant declaration + two tool results. */
 const toolTurnAppended: ReadonlyArray<Prompt.Message> = [
-  Prompt.makeMessage("system", { content: "Answer as JSON." }),
-  Prompt.makeMessage("user", {
-    content: [Prompt.makePart("text", { text: '{"question":"book?"}' })],
+  Prompt.makeMessage('system', { content: 'Answer as JSON.' }),
+  Prompt.makeMessage('user', {
+    content: [Prompt.makePart('text', { text: '{"question":"book?"}' })],
   }),
-  Prompt.makeMessage("assistant", {
+  Prompt.makeMessage('assistant', {
     content: [
-      Prompt.makePart("tool-call", {
-        id: "call-1",
-        name: "book_flight",
-        params: { destination: "Kyoto" },
+      Prompt.makePart('tool-call', {
+        id: 'call-1',
+        name: 'book_flight',
+        params: { destination: 'Kyoto' },
         providerExecuted: false,
       }),
-      Prompt.makePart("tool-call", {
-        id: "call-2",
-        name: "book_lodging",
+      Prompt.makePart('tool-call', {
+        id: 'call-2',
+        name: 'book_lodging',
         params: { nights: 3 },
         providerExecuted: false,
       }),
     ],
   }),
-  Prompt.makeMessage("tool", {
+  Prompt.makeMessage('tool', {
     content: [
-      Prompt.makePart("tool-result", {
-        id: "call-1",
-        name: "book_flight",
-        result: { bookingRef: "flight-42" },
+      Prompt.makePart('tool-result', {
+        id: 'call-1',
+        name: 'book_flight',
+        result: { bookingRef: 'flight-42' },
         isFailure: false,
         providerExecuted: false,
       }),
-      Prompt.makePart("tool-result", {
-        id: "call-2",
-        name: "book_lodging",
-        result: { bookingRef: "lodging-7" },
+      Prompt.makePart('tool-result', {
+        id: 'call-2',
+        name: 'book_lodging',
+        result: { bookingRef: 'lodging-7' },
         isFailure: false,
         providerExecuted: false,
       }),
     ],
   }),
-];
+]
 
 const completionTurnAppended: ReadonlyArray<Prompt.Message> = [
-  Prompt.makeMessage("assistant", {
+  Prompt.makeMessage('assistant', {
     content: [
-      Prompt.makePart("tool-call", {
-        id: "call-1",
-        name: "post_message",
-        params: { message: "Your flight is booked." },
+      Prompt.makePart('tool-call', {
+        id: 'call-1',
+        name: 'post_message',
+        params: { message: 'Your flight is booked.' },
         providerExecuted: false,
       }),
     ],
   }),
-  Prompt.makeMessage("tool", {
+  Prompt.makeMessage('tool', {
     content: [
-      Prompt.makePart("tool-result", {
-        id: "call-1",
-        name: "post_message",
-        result: { messageId: "message-42" },
+      Prompt.makePart('tool-result', {
+        id: 'call-1',
+        name: 'post_message',
+        result: { messageId: 'message-42' },
         isFailure: false,
         providerExecuted: false,
       }),
     ],
   }),
-];
+]
 
 const finalTurnAppended: ReadonlyArray<Prompt.Message> = [
-  Prompt.makeMessage("assistant", {
-    content: [Prompt.makePart("text", { text: '{"answer":"Booked."}' })],
+  Prompt.makeMessage('assistant', {
+    content: [Prompt.makePart('text', { text: '{"answer":"Booked."}' })],
   }),
-];
+]
 
 const turnInput = (
   messages: ReadonlyArray<Prompt.Message>,
@@ -142,45 +138,45 @@ const turnInput = (
   runId,
   turn,
   turnId: turnIdForRun(runId, turn),
-  responseMessages: messages.filter((message) => message.role !== "tool"),
+  responseMessages: messages.filter((message) => message.role !== 'tool'),
   toolResults: messages.flatMap((message) =>
-    message.role !== "tool"
+    message.role !== 'tool'
       ? []
       : message.content.flatMap((part) =>
-          part.type !== "tool-result"
-            ? []
-            : [
-                {
-                  toolCallId: Schema.decodeSync(ToolCallId)(part.id),
-                  toolName: part.name,
-                  result: part.result,
-                  isFailure: part.isFailure,
-                },
-              ],
-        ),
+        part.type !== 'tool-result'
+          ? []
+          : [
+            {
+              toolCallId: Schema.decodeSync(ToolCallId)(part.id),
+              toolName: part.name,
+              result: part.result,
+              isFailure: part.isFailure,
+            },
+          ]
+      )
   ),
   toolOperations: messages.flatMap((message) =>
-    message.role !== "assistant"
+    message.role !== 'assistant'
       ? []
       : message.content.flatMap((part) =>
-          part.type === "tool-call" && !part.providerExecuted
-            ? [
-                ToolOperation.make({
-                  toolCallId: Schema.decodeSync(ToolCallId)(part.id),
-                  toolName: part.name,
-                  executionClass: "uncertain",
-                  executionKind: "ordinary",
-                  replay: Digest.make("f".repeat(64)),
-                }),
-              ]
-            : [],
-        ),
+        part.type === 'tool-call' && !part.providerExecuted
+          ? [
+            ToolOperation.make({
+              toolCallId: Schema.decodeSync(ToolCallId)(part.id),
+              toolName: part.name,
+              executionClass: 'uncertain',
+              executionKind: 'ordinary',
+              replay: Digest.make('f'.repeat(64)),
+            }),
+          ]
+          : []
+      )
   ),
   producerId: PRODUCER_ID,
   deploymentId: DEPLOYMENT_ID,
   createdAt: CREATED_AT,
   ...(usage === undefined ? {} : { usage }),
-});
+})
 
 const envelopeAt = (sequence: number, record: RecordEnvelope): CanonicalRecordEnvelope =>
   CanonicalRecordEnvelope.make({
@@ -189,110 +185,110 @@ const envelopeAt = (sequence: number, record: RecordEnvelope): CanonicalRecordEn
     sequence: Schema.decodeSync(CanonicalSequence)(sequence),
     offset: Schema.decodeSync(ObservationOffset)(`memory:${sequence}`),
     record,
-  });
+  })
 
 const envelopesOf = (batches: ReadonlyArray<CanonicalBatch>): Array<CanonicalRecordEnvelope> => {
-  const envelopes: Array<CanonicalRecordEnvelope> = [];
+  const envelopes: Array<CanonicalRecordEnvelope> = []
 
   for (const batch of batches) {
     for (const record of batch.records) {
-      envelopes.push(envelopeAt(envelopes.length + 1, record));
+      envelopes.push(envelopeAt(envelopes.length + 1, record))
     }
   }
 
-  return envelopes;
-};
+  return envelopes
+}
 
 const textOfPrompt = (prompt: Prompt.Prompt): string =>
   prompt.content
     .map((message) =>
-      typeof message.content === "string"
+      typeof message.content === 'string'
         ? message.content
-        : message.content.map((part) => (part.type === "text" ? part.text : "")).join(""),
+        : message.content.map((part) => (part.type === 'text' ? part.text : '')).join('')
     )
-    .join("\n");
+    .join('\n')
 
 const auditRecord = (
   recordId: string,
-  payload: (typeof RecordEnvelope.Encoded)["payload"],
+  payload: (typeof RecordEnvelope.Encoded)['payload'],
 ): RecordEnvelope =>
   Schema.decodeSync(RecordEnvelope)({
     recordId,
-    family: "thread",
+    family: 'thread',
     schemaVersion: 1,
-    createdAt: "2026-08-12T12:00:00.000Z",
-    deploymentId: "deployment-journal",
+    createdAt: '2026-08-12T12:00:00.000Z',
+    deploymentId: 'deployment-journal',
     payload,
-  });
+  })
 
 const toolResults = (prompt: Prompt.Prompt): ReadonlyArray<unknown> =>
   prompt.content.flatMap((message) =>
-    typeof message.content === "string"
+    typeof message.content === 'string'
       ? []
-      : message.content.flatMap((part) => (part.type === "tool-result" ? [part.result] : [])),
-  );
+      : message.content.flatMap((part) => (part.type === 'tool-result' ? [part.result] : []))
+  )
 
-describe("run journal batch split (plan §2.1)", () => {
+describe('run journal batch split (plan §2.1)', () => {
   layer(NodeCrypto.layer)((it) => {
     it.effect(
-      "journals native provider results after the engine freezes snapshot array prototypes",
+      'journals native provider results after the engine freezes snapshot array prototypes',
       () =>
-        Effect.gen(function* () {
+        Effect.gen(function*() {
           const action = {
-            type: "search",
-            queries: ["Tahoe private hot tub"],
-            sources: [{ type: "url", url: "https://www.tahoegetaways.com/" }],
-          };
+            type: 'search',
+            queries: ['Tahoe private hot tub'],
+            sources: [{ type: 'url', url: 'https://www.tahoegetaways.com/' }],
+          }
 
           const actionSchema = Schema.Struct({
-            type: Schema.Literal("search"),
+            type: Schema.Literal('search'),
             queries: Schema.Array(Schema.String),
             sources: Schema.Array(
-              Schema.Struct({ type: Schema.Literal("url"), url: Schema.String }),
+              Schema.Struct({ type: Schema.Literal('url'), url: Schema.String }),
             ),
-          });
+          })
 
           const search = Tool.providerDefined({
-            id: "test.web_search",
-            customName: "HostedSearch",
-            providerName: "web_search",
+            id: 'test.web_search',
+            customName: 'HostedSearch',
+            providerName: 'web_search',
             parameters: Schema.Struct({ action: actionSchema }),
             success: Schema.Struct({ action: actionSchema, status: Schema.String }),
-          })(undefined);
+          })(undefined)
 
-          const definition = Agent.make("journal-provider-search", {
+          const definition = Agent.make('journal-provider-search', {
             input: Schema.String,
             output: Schema.String,
-            instructions: "Search once and answer as JSON.",
+            instructions: 'Search once and answer as JSON.',
             toolkit: Toolkit.make(search),
-            policy: { maxTurns: 1, maxToolCalls: 1, maxDuration: "30 seconds", toolConcurrency: 1 },
-          });
+            policy: { maxTurns: 1, maxToolCalls: 1, maxDuration: '30 seconds', toolConcurrency: 1 },
+          })
 
           const parts: ReadonlyArray<Response.StreamPartEncoded> = [
             {
-              type: "tool-call",
-              id: "search-1",
-              name: "HostedSearch",
+              type: 'tool-call',
+              id: 'search-1',
+              name: 'HostedSearch',
               params: { action },
               providerExecuted: true,
             },
             {
-              type: "tool-result",
-              id: "search-1",
-              name: "HostedSearch",
-              result: { action, status: "completed" },
+              type: 'tool-result',
+              id: 'search-1',
+              name: 'HostedSearch',
+              result: { action, status: 'completed' },
               providerExecuted: true,
               isFailure: false,
             },
-            { type: "text-start", id: "answer" },
-            { type: "text-delta", id: "answer", delta: '"Found a listing."' },
-            { type: "text-end", id: "answer" },
-            { type: "finish", reason: "stop", usage: { inputTokens: {}, outputTokens: {} } },
-          ];
+            { type: 'text-start', id: 'answer' },
+            { type: 'text-delta', id: 'answer', delta: '"Found a listing."' },
+            { type: 'text-end', id: 'answer' },
+            { type: 'finish', reason: 'stop', usage: { inputTokens: {}, outputTokens: {} } },
+          ]
 
           const model = Model.make(
-            "scripted",
-            "journal-search",
+            'scripted',
+            'journal-search',
             Layer.effect(
               LanguageModel.LanguageModel,
               LanguageModel.make({
@@ -300,111 +296,113 @@ describe("run journal batch split (plan §2.1)", () => {
                 streamText: () => Stream.fromIterable(parts),
               }),
             ),
-          );
+          )
 
-          const retained = yield* Ref.make(Prompt.empty);
+          const retained = yield* Ref.make(Prompt.empty)
 
-          yield* AgentRuntime.run(Agent.withModel(definition, model), "Find a listing", {
+          yield* AgentRuntime.run(Agent.withModel(definition, model), 'Find a listing', {
             onHistory: (history) => Ref.set(retained, history),
-          }).pipe(Effect.provide([ThreadHistory.layer]));
-          const history = yield* Ref.get(retained);
+          }).pipe(Effect.provide([ThreadHistory.layer]))
+          const history = yield* Ref.get(retained)
 
           const providerResult = history.content.flatMap((message) =>
-            message.role === "assistant"
-              ? message.content.filter((part) => part.type === "tool-result")
-              : [],
-          )[0];
+            message.role === 'assistant'
+              ? message.content.filter((part) => part.type === 'tool-result')
+              : []
+          )[0]
 
-          if (providerResult === undefined)
-            return yield* Effect.die("Expected the staged provider result");
+          if (providerResult === undefined) {
+            return yield* Effect.die('Expected the staged provider result')
+          }
 
           const frozen = yield* Schema.decodeUnknownEffect(
             Schema.Struct({
               action: Schema.Struct({ queries: Schema.Unknown, sources: Schema.Unknown }),
             }),
-          )(providerResult.result).pipe(Effect.orDie);
+          )(providerResult.result).pipe(Effect.orDie)
 
           for (const array of [frozen.action.queries, frozen.action.sources]) {
-            expect(Array.isArray(array)).toBe(true);
-            expect(Object.getPrototypeOf(array)).toBeNull();
-            expect(Object.isFrozen(array)).toBe(true);
+            expect(Array.isArray(array)).toBe(true)
+            expect(Object.getPrototypeOf(array)).toBeNull()
+            expect(Object.isFrozen(array)).toBe(true)
           }
-          const batch = yield* turnResponseBatch(turnInput(history.content));
+          const batch = yield* turnResponseBatch(turnInput(history.content))
 
-          const projected = yield* projectRunJournal(envelopesOf([batch]), RUN_ID);
+          const projected = yield* projectRunJournal(envelopesOf([batch]), RUN_ID)
 
           const encoded = yield* Schema.encodeEffect(Prompt.Prompt)(projected.prompt).pipe(
             Effect.orDie,
-          );
+          )
 
-          expect(JSON.stringify(encoded)).toContain("https://www.tahoegetaways.com/");
-          expect(JSON.stringify(encoded)).toContain("Tahoe private hot tub");
-          const replayed = yield* Ref.make(false);
+          expect(JSON.stringify(encoded)).toContain('https://www.tahoegetaways.com/')
+          expect(JSON.stringify(encoded)).toContain('Tahoe private hot tub')
+          const replayed = yield* Ref.make(false)
 
           const replayModel = Model.make(
-            "scripted",
-            "journal-search-replay",
+            'scripted',
+            'journal-search-replay',
             Layer.effect(
               LanguageModel.LanguageModel,
               LanguageModel.make({
                 generateText: () => Effect.succeed([]),
                 streamText: (request) =>
                   Stream.unwrap(
-                    Effect.gen(function* () {
+                    Effect.gen(function*() {
                       const result = request.prompt.content.flatMap((message) =>
-                        message.role === "assistant"
-                          ? message.content.filter((part) => part.type === "tool-result")
-                          : [],
-                      )[0];
+                        message.role === 'assistant'
+                          ? message.content.filter((part) => part.type === 'tool-result')
+                          : []
+                      )[0]
 
                       expect(result).toMatchObject({
                         providerExecuted: true,
-                        result: { action, status: "completed" },
-                      });
-                      yield* Ref.set(replayed, true);
+                        result: { action, status: 'completed' },
+                      })
+                      yield* Ref.set(replayed, true)
 
                       return Stream.fromIterable(
                         parts.filter(
-                          (part) => part.type !== "tool-call" && part.type !== "tool-result",
+                          (part) => part.type !== 'tool-call' && part.type !== 'tool-result',
                         ),
-                      );
+                      )
                     }),
                   ),
               }),
             ),
-          );
+          )
 
           yield* AgentRuntime.run(
             Agent.withModel(definition, replayModel),
-            "Use the previous search",
+            'Use the previous search',
             {
               history: projected.prompt,
             },
-          ).pipe(Effect.provide([ThreadHistory.layer]));
-          expect(yield* Ref.get(replayed)).toBe(true);
+          ).pipe(Effect.provide([ThreadHistory.layer]))
+          expect(yield* Ref.get(replayed)).toBe(true)
         }),
-    );
+    )
 
     // A committed declaration can outlive its attempt without a canonical execution outcome.
     it.effect(
-      "preserves uncertain historical declarations without granting the current Run replay",
+      'preserves uncertain historical declarations without granting the current Run replay',
       () =>
-        Effect.gen(function* () {
-          const response = yield* turnResponseBatch(turnInput(toolTurnAppended));
-          const record = response.records[0]!;
+        Effect.gen(function*() {
+          const response = yield* turnResponseBatch(turnInput(toolTurnAppended))
+          const record = response.records[0]!
 
-          if (record.payload._tag !== "ModelResponseRecorded")
-            return yield* Effect.die("Expected a model response");
+          if (record.payload._tag !== 'ModelResponseRecorded') {
+            return yield* Effect.die('Expected a model response')
+          }
 
           const operations = [CALL_ONE, CALL_TWO].map((toolCallId, index) =>
             ToolOperation.make({
               toolCallId,
-              toolName: index === 0 ? "book_flight" : "book_lodging",
-              executionClass: "uncertain",
-              executionKind: "ordinary",
-              replay: Digest.make("f".repeat(64)),
-            }),
-          );
+              toolName: index === 0 ? 'book_flight' : 'book_lodging',
+              executionClass: 'uncertain',
+              executionKind: 'ordinary',
+              replay: Digest.make('f'.repeat(64)),
+            })
+          )
 
           const records = [
             envelopeAt(
@@ -417,20 +415,20 @@ describe("run journal batch split (plan §2.1)", () => {
                 }),
               }),
             ),
-          ];
+          ]
 
-          const later = yield* projectRunJournal(records, LATER_RUN_ID);
+          const later = yield* projectRunJournal(records, LATER_RUN_ID)
 
           expect(toolResults(later.prompt)).toEqual([
-            expect.objectContaining({ _tag: "ToolOutcomeUnknown" }),
-            expect.objectContaining({ _tag: "ToolOutcomeUnknown" }),
-          ]);
-          const recovering = yield* projectRunJournal(records, RUN_ID);
+            expect.objectContaining({ _tag: 'ToolOutcomeUnknown' }),
+            expect.objectContaining({ _tag: 'ToolOutcomeUnknown' }),
+          ])
+          const recovering = yield* projectRunJournal(records, RUN_ID)
 
-          expect(toolResults(recovering.prompt)).toEqual([]);
-          expect(records.some(({ record }) => record.payload._tag === "ToolCallSettled")).toBe(
+          expect(toolResults(recovering.prompt)).toEqual([])
+          expect(records.some(({ record }) => record.payload._tag === 'ToolCallSettled')).toBe(
             false,
-          );
+          )
 
           const unknown = envelopeAt(
             3,
@@ -441,15 +439,15 @@ describe("run journal batch split (plan §2.1)", () => {
                 runId: RUN_ID,
                 turn: 1,
                 toolCallId: CALL_ONE,
-                toolName: "book_flight",
-                reason: "The external outcome was not recorded",
+                toolName: 'book_flight',
+                reason: 'The external outcome was not recorded',
               }),
             }),
-          );
+          )
 
-          const uncertain = yield* projectRunJournal([...records, unknown], LATER_RUN_ID);
+          const uncertain = yield* projectRunJournal([...records, unknown], LATER_RUN_ID)
 
-          expect(toolResults(uncertain.prompt)[0]).toMatchObject({ _tag: "ToolOutcomeUnknown" });
+          expect(toolResults(uncertain.prompt)[0]).toMatchObject({ _tag: 'ToolOutcomeUnknown' })
 
           const readonly = yield* projectRunJournal(
             [
@@ -462,306 +460,301 @@ describe("run journal batch split (plan §2.1)", () => {
                     toolOperations: operations.map((operation) =>
                       ToolOperation.make({
                         ...operation,
-                        executionClass: "readonly",
-                      }),
+                        executionClass: 'readonly',
+                      })
                     ),
                   }),
                 }),
               ),
             ],
             LATER_RUN_ID,
-          );
+          )
 
           expect(toolResults(readonly.prompt)).toEqual([
-            expect.objectContaining({ _tag: "ToolOutcomeUnknown" }),
-            expect.objectContaining({ _tag: "ToolOutcomeUnknown" }),
-          ]);
+            expect.objectContaining({ _tag: 'ToolOutcomeUnknown' }),
+            expect.objectContaining({ _tag: 'ToolOutcomeUnknown' }),
+          ])
         }),
-    );
+    )
 
-    it.effect("replaces unknown history beside its original call after another Run completes", () =>
-      Effect.gen(function* () {
-        const original = yield* turnCanonicalBatch(turnInput(toolTurnAppended));
+    it.effect('replaces unknown history beside its original call after another Run completes', () =>
+      Effect.gen(function*() {
+        const original = yield* turnCanonicalBatch(turnInput(toolTurnAppended))
 
         const later = yield* turnCanonicalBatch(
           turnInput(
             [
-              Prompt.makeMessage("user", {
-                content: [Prompt.makePart("text", { text: "Answer while I wait." })],
+              Prompt.makeMessage('user', {
+                content: [Prompt.makePart('text', { text: 'Answer while I wait.' })],
               }),
               ...completionTurnAppended,
             ],
             1,
             LATER_RUN_ID,
           ),
-        );
+        )
 
         const prefix = [original.records[0]!, original.records[1]!, ...later.records].map(
           (record, index) => envelopeAt(index + 1, record),
-        );
+        )
 
-        const pending = yield* projectRunJournal(prefix, RUN_NONE_ID);
+        const pending = yield* projectRunJournal(prefix, RUN_NONE_ID)
 
         expect(toolResults(pending.prompt)).toEqual([
-          { bookingRef: "flight-42" },
-          expect.objectContaining({ _tag: "ToolOutcomeUnknown" }),
-          { messageId: "message-42" },
-        ]);
+          { bookingRef: 'flight-42' },
+          expect.objectContaining({ _tag: 'ToolOutcomeUnknown' }),
+          { messageId: 'message-42' },
+        ])
 
         const resolved = yield* projectRunJournal(
           [...prefix, envelopeAt(prefix.length + 1, original.records[2]!)],
           RUN_NONE_ID,
-        );
+        )
 
         expect(resolved.prompt.content.map((message) => message.role)).toEqual([
-          "user",
-          "assistant",
-          "tool",
-          "user",
-          "assistant",
-          "tool",
-        ]);
+          'user',
+          'assistant',
+          'tool',
+          'user',
+          'assistant',
+          'tool',
+        ])
         expect(
           resolved.prompt.content
-            .filter((message) => message.role === "tool")
+            .filter((message) => message.role === 'tool')
             .map((message) =>
               message.content
-                .filter((part) => part.type === "tool-result")
-                .map((part) => [part.id, part.result]),
+                .filter((part) => part.type === 'tool-result')
+                .map((part) => [part.id, part.result])
             ),
         ).toEqual([
           [
-            ["call-1", { bookingRef: "flight-42" }],
-            ["call-2", { bookingRef: "lodging-7" }],
+            ['call-1', { bookingRef: 'flight-42' }],
+            ['call-2', { bookingRef: 'lodging-7' }],
           ],
-          [["call-1", { messageId: "message-42" }]],
-        ]);
-        expect(toolResults(pending.prompt)[1]).toMatchObject({ _tag: "ToolOutcomeUnknown" });
+          [['call-1', { messageId: 'message-42' }]],
+        ])
+        expect(toolResults(pending.prompt)[1]).toMatchObject({ _tag: 'ToolOutcomeUnknown' })
 
         const resumedLater = yield* projectRunJournal(
           [...prefix, envelopeAt(prefix.length + 1, original.records[2]!)],
           LATER_RUN_ID,
-        );
+        )
 
-        expect(toolResults(resumedLater.prompt)).toEqual(toolResults(resolved.prompt));
+        expect(toolResults(resumedLater.prompt)).toEqual(toolResults(resolved.prompt))
         expect(
-          prefix.filter(({ record }) => record.payload._tag === "ToolCallSettled"),
-        ).toHaveLength(2);
-      }),
-    );
+          prefix.filter(({ record }) => record.payload._tag === 'ToolCallSettled'),
+        ).toHaveLength(2)
+      }))
 
-    it.effect("does not reserve the real run:none identity for canonical prompt projection", () =>
-      Effect.gen(function* () {
-        expect(RUN_NONE_ID).toBe("run:none");
-        const response = yield* turnResponseBatch(turnInput(toolTurnAppended, 1, RUN_NONE_ID));
-        const records = envelopesOf([response]);
+    it.effect('does not reserve the real run:none identity for canonical prompt projection', () =>
+      Effect.gen(function*() {
+        expect(RUN_NONE_ID).toBe('run:none')
+        const response = yield* turnResponseBatch(turnInput(toolTurnAppended, 1, RUN_NONE_ID))
+        const records = envelopesOf([response])
 
-        const recovering = yield* projectRunJournal(records, RUN_NONE_ID);
+        const recovering = yield* projectRunJournal(records, RUN_NONE_ID)
 
         expect(recovering.prompt.content.map((message) => message.role)).toEqual([
-          "system",
-          "user",
-          "assistant",
-        ]);
+          'system',
+          'user',
+          'assistant',
+        ])
 
-        const canonicalPrompt = yield* promptFromCanonicalRecords(records);
+        const canonicalPrompt = yield* promptFromCanonicalRecords(records)
 
         expect(canonicalPrompt.content.map((message) => message.role)).toEqual([
-          "user",
-          "assistant",
-          "tool",
-        ]);
-      }),
-    );
+          'user',
+          'assistant',
+          'tool',
+        ])
+      }))
 
-    it.effect("matches Tool settlements by Run, Turn, and call identity", () =>
-      Effect.gen(function* () {
+    it.effect('matches Tool settlements by Run, Turn, and call identity', () =>
+      Effect.gen(function*() {
         const firstTurn: ReadonlyArray<Prompt.Message> = [
-          Prompt.makeMessage("system", { content: "Answer as JSON." }),
-          Prompt.makeMessage("user", {
-            content: [Prompt.makePart("text", { text: '{"question":"book twice?"}' })],
+          Prompt.makeMessage('system', { content: 'Answer as JSON.' }),
+          Prompt.makeMessage('user', {
+            content: [Prompt.makePart('text', { text: '{"question":"book twice?"}' })],
           }),
-          Prompt.makeMessage("assistant", {
+          Prompt.makeMessage('assistant', {
             content: [
-              Prompt.makePart("tool-call", {
+              Prompt.makePart('tool-call', {
                 id: CALL_ONE,
-                name: "book_flight",
-                params: { destination: "Kyoto" },
+                name: 'book_flight',
+                params: { destination: 'Kyoto' },
                 providerExecuted: false,
               }),
             ],
           }),
-          Prompt.makeMessage("tool", {
+          Prompt.makeMessage('tool', {
             content: [
-              Prompt.makePart("tool-result", {
+              Prompt.makePart('tool-result', {
                 id: CALL_ONE,
-                name: "book_flight",
-                result: { bookingRef: "flight-42" },
+                name: 'book_flight',
+                result: { bookingRef: 'flight-42' },
                 isFailure: false,
                 providerExecuted: false,
               }),
             ],
           }),
-        ];
+        ]
 
         const secondTurn: ReadonlyArray<Prompt.Message> = [
-          Prompt.makeMessage("assistant", {
+          Prompt.makeMessage('assistant', {
             content: [
-              Prompt.makePart("tool-call", {
+              Prompt.makePart('tool-call', {
                 id: CALL_ONE,
-                name: "book_flight",
-                params: { destination: "Osaka" },
+                name: 'book_flight',
+                params: { destination: 'Osaka' },
                 providerExecuted: false,
               }),
             ],
           }),
-        ];
+        ]
 
-        const firstResponse = yield* turnResponseBatch(turnInput(firstTurn));
-        const firstResults = yield* turnResultsBatch(turnInput(firstTurn));
-        const secondResponse = yield* turnResponseBatch(turnInput(secondTurn, 2));
-        const records = envelopesOf([firstResponse, firstResults, secondResponse]);
+        const firstResponse = yield* turnResponseBatch(turnInput(firstTurn))
+        const firstResults = yield* turnResultsBatch(turnInput(firstTurn))
+        const secondResponse = yield* turnResponseBatch(turnInput(secondTurn, 2))
+        const records = envelopesOf([firstResponse, firstResults, secondResponse])
 
-        const recovering = yield* projectRunJournal(records, RUN_ID);
+        const recovering = yield* projectRunJournal(records, RUN_ID)
 
         expect(recovering.prompt.content.map((message) => message.role)).toEqual([
-          "system",
-          "user",
-          "assistant",
-          "tool",
-          "assistant",
-        ]);
+          'system',
+          'user',
+          'assistant',
+          'tool',
+          'assistant',
+        ])
 
-        const later = yield* projectRunJournal(records, LATER_RUN_ID);
+        const later = yield* projectRunJournal(records, LATER_RUN_ID)
 
         expect(later.prompt.content.map((message) => message.role)).toEqual([
-          "user",
-          "assistant",
-          "tool",
-          "assistant",
-          "tool",
-        ]);
-        expect(later.prompt.content.filter((message) => message.role === "assistant")).toHaveLength(
+          'user',
+          'assistant',
+          'tool',
+          'assistant',
+          'tool',
+        ])
+        expect(later.prompt.content.filter((message) => message.role === 'assistant')).toHaveLength(
           2,
-        );
+        )
         expect(
           later.prompt.content.flatMap((message) =>
-            message.role === "tool"
-              ? message.content.filter((part) => part.type === "tool-result").map((part) => part.id)
-              : [],
+            message.role === 'tool'
+              ? message.content.filter((part) => part.type === 'tool-result').map((part) => part.id)
+              : []
           ),
-        ).toEqual([CALL_ONE, CALL_ONE]);
-      }),
-    );
-  });
-});
+        ).toEqual([CALL_ONE, CALL_ONE])
+      }))
+  })
+})
 
-describe("engine compaction records and projection (RUN-026)", () => {
+describe('engine compaction records and projection (RUN-026)', () => {
   const messageText = (message: Prompt.Message): string =>
-    typeof message.content === "string"
+    typeof message.content === 'string'
       ? message.content
       : message.content
-          .map((part) => ("text" in part && typeof part.text === "string" ? part.text : ""))
-          .join("");
+        .map((part) => ('text' in part && typeof part.text === 'string' ? part.text : ''))
+        .join('')
 
-  const promptText = (prompt: Prompt.Prompt): string => prompt.content.map(messageText).join("\n");
+  const promptText = (prompt: Prompt.Prompt): string => prompt.content.map(messageText).join('\n')
 
   interface CompactionOverrides {
-    readonly kind?: "clear-tool-results" | "summarize" | "rollover";
-    readonly coversThrough?: number;
-    readonly summary?: string | undefined;
-    readonly handoff?: string | undefined;
-    readonly runId?: string;
-    readonly turn?: number;
+    readonly kind?: 'clear-tool-results' | 'summarize' | 'rollover'
+    readonly coversThrough?: number
+    readonly summary?: string | undefined
+    readonly handoff?: string | undefined
+    readonly runId?: string
+    readonly turn?: number
   }
 
   const compactionPayload = (
     overrides: CompactionOverrides,
-  ): (typeof RecordEnvelope.Encoded)["payload"] => {
-    const summary = "summary" in overrides ? overrides.summary : "Goal: book the Kyoto trip";
+  ): (typeof RecordEnvelope.Encoded)['payload'] => {
+    const summary = 'summary' in overrides ? overrides.summary : 'Goal: book the Kyoto trip'
 
     return {
-      _tag: "CompactionCreated",
+      _tag: 'CompactionCreated',
       runId: overrides.runId ?? `${LATER_RUN_ID}`,
       turn: overrides.turn ?? 1,
-      kind: overrides.kind ?? "summarize",
+      kind: overrides.kind ?? 'summarize',
       coversThrough: overrides.coversThrough ?? 3,
       // `optionalKey` fields must be ABSENT, not undefined.
       ...(summary === undefined ? {} : { summary }),
       ...(overrides.handoff === undefined ? {} : { handoff: overrides.handoff }),
-    };
-  };
+    }
+  }
 
   /** Second Turn of the owning Run: one more assistant declaration + result. */
   const secondToolTurn: ReadonlyArray<Prompt.Message> = [
-    Prompt.makeMessage("assistant", {
+    Prompt.makeMessage('assistant', {
       content: [
-        Prompt.makePart("tool-call", {
-          id: "call-2",
-          name: "book_lodging",
+        Prompt.makePart('tool-call', {
+          id: 'call-2',
+          name: 'book_lodging',
           params: { nights: 3 },
           providerExecuted: false,
         }),
       ],
     }),
-    Prompt.makeMessage("tool", {
+    Prompt.makeMessage('tool', {
       content: [
-        Prompt.makePart("tool-result", {
-          id: "call-2",
-          name: "book_lodging",
-          result: { bookingRef: "lodging-7" },
+        Prompt.makePart('tool-result', {
+          id: 'call-2',
+          name: 'book_lodging',
+          result: { bookingRef: 'lodging-7' },
           isFailure: false,
           providerExecuted: false,
         }),
       ],
     }),
-  ];
+  ]
 
   layer(NodeCrypto.layer)((it) => {
     // Independent Runs can both resume, so neither continuation nor compaction may absorb the other:
     // https://github.com/yielded-dev/agent/commit/8fc53ad9eb6b110ca6faaaebbb6dbba08e3c292f
-    it.effect("preserves both interleaved Run contexts and their complete Thread history", () =>
-      Effect.gen(function* () {
+    it.effect('preserves both interleaved Run contexts and their complete Thread history', () =>
+      Effect.gen(function*() {
         const first = yield* turnCanonicalBatch({
           ...turnInput(toolTurnAppended),
           runScopedPrefixLength: 2,
-        });
+        })
 
         const next = yield* turnCanonicalBatch(
           turnInput(
             [
-              Prompt.makeMessage("user", {
-                content: [Prompt.makePart("text", { text: "Answer while I wait." })],
+              Prompt.makeMessage('user', {
+                content: [Prompt.makePart('text', { text: 'Answer while I wait.' })],
               }),
               ...completionTurnAppended,
             ],
             1,
             LATER_RUN_ID,
           ),
-        );
+        )
 
-        const continuation = yield* turnCanonicalBatch(turnInput(finalTurnAppended, 2));
+        const continuation = yield* turnCanonicalBatch(turnInput(finalTurnAppended, 2))
 
         for (const settled of [true, false]) {
           const original = [
             ...first.records,
             ...(settled ? next.records : next.records.slice(0, 1)),
-          ].map((record, index) => envelopeAt(index + 1, record));
+          ].map((record, index) => envelopeAt(index + 1, record))
 
-          const before = yield* projectRunJournal(original, LATER_RUN_ID);
+          const before = yield* projectRunJournal(original, LATER_RUN_ID)
 
           const interleaved = [
             ...original,
-            ...continuation.records.map((record, index) =>
-              envelopeAt(original.length + index + 1, record),
-            ),
-          ];
+            ...continuation.records.map((record, index) => envelopeAt(original.length + index + 1, record)),
+          ]
 
-          expect(yield* projectRunJournal(interleaved, LATER_RUN_ID)).toEqual(before);
+          expect(yield* projectRunJournal(interleaved, LATER_RUN_ID)).toEqual(before)
           expect(
             textOfPrompt((yield* projectRunJournal(interleaved, RUN_ID)).prompt),
-          ).not.toContain("Answer while I wait.");
-          for (const kind of ["rollover", "clear-tool-results"] as const) {
+          ).not.toContain('Answer while I wait.')
+          for (const kind of ['rollover', 'clear-tool-results'] as const) {
             const records = [
               ...interleaved,
               envelopeAt(
@@ -774,161 +767,160 @@ describe("engine compaction records and projection (RUN-026)", () => {
                     turn: 3,
                     coversThrough: interleaved.length,
                     summary: undefined,
-                    handoff: "The original trip is booked.",
+                    handoff: 'The original trip is booked.',
                   }),
                 ),
               ),
-            ];
+            ]
 
-            expect(yield* projectRunJournal(records, LATER_RUN_ID)).toEqual(before);
-            const lengths: Array<number> = [];
+            expect(yield* projectRunJournal(records, LATER_RUN_ID)).toEqual(before)
+            const lengths: Array<number> = []
 
             const complete = (yield* projectRunJournalStream(
               Stream.fromIterable(records),
               undefined,
               ({ promptLength }) => lengths.push(promptLength),
-            )).prompt;
+            )).prompt
 
-            expect(textOfPrompt(complete)).toContain("Answer while I wait.");
+            expect(textOfPrompt(complete)).toContain('Answer while I wait.')
             expect(toolResults(complete)).toContainEqual(
               settled
-                ? { messageId: "message-42" }
-                : expect.objectContaining({ _tag: "ToolOutcomeUnknown" }),
-            );
-            expect(lengths.at(-1)).toBe(complete.content.length);
-            if (kind === "rollover") {
+                ? { messageId: 'message-42' }
+                : expect.objectContaining({ _tag: 'ToolOutcomeUnknown' }),
+            )
+            expect(lengths.at(-1)).toBe(complete.content.length)
+            if (kind === 'rollover') {
               expect((yield* projectRunJournal(records, RUN_ID)).contextWindowId).toBe(
                 contextWindowId(RUN_ID, 3),
-              );
+              )
             }
           }
         }
-      }),
-    );
+      }))
 
     // The same interleaving must retain each independently compacted context:
     // https://github.com/yielded-dev/agent/commit/8fc53ad9eb6b110ca6faaaebbb6dbba08e3c292f
-    it.effect("does not restore retired exchanges when independent Runs both compact", () =>
-      Effect.gen(function* () {
-        const first = yield* turnCanonicalBatch(turnInput(toolTurnAppended));
-        const next = yield* turnCanonicalBatch(turnInput(completionTurnAppended, 1, LATER_RUN_ID));
-        const continuation = yield* turnCanonicalBatch(turnInput(finalTurnAppended, 2));
+    it.effect('does not restore retired exchanges when independent Runs both compact', () =>
+      Effect.gen(function*() {
+        const first = yield* turnCanonicalBatch(turnInput(toolTurnAppended))
+        const next = yield* turnCanonicalBatch(turnInput(completionTurnAppended, 1, LATER_RUN_ID))
+        const continuation = yield* turnCanonicalBatch(turnInput(finalTurnAppended, 2))
 
-        for (const kind of ["clear-tool-results", "rollover"] as const) {
-          const records = envelopesOf([first, next]);
+        for (const kind of ['clear-tool-results', 'rollover'] as const) {
+          const records = envelopesOf([first, next])
 
           records.push(
             envelopeAt(
               records.length + 1,
               auditRecord(
-                "second-run-compaction",
+                'second-run-compaction',
                 compactionPayload({
                   kind,
                   runId: LATER_RUN_ID,
                   turn: 2,
                   coversThrough: records.length,
                   summary: undefined,
-                  handoff: "The correction is recorded.",
+                  handoff: 'The correction is recorded.',
                 }),
               ),
             ),
-          );
-          for (const record of continuation.records)
-            records.push(envelopeAt(records.length + 1, record));
+          )
+          for (const record of continuation.records) {
+            records.push(envelopeAt(records.length + 1, record))
+          }
           records.push(
             envelopeAt(
               records.length + 1,
               auditRecord(
-                "first-run-compaction",
+                'first-run-compaction',
                 compactionPayload({
                   kind,
                   runId: RUN_ID,
                   turn: 3,
                   coversThrough: records.length,
                   summary: undefined,
-                  handoff: "The original trip is booked.",
+                  handoff: 'The original trip is booked.',
                 }),
               ),
             ),
-          );
-          const projected = yield* projectRunJournal(records, RUN_NONE_ID);
-          const history = yield* promptFromCanonicalRecords(records);
+          )
+          const projected = yield* projectRunJournal(records, RUN_NONE_ID)
+          const history = yield* promptFromCanonicalRecords(records)
 
-          expect(projected.prompt).toEqual(history);
-          if (kind === "clear-tool-results") {
+          expect(projected.prompt).toEqual(history)
+          if (kind === 'clear-tool-results') {
             expect(toolResults(history)).toEqual([
-              "[tool result cleared by compaction]",
-              "[tool result cleared by compaction]",
-              "[tool result cleared by compaction]",
-            ]);
+              '[tool result cleared by compaction]',
+              '[tool result cleared by compaction]',
+              '[tool result cleared by compaction]',
+            ])
           } else {
-            expect(toolResults(history)).toEqual([]);
-            expect(textOfPrompt(history)).toContain("The correction is recorded.");
-            expect(textOfPrompt(history)).toContain("The original trip is booked.");
-            expect(textOfPrompt(history)).not.toContain('"answer":"Booked."');
+            expect(toolResults(history)).toEqual([])
+            expect(textOfPrompt(history)).toContain('The correction is recorded.')
+            expect(textOfPrompt(history)).toContain('The original trip is booked.')
+            expect(textOfPrompt(history)).not.toContain('"answer":"Booked."')
           }
           records.push(
             envelopeAt(
               records.length + 1,
               auditRecord(
-                "combined-summary",
+                'combined-summary',
                 compactionPayload({
-                  kind: "summarize",
+                  kind: 'summarize',
                   runId: RUN_NONE_ID,
                   coversThrough: records.length,
-                  summary: "Both requests are complete.",
+                  summary: 'Both requests are complete.',
                 }),
               ),
             ),
-          );
-          const combined = yield* promptFromCanonicalRecords(records);
+          )
+          const combined = yield* promptFromCanonicalRecords(records)
 
-          expect(combined.content).toHaveLength(1);
-          expect(textOfPrompt(combined)).toContain("Both requests are complete.");
-          expect(toolResults(combined)).toEqual([]);
+          expect(combined.content).toHaveLength(1)
+          expect(textOfPrompt(combined)).toContain('Both requests are complete.')
+          expect(toolResults(combined)).toEqual([])
         }
-      }),
-    );
+      }))
 
-    for (const kind of ["rollover", "clear-tool-results"] as const)
+    for (const kind of ['rollover', 'clear-tool-results'] as const) {
       it.effect(
         `${kind} cannot cover an incomplete Tool batch even when its available results are below the cutoff`,
         () =>
-          Effect.gen(function* () {
+          Effect.gen(function*() {
             const batch = yield* turnCanonicalBatch({
               ...turnInput(toolTurnAppended),
               runScopedPrefixLength: 2,
-            });
+            })
 
-            const records = envelopesOf([batch]).slice(0, 2);
+            const records = envelopesOf([batch]).slice(0, 2)
 
             const rollover = envelopeAt(
               3,
               auditRecord(
-                "incomplete-rollover",
+                'incomplete-rollover',
                 compactionPayload({
                   kind,
                   runId: RUN_ID,
                   turn: 2,
                   summary: undefined,
                   coversThrough: 2,
-                  handoff: "Uncommitted handoff",
+                  handoff: 'Uncommitted handoff',
                 }),
               ),
-            );
+            )
 
-            const projection = yield* projectRunJournal([...records, rollover], RUN_ID);
+            const projection = yield* projectRunJournal([...records, rollover], RUN_ID)
 
-            expect(projection.contextWindowId).toBeUndefined();
-            expect(promptText(projection.prompt)).not.toContain("Uncommitted handoff");
-            expect(projection.prompt.content.slice(0, 2)).toEqual(toolTurnAppended.slice(0, 2));
-            expect(toolResults(projection.prompt)).toEqual([{ bookingRef: "flight-42" }]);
+            expect(projection.contextWindowId).toBeUndefined()
+            expect(promptText(projection.prompt)).not.toContain('Uncommitted handoff')
+            expect(projection.prompt.content.slice(0, 2)).toEqual(toolTurnAppended.slice(0, 2))
+            expect(toolResults(projection.prompt)).toEqual([{ bookingRef: 'flight-42' }])
 
-            const metadata = makeJournalMetadata(RUN_ID);
+            const metadata = makeJournalMetadata(RUN_ID)
 
-            for (const record of [...records, rollover]) metadata.add(record);
+            for (const record of [...records, rollover]) metadata.add(record)
 
-            const source = Stream.fromIterable([...records, rollover]);
+            const source = Stream.fromIterable([...records, rollover])
 
             const prepared = yield* projectRunJournalStream(
               source,
@@ -936,11 +928,12 @@ describe("engine compaction records and projection (RUN-026)", () => {
               undefined,
               undefined,
               metadata.finish(),
-            );
+            )
 
-            expect(prepared).toEqual(projection);
+            expect(prepared).toEqual(projection)
           }),
-      );
+      )
+    }
 
     // Regression: https://github.com/yielded-dev/agent/commit/afcdd64bbdd23c9985902a0192d8e2ed3a48c295
     // Saved ranges must retain the facts that keep compaction validation stable.
@@ -948,19 +941,19 @@ describe("engine compaction records and projection (RUN-026)", () => {
       envelopeAt(
         sequence,
         auditRecord(`range-input-${sequence}`, {
-          _tag: "UserInputRecorded",
+          _tag: 'UserInputRecorded',
           runId,
-          kind: "user",
+          kind: 'user',
           input: `Input ${sequence}`,
         }),
-      );
+      )
 
-    const projectSavedRange = Effect.fnUntraced(function* (
+    const projectSavedRange = Effect.fnUntraced(function*(
       history: ReadonlyArray<CanonicalRecordEnvelope>,
     ) {
-      const owner = runIdForSubmission(SubmissionId.make("saved-range-owner"));
-      const records = [...history, inputAt(history.length + 1, owner)];
-      const evidence = new Set<number>();
+      const owner = runIdForSubmission(SubmissionId.make('saved-range-owner'))
+      const records = [...history, inputAt(history.length + 1, owner)]
+      const evidence = new Set<number>()
 
       const fresh = yield* projectRunJournalStream(
         Stream.fromIterable(records),
@@ -969,21 +962,21 @@ describe("engine compaction records and projection (RUN-026)", () => {
         undefined,
         undefined,
         (entry) => evidence.add(entry.sequence),
-      );
+      )
 
       const recovered = yield* projectRunJournal(
         records.filter(
           (entry) => entry.sequence >= fresh.historyFrom || evidence.has(entry.sequence),
         ),
         owner,
-      );
+      )
 
-      return { fresh, recovered };
-    });
+      return { fresh, recovered }
+    })
 
-    it.effect("preserves ignored rollovers across saved-range reconstruction", () =>
-      Effect.gen(function* () {
-        const declaration = yield* turnResponseBatch(turnInput(toolTurnAppended));
+    it.effect('preserves ignored rollovers across saved-range reconstruction', () =>
+      Effect.gen(function*() {
+        const declaration = yield* turnResponseBatch(turnInput(toolTurnAppended))
 
         const { fresh, recovered } = yield* projectSavedRange([
           inputAt(1, RUN_ID),
@@ -992,13 +985,13 @@ describe("engine compaction records and projection (RUN-026)", () => {
           envelopeAt(
             4,
             auditRecord(
-              "ignored-rollover",
+              'ignored-rollover',
               compactionPayload({
-                kind: "rollover",
+                kind: 'rollover',
                 runId: LATER_RUN_ID,
                 coversThrough: 2,
                 summary: undefined,
-                handoff: "This incomplete batch cannot be rolled over.",
+                handoff: 'This incomplete batch cannot be rolled over.',
               }),
             ),
           ),
@@ -1006,26 +999,25 @@ describe("engine compaction records and projection (RUN-026)", () => {
           envelopeAt(
             6,
             auditRecord(
-              "covering-summary",
+              'covering-summary',
               compactionPayload({
                 runId: RUN_NONE_ID,
                 coversThrough: 2,
-                summary: "The trip still has an unresolved booking.",
+                summary: 'The trip still has an unresolved booking.',
               }),
             ),
           ),
-        ]);
+        ])
 
-        expect(fresh.contextWindowId).toBeUndefined();
-        expect(promptText(fresh.prompt)).toContain("The trip still has an unresolved booking.");
-        expect(recovered.contextWindowId).toBeUndefined();
-        expect(recovered.prompt).toEqual(fresh.prompt);
-      }),
-    );
+        expect(fresh.contextWindowId).toBeUndefined()
+        expect(promptText(fresh.prompt)).toContain('The trip still has an unresolved booking.')
+        expect(recovered.contextWindowId).toBeUndefined()
+        expect(recovered.prompt).toEqual(fresh.prompt)
+      }))
 
-    it.effect("preserves complete Tool coverage across saved-range reconstruction", () =>
-      Effect.gen(function* () {
-        const batch = yield* turnCanonicalBatch(turnInput(toolTurnAppended));
+    it.effect('preserves complete Tool coverage across saved-range reconstruction', () =>
+      Effect.gen(function*() {
+        const batch = yield* turnCanonicalBatch(turnInput(toolTurnAppended))
 
         const { fresh, recovered } = yield* projectSavedRange([
           inputAt(1, RUN_ID),
@@ -1035,11 +1027,11 @@ describe("engine compaction records and projection (RUN-026)", () => {
           envelopeAt(
             5,
             auditRecord(
-              "partial-summary",
+              'partial-summary',
               compactionPayload({
                 runId: LATER_RUN_ID,
                 coversThrough: 3,
-                summary: "The first booking completed; the second is pending.",
+                summary: 'The first booking completed; the second is pending.',
               }),
             ),
           ),
@@ -1048,211 +1040,211 @@ describe("engine compaction records and projection (RUN-026)", () => {
           envelopeAt(
             8,
             auditRecord(
-              "completed-clearing",
+              'completed-clearing',
               compactionPayload({
-                kind: "clear-tool-results",
+                kind: 'clear-tool-results',
                 runId: RUN_NONE_ID,
                 coversThrough: 6,
                 summary: undefined,
               }),
             ),
           ),
-        ]);
+        ])
 
-        expect(fresh.contextWindowId).toBeUndefined();
-        expect(toolResults(fresh.prompt)).toEqual([CLEARED_TOOL_RESULT]);
-        expect(toolResults(recovered.prompt)).toEqual([CLEARED_TOOL_RESULT]);
-        expect(recovered.prompt).toEqual(fresh.prompt);
-      }),
-    );
+        expect(fresh.contextWindowId).toBeUndefined()
+        expect(toolResults(fresh.prompt)).toEqual([CLEARED_TOOL_RESULT])
+        expect(toolResults(recovered.prompt)).toEqual([CLEARED_TOOL_RESULT])
+        expect(recovered.prompt).toEqual(fresh.prompt)
+      }))
 
-    it.effect.each(["before", "after", "current", "response-after-terminal"] as const)(
-      "compacts invisible incomplete prior batches only after their canonical termination: %s",
+    it.effect.each(['before', 'after', 'current', 'response-after-terminal'] as const)(
+      'compacts invisible incomplete prior batches only after their canonical termination: %s',
       (position) =>
-        Effect.gen(function* () {
+        Effect.gen(function*() {
           const batch = yield* turnCanonicalBatch(
             turnInput(toolTurnAppended, 1, RUN_ID, { inputTokens: 100, outputTokens: 10 }),
-          );
+          )
 
-          const incomplete = envelopesOf([batch]).slice(0, 2);
+          const incomplete = envelopesOf([batch]).slice(0, 2)
 
           const next = yield* turnCanonicalBatch(
             turnInput(secondToolTurn, 1, LATER_RUN_ID, { inputTokens: 200, outputTokens: 20 }),
-          );
+          )
 
           const postTerminalResponse = yield* turnResponseBatch(
             turnInput(secondToolTurn, 2, RUN_ID, { inputTokens: 300, outputTokens: 30 }),
-          );
+          )
 
-          const records = [...incomplete];
-          const owner = position === "current" ? RUN_ID : LATER_RUN_ID;
+          const records = [...incomplete]
+          const owner = position === 'current' ? RUN_ID : LATER_RUN_ID
 
-          const terminalRecord = auditRecord("terminal-RunFailed", {
-            _tag: "RunFailed",
+          const terminalRecord = auditRecord('terminal-RunFailed', {
+            _tag: 'RunFailed',
             runId: RUN_ID,
-            failure: { message: "failed" },
-          });
+            failure: { message: 'failed' },
+          })
 
           if (
-            position === "before" ||
-            position === "current" ||
-            position === "response-after-terminal"
-          )
-            records.push(envelopeAt(records.length + 1, terminalRecord));
-          if (position === "response-after-terminal") {
-            for (const record of postTerminalResponse.records)
-              records.push(envelopeAt(records.length + 1, record));
+            position === 'before' ||
+            position === 'current' ||
+            position === 'response-after-terminal'
+          ) {
+            records.push(envelopeAt(records.length + 1, terminalRecord))
           }
-          for (const record of next.records) records.push(envelopeAt(records.length + 1, record));
-          const baseline = yield* projectRunJournal(records, owner);
+          if (position === 'response-after-terminal') {
+            for (const record of postTerminalResponse.records) {
+              records.push(envelopeAt(records.length + 1, record))
+            }
+          }
+          for (const record of next.records) records.push(envelopeAt(records.length + 1, record))
+          const baseline = yield* projectRunJournal(records, owner)
 
           expect(baseline.usage).toMatchObject(
-            position === "current"
+            position === 'current'
               ? { inputTokens: 100, outputTokens: 10 }
               : { inputTokens: 200, outputTokens: 20 },
-          );
-          const through = records.length;
+          )
+          const through = records.length
 
           records.push(
             envelopeAt(
               records.length + 1,
               auditRecord(
-                "terminal-prefix-compaction",
+                'terminal-prefix-compaction',
                 compactionPayload({
-                  kind: "rollover",
+                  kind: 'rollover',
                   runId: owner,
                   turn: 2,
                   summary: undefined,
                   coversThrough: through,
-                  handoff: "Retained handoff",
+                  handoff: 'Retained handoff',
                 }),
               ),
             ),
-          );
-          if (position === "after") records.push(envelopeAt(records.length + 1, terminalRecord));
-          const replay = yield* projectRunJournal(records, owner);
+          )
+          if (position === 'after') records.push(envelopeAt(records.length + 1, terminalRecord))
+          const replay = yield* projectRunJournal(records, owner)
 
-          if (position === "before") {
-            expect(replay.contextWindowId).toBe(contextWindowId(owner, 2));
+          if (position === 'before') {
+            expect(replay.contextWindowId).toBe(contextWindowId(owner, 2))
             expect(replay.prompt.content).toEqual([
-              contextWindowMessage(contextWindowId(owner, 2), "Retained handoff"),
-            ]);
+              contextWindowMessage(contextWindowId(owner, 2), 'Retained handoff'),
+            ])
             for (const projectionOwner of [RUN_ID, undefined]) {
               const otherBaseline = yield* projectRunJournalStream(
                 Stream.fromIterable(records.slice(0, through)),
                 projectionOwner,
-              );
+              )
 
               const otherView = yield* projectRunJournalStream(
                 Stream.fromIterable(records),
                 projectionOwner,
-              );
+              )
 
-              expect(otherView.usage).toEqual(otherBaseline.usage);
-              expect(otherView.policyUsage).toEqual(otherBaseline.policyUsage);
+              expect(otherView.usage).toEqual(otherBaseline.usage)
+              expect(otherView.policyUsage).toEqual(otherBaseline.policyUsage)
               if (projectionOwner === RUN_ID) {
                 // A later independent Run cannot rewrite this Run's resume context:
                 // https://github.com/yielded-dev/agent/commit/8fc53ad9eb6b110ca6faaaebbb6dbba08e3c292f
-                expect(otherView).toEqual(otherBaseline);
+                expect(otherView).toEqual(otherBaseline)
                 expect(otherBaseline.usage).toMatchObject({
                   inputTokens: 100,
                   outputTokens: 10,
-                });
+                })
               } else {
-                expect(otherView.contextWindowId).toBe(contextWindowId(owner, 2));
+                expect(otherView.contextWindowId).toBe(contextWindowId(owner, 2))
               }
             }
           } else {
-            expect(replay.prompt).toEqual(baseline.prompt);
-            expect(replay.contextWindowId).toBeUndefined();
+            expect(replay.prompt).toEqual(baseline.prompt)
+            expect(replay.contextWindowId).toBeUndefined()
           }
-          expect(replay.usage).toEqual(baseline.usage);
-          expect(replay.policyUsage).toEqual(baseline.policyUsage);
-          expect(records.slice(0, incomplete.length)).toEqual(incomplete);
+          expect(replay.usage).toEqual(baseline.usage)
+          expect(replay.policyUsage).toEqual(baseline.policyUsage)
+          expect(records.slice(0, incomplete.length)).toEqual(incomplete)
         }),
-    );
+    )
 
-    it.effect("streams a validated summary and retains original history for split coverage", () =>
-      Effect.gen(function* () {
-        const turn = yield* turnCanonicalBatch(turnInput(toolTurnAppended));
+    it.effect('streams a validated summary and retains original history for split coverage', () =>
+      Effect.gen(function*() {
+        const turn = yield* turnCanonicalBatch(turnInput(toolTurnAppended))
 
-        const records = envelopesOf([turn]);
+        const records = envelopesOf([turn])
 
         const summarize = envelopeAt(
           records.length + 1,
-          auditRecord("stream-summary", compactionPayload({ coversThrough: 3 })),
-        );
+          auditRecord('stream-summary', compactionPayload({ coversThrough: 3 })),
+        )
 
-        const source = Stream.fromIterable([...records, summarize]);
+        const source = Stream.fromIterable([...records, summarize])
 
-        const projected = yield* projectRunJournalStream(source, LATER_RUN_ID);
+        const projected = yield* projectRunJournalStream(source, LATER_RUN_ID)
 
-        expect(promptText(projected.prompt)).toContain("Goal: book the Kyoto trip");
-        expect(toolResults(projected.prompt)).toEqual([]);
+        expect(promptText(projected.prompt)).toContain('Goal: book the Kyoto trip')
+        expect(toolResults(projected.prompt)).toEqual([])
 
         const split = envelopeAt(
           records.length + 1,
-          auditRecord("stream-split", compactionPayload({ coversThrough: 1 })),
-        );
+          auditRecord('stream-split', compactionPayload({ coversThrough: 1 })),
+        )
 
         const unsummarized = yield* projectRunJournalStream(
           Stream.fromIterable([...records, split]),
           LATER_RUN_ID,
-        );
+        )
 
-        const baseline = yield* projectRunJournalStream(Stream.fromIterable(records), LATER_RUN_ID);
+        const baseline = yield* projectRunJournalStream(Stream.fromIterable(records), LATER_RUN_ID)
 
-        expect(unsummarized).toEqual(baseline);
-        expect(promptText(unsummarized.prompt)).not.toContain("Goal: book the Kyoto trip");
-        expect(toolResults(unsummarized.prompt)).toHaveLength(2);
-      }),
-    );
+        expect(unsummarized).toEqual(baseline)
+        expect(promptText(unsummarized.prompt)).not.toContain('Goal: book the Kyoto trip')
+        expect(toolResults(unsummarized.prompt)).toHaveLength(2)
+      }))
 
-    it.effect.each(["summarize", "clear-tool-results", "rollover"] as const)(
-      "keeps %s captured compaction stable when a retired Tool result arrives",
+    it.effect.each(['summarize', 'clear-tool-results', 'rollover'] as const)(
+      'keeps %s captured compaction stable when a retired Tool result arrives',
       (kind) =>
-        Effect.gen(function* () {
-          const batch = yield* turnCanonicalBatch(turnInput(toolTurnAppended));
-          const records = envelopesOf([batch]).slice(0, 2);
+        Effect.gen(function*() {
+          const batch = yield* turnCanonicalBatch(turnInput(toolTurnAppended))
+          const records = envelopesOf([batch]).slice(0, 2)
 
           records.push(
             envelopeAt(
               records.length + 1,
-              auditRecord("captured-terminal", {
-                _tag: "RunFailed",
+              auditRecord('captured-terminal', {
+                _tag: 'RunFailed',
                 runId: RUN_ID,
-                failure: { message: "Outcome unknown" },
+                failure: { message: 'Outcome unknown' },
               }),
             ),
-          );
+          )
 
           const replacement = envelopeAt(
             records.length + 1,
             auditRecord(
-              "captured-summary",
+              'captured-summary',
               compactionPayload({
                 kind,
                 coversThrough: records.length,
-                ...(kind === "summarize" ? {} : { summary: undefined }),
+                ...(kind === 'summarize' ? {} : { summary: undefined }),
               }),
             ),
-          );
+          )
 
-          const prefix = [...records, replacement];
-          const metadata = makeJournalMetadata(LATER_RUN_ID);
+          const prefix = [...records, replacement]
+          const metadata = makeJournalMetadata(LATER_RUN_ID)
 
-          for (const record of prefix) metadata.add(record);
-          const captured = metadata.finish();
-          const settled = envelopesOf([batch])[2];
+          for (const record of prefix) metadata.add(record)
+          const captured = metadata.finish()
+          const settled = envelopesOf([batch])[2]
 
-          if (settled === undefined) return yield* Effect.die("Expected a settled Tool fixture");
+          if (settled === undefined) return yield* Effect.die('Expected a settled Tool fixture')
 
           // KOM-416: committed coverage stays stable; newer history pairs factual late results.
-          const late = envelopeAt(prefix.length + 1, settled.record);
+          const late = envelopeAt(prefix.length + 1, settled.record)
 
-          const newerMetadata = makeJournalMetadata(LATER_RUN_ID);
+          const newerMetadata = makeJournalMetadata(LATER_RUN_ID)
 
-          for (const record of [...prefix, late]) newerMetadata.add(record);
+          for (const record of [...prefix, late]) newerMetadata.add(record)
 
           const projected = yield* projectRunJournalStream(
             Stream.fromIterable(prefix),
@@ -1260,14 +1252,16 @@ describe("engine compaction records and projection (RUN-026)", () => {
             undefined,
             undefined,
             captured,
-          );
+          )
 
-          if (kind === "summarize")
-            expect(promptText(projected.prompt)).toContain("Goal: book the Kyoto trip");
-          if (kind === "rollover")
-            expect(projected.contextWindowId).toBe(contextWindowId(LATER_RUN_ID, 1));
-          if (kind !== "clear-tool-results") expect(toolResults(projected.prompt)).toEqual([]);
-          expect(projected).toEqual(yield* projectRunJournal(prefix, LATER_RUN_ID));
+          if (kind === 'summarize') {
+            expect(promptText(projected.prompt)).toContain('Goal: book the Kyoto trip')
+          }
+          if (kind === 'rollover') {
+            expect(projected.contextWindowId).toBe(contextWindowId(LATER_RUN_ID, 1))
+          }
+          if (kind !== 'clear-tool-results') expect(toolResults(projected.prompt)).toEqual([])
+          expect(projected).toEqual(yield* projectRunJournal(prefix, LATER_RUN_ID))
 
           const newer = yield* projectRunJournalStream(
             Stream.fromIterable([...prefix, late]),
@@ -1275,91 +1269,90 @@ describe("engine compaction records and projection (RUN-026)", () => {
             undefined,
             undefined,
             newerMetadata.finish(),
-          );
+          )
 
-          if (kind === "summarize") {
-            expect(promptText(newer.prompt)).toContain("Goal: book the Kyoto trip");
-            expect(toolResults(newer.prompt)).toEqual([{ bookingRef: "lodging-7" }]);
-            const pair = newer.prompt.content.slice(-2);
+          if (kind === 'summarize') {
+            expect(promptText(newer.prompt)).toContain('Goal: book the Kyoto trip')
+            expect(toolResults(newer.prompt)).toEqual([{ bookingRef: 'lodging-7' }])
+            const pair = newer.prompt.content.slice(-2)
 
             expect(pair[0]).toEqual(
-              Prompt.makeMessage("assistant", {
+              Prompt.makeMessage('assistant', {
                 content: [
-                  Prompt.makePart("tool-call", {
-                    id: "call-2",
-                    name: "book_lodging",
+                  Prompt.makePart('tool-call', {
+                    id: 'call-2',
+                    name: 'book_lodging',
                     params: { nights: 3 },
                     providerExecuted: false,
                   }),
                 ],
               }),
-            );
-            expect(pair[1]?.role).toBe("tool");
-          } else if (kind === "rollover") {
-            expect(newer.prompt).toEqual(projected.prompt);
-            expect(newer.contextWindowId).toBe(projected.contextWindowId);
+            )
+            expect(pair[1]?.role).toBe('tool')
+          } else if (kind === 'rollover') {
+            expect(newer.prompt).toEqual(projected.prompt)
+            expect(newer.contextWindowId).toBe(projected.contextWindowId)
           } else {
-            expect(toolResults(newer.prompt)).toEqual([CLEARED_TOOL_RESULT, CLEARED_TOOL_RESULT]);
+            expect(toolResults(newer.prompt)).toEqual([CLEARED_TOOL_RESULT, CLEARED_TOOL_RESULT])
           }
-          expect(newer).toEqual(yield* projectRunJournal([...prefix, late], LATER_RUN_ID));
+          expect(newer).toEqual(yield* projectRunJournal([...prefix, late], LATER_RUN_ID))
         }),
-    );
-  });
-});
+    )
+  })
+})
 
-layer(NodeCrypto.layer)("Tool exposure journal", (it) => {
+layer(NodeCrypto.layer)('Tool exposure journal', (it) => {
   it.effect(
-    "retains last declared replacement across partial settles, compaction, and checkpoints",
+    'retains last declared replacement across partial settles, compaction, and checkpoints',
     () =>
-      Effect.gen(function* () {
-        const initial = Selection.make({ toolNames: ["initial"] });
-        const expected = Selection.make({ toolNames: ["last"] });
-        const facts = turnInput(toolTurnAppended);
+      Effect.gen(function*() {
+        const initial = Selection.make({ toolNames: ['initial'] })
+        const expected = Selection.make({ toolNames: ['last'] })
+        const facts = turnInput(toolTurnAppended)
 
         const response = yield* turnResponseBatch({
           ...facts,
           toolExposure: Snapshot.make({
-            exposedToolNames: ["book_flight", "book_lodging"],
+            exposedToolNames: ['book_flight', 'book_lodging'],
             selection: initial,
           }),
-        });
+        })
 
         const results = yield* turnResultsBatch({
           ...facts,
           toolResults: facts.toolResults.map((result) => ({
             ...result,
-            toolSelection:
-              result.toolCallId === CALL_ONE ? Selection.make({ toolNames: ["first"] }) : expected,
+            toolSelection: result.toolCallId === CALL_ONE ? Selection.make({ toolNames: ['first'] }) : expected,
           })),
-        });
+        })
 
-        const first = results.records[0]!;
-        const second = results.records[1]!;
-        const declaration = envelopeAt(1, response.records[0]!);
-        const partial = [declaration, envelopeAt(2, second)];
+        const first = results.records[0]!
+        const second = results.records[1]!
+        const declaration = envelopeAt(1, response.records[0]!)
+        const partial = [declaration, envelopeAt(2, second)]
 
-        expect((yield* projectRunJournal(partial, RUN_ID)).toolSelection).toEqual(initial);
-        const records = [...partial, envelopeAt(3, first)];
-        const projected = yield* projectRunJournal(records, RUN_ID);
+        expect((yield* projectRunJournal(partial, RUN_ID)).toolSelection).toEqual(initial)
+        const records = [...partial, envelopeAt(3, first)]
+        const projected = yield* projectRunJournal(records, RUN_ID)
 
-        expect(projected.toolSelection).toEqual(expected);
-        expect((yield* projectRunJournal(records, LATER_RUN_ID)).toolSelection).toBeUndefined();
+        expect(projected.toolSelection).toEqual(expected)
+        expect((yield* projectRunJournal(records, LATER_RUN_ID)).toolSelection).toBeUndefined()
 
         const compacted = envelopeAt(
           4,
-          auditRecord("exposure-rollover", {
-            _tag: "CompactionCreated",
+          auditRecord('exposure-rollover', {
+            _tag: 'CompactionCreated',
             runId: RUN_ID,
             turn: 2,
-            kind: "rollover",
+            kind: 'rollover',
             coversThrough: 3,
-            handoff: "Continue.",
+            handoff: 'Continue.',
           }),
-        );
+        )
 
         expect((yield* projectRunJournal([...records, compacted], RUN_ID)).toolSelection).toEqual(
           expected,
-        );
+        )
 
         const hostReplacement = yield* turnCanonicalBatch({
           ...turnInput(finalTurnAppended),
@@ -1369,14 +1362,14 @@ layer(NodeCrypto.layer)("Tool exposure journal", (it) => {
             exposedToolNames: [],
             selection: Selection.make({ toolNames: [] }),
           }),
-        });
+        })
 
         expect(
           (yield* projectRunJournal(
             [...records, envelopeAt(4, hostReplacement.records[0]!)],
             RUN_ID,
           )).toolSelection?.toolNames,
-        ).toEqual([]);
+        ).toEqual([])
       }),
-  );
-});
+  )
+})

@@ -1,34 +1,31 @@
-import { runIdForSubmission } from "@yielded/agent/run-journal";
-import { make as makeRunStorage, StorageOwner } from "@yielded/agent/run-storage";
-import { SettlementPublisher } from "@yielded/agent/settlement-publisher";
+import { runIdForSubmission } from '@yielded/agent/run-journal'
+import { make as makeRunStorage, StorageOwner } from '@yielded/agent/run-storage'
+import { SettlementPublisher } from '@yielded/agent/settlement-publisher'
 import {
-  SubmissionLedger,
   MarkInputAppliedRequest,
   submissionInputBatchId,
   submissionInputRecordId,
-} from "@yielded/agent/submission-ledger";
-import { ThreadImport, type ThreadArchive } from "@yielded/agent/thread-import";
-import { ThreadStore, ThreadReader } from "@yielded/agent/thread-store";
-import * as Channel from "effect/Channel";
-import * as Context from "effect/Context";
-import * as CryptoDigest from "effect/crypto/Digest";
-import * as SecureRandom from "effect/crypto/SecureRandom";
-import * as Effect from "effect/Effect";
-import * as Scope from "effect/Scope";
-import * as SqlClient from "effect/sql/SqlClient";
-import * as Statement from "effect/sql/Statement";
-import * as Stream from "effect/Stream";
+  SubmissionLedger,
+} from '@yielded/agent/submission-ledger'
+import { type ThreadArchive, ThreadImport } from '@yielded/agent/thread-import'
+import { ThreadReader, ThreadStore } from '@yielded/agent/thread-store'
+import * as Channel from 'effect/Channel'
+import * as Context from 'effect/Context'
+import * as CryptoDigest from 'effect/crypto/Digest'
+import * as SecureRandom from 'effect/crypto/SecureRandom'
+import * as Effect from 'effect/Effect'
+import * as Scope from 'effect/Scope'
+import * as SqlClient from 'effect/sql/SqlClient'
+import * as Statement from 'effect/sql/Statement'
+import * as Stream from 'effect/Stream'
 
-import type { makeSqlJournalKernel, RawAppendRequest } from "./SqlJournal.ts";
-import type { Diagnostic } from "./SqlStorage.ts";
-import {
-  makeSqlSubmissionLedgerKernel,
-  type SqlSubmissionLedgerOptions,
-} from "./SqlSubmissionLedger.ts";
-import { makeSqlThreadStoreKernel, type SqlThreadStoreOptions } from "./SqlThreadStore.ts";
+import type { makeSqlJournalKernel, RawAppendRequest } from './SqlJournal.ts'
+import type { Diagnostic } from './SqlStorage.ts'
+import { makeSqlSubmissionLedgerKernel, type SqlSubmissionLedgerOptions } from './SqlSubmissionLedger.ts'
+import { makeSqlThreadStoreKernel, type SqlThreadStoreOptions } from './SqlThreadStore.ts'
 
 /** Bind all ports to the physical client's root, retaining caller Scope, Clock and diagnostics. */
-export const makeSqlRunStorage = Effect.fnUntraced(function* <
+export const makeSqlRunStorage = Effect.fnUntraced(function*<
   S extends Diagnostic,
   C extends Diagnostic,
   W extends Diagnostic,
@@ -42,82 +39,82 @@ export const makeSqlRunStorage = Effect.fnUntraced(function* <
     SqlClient.SqlClient,
     CryptoDigest.Digest,
     SecureRandom.SecureRandom,
-  )(yield* Effect.context<SqlClient.SqlClient | CryptoDigest.Digest | SecureRandom.SecureRandom>());
+  )(yield* Effect.context<SqlClient.SqlClient | CryptoDigest.Digest | SecureRandom.SecureRandom>())
 
-  const owner = journalKernel.journal.owner;
-  const storeKernel = yield* makeSqlThreadStoreKernel(journalKernel.journal, storeOptions);
-  const ledgerKernel = yield* makeSqlSubmissionLedgerKernel(journalKernel.journal, ledgerOptions);
-  const rawStore = storeKernel.store;
-  const rawLedger = ledgerKernel.ledger;
-  const sql = Context.get(context, SqlClient.SqlClient);
+  const owner = journalKernel.journal.owner
+  const storeKernel = yield* makeSqlThreadStoreKernel(journalKernel.journal, storeOptions)
+  const ledgerKernel = yield* makeSqlSubmissionLedgerKernel(journalKernel.journal, ledgerOptions)
+  const rawStore = storeKernel.store
+  const rawLedger = ledgerKernel.ledger
+  const sql = Context.get(context, SqlClient.SqlClient)
 
   const storageContext = <R>(live: Context.Context<R>) =>
     Context.merge(
       Context.omit(Statement.CurrentTransformer, sql.transactionService)(live),
       context,
-    );
+    )
 
   const bind = <A, E>(effect: Effect.Effect<A, E>) =>
-    Effect.contextWith((live: Context.Context<never>) =>
-      Effect.setContext(effect, storageContext(live)),
-    );
+    Effect.contextWith((live: Context.Context<never>) => Effect.setContext(effect, storageContext(live)))
 
   const bindScoped = <A, E>(effect: Effect.Effect<A, E, Scope.Scope>) =>
     Effect.contextWith((live: Context.Context<Scope.Scope>) =>
       Effect.setContext(
         effect,
         Context.add(storageContext(live), Scope.Scope, Context.get(live, Scope.Scope)),
-      ),
-    );
+      )
+    )
 
   const bindStream = <A, E>(stream: Stream.Stream<A, E>) =>
     Stream.fromChannel(
       Channel.fromTransform((upstream, scope) => {
         const scoped = <A, E>(effect: Effect.Effect<A, E>) =>
           Effect.contextWith((live: Context.Context<never>) =>
-            Effect.setContext(effect, Context.add(storageContext(live), Scope.Scope, scope)),
-          );
+            Effect.setContext(effect, Context.add(storageContext(live), Scope.Scope, scope))
+          )
 
         return Effect.map(
           scoped(Channel.toTransform(Stream.toChannel(stream))(upstream, scope)),
           scoped,
-        );
+        )
       }),
-    );
+    )
 
   const admin = <A, E>(
     effect: Effect.Effect<A, E>,
     _affected?: { readonly threadId?: string; readonly submissionId?: string },
-  ) => bind(owner.withMutation(effect));
+  ) => bind(owner.withMutation(effect))
 
   const appendNative = storeKernel.makeOwnedAppend(
-    Effect.fnUntraced(function* (raw: RawAppendRequest) {
-      const record = raw.records[0]?.canonical;
+    Effect.fnUntraced(function*(raw: RawAppendRequest) {
+      const record = raw.records[0]?.canonical
 
       if (
         raw.records.length !== 1 ||
-        record?.payload._tag !== "UserInputRecorded" ||
-        record.payload.kind !== "user" ||
+        record?.payload._tag !== 'UserInputRecorded' ||
+        record.payload.kind !== 'user' ||
         record.payload.submissionId === undefined
-      )
-        return yield* journalKernel.journal.append(raw);
-      const submissionId = record.payload.submissionId;
+      ) {
+        return yield* journalKernel.journal.append(raw)
+      }
+      const submissionId = record.payload.submissionId
 
       if (
         !owner.hasOwner(raw.threadId, submissionId) ||
         raw.batchId !== submissionInputBatchId(submissionId) ||
         record.recordId !== submissionInputRecordId(submissionId) ||
         record.payload.runId !== runIdForSubmission(submissionId)
-      )
-        return yield* journalKernel.journal.append(raw);
+      ) {
+        return yield* journalKernel.journal.append(raw)
+      }
 
       // Original input, active state and applied marker are one native transaction.
       const appended = yield* journalKernel.journal.withWriteTransaction(
-        "append applied input transaction",
+        'append applied input transaction',
       )(
-        Effect.gen(function* () {
-          yield* ledgerOptions.hitFailpoint("ledger:mark-input-applied:before");
-          const result = yield* journalKernel.journal.appendInTransaction(raw);
+        Effect.gen(function*() {
+          yield* ledgerOptions.hitFailpoint('ledger:mark-input-applied:before')
+          const result = yield* journalKernel.journal.appendInTransaction(raw)
 
           yield* ledgerKernel
             .markInputAppliedInTransaction(
@@ -130,59 +127,52 @@ export const makeSqlRunStorage = Effect.fnUntraced(function* <
             .pipe(
               Effect.mapError((cause) =>
                 storeOptions.errors.storage({
-                  operation: "append applied input",
+                  operation: 'append applied input',
                   message: cause.message,
                   cause,
-                }),
+                })
               ),
-            );
+            )
 
-          return result;
+          return result
         }),
-      );
+      )
 
-      yield* ledgerOptions.hitFailpoint("ledger:mark-input-applied:after");
+      yield* ledgerOptions.hitFailpoint('ledger:mark-input-applied:after')
 
-      return appended;
+      return appended
     }),
-  );
+  )
 
-  const stopWorker = rawLedger.stopWorker;
-  const inspectWorker = rawLedger.inspectWorker;
-  const resolveFundingOwner = rawLedger.resolveFundingOwner;
+  const stopWorker = rawLedger.stopWorker
+  const inspectWorker = rawLedger.inspectWorker
+  const resolveFundingOwner = rawLedger.resolveFundingOwner
 
-  const ledger: SubmissionLedger["Service"] = {
+  const ledger: SubmissionLedger['Service'] = {
     ...rawLedger,
     ...(resolveFundingOwner === undefined
       ? {}
       : {
-          resolveFundingOwner: (request: Parameters<typeof resolveFundingOwner>[0]) =>
-            bind(resolveFundingOwner(request)),
-        }),
+        resolveFundingOwner: (request: Parameters<typeof resolveFundingOwner>[0]) => bind(resolveFundingOwner(request)),
+      }),
     capabilities: bind(rawLedger.capabilities),
     admit: (request) => admin(rawLedger.admit(request)),
-    markReady: (request) =>
-      admin(rawLedger.markReady(request), { submissionId: request.submissionId }),
+    markReady: (request) => admin(rawLedger.markReady(request), { submissionId: request.submissionId }),
     selectHead: (request) => admin(rawLedger.selectHead(request)),
-    markInputApplied: (request) =>
-      admin(rawLedger.markInputApplied(request), { submissionId: request.submissionId }),
+    markInputApplied: (request) => admin(rawLedger.markInputApplied(request), { submissionId: request.submissionId }),
     finalizeSettlement: (request) =>
       admin(rawLedger.finalizeSettlement(request), { submissionId: request.submissionId }),
     requestAbort: (request) => admin(rawLedger.requestAbort(request)),
     ...(stopWorker === undefined
       ? {}
       : { stopWorker: (request: Parameters<typeof stopWorker>[0]) => admin(stopWorker(request)) }),
-    claimJoining: (request) =>
-      admin(rawLedger.claimJoining(request), { threadId: request.threadId }),
-    markJoined: (request) =>
-      admin(rawLedger.markJoined(request), { submissionId: request.submissionId }),
-    revertJoining: (request) =>
-      admin(rawLedger.revertJoining(request), { submissionId: request.submissionId }),
+    claimJoining: (request) => admin(rawLedger.claimJoining(request), { threadId: request.threadId }),
+    markJoined: (request) => admin(rawLedger.markJoined(request), { submissionId: request.submissionId }),
+    revertJoining: (request) => admin(rawLedger.revertJoining(request), { submissionId: request.submissionId }),
     suspend: (request) => admin(rawLedger.suspend(request), { submissionId: request.submissionId }),
     recordApprovalDecision: (request) =>
       admin(rawLedger.recordApprovalDecision(request), { submissionId: request.submissionId }),
-    markUnknown: (request) =>
-      admin(rawLedger.markUnknown(request), { submissionId: request.submissionId }),
+    markUnknown: (request) => admin(rawLedger.markUnknown(request), { submissionId: request.submissionId }),
     recordUnknownResolution: (request) =>
       admin(rawLedger.recordUnknownResolution(request), { submissionId: request.submissionId }),
     recordChildSettled: (request) =>
@@ -196,54 +186,47 @@ export const makeSqlRunStorage = Effect.fnUntraced(function* <
     ...(inspectWorker === undefined
       ? {}
       : {
-          inspectWorker: (request: Parameters<typeof inspectWorker>[0]) =>
-            bind(inspectWorker(request)),
-        }),
+        inspectWorker: (request: Parameters<typeof inspectWorker>[0]) => bind(inspectWorker(request)),
+      }),
     loadRecoverySnapshot: (request) => bind(rawLedger.loadRecoverySnapshot(request)),
     readAbortIntent: (request) => bind(rawLedger.readAbortIntent(request)),
     scanNonterminal: bindStream(rawLedger.scanNonterminal),
-  };
+  }
 
   const publisher = SettlementPublisher.of({
-    publish: (request) =>
-      bind(owner.withProgress(request.append.threadId, ledgerKernel.publisher.publish(request))),
-  });
+    publish: (request) => bind(owner.withProgress(request.append.threadId, ledgerKernel.publisher.publish(request))),
+  })
 
-  const promptCheckpoints = rawStore.promptCheckpoints;
-  const countPeerMessages = rawStore.countPeerMessages;
-  const work = rawStore.work;
-  const archives = rawStore.archives;
-  const verification = rawStore.verification;
-  const readWorkerCapacity = rawStore.readWorkerCapacity;
+  const promptCheckpoints = rawStore.promptCheckpoints
+  const countPeerMessages = rawStore.countPeerMessages
+  const work = rawStore.work
+  const archives = rawStore.archives
+  const verification = rawStore.verification
+  const readWorkerCapacity = rawStore.readWorkerCapacity
 
-  const archiveMutation = <A, E>(effect: Effect.Effect<A, E>, threadId: string) =>
-    admin(effect, { threadId });
+  const archiveMutation = <A, E>(effect: Effect.Effect<A, E>, threadId: string) => admin(effect, { threadId })
 
-  const store: ThreadStore["Service"] = {
+  const store: ThreadStore['Service'] = {
     ...rawStore,
-    archives:
-      archives === undefined
-        ? undefined
-        : {
-            page: (request) => bind(archives.page(request)),
-            verify: (request) => bind(archives.verify(request)),
-            seal: (request) => archiveMutation(archives.seal(request), request.threadId),
-            archive: (request) => archiveMutation(archives.archive(request), request.threadId),
-          },
-    verification:
-      verification === undefined
-        ? undefined
-        : { verify: (request) => bind(verification.verify(request)) },
-    readWorkerCapacity:
-      readWorkerCapacity === undefined ? undefined : (request) => bind(readWorkerCapacity(request)),
-    work:
-      work === undefined
-        ? undefined
-        : {
-            page: (request) => bind(work.page(request)),
-            threads: (request) => bind(work.threads(request)),
-            rebuild: (request) => admin(work.rebuild(request), { threadId: request.threadId }),
-          },
+    archives: archives === undefined
+      ? undefined
+      : {
+        page: (request) => bind(archives.page(request)),
+        verify: (request) => bind(archives.verify(request)),
+        seal: (request) => archiveMutation(archives.seal(request), request.threadId),
+        archive: (request) => archiveMutation(archives.archive(request), request.threadId),
+      },
+    verification: verification === undefined
+      ? undefined
+      : { verify: (request) => bind(verification.verify(request)) },
+    readWorkerCapacity: readWorkerCapacity === undefined ? undefined : (request) => bind(readWorkerCapacity(request)),
+    work: work === undefined
+      ? undefined
+      : {
+        page: (request) => bind(work.page(request)),
+        threads: (request) => bind(work.threads(request)),
+        rebuild: (request) => admin(work.rebuild(request), { threadId: request.threadId }),
+      },
     materialize: (request) => admin(rawStore.materialize(request), { threadId: request.threadId }),
     append: (request) => bind(appendNative(request)),
     read: (request) => bindStream(rawStore.read(request)),
@@ -254,35 +237,33 @@ export const makeSqlRunStorage = Effect.fnUntraced(function* <
     readIdentity: (request) => bind(rawStore.readIdentity(request)),
     readFreshRun: (request) => bind(rawStore.readFreshRun!(request)),
     readExecution: (request) => bind(rawStore.readExecution(request)),
-    countPeerMessages:
-      countPeerMessages === undefined ? undefined : (request) => bind(countPeerMessages(request)),
-    promptCheckpoints:
-      promptCheckpoints === undefined
-        ? undefined
-        : {
-            save: (request) => bind(promptCheckpoints.save(request)),
-            load: (request) => bind(promptCheckpoints.load(request)),
-          },
-  };
+    countPeerMessages: countPeerMessages === undefined ? undefined : (request) => bind(countPeerMessages(request)),
+    promptCheckpoints: promptCheckpoints === undefined
+      ? undefined
+      : {
+        save: (request) => bind(promptCheckpoints.save(request)),
+        load: (request) => bind(promptCheckpoints.load(request)),
+      },
+  }
 
   const shared = yield* makeRunStorage.pipe(
     Effect.provideService(ThreadStore, store),
     Effect.provideService(SubmissionLedger, ledger),
     Effect.provideService(SettlementPublisher, publisher),
     Effect.provideService(StorageOwner, owner),
-  );
+  )
 
   const runStorage = {
     ...shared,
     claim: (request: Parameters<typeof shared.claim>[0]) => bindScoped(shared.claim(request)),
-  };
+  }
 
   const importer = ThreadImport.of({
     import: <E, R>(request: Stream.Stream<ThreadArchive, E, R>) =>
       Effect.contextWith((live: Context.Context<R>) =>
-        bind(storeKernel.importer.import(Stream.provideContext(request, live))),
+        bind(storeKernel.importer.import(Stream.provideContext(request, live)))
       ),
-  });
+  })
 
   return {
     store,
@@ -292,5 +273,5 @@ export const makeSqlRunStorage = Effect.fnUntraced(function* <
     runStorage,
     reader: ThreadReader.fromStore(store),
     owner,
-  };
-});
+  }
+})

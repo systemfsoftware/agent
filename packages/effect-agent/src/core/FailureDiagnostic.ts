@@ -1,26 +1,26 @@
-import * as EffectCause from "effect/Cause";
-import * as Exit from "effect/Exit";
-import * as Predicate from "effect/Predicate";
-import * as Redacted from "effect/Redacted";
-import * as Schema from "effect/Schema";
-import * as SchemaTransformation from "effect/SchemaTransformation";
+import * as EffectCause from 'effect/Cause'
+import * as Exit from 'effect/Exit'
+import * as Predicate from 'effect/Predicate'
+import * as Redacted from 'effect/Redacted'
+import * as Schema from 'effect/Schema'
+import * as SchemaTransformation from 'effect/SchemaTransformation'
 
-import { strictSchema } from "./internal/strict-schema.ts";
+import { strictSchema } from './internal/strict-schema.ts'
 
-const PrivateCause = Symbol.for("@yielded/agent/FailureDiagnostic/PrivateCause");
+const PrivateCause = Symbol.for('@yielded/agent/FailureDiagnostic/PrivateCause')
 
-const Text = Schema.String.check(Schema.isMaxLength(16 * 1024));
-const Name = Schema.String.check(Schema.isMaxLength(1_024));
-const HttpStatus = Schema.Int.check(Schema.isBetween({ minimum: 100, maximum: 599 }));
-const RequestId = Schema.String.check(Schema.isPattern(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/));
+const Text = Schema.String.check(Schema.isMaxLength(16 * 1024))
+const Name = Schema.String.check(Schema.isMaxLength(1_024))
+const HttpStatus = Schema.Int.check(Schema.isBetween({ minimum: 100, maximum: 599 }))
+const RequestId = Schema.String.check(Schema.isPattern(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/))
 
 const RetryAfter = Schema.String.check(
   Schema.isPattern(
     /^(?:[0-9]{1,10}|(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), [0-9]{2} (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) [0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2} GMT)$/,
   ),
-);
+)
 
-const Scalar = Schema.Union([Text, Schema.Finite, Schema.Boolean, Schema.Null]);
+const Scalar = Schema.Union([Text, Schema.Finite, Schema.Boolean, Schema.Null])
 
 /** Correlation only: never include inputs, tool parameters, request bodies, or credentials. */
 export const Context = Schema.Struct({
@@ -35,45 +35,45 @@ export const Context = Schema.Struct({
   callId: Schema.optionalKey(Name),
   check: Schema.optionalKey(Name),
   operation: Schema.optionalKey(Name),
-}).pipe(strictSchema);
+}).pipe(strictSchema)
 
-export type Context = typeof Context.Type;
+export type Context = typeof Context.Type
 
 type CauseReason =
-  | { readonly _tag: "Fail"; readonly error: Diagnostic }
-  | { readonly _tag: "Die"; readonly defect: Diagnostic }
-  | { readonly _tag: "Interrupt"; readonly fiberId?: number };
+  | { readonly _tag: 'Fail'; readonly error: Diagnostic }
+  | { readonly _tag: 'Die'; readonly defect: Diagnostic }
+  | { readonly _tag: 'Interrupt'; readonly fiberId?: number }
 
 /** A private diagnostic projection, not a JavaScript error reconstruction or model response. */
 export type Diagnostic =
   | {
-      readonly _tag: "Error";
-      readonly errorTag?: string;
-      readonly name?: string;
-      readonly message?: string;
-      readonly stack?: string;
-      readonly reason?: Diagnostic;
-      readonly code?: string | number;
-      readonly status?: number;
-      readonly requestId?: string;
-      readonly retryAfter?: string;
-      readonly cause?: Diagnostic;
-      readonly errors?: ReadonlyArray<Diagnostic>;
-      readonly context?: Context;
-      readonly omittedFields?: ReadonlyArray<string>;
-      readonly truncated?: true;
-    }
+    readonly _tag: 'Error'
+    readonly errorTag?: string
+    readonly name?: string
+    readonly message?: string
+    readonly stack?: string
+    readonly reason?: Diagnostic
+    readonly code?: string | number
+    readonly status?: number
+    readonly requestId?: string
+    readonly retryAfter?: string
+    readonly cause?: Diagnostic
+    readonly errors?: ReadonlyArray<Diagnostic>
+    readonly context?: Context
+    readonly omittedFields?: ReadonlyArray<string>
+    readonly truncated?: true
+  }
   | {
-      readonly _tag: "Cause";
-      readonly reasons: ReadonlyArray<CauseReason>;
-      readonly truncated?: true;
-    }
-  | { readonly _tag: "Value"; readonly value: string | number | boolean | null }
-  | { readonly _tag: "Omitted"; readonly reason: "redacted" | "cycle" | "limit" | "unsupported" };
+    readonly _tag: 'Cause'
+    readonly reasons: ReadonlyArray<CauseReason>
+    readonly truncated?: true
+  }
+  | { readonly _tag: 'Value'; readonly value: string | number | boolean | null }
+  | { readonly _tag: 'Omitted'; readonly reason: 'redacted' | 'cycle' | 'limit' | 'unsupported' }
 
 const diagnosticSchema = <Nested extends Schema.Top>(nested: Nested) =>
   Schema.Union([
-    Schema.TaggedStruct("Error", {
+    Schema.TaggedStruct('Error', {
       errorTag: Schema.optionalKey(Name),
       name: Schema.optionalKey(Name),
       message: Schema.optionalKey(Text),
@@ -89,47 +89,47 @@ const diagnosticSchema = <Nested extends Schema.Top>(nested: Nested) =>
       omittedFields: Schema.optionalKey(Schema.Array(Name).check(Schema.isMaxLength(32))),
       truncated: Schema.optionalKey(Schema.Literal(true)),
     }),
-    Schema.TaggedStruct("Cause", {
+    Schema.TaggedStruct('Cause', {
       reasons: Schema.Array(
         Schema.Union([
-          Schema.TaggedStruct("Fail", { error: nested }),
-          Schema.TaggedStruct("Die", { defect: nested }),
-          Schema.TaggedStruct("Interrupt", {
+          Schema.TaggedStruct('Fail', { error: nested }),
+          Schema.TaggedStruct('Die', { defect: nested }),
+          Schema.TaggedStruct('Interrupt', {
             fiberId: Schema.optionalKey(Schema.Finite),
           }),
         ]),
       ).check(Schema.isMaxLength(128)),
       truncated: Schema.optionalKey(Schema.Literal(true)),
     }),
-    Schema.TaggedStruct("Value", { value: Scalar }),
-    Schema.TaggedStruct("Omitted", {
-      reason: Schema.Literals(["redacted", "cycle", "limit", "unsupported"]),
+    Schema.TaggedStruct('Value', { value: Scalar }),
+    Schema.TaggedStruct('Omitted', {
+      reason: Schema.Literals(['redacted', 'cycle', 'limit', 'unsupported']),
     }),
-  ]);
+  ])
 
 /** Structured, allowlisted Error fields and ordered Effect Fail/Die/Interrupt reasons. */
-export const Diagnostic: Schema.Codec<Diagnostic> = Schema.suspend(() =>
-  diagnosticSchema(Diagnostic),
-).pipe(strictSchema);
+export const Diagnostic: Schema.Codec<Diagnostic> = Schema.suspend(() => diagnosticSchema(Diagnostic)).pipe(
+  strictSchema,
+)
 
 // Inspect one encoded node only; recursion must share capture's depth/node/text budgets.
 const decodeDiagnosticNode = Schema.decodeUnknownExit(
   diagnosticSchema(Schema.Unknown).pipe(strictSchema),
-);
+)
 
 /** Remove common credential forms; hosts must keep arbitrary private payloads out of error text. */
 export const redactText = (text: string): string =>
   text
-    .replace(/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi, "$1 [REDACTED]")
-    .replace(/(https?:\/\/)[^\s/@]+:[^\s/@]+@/gi, "$1[REDACTED]@")
+    .replace(/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi, '$1 [REDACTED]')
+    .replace(/(https?:\/\/)[^\s/@]+:[^\s/@]+@/gi, '$1[REDACTED]@')
     .replace(
       /([?&](?:access_token|api_key|apikey|token|key|secret|password|signature)=)[^\s&#]*/gi,
-      "$1[REDACTED]",
+      '$1[REDACTED]',
     )
     .replace(
       /\b((?:api[_-]?key|access[_-]?token|authorization|password|secret)\s*[=:]\s*)[^\s,;}]+/gi,
-      "$1[REDACTED]",
-    );
+      '$1[REDACTED]',
+    )
 
 /**
  * Capture only diagnostic fields. Local values are never mutated. Cycles and exhausted limits
@@ -142,166 +142,169 @@ export const capture = (
   value: unknown,
   options?: { readonly redactText?: (text: string) => string },
 ): Diagnostic => {
-  const seen = new WeakSet<object>();
-  let remainingNodes = 1_024;
-  let remainingText = 128 * 1024;
+  const seen = new WeakSet<object>()
+  let remainingNodes = 1_024
+  let remainingText = 128 * 1024
 
   const text = (value: string, limit = 16 * 1024): string => {
-    const safe = (options?.redactText ?? redactText)(value);
-    const length = Math.max(0, Math.min(limit, remainingText));
+    const safe = (options?.redactText ?? redactText)(value)
+    const length = Math.max(0, Math.min(limit, remainingText))
 
-    const marker = "[truncated]".slice(0, length);
+    const marker = '[truncated]'.slice(0, length)
 
-    const result =
-      safe.length <= length ? safe : `${safe.slice(0, length - marker.length)}${marker}`;
+    const result = safe.length <= length ? safe : `${safe.slice(0, length - marker.length)}${marker}`
 
-    remainingText -= result.length;
+    remainingText -= result.length
 
-    return result;
-  };
+    return result
+  }
 
   const visit = (value: unknown, depth: number): Diagnostic => {
-    if (remainingNodes <= 0 || depth >= 56) return { _tag: "Omitted", reason: "limit" };
-    remainingNodes--;
-    if (Redacted.isRedacted(value)) return { _tag: "Omitted", reason: "redacted" };
-    if (Predicate.isString(value)) return { _tag: "Value", value: text(value) };
+    if (remainingNodes <= 0 || depth >= 56) return { _tag: 'Omitted', reason: 'limit' }
+    remainingNodes--
+    if (Redacted.isRedacted(value)) return { _tag: 'Omitted', reason: 'redacted' }
+    if (Predicate.isString(value)) return { _tag: 'Value', value: text(value) }
     if (
       value === null ||
       Predicate.isBoolean(value) ||
       (Predicate.isNumber(value) && Number.isFinite(value))
-    )
-      return { _tag: "Value", value };
-    if (!Predicate.isObject(value)) return { _tag: "Omitted", reason: "unsupported" };
-    if (seen.has(value)) return { _tag: "Omitted", reason: "cycle" };
-    seen.add(value);
-    const nested = (value: unknown) => visit(value, depth + 1);
+    ) {
+      return { _tag: 'Value', value }
+    }
+    if (!Predicate.isObject(value)) return { _tag: 'Omitted', reason: 'unsupported' }
+    if (seen.has(value)) return { _tag: 'Omitted', reason: 'cycle' }
+    seen.add(value)
+    const nested = (value: unknown) => visit(value, depth + 1)
     // Local errors retain their own tag, even when it happens to be "Error".
-    const decoded = value instanceof Error ? undefined : decodeDiagnosticNode(value);
-    const node = decoded !== undefined && Exit.isSuccess(decoded) ? decoded.value : undefined;
+    const decoded = value instanceof Error ? undefined : decodeDiagnosticNode(value)
+    const node = decoded !== undefined && Exit.isSuccess(decoded) ? decoded.value : undefined
 
-    if (node?._tag === "Omitted" || node?._tag === "Value") {
-      seen.delete(value);
+    if (node?._tag === 'Omitted' || node?._tag === 'Value') {
+      seen.delete(value)
 
-      return node._tag === "Value" && typeof node.value === "string"
-        ? { _tag: "Value", value: text(node.value) }
-        : node;
+      return node._tag === 'Value' && typeof node.value === 'string'
+        ? { _tag: 'Value', value: text(node.value) }
+        : node
     }
 
     const originalReasons = EffectCause.isCause(value)
       ? value.reasons
-      : node?._tag === "Cause"
-        ? node.reasons
-        : undefined;
+      : node?._tag === 'Cause'
+      ? node.reasons
+      : undefined
 
     if (originalReasons !== undefined) {
-      const reasons: Array<CauseReason> = [];
+      const reasons: Array<CauseReason> = []
 
       for (const reason of originalReasons) {
-        if (reasons.length >= 128 || remainingNodes <= 0) break;
-        remainingNodes--;
+        if (reasons.length >= 128 || remainingNodes <= 0) break
+        remainingNodes--
 
         // reasons -> array item -> error/defect contributes three JSON levels.
         switch (reason._tag) {
-          case "Fail":
-            reasons.push({ _tag: "Fail", error: visit(reason.error, depth + 3) });
-            break;
-          case "Die":
-            reasons.push({ _tag: "Die", defect: visit(reason.defect, depth + 3) });
-            break;
-          case "Interrupt":
+          case 'Fail':
+            reasons.push({ _tag: 'Fail', error: visit(reason.error, depth + 3) })
+            break
+          case 'Die':
+            reasons.push({ _tag: 'Die', defect: visit(reason.defect, depth + 3) })
+            break
+          case 'Interrupt':
             reasons.push({
-              _tag: "Interrupt",
+              _tag: 'Interrupt',
               ...(reason.fiberId === undefined ? {} : { fiberId: reason.fiberId }),
-            });
-            break;
+            })
+            break
         }
       }
 
       const result: Diagnostic = {
-        _tag: "Cause",
-        ...(originalReasons.length > reasons.length || (node?._tag === "Cause" && node.truncated)
+        _tag: 'Cause',
+        ...(originalReasons.length > reasons.length || (node?._tag === 'Cause' && node.truncated)
           ? { truncated: true }
           : {}),
         reasons,
-      };
+      }
 
-      seen.delete(value);
+      seen.delete(value)
 
-      return result;
+      return result
     }
-    const retained = node?._tag === "Error" ? node : undefined;
-    const omittedFields: Array<string> = [];
+    const retained = node?._tag === 'Error' ? node : undefined
+    const omittedFields: Array<string> = []
 
     const read = (key: string | symbol): unknown => {
       // A throwing accessor must not replace the original failure during diagnostic capture.
       try {
-        return Reflect.get(value, key);
+        return Reflect.get(value, key)
       } catch {
-        omittedFields.push(typeof key === "string" ? key : "privateCause");
+        omittedFields.push(typeof key === 'string' ? key : 'privateCause')
 
-        return undefined;
+        return undefined
       }
-    };
+    }
 
-    const tag = retained === undefined ? read("_tag") : retained.errorTag;
-    const name = read("name");
-    const message = read("message");
-    const stack = read("stack");
-    const reason = read("reason");
-    const code = read("code");
-    const status = read("status");
-    const requestId = read("requestId");
-    const retryAfter = read("retryAfter");
-    const privateCause = read(PrivateCause);
-    const cause = privateCause === undefined ? read("cause") : privateCause;
-    const errors = read("errors");
-    const capturedCause = cause === undefined ? undefined : nested(cause);
-    const capturedReason = reason === undefined ? undefined : nested(reason);
-    const capturedErrors: Array<Diagnostic> = [];
+    const tag = retained === undefined ? read('_tag') : retained.errorTag
+    const name = read('name')
+    const message = read('message')
+    const stack = read('stack')
+    const reason = read('reason')
+    const code = read('code')
+    const status = read('status')
+    const requestId = read('requestId')
+    const retryAfter = read('retryAfter')
+    const privateCause = read(PrivateCause)
+    const cause = privateCause === undefined ? read('cause') : privateCause
+    const errors = read('errors')
+    const capturedCause = cause === undefined ? undefined : nested(cause)
+    const capturedReason = reason === undefined ? undefined : nested(reason)
+    const capturedErrors: Array<Diagnostic> = []
 
-    if (Array.isArray(errors))
+    if (Array.isArray(errors)) {
       for (const error of errors) {
-        if (capturedErrors.length >= 128 || remainingNodes <= 0) break;
-        capturedErrors.push(visit(error, depth + 2));
+        if (capturedErrors.length >= 128 || remainingNodes <= 0) break
+        capturedErrors.push(visit(error, depth + 2))
       }
+    }
 
-    for (const field of retained?.omittedFields ?? []) omittedFields.push(text(field, 1_024));
+    for (const field of retained?.omittedFields ?? []) omittedFields.push(text(field, 1_024))
 
-    const context: Record<string, string> = {};
+    const context: Record<string, string> = {}
 
-    for (const key of [
-      "agentId",
-      "threadId",
-      "runId",
-      "submissionId",
-      "attemptId",
-      "turnId",
-      "toolCallId",
-      "toolName",
-      "callId",
-      "check",
-      "operation",
-    ] as const) {
-      const field = retained === undefined ? read(key) : retained.context?.[key];
+    for (
+      const key of [
+        'agentId',
+        'threadId',
+        'runId',
+        'submissionId',
+        'attemptId',
+        'turnId',
+        'toolCallId',
+        'toolName',
+        'callId',
+        'check',
+        'operation',
+      ] as const
+    ) {
+      const field = retained === undefined ? read(key) : retained.context?.[key]
 
-      if (Predicate.isString(field)) context[key] = text(field, 1_024);
+      if (Predicate.isString(field)) context[key] = text(field, 1_024)
     }
 
     const httpText = (value: string): string | undefined => {
       if (value.length > remainingText) {
-        remainingText = 0;
+        remainingText = 0
 
-        return undefined;
+        return undefined
       }
 
-      return text(value, 256);
-    };
+      return text(value, 256)
+    }
 
-    const capturedRequestId = Schema.is(RequestId)(requestId) ? httpText(requestId) : undefined;
-    const capturedRetryAfter = Schema.is(RetryAfter)(retryAfter) ? httpText(retryAfter) : undefined;
+    const capturedRequestId = Schema.is(RequestId)(requestId) ? httpText(requestId) : undefined
+    const capturedRetryAfter = Schema.is(RetryAfter)(retryAfter) ? httpText(retryAfter) : undefined
 
     const result: Diagnostic = {
-      _tag: "Error",
+      _tag: 'Error',
       ...(Predicate.isString(tag) ? { errorTag: text(tag, 1_024) } : {}),
       ...(Predicate.isString(name) ? { name: text(name, 1_024) } : {}),
       ...(Predicate.isString(message) ? { message: text(message) } : {}),
@@ -310,8 +313,8 @@ export const capture = (
       ...(Predicate.isString(code)
         ? { code: text(code, 1_024) }
         : Predicate.isNumber(code) && Number.isFinite(code)
-          ? { code }
-          : {}),
+        ? { code }
+        : {}),
       ...(Schema.is(HttpStatus)(status) ? { status } : {}),
       ...(Schema.is(RequestId)(capturedRequestId) ? { requestId: capturedRequestId } : {}),
       ...(Schema.is(RetryAfter)(capturedRetryAfter) ? { retryAfter: capturedRetryAfter } : {}),
@@ -320,26 +323,26 @@ export const capture = (
       ...(Object.keys(context).length === 0 ? {} : { context }),
       ...(omittedFields.length === 0 ? {} : { omittedFields }),
       ...(retained?.truncated ||
-      (Array.isArray(errors) && errors.length > capturedErrors.length) ||
-      remainingText === 0
+          (Array.isArray(errors) && errors.length > capturedErrors.length) ||
+          remainingText === 0
         ? { truncated: true }
         : {}),
-    };
+    }
 
-    seen.delete(value);
+    seen.delete(value)
 
-    return result;
-  };
+    return result
+  }
 
-  return visit(value, 0);
-};
+  return visit(value, 0)
+}
 
 /** Bound and redact a diagnostic copy; canonical identities stay in their owning records. */
 export const captureContext = (context: Context): Context => {
-  const diagnostic = capture(context);
+  const diagnostic = capture(context)
 
-  return diagnostic._tag === "Error" ? (diagnostic.context ?? {}) : {};
-};
+  return diagnostic._tag === 'Error' ? (diagnostic.context ?? {}) : {}
+}
 
 /**
  * Preserve the original value in-process; across JSON retain its structured diagnostic projection.
@@ -353,7 +356,7 @@ export const Value = Diagnostic.pipe(
       encode: (value: unknown) => capture(value),
     }),
   ),
-);
+)
 
 /** Original local Effect Cause; its JSON codec preserves ordered typed, defect and interrupt reasons. */
 export const Cause = Schema.Cause(Value, Value).pipe(
@@ -361,7 +364,7 @@ export const Cause = Schema.Cause(Value, Value).pipe(
     Schema.declare<EffectCause.Cause<unknown>>(EffectCause.isCause),
     SchemaTransformation.transform({ decode: (cause) => cause, encode: (cause) => cause }),
   ),
-);
+)
 
 /** Safe summary plus optional operator-private causal evidence retained at a terminal boundary. */
 export const Failure = Schema.Struct({
@@ -369,16 +372,16 @@ export const Failure = Schema.Struct({
   message: Text,
   diagnostic: Schema.optionalKey(Diagnostic),
   context: Schema.optionalKey(Context),
-}).pipe(strictSchema);
+}).pipe(strictSchema)
 
-export type Failure = typeof Failure.Type;
+export type Failure = typeof Failure.Type
 
 /**
  * Attach an original cause for trusted in-process inspection without enumerable JSON.
  * Error Schemas must omit cause to exclude it from Schema transports; capture() retains it.
  */
 export const withCause = <A extends object>(error: A, cause: unknown): A =>
-  Object.defineProperty(error, "cause", { value: cause, enumerable: false, configurable: true });
+  Object.defineProperty(error, 'cause', { value: cause, enumerable: false, configurable: true })
 
 /** Preserve an original for capture() while keeping an existing public cause projection intact. */
 export const withPrivateCause = <A extends object>(error: A, cause: unknown): A =>
@@ -386,4 +389,4 @@ export const withPrivateCause = <A extends object>(error: A, cause: unknown): A 
     value: cause,
     enumerable: false,
     configurable: true,
-  });
+  })

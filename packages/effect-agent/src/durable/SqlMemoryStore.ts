@@ -1,14 +1,14 @@
-import * as Arr from "effect/Array";
-import * as Clock from "effect/Clock";
-import * as Context from "effect/Context";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Schema from "effect/Schema";
-import * as SqlClientService from "effect/sql/SqlClient";
-import type * as SqlError from "effect/sql/SqlError";
+import * as Arr from 'effect/Array'
+import * as Clock from 'effect/Clock'
+import * as Context from 'effect/Context'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
+import * as Schema from 'effect/Schema'
+import * as SqlClientService from 'effect/sql/SqlClient'
+import type * as SqlError from 'effect/sql/SqlError'
 
-import { utf8ByteLength } from "../core/internal/utf8.ts";
-import { type Any as MemoryNamespace, MemoryNamespaceAddress } from "../core/MemoryNamespace.ts";
+import { utf8ByteLength } from '../core/internal/utf8.ts'
+import { type Any as MemoryNamespace, MemoryNamespaceAddress } from '../core/MemoryNamespace.ts'
 import {
   applyMemoryWrite,
   MemoryDocument,
@@ -21,36 +21,35 @@ import {
   MemoryWrite,
   type MemoryWriteError,
   MemoryWriter,
-} from "../core/MemoryStore.ts";
-import { SqlStorageOwner } from "./SqlStorageOwner.ts";
+} from '../core/MemoryStore.ts'
+import { SqlStorageOwner } from './SqlStorageOwner.ts'
 
-export { SqlStorageOwner } from "./SqlStorageOwner.ts";
+export { SqlStorageOwner } from './SqlStorageOwner.ts'
 
-const STORAGE_VERSION = 2 as const;
-const METADATA_COMPONENT = "memory";
-const DOCUMENT_TABLE = "effect_agent_memory_documents_v1";
-const RECEIPT_TABLE = "effect_agent_memory_receipts_v1";
-const USAGE_COMPONENT = "memory-usage";
-const USAGE_TABLE = "effect_agent_memory_usage_v1";
-const MAX_STORED_JSON_CODE_UNITS = 16 * 1024 * 1024;
-const StoredJson = Schema.String.check(Schema.isMaxLength(MAX_STORED_JSON_CODE_UNITS));
+const STORAGE_VERSION = 2 as const
+const METADATA_COMPONENT = 'memory'
+const DOCUMENT_TABLE = 'effect_agent_memory_documents_v1'
+const RECEIPT_TABLE = 'effect_agent_memory_receipts_v1'
+const USAGE_COMPONENT = 'memory-usage'
+const USAGE_TABLE = 'effect_agent_memory_usage_v1'
+const MAX_STORED_JSON_CODE_UNITS = 16 * 1024 * 1024
+const StoredJson = Schema.String.check(Schema.isMaxLength(MAX_STORED_JSON_CODE_UNITS))
 
 const EncodedMemoryChange = Schema.Struct({
   commandJson: StoredJson,
   documentJson: StoredJson,
   resultJson: StoredJson,
-});
+})
 
-const makeEquivalentContent = () =>
-  Schema.toEquivalence(Schema.toEncoded(MemoryWrite.Wire.members[0].fields.content));
+const makeEquivalentContent = () => Schema.toEquivalence(Schema.toEncoded(MemoryWrite.Wire.members[0].fields.content))
 
-let equivalentContent: ReturnType<typeof makeEquivalentContent> | undefined;
+let equivalentContent: ReturnType<typeof makeEquivalentContent> | undefined
 
-const makeEquivalentScopes = () => Schema.toEquivalence(MemoryWrite.Wire.members[0].fields.scopes);
-let equivalentScopes: ReturnType<typeof makeEquivalentScopes> | undefined;
+const makeEquivalentScopes = () => Schema.toEquivalence(MemoryWrite.Wire.members[0].fields.scopes)
+let equivalentScopes: ReturnType<typeof makeEquivalentScopes> | undefined
 
 /** Ordered commands committed atomically by the SQL memory adapter. */
-export const SqlMemoryWriteBatch = Schema.Array(MemoryWrite.Wire).check(Schema.isMaxLength(128));
+export const SqlMemoryWriteBatch = Schema.Array(MemoryWrite.Wire).check(Schema.isMaxLength(128))
 
 /**
  * SQL-only bulk writing. Results preserve input order, including exact operation replays.
@@ -63,9 +62,9 @@ export class SqlMemoryBatchWriter extends Context.Service<
   {
     readonly changeMany: <Namespace extends MemoryNamespace>(
       writes: ReadonlyArray<MemoryWrite<Namespace>>,
-    ) => Effect.Effect<ReadonlyArray<MemoryDocument<Namespace>>, MemoryWriteError>;
+    ) => Effect.Effect<ReadonlyArray<MemoryDocument<Namespace>>, MemoryWriteError>
   }
->()("@effect-agent/thread/SqlMemoryBatchWriter") {}
+>()('@effect-agent/thread/SqlMemoryBatchWriter') {}
 
 /**
  * Independent adapter limits. Counts and encoded bytes include durable operation receipts.
@@ -76,20 +75,20 @@ export class SqlMemoryBatchWriter extends Context.Service<
  * but do not honor reserves. Limits are captured when the writer Layer is built.
  */
 export const SqlMemoryLimits = Context.Reference<{
-  readonly maxRowBytes: number;
-  readonly maxStorageBytes: number;
-  readonly maxDocuments: number;
-  readonly maxReceipts: number;
-  readonly reservedWithdrawalBytes?: number;
-  readonly reservedWithdrawalReceipts?: number;
-}>("@effect-agent/thread/SqlMemoryLimits", {
+  readonly maxRowBytes: number
+  readonly maxStorageBytes: number
+  readonly maxDocuments: number
+  readonly maxReceipts: number
+  readonly reservedWithdrawalBytes?: number
+  readonly reservedWithdrawalReceipts?: number
+}>('@effect-agent/thread/SqlMemoryLimits', {
   defaultValue: () => ({
     maxRowBytes: Number.MAX_SAFE_INTEGER,
     maxStorageBytes: Number.MAX_SAFE_INTEGER,
     maxDocuments: Number.MAX_SAFE_INTEGER,
     maxReceipts: Number.MAX_SAFE_INTEGER,
   }),
-});
+})
 
 const Limits = Schema.Struct({
   maxRowBytes: Schema.Natural,
@@ -103,22 +102,22 @@ const Limits = Schema.Struct({
     (limits) =>
       (limits.reservedWithdrawalBytes ?? 0) <= limits.maxStorageBytes &&
       (limits.reservedWithdrawalReceipts ?? 0) <= limits.maxReceipts,
-    { expected: "withdrawal reserves within hard storage limits" },
+    { expected: 'withdrawal reserves within hard storage limits' },
   ),
-);
+)
 
 const UsageRow = Schema.Struct({
   documents: Schema.Natural,
   receipts: Schema.Natural,
   bytes: Schema.Natural,
-});
+})
 
-type DocumentView = { readonly document: MemoryDocument; readonly bytes: number } | null;
-type ReceiptView = { readonly commandJson: string; readonly result: MemoryDocument } | null;
+type DocumentView = { readonly document: MemoryDocument; readonly bytes: number } | null
+type ReceiptView = { readonly commandJson: string; readonly result: MemoryDocument } | null
 type MemoryView =
-  | { readonly _tag: "Document"; readonly value: DocumentView }
-  | { readonly _tag: "Receipt"; readonly value: ReceiptView }
-  | { readonly _tag: "Usage"; readonly value: typeof UsageRow.Type };
+  | { readonly _tag: 'Document'; readonly value: DocumentView }
+  | { readonly _tag: 'Receipt'; readonly value: ReceiptView }
+  | { readonly _tag: 'Usage'; readonly value: typeof UsageRow.Type }
 
 // Demand-loaded views are disposable. The shared owner's gate keeps writes invisible
 // until commit, and its rollback invalidator discards every speculative view together.
@@ -126,108 +125,107 @@ class MemoryViews {
   private readonly entries = new Map<
     string,
     { readonly view: MemoryView; readonly bytes: number }
-  >();
-  private bytes = 0;
+  >()
+  private bytes = 0
 
   readonly clear = () => {
-    this.entries.clear();
-    this.bytes = 0;
-  };
+    this.entries.clear()
+    this.bytes = 0
+  }
 
   get(key: string): MemoryView | undefined {
-    const entry = this.entries.get(key);
+    const entry = this.entries.get(key)
 
-    if (entry === undefined) return undefined;
-    this.entries.delete(key);
-    this.entries.set(key, entry);
+    if (entry === undefined) return undefined
+    this.entries.delete(key)
+    this.entries.set(key, entry)
 
-    return entry.view;
+    return entry.view
   }
 
   set(key: string, view: MemoryView): void {
-    const previous = this.entries.get(key);
+    const previous = this.entries.get(key)
 
-    if (previous !== undefined) this.bytes -= previous.bytes;
-    this.entries.delete(key);
-    const bytes = utf8ByteLength(key) + utf8ByteLength(JSON.stringify(view)) + 128;
+    if (previous !== undefined) this.bytes -= previous.bytes
+    this.entries.delete(key)
+    const bytes = utf8ByteLength(key) + utf8ByteLength(JSON.stringify(view)) + 128
 
-    if (bytes > 4 * 1024 * 1024) return;
-    this.entries.set(key, { view, bytes });
-    this.bytes += bytes;
+    if (bytes > 4 * 1024 * 1024) return
+    this.entries.set(key, { view, bytes })
+    this.bytes += bytes
     while (this.entries.size > 128 || this.bytes > 4 * 1024 * 1024) {
-      const oldest = this.entries.entries().next().value;
+      const oldest = this.entries.entries().next().value
 
-      if (oldest === undefined) break;
-      this.bytes -= oldest[1].bytes;
-      this.entries.delete(oldest[0]);
+      if (oldest === undefined) break
+      this.bytes -= oldest[1].bytes
+      this.entries.delete(oldest[0])
     }
   }
 }
 
-const ownedViews = new WeakMap<object, MemoryViews>();
+const ownedViews = new WeakMap<object, MemoryViews>()
 
-const memoryViews = Effect.fnUntraced(function* () {
-  const owner = yield* SqlStorageOwner;
+const memoryViews = Effect.fnUntraced(function*() {
+  const owner = yield* SqlStorageOwner
 
-  if (owner === undefined) return undefined;
-  const identity = owner.identity ?? owner;
-  let views = ownedViews.get(identity);
+  if (owner === undefined) return undefined
+  const identity = owner.identity ?? owner
+  let views = ownedViews.get(identity)
 
   if (views === undefined) {
-    views = new MemoryViews();
-    ownedViews.set(identity, views);
-    owner.invalidators.add(views.clear);
+    views = new MemoryViews()
+    ownedViews.set(identity, views)
+    owner.invalidators.add(views.clear)
   }
 
-  return views;
-});
+  return views
+})
 
-const documentViewKey = (key: MemoryKey) =>
-  JSON.stringify(["document", key.namespace.address, key.id]);
+const documentViewKey = (key: MemoryKey) => JSON.stringify(['document', key.namespace.address, key.id])
 
 const receiptViewKey = (write: MemoryWrite) =>
-  JSON.stringify(["receipt", write.key.namespace.address, write.operationId]);
+  JSON.stringify(['receipt', write.key.namespace.address, write.operationId])
 
 // These expressions deliberately match the legacy aggregate's logical byte accounting.
 const documentBytesSql = (row: string) =>
-  `length(CAST(${row}.namespace AS BLOB)) + length(CAST(${row}.source_id AS BLOB)) + length(CAST(${row}.document_json AS BLOB)) + 128`;
+  `length(CAST(${row}.namespace AS BLOB)) + length(CAST(${row}.source_id AS BLOB)) + length(CAST(${row}.document_json AS BLOB)) + 128`
 
 const receiptBytesSql = (row: string) =>
-  `length(CAST(${row}.namespace AS BLOB)) + length(CAST(${row}.source_id AS BLOB)) + length(CAST(${row}.operation_id AS BLOB)) + length(CAST(${row}.command_json AS BLOB)) + length(CAST(${row}.result_json AS BLOB)) + 128`;
+  `length(CAST(${row}.namespace AS BLOB)) + length(CAST(${row}.source_id AS BLOB)) + length(CAST(${row}.operation_id AS BLOB)) + length(CAST(${row}.command_json AS BLOB)) + length(CAST(${row}.result_json AS BLOB)) + 128`
 
 // Triggers keep already-open version-2 writers accounted for. Their admission policy
 // is still the old policy; deployment must drain them before relying on reserves.
 const usageTriggers = [
-  { table: DOCUMENT_TABLE, count: "documents", bytes: documentBytesSql },
-  { table: RECEIPT_TABLE, count: "receipts", bytes: receiptBytesSql },
+  { table: DOCUMENT_TABLE, count: 'documents', bytes: documentBytesSql },
+  { table: RECEIPT_TABLE, count: 'receipts', bytes: receiptBytesSql },
 ].flatMap(({ table, count, bytes }) =>
-  ["INSERT", "UPDATE", "DELETE"].map((event) => ({
+  ['INSERT', 'UPDATE', 'DELETE'].map((event) => ({
     name: `${table}_usage_${event.toLowerCase()}`,
     sql: `CREATE TRIGGER ${table}_usage_${event.toLowerCase()} AFTER ${event} ON ${table}
       BEGIN
         UPDATE ${USAGE_TABLE} SET
-          ${count} = ${count} + ${event === "INSERT" ? 1 : event === "DELETE" ? -1 : 0},
-          bytes = bytes + (${event === "DELETE" ? "0" : bytes("NEW")}) - (${event === "INSERT" ? "0" : bytes("OLD")})
+          ${count} = ${count} + ${event === 'INSERT' ? 1 : event === 'DELETE' ? -1 : 0},
+          bytes = bytes + (${event === 'DELETE' ? '0' : bytes('NEW')}) - (${event === 'INSERT' ? '0' : bytes('OLD')})
         WHERE singleton = 1;
         SELECT CASE WHEN changes() <> 1 THEN RAISE(ABORT, 'missing memory usage') END;
       END`,
-  })),
-);
+  }))
+)
 
 class MemoryMetadataRow extends Schema.Class<MemoryMetadataRow>(
-  "@effect-agent/storage-sqlite/MemoryMetadataRow",
+  '@effect-agent/storage-sqlite/MemoryMetadataRow',
 )({
   version: Schema.Int,
 }) {}
 
 class MemoryTableRow extends Schema.Class<MemoryTableRow>(
-  "@effect-agent/storage-sqlite/MemoryTableRow",
+  '@effect-agent/storage-sqlite/MemoryTableRow',
 )({
   name: Schema.NonEmptyString,
 }) {}
 
 class MemoryDocumentRow extends Schema.Class<MemoryDocumentRow>(
-  "@effect-agent/storage-sqlite/MemoryDocumentRow",
+  '@effect-agent/storage-sqlite/MemoryDocumentRow',
 )({
   namespace: MemoryNamespaceAddress,
   source_id: MemoryKey.Wire.fields.id,
@@ -239,7 +237,7 @@ class MemoryDocumentRow extends Schema.Class<MemoryDocumentRow>(
 }) {}
 
 class MemoryReceiptRow extends Schema.Class<MemoryReceiptRow>(
-  "@effect-agent/storage-sqlite/MemoryReceiptRow",
+  '@effect-agent/storage-sqlite/MemoryReceiptRow',
 )({
   namespace: MemoryNamespaceAddress,
   operation_id: MemoryWrite.Wire.members[0].fields.operationId,
@@ -250,38 +248,38 @@ class MemoryReceiptRow extends Schema.Class<MemoryReceiptRow>(
 }) {}
 
 class MemoryChangeCountRow extends Schema.Class<MemoryChangeCountRow>(
-  "@effect-agent/storage-sqlite/MemoryChangeCountRow",
+  '@effect-agent/storage-sqlite/MemoryChangeCountRow',
 )({
   changed: Schema.Int,
 }) {}
 
 class StoredMemoryCommand extends Schema.Class<StoredMemoryCommand>(
-  "@effect-agent/storage-sqlite/StoredMemoryCommand",
+  '@effect-agent/storage-sqlite/StoredMemoryCommand',
 )({
   version: Schema.Literal(STORAGE_VERSION),
   value: MemoryWrite.Wire,
 }) {}
 
 class StoredMemoryResult extends Schema.Class<StoredMemoryResult>(
-  "@effect-agent/storage-sqlite/StoredMemoryResult",
+  '@effect-agent/storage-sqlite/StoredMemoryResult',
 )({
   version: Schema.Literal(STORAGE_VERSION),
   value: MemoryDocument.Wire,
 }) {}
 
-const StoredVersionHeader = Schema.Struct({ version: Schema.Int });
+const StoredVersionHeader = Schema.Struct({ version: Schema.Int })
 
-export type SqliteMemoryInitializationError = MemoryStorageError | MemoryMutationFailure;
+export type SqliteMemoryInitializationError = MemoryStorageError | MemoryMutationFailure
 
 const storageError = (
   operation: string,
-  reason: MemoryStorageError["reason"] = "unavailable",
-): MemoryStorageError => MemoryStorageError.make({ operation, reason });
+  reason: MemoryStorageError['reason'] = 'unavailable',
+): MemoryStorageError => MemoryStorageError.make({ operation, reason })
 
 const query = <A extends object>(
   effect: Effect.Effect<ReadonlyArray<A>, SqlError.SqlError>,
   operation: string,
-) => effect.pipe(Effect.mapError(() => storageError(operation)));
+) => effect.pipe(Effect.mapError(() => storageError(operation)))
 
 const decodeRows = <A, I>(
   schema: Schema.Codec<A, I, never>,
@@ -289,8 +287,8 @@ const decodeRows = <A, I>(
   operation: string,
 ): Effect.Effect<ReadonlyArray<A>, MemoryStorageError> =>
   Schema.decodeUnknownEffect(Schema.Array(schema))(rows).pipe(
-    Effect.mapError(() => storageError(operation, "corrupt")),
-  );
+    Effect.mapError(() => storageError(operation, 'corrupt')),
+  )
 
 const decodeInput = <A, I>(
   schema: Schema.Codec<A, I, never>,
@@ -298,8 +296,8 @@ const decodeInput = <A, I>(
   operation: string,
 ): Effect.Effect<A, MemoryStorageError> =>
   Schema.decodeUnknownEffect(schema)(value).pipe(
-    Effect.mapError(() => storageError(operation, "invalid-input")),
-  );
+    Effect.mapError(() => storageError(operation, 'invalid-input')),
+  )
 
 const encodeJson = <A, I>(
   schema: Schema.Codec<A, I, never>,
@@ -307,43 +305,43 @@ const encodeJson = <A, I>(
   operation: string,
 ): Effect.Effect<string, MemoryStorageError> =>
   Schema.encodeEffect(Schema.fromJsonString(schema))(value).pipe(
-    Effect.mapError(() => storageError(operation, "corrupt")),
-  );
+    Effect.mapError(() => storageError(operation, 'corrupt')),
+  )
 
-const validateEncodedChange = Effect.fnUntraced(function* (
+const validateEncodedChange = Effect.fnUntraced(function*(
   encoded: typeof EncodedMemoryChange.Type,
   operation: string,
 ): Effect.fn.Return<void, MemoryStorageError> {
   yield* Schema.decodeEffect(EncodedMemoryChange)(encoded).pipe(
-    Effect.mapError(() => storageError(operation, "invalid-input")),
-  );
-});
+    Effect.mapError(() => storageError(operation, 'invalid-input')),
+  )
+})
 
-const decodeVersionedJson = Effect.fnUntraced(function* <A, I>(
+const decodeVersionedJson = Effect.fnUntraced(function*<A, I>(
   schema: Schema.Codec<A, I, never>,
   value: string,
   operation: string,
 ): Effect.fn.Return<A, MemoryStorageError> {
   const header = yield* Schema.decodeEffect(Schema.fromJsonString(StoredVersionHeader))(value).pipe(
-    Effect.mapError(() => storageError(operation, "corrupt")),
-  );
+    Effect.mapError(() => storageError(operation, 'corrupt')),
+  )
 
   if (header.version !== STORAGE_VERSION) {
-    return yield* storageError(operation, "incompatible");
+    return yield* storageError(operation, 'incompatible')
   }
 
   const decoded = yield* Schema.decodeEffect(Schema.fromJsonString(schema))(value).pipe(
-    Effect.mapError(() => storageError(operation, "corrupt")),
-  );
+    Effect.mapError(() => storageError(operation, 'corrupt')),
+  )
 
-  const canonical = yield* encodeJson(schema, decoded, operation);
+  const canonical = yield* encodeJson(schema, decoded, operation)
 
-  if (canonical !== value) return yield* storageError(operation, "corrupt");
+  if (canonical !== value) return yield* storageError(operation, 'corrupt')
 
-  return decoded;
-});
+  return decoded
+})
 
-const validateDocument = Effect.fnUntraced(function* (
+const validateDocument = Effect.fnUntraced(function*(
   document: MemoryDocument,
   key: MemoryKey,
   operation: string,
@@ -358,81 +356,81 @@ const validateDocument = Effect.fnUntraced(function* (
       (document.predecessor.id !== key.id ||
         document.predecessor.revision !== String(document.generation - 1)))
   ) {
-    return yield* storageError(operation, "corrupt");
+    return yield* storageError(operation, 'corrupt')
   }
 
-  return document;
-});
+  return document
+})
 
-const validateReceiptResult = Effect.fnUntraced(function* (
+const validateReceiptResult = Effect.fnUntraced(function*(
   command: MemoryWrite,
   result: MemoryDocument,
   operation: string,
 ): Effect.fn.Return<void, MemoryStorageError> {
   if ((result.predecessor?.revision ?? null) !== command.expectedRevision) {
-    return yield* storageError(operation, "corrupt");
+    return yield* storageError(operation, 'corrupt')
   }
-  if (command._tag === "Put") {
-    if (result._tag !== "ActiveMemoryDocument" || result.source.locator !== command.locator) {
-      return yield* storageError(operation, "corrupt");
+  if (command._tag === 'Put') {
+    if (result._tag !== 'ActiveMemoryDocument' || result.source.locator !== command.locator) {
+      return yield* storageError(operation, 'corrupt')
     }
     if (
       !(equivalentContent ??= makeEquivalentContent())(command.content, result.content) ||
       !(equivalentScopes ??= makeEquivalentScopes())(command.scopes, result.scopes)
     ) {
-      return yield* storageError(operation, "corrupt");
+      return yield* storageError(operation, 'corrupt')
     }
 
-    return;
+    return
   }
   if (
-    result._tag !== "WithdrawnMemoryDocument" ||
+    result._tag !== 'WithdrawnMemoryDocument' ||
     result.reason !== command.reason ||
     result.predecessor === null ||
     result.source.locator !== result.predecessor.locator
   ) {
-    return yield* storageError(operation, "corrupt");
+    return yield* storageError(operation, 'corrupt')
   }
-});
+})
 
-const readUsage = Effect.fnUntraced(function* () {
-  const sql = yield* SqlClientService.SqlClient;
-  const views = yield* memoryViews();
-  const operation = "read memory usage";
+const readUsage = Effect.fnUntraced(function*() {
+  const sql = yield* SqlClientService.SqlClient
+  const views = yield* memoryViews()
+  const operation = 'read memory usage'
 
   const rows = yield* query(
     sql<Record<string, unknown>>`
       SELECT documents, receipts, bytes FROM effect_agent_memory_usage_v1 WHERE singleton = 1
     `,
     operation,
-  ).pipe(Effect.flatMap((rows) => decodeRows(UsageRow, rows, operation)));
+  ).pipe(Effect.flatMap((rows) => decodeRows(UsageRow, rows, operation)))
 
-  if (rows.length !== 1) return yield* storageError(operation, "corrupt");
+  if (rows.length !== 1) return yield* storageError(operation, 'corrupt')
 
-  views?.set("usage", { _tag: "Usage", value: rows[0] });
+  views?.set('usage', { _tag: 'Usage', value: rows[0] })
 
-  return rows[0];
-});
+  return rows[0]
+})
 
 // Called inside schema initialization's transaction. The separate marker distinguishes
 // a legacy store from damaged established accounting; reopening never rebuilds counters.
-const initializeMemoryUsage = Effect.fnUntraced(function* () {
-  const sql = yield* SqlClientService.SqlClient;
-  const failpoint = yield* MemoryMutationFailpoint;
-  const operation = "initialize memory usage";
+const initializeMemoryUsage = Effect.fnUntraced(function*() {
+  const sql = yield* SqlClientService.SqlClient
+  const failpoint = yield* MemoryMutationFailpoint
+  const operation = 'initialize memory usage'
 
   const metadata = yield* sql<Record<string, unknown>>`
     SELECT version FROM effect_agent_memory_metadata WHERE component = ${USAGE_COMPONENT}
-  `.pipe(Effect.flatMap((rows) => decodeRows(MemoryMetadataRow, rows, operation)));
+  `.pipe(Effect.flatMap((rows) => decodeRows(MemoryMetadataRow, rows, operation)))
 
   const objects = yield* sql<Record<string, unknown>>`
     SELECT name FROM sqlite_master
     WHERE name = ${USAGE_TABLE} OR name IN ${sql.in(usageTriggers.map((trigger) => trigger.name))}
-  `.pipe(Effect.flatMap((rows) => decodeRows(MemoryTableRow, rows, operation)));
+  `.pipe(Effect.flatMap((rows) => decodeRows(MemoryTableRow, rows, operation)))
 
   if (metadata.length === 0) {
-    if (objects.length !== 0) return yield* storageError(operation, "corrupt");
-    yield* failpoint.hit("memory:initialize:before-accounting");
+    if (objects.length !== 0) return yield* storageError(operation, 'corrupt')
+    yield* failpoint.hit('memory:initialize:before-accounting')
     yield* sql`
       CREATE TABLE effect_agent_memory_usage_v1 (
         singleton INTEGER PRIMARY KEY NOT NULL CHECK (singleton = 1),
@@ -440,7 +438,7 @@ const initializeMemoryUsage = Effect.fnUntraced(function* () {
         receipts INTEGER NOT NULL CHECK (typeof(receipts) = 'integer' AND receipts BETWEEN 0 AND 9007199254740991),
         bytes INTEGER NOT NULL CHECK (typeof(bytes) = 'integer' AND bytes BETWEEN 0 AND 9007199254740991)
       )
-    `;
+    `
     yield* sql`
       INSERT INTO effect_agent_memory_usage_v1 (singleton, documents, receipts, bytes)
       SELECT 1,
@@ -451,73 +449,74 @@ const initializeMemoryUsage = Effect.fnUntraced(function* () {
         COALESCE((SELECT SUM(length(CAST(namespace AS BLOB)) + length(CAST(source_id AS BLOB)) +
           length(CAST(operation_id AS BLOB)) + length(CAST(command_json AS BLOB)) +
           length(CAST(result_json AS BLOB)) + 128) FROM effect_agent_memory_receipts_v1), 0)
-    `;
-    for (const trigger of usageTriggers) yield* sql.unsafe(trigger.sql);
+    `
+    for (const trigger of usageTriggers) yield* sql.unsafe(trigger.sql)
     yield* sql`
       INSERT INTO effect_agent_memory_metadata (component, version) VALUES (${USAGE_COMPONENT}, 1)
-    `;
-    yield* failpoint.hit("memory:initialize:after-accounting");
+    `
+    yield* failpoint.hit('memory:initialize:after-accounting')
   } else {
     if (metadata.length !== 1 || metadata[0].version !== 1) {
-      return yield* storageError(operation, "incompatible");
+      return yield* storageError(operation, 'incompatible')
     }
     if (objects.length !== usageTriggers.length + 1) {
-      return yield* storageError(operation, "corrupt");
+      return yield* storageError(operation, 'corrupt')
     }
   }
-  yield* readUsage();
-});
+  yield* readUsage()
+})
 
-const initializeMemorySchema = Effect.fnUntraced(function* () {
-  const sql = yield* SqlClientService.SqlClient;
-  const owner = yield* SqlStorageOwner;
-  const transaction = owner === undefined ? sql.withTransaction : owner.transaction;
-  const failpoint = yield* MemoryMutationFailpoint;
+const initializeMemorySchema = Effect.fnUntraced(function*() {
+  const sql = yield* SqlClientService.SqlClient
+  const owner = yield* SqlStorageOwner
+  const transaction = owner === undefined ? sql.withTransaction : owner.transaction
+  const failpoint = yield* MemoryMutationFailpoint
 
-  yield* failpoint.hit("memory:initialize:before");
+  yield* failpoint.hit('memory:initialize:before')
   yield* transaction(
-    Effect.gen(function* () {
+    Effect.gen(function*() {
       yield* sql`
           CREATE TABLE IF NOT EXISTS effect_agent_memory_metadata (
             component TEXT PRIMARY KEY NOT NULL,
             version INTEGER NOT NULL
           )
-        `;
+        `
 
       const metadataRows = yield* sql<Record<string, unknown>>`
           SELECT version
           FROM effect_agent_memory_metadata
           WHERE component = ${METADATA_COMPONENT}
-        `;
+        `
 
       const metadata = yield* decodeRows(
         MemoryMetadataRow,
         metadataRows,
-        "decode memory schema version",
-      );
+        'decode memory schema version',
+      )
 
-      if (metadata.length > 1)
-        return yield* storageError("decode memory schema version", "corrupt");
-      const currentVersion = metadata[0]?.version;
+      if (metadata.length > 1) {
+        return yield* storageError('decode memory schema version', 'corrupt')
+      }
+      const currentVersion = metadata[0]?.version
 
       if (currentVersion !== undefined && currentVersion !== STORAGE_VERSION) {
-        return yield* storageError("initialize memory schema", "incompatible");
+        return yield* storageError('initialize memory schema', 'incompatible')
       }
       if (currentVersion === undefined) {
         const tableRows = yield* sql<Record<string, unknown>>`
             SELECT name
             FROM sqlite_master
             WHERE type = 'table' AND name IN (${DOCUMENT_TABLE}, ${RECEIPT_TABLE})
-          `;
+          `
 
         const existingTables = yield* decodeRows(
           MemoryTableRow,
           tableRows,
-          "inspect memory schema",
-        );
+          'inspect memory schema',
+        )
 
         if (existingTables.length > 0) {
-          return yield* storageError("initialize memory schema", "incompatible");
+          return yield* storageError('initialize memory schema', 'incompatible')
         }
         yield* sql`
             CREATE TABLE effect_agent_memory_documents_v1 (
@@ -529,7 +528,7 @@ const initializeMemorySchema = Effect.fnUntraced(function* () {
               document_json TEXT NOT NULL,
               PRIMARY KEY (namespace, source_id)
             )
-          `;
+          `
         yield* sql`
             CREATE TABLE effect_agent_memory_receipts_v1 (
               namespace TEXT NOT NULL,
@@ -540,53 +539,53 @@ const initializeMemorySchema = Effect.fnUntraced(function* () {
               result_json TEXT NOT NULL,
               PRIMARY KEY (namespace, operation_id)
             )
-          `;
+          `
         yield* sql`
             INSERT INTO effect_agent_memory_metadata (component, version)
             VALUES (${METADATA_COMPONENT}, ${STORAGE_VERSION})
-          `;
+          `
       }
       yield* sql`
           SELECT namespace, source_id, format_version, generation, revision, document_json
           FROM effect_agent_memory_documents_v1
           LIMIT 0
-        `;
+        `
       yield* sql`
           SELECT namespace, operation_id, source_id, format_version, command_json, result_json
           FROM effect_agent_memory_receipts_v1
           LIMIT 0
-        `;
-      yield* initializeMemoryUsage();
+        `
+      yield* initializeMemoryUsage()
     }),
-  ).pipe(Effect.catchTag("SqlError", () => Effect.fail(storageError("initialize memory schema"))));
-  yield* failpoint.hit("memory:initialize:after");
-});
+  ).pipe(Effect.catchTag('SqlError', () => Effect.fail(storageError('initialize memory schema'))))
+  yield* failpoint.hit('memory:initialize:after')
+})
 
-const makeMemoryReader = Effect.fnUntraced(function* () {
-  const sql = yield* SqlClientService.SqlClient;
-  const owner = yield* SqlStorageOwner;
-  const views = yield* memoryViews();
+const makeMemoryReader = Effect.fnUntraced(function*() {
+  const sql = yield* SqlClientService.SqlClient
+  const owner = yield* SqlStorageOwner
+  const views = yield* memoryViews()
 
   const readDocuments = Effect.fnUntraced(
-    function* (
+    function*(
       keys: ReadonlyArray<MemoryKey>,
       operation: string,
     ): Effect.fn.Return<ReadonlyMap<string, DocumentView>, MemoryStorageError> {
-      const found = new Map<string, DocumentView>();
-      const missing = new Map<string, MemoryKey>();
+      const found = new Map<string, DocumentView>()
+      const missing = new Map<string, MemoryKey>()
 
       for (const key of keys) {
-        const viewKey = documentViewKey(key);
-        const cached = views?.get(viewKey);
+        const viewKey = documentViewKey(key)
+        const cached = views?.get(viewKey)
 
-        if (cached?._tag === "Document") found.set(viewKey, cached.value);
-        else missing.set(viewKey, key);
+        if (cached?._tag === 'Document') found.set(viewKey, cached.value)
+        else missing.set(viewKey, key)
       }
-      const pending = Array.from(missing);
+      const pending = Array.from(missing)
 
       // Each exact composite key uses two bindings. No history or unrelated rows are loaded.
       for (let index = 0; index < pending.length; index += 50) {
-        const requested = new Map(pending.slice(index, index + 50));
+        const requested = new Map(pending.slice(index, index + 50))
 
         const rawRows = yield* query(
           sql<Record<string, unknown>>`
@@ -594,141 +593,149 @@ const makeMemoryReader = Effect.fnUntraced(function* () {
               length(CAST(namespace AS BLOB)) + length(CAST(source_id AS BLOB)) +
               length(CAST(document_json AS BLOB)) + 128 AS stored_bytes
             FROM effect_agent_memory_documents_v1
-            WHERE ${sql.or(
+            WHERE ${
+            sql.or(
               Array.from(
                 requested.values(),
                 (key) => sql`(namespace = ${key.namespace.address} AND source_id = ${key.id})`,
               ),
-            )}
+            )
+          }
           `,
           operation,
-        );
+        )
 
-        const rows = yield* decodeRows(MemoryDocumentRow, rawRows, operation);
+        const rows = yield* decodeRows(MemoryDocumentRow, rawRows, operation)
 
         for (const row of rows) {
-          const viewKey = JSON.stringify(["document", row.namespace, row.source_id]);
-          const key = requested.get(viewKey);
+          const viewKey = JSON.stringify(['document', row.namespace, row.source_id])
+          const key = requested.get(viewKey)
 
-          if (key === undefined || found.has(viewKey))
-            return yield* storageError(operation, "corrupt");
-          if (row.format_version !== STORAGE_VERSION)
-            return yield* storageError(operation, "incompatible");
+          if (key === undefined || found.has(viewKey)) {
+            return yield* storageError(operation, 'corrupt')
+          }
+          if (row.format_version !== STORAGE_VERSION) {
+            return yield* storageError(operation, 'incompatible')
+          }
 
           const stored = yield* decodeVersionedJson(
             StoredMemoryResult,
             row.document_json,
             operation,
-          );
+          )
 
-          const document = stored.value;
+          const document = stored.value
 
-          yield* validateDocument(document, key, operation);
-          if (row.generation !== document.generation || row.revision !== document.source.revision)
-            return yield* storageError(operation, "corrupt");
-          found.set(viewKey, { document, bytes: row.stored_bytes });
+          yield* validateDocument(document, key, operation)
+          if (row.generation !== document.generation || row.revision !== document.source.revision) {
+            return yield* storageError(operation, 'corrupt')
+          }
+          found.set(viewKey, { document, bytes: row.stored_bytes })
         }
 
         for (const viewKey of requested.keys()) {
-          const value = found.get(viewKey) ?? null;
+          const value = found.get(viewKey) ?? null
 
-          found.set(viewKey, value);
-          views?.set(viewKey, { _tag: "Document", value });
+          found.set(viewKey, value)
+          views?.set(viewKey, { _tag: 'Document', value })
         }
       }
 
-      return found;
+      return found
     },
     (effect) => (owner === undefined ? effect : owner.read(effect)),
-  );
+  )
 
-  const get = Effect.fnUntraced(function* (key: MemoryKey) {
-    const decodedKey = yield* decodeInput(MemoryKey.Wire, key, "get memory document");
+  const get = Effect.fnUntraced(function*(key: MemoryKey) {
+    const decodedKey = yield* decodeInput(MemoryKey.Wire, key, 'get memory document')
 
-    const documents = yield* readDocuments([decodedKey], "get memory document");
+    const documents = yield* readDocuments([decodedKey], 'get memory document')
 
-    return documents.get(documentViewKey(decodedKey))?.document ?? null;
-  });
+    return documents.get(documentViewKey(decodedKey))?.document ?? null
+  })
 
-  return { get, readDocuments };
-});
+  return { get, readDocuments }
+})
 
-const makeMemoryServices = Effect.fnUntraced(function* () {
-  const sql = yield* SqlClientService.SqlClient;
-  const owner = yield* SqlStorageOwner;
-  const views = yield* memoryViews();
+const makeMemoryServices = Effect.fnUntraced(function*() {
+  const sql = yield* SqlClientService.SqlClient
+  const owner = yield* SqlStorageOwner
+  const views = yield* memoryViews()
 
   const usage = readUsage().pipe(
     Effect.provideService(SqlClientService.SqlClient, sql),
     Effect.provideService(SqlStorageOwner, owner),
-  );
+  )
 
   const transaction = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
     owner === undefined
       ? sql.withTransaction(effect)
-      : owner.transaction(effect).pipe(Effect.provideService(SqlClientService.SqlClient, sql));
+      : owner.transaction(effect).pipe(Effect.provideService(SqlClientService.SqlClient, sql))
 
-  const failpoint = yield* MemoryMutationFailpoint;
-  const limits = yield* decodeInput(Limits, yield* SqlMemoryLimits, "memory storage limits");
+  const failpoint = yield* MemoryMutationFailpoint
+  const limits = yield* decodeInput(Limits, yield* SqlMemoryLimits, 'memory storage limits')
 
-  yield* initializeMemorySchema();
-  const { get, readDocuments } = yield* makeMemoryReader();
+  yield* initializeMemorySchema()
+  const { get, readDocuments } = yield* makeMemoryReader()
 
-  const readReceipts = Effect.fnUntraced(function* (
+  const readReceipts = Effect.fnUntraced(function*(
     writes: ReadonlyArray<MemoryWrite>,
     operation: string,
   ): Effect.fn.Return<ReadonlyMap<string, ReceiptView>, MemoryStorageError> {
-    const found = new Map<string, ReceiptView>();
-    const missing = new Map<string, MemoryWrite>();
+    const found = new Map<string, ReceiptView>()
+    const missing = new Map<string, MemoryWrite>()
 
     for (const write of writes) {
-      const viewKey = receiptViewKey(write);
-      const cached = views?.get(viewKey);
+      const viewKey = receiptViewKey(write)
+      const cached = views?.get(viewKey)
 
-      if (cached?._tag === "Receipt") found.set(viewKey, cached.value);
-      else missing.set(viewKey, write);
+      if (cached?._tag === 'Receipt') found.set(viewKey, cached.value)
+      else missing.set(viewKey, write)
     }
-    const pending = Array.from(missing);
+    const pending = Array.from(missing)
 
     for (let index = 0; index < pending.length; index += 50) {
-      const requested = new Map(pending.slice(index, index + 50));
+      const requested = new Map(pending.slice(index, index + 50))
 
       const rawRows = yield* query(
         sql<Record<string, unknown>>`
           SELECT namespace, operation_id, source_id, format_version, command_json, result_json
           FROM effect_agent_memory_receipts_v1
-          WHERE ${sql.or(
+          WHERE ${
+          sql.or(
             Array.from(
               requested.values(),
-              (write) =>
-                sql`(namespace = ${write.key.namespace.address} AND operation_id = ${write.operationId})`,
+              (write) => sql`(namespace = ${write.key.namespace.address} AND operation_id = ${write.operationId})`,
             ),
-          )}
+          )
+        }
         `,
         operation,
-      );
+      )
 
-      const rows = yield* decodeRows(MemoryReceiptRow, rawRows, operation);
+      const rows = yield* decodeRows(MemoryReceiptRow, rawRows, operation)
 
       for (const row of rows) {
-        const viewKey = JSON.stringify(["receipt", row.namespace, row.operation_id]);
+        const viewKey = JSON.stringify(['receipt', row.namespace, row.operation_id])
 
-        if (!requested.has(viewKey) || found.has(viewKey))
-          return yield* storageError(operation, "corrupt");
-        if (row.format_version !== STORAGE_VERSION)
-          return yield* storageError(operation, "incompatible");
+        if (!requested.has(viewKey) || found.has(viewKey)) {
+          return yield* storageError(operation, 'corrupt')
+        }
+        if (row.format_version !== STORAGE_VERSION) {
+          return yield* storageError(operation, 'incompatible')
+        }
 
         const command = yield* decodeVersionedJson(
           StoredMemoryCommand,
           row.command_json,
           `${operation} command`,
-        );
+        )
 
         const result = yield* decodeVersionedJson(
           StoredMemoryResult,
           row.result_json,
           `${operation} result`,
-        );
+        )
 
         if (
           row.namespace !== command.value.key.namespace.address ||
@@ -737,137 +744,131 @@ const makeMemoryServices = Effect.fnUntraced(function* () {
           result.value.key.namespace.address !== command.value.key.namespace.address ||
           result.value.key.id !== command.value.key.id
         ) {
-          return yield* storageError(operation, "corrupt");
+          return yield* storageError(operation, 'corrupt')
         }
-        yield* validateDocument(result.value, command.value.key, operation);
-        yield* validateReceiptResult(command.value, result.value, operation);
-        found.set(viewKey, { commandJson: row.command_json, result: result.value });
+        yield* validateDocument(result.value, command.value.key, operation)
+        yield* validateReceiptResult(command.value, result.value, operation)
+        found.set(viewKey, { commandJson: row.command_json, result: result.value })
       }
 
       for (const viewKey of requested.keys()) {
-        const value = found.get(viewKey) ?? null;
+        const value = found.get(viewKey) ?? null
 
-        found.set(viewKey, value);
-        views?.set(viewKey, { _tag: "Receipt", value });
+        found.set(viewKey, value)
+        views?.set(viewKey, { _tag: 'Receipt', value })
       }
     }
 
-    return found;
-  });
+    return found
+  })
 
-  const changeMany = Effect.fnUntraced(function* (writes: ReadonlyArray<MemoryWrite>) {
-    const operation = "change memory document";
-    const decodedWrites = yield* decodeInput(SqlMemoryWriteBatch, writes, operation);
+  const changeMany = Effect.fnUntraced(function*(writes: ReadonlyArray<MemoryWrite>) {
+    const operation = 'change memory document'
+    const decodedWrites = yield* decodeInput(SqlMemoryWriteBatch, writes, operation)
 
-    if (decodedWrites.length === 0) return [];
+    if (decodedWrites.length === 0) return []
 
     const commands = yield* Effect.forEach(decodedWrites, (write) =>
       encodeJson(
         StoredMemoryCommand,
         StoredMemoryCommand.make({ version: STORAGE_VERSION, value: write }),
-        "encode memory command",
-      ).pipe(Effect.map((commandJson) => ({ write, commandJson }))),
-    );
+        'encode memory command',
+      ).pipe(Effect.map((commandJson) => ({ write, commandJson }))))
 
-    yield* failpoint.hit("memory:change:before");
+    yield* failpoint.hit('memory:change:before')
 
     // The adapter must serialize before reading receipts and state. Node uses BEGIN
     // IMMEDIATE; Durable Objects use the driver's storage-backed transaction and permit.
     const transactionResult = yield* transaction(
-      Effect.gen(function* () {
-        const retainedReceipts = yield* readReceipts(decodedWrites, operation);
+      Effect.gen(function*() {
+        const retainedReceipts = yield* readReceipts(decodedWrites, operation)
 
         const retainedDocuments = yield* readDocuments(
           decodedWrites
             .filter((write) => retainedReceipts.get(receiptViewKey(write)) === null)
             .map((write) => write.key),
           operation,
-        );
+        )
 
         const documents = new Map<
           string,
           {
-            readonly document: MemoryDocument;
-            readonly bytes: number;
-            readonly documentJson: string;
+            readonly document: MemoryDocument
+            readonly bytes: number
+            readonly documentJson: string
           }
-        >();
+        >()
 
         const receipts = new Map<
           string,
           {
-            readonly write: MemoryWrite;
-            readonly commandJson: string;
-            readonly resultJson: string;
-            readonly result: MemoryDocument;
+            readonly write: MemoryWrite
+            readonly commandJson: string
+            readonly resultJson: string
+            readonly result: MemoryDocument
           }
-        >();
+        >()
 
-        const results: Array<MemoryDocument> = [];
-        let projectedUsage: typeof UsageRow.Type | undefined;
+        const results: Array<MemoryDocument> = []
+        let projectedUsage: typeof UsageRow.Type | undefined
 
         for (const { write, commandJson } of commands) {
-          const receiptKey = receiptViewKey(write);
-          const receipt = receipts.get(receiptKey) ?? retainedReceipts.get(receiptKey) ?? null;
+          const receiptKey = receiptViewKey(write)
+          const receipt = receipts.get(receiptKey) ?? retainedReceipts.get(receiptKey) ?? null
 
           if (receipt !== null) {
             if (receipt.commandJson !== commandJson) {
               return yield* MemoryOperationConflict.make({
                 key: write.key,
                 operationId: write.operationId,
-              });
+              })
             }
-            results.push(receipt.result);
-            continue;
+            results.push(receipt.result)
+            continue
           }
 
-          const documentKey = documentViewKey(write.key);
+          const documentKey = documentViewKey(write.key)
 
-          const currentRow =
-            documents.get(documentKey) ?? retainedDocuments.get(documentKey) ?? null;
+          const currentRow = documents.get(documentKey) ?? retainedDocuments.get(documentKey) ?? null
 
-          const current = currentRow?.document ?? null;
-          const modifiedAt = yield* Clock.currentTimeMillis;
-          const next = yield* applyMemoryWrite(current, write, modifiedAt);
+          const current = currentRow?.document ?? null
+          const modifiedAt = yield* Clock.currentTimeMillis
+          const next = yield* applyMemoryWrite(current, write, modifiedAt)
 
           const resultJson = yield* encodeJson(
             StoredMemoryResult,
             StoredMemoryResult.make({ version: STORAGE_VERSION, value: next }),
-            "encode memory result",
-          );
+            'encode memory result',
+          )
 
-          const documentJson = resultJson;
+          const documentJson = resultJson
 
-          yield* validateEncodedChange({ commandJson, documentJson, resultJson }, operation);
+          yield* validateEncodedChange({ commandJson, documentJson, resultJson }, operation)
 
-          const bytes = utf8ByteLength;
-          const identityBytes = bytes(next.key.namespace.address) + bytes(next.key.id);
-          const resultBytes = bytes(resultJson);
-          const documentBytes = identityBytes + resultBytes + 128;
+          const bytes = utf8ByteLength
+          const identityBytes = bytes(next.key.namespace.address) + bytes(next.key.id)
+          const resultBytes = bytes(resultJson)
+          const documentBytes = identityBytes + resultBytes + 128
 
-          const receiptBytes =
-            identityBytes + bytes(write.operationId) + bytes(commandJson) + resultBytes + 128;
+          const receiptBytes = identityBytes + bytes(write.operationId) + bytes(commandJson) + resultBytes + 128
 
           if (Math.max(documentBytes, receiptBytes) > limits.maxRowBytes) {
-            return yield* storageError("memory row byte limit", "invalid-input");
+            return yield* storageError('memory row byte limit', 'invalid-input')
           }
 
-          const cachedUsage = views?.get("usage");
+          const cachedUsage = views?.get('usage')
 
-          const used =
-            projectedUsage ?? (cachedUsage?._tag === "Usage" ? cachedUsage.value : yield* usage);
+          const used = projectedUsage ?? (cachedUsage?._tag === 'Usage' ? cachedUsage.value : yield* usage)
 
           if (used.bytes < (currentRow?.bytes ?? 0) || (current !== null && used.documents === 0)) {
-            return yield* storageError("read memory usage", "corrupt");
+            return yield* storageError('read memory usage', 'corrupt')
           }
 
-          const maxReceipts =
-            limits.maxReceipts -
-            (write._tag === "Put" ? (limits.reservedWithdrawalReceipts ?? 0) : 0);
+          const maxReceipts = limits.maxReceipts -
+            (write._tag === 'Put' ? (limits.reservedWithdrawalReceipts ?? 0) : 0)
 
-          const maxStorageBytes =
-            limits.maxStorageBytes -
-            (write._tag === "Put" ? (limits.reservedWithdrawalBytes ?? 0) : 0);
+          const maxStorageBytes = limits.maxStorageBytes -
+            (write._tag === 'Put' ? (limits.reservedWithdrawalBytes ?? 0) : 0)
 
           // Check every staged transition, including intermediate document sizes and
           // receipts. A later shrinking command cannot evade the earlier write's limits.
@@ -876,20 +877,20 @@ const makeMemoryServices = Effect.fnUntraced(function* () {
             used.receipts >= maxReceipts ||
             used.bytes - (currentRow?.bytes ?? 0) > maxStorageBytes - documentBytes - receiptBytes
           ) {
-            return yield* storageError("memory storage limit", "invalid-input");
+            return yield* storageError('memory storage limit', 'invalid-input')
           }
 
           projectedUsage = {
             documents: used.documents + (current === null ? 1 : 0),
             receipts: used.receipts + 1,
             bytes: used.bytes - (currentRow?.bytes ?? 0) + documentBytes + receiptBytes,
-          };
-          documents.set(documentKey, { document: next, bytes: documentBytes, documentJson });
-          receipts.set(receiptKey, { write, commandJson, resultJson, result: next });
-          results.push(next);
+          }
+          documents.set(documentKey, { document: next, bytes: documentBytes, documentJson })
+          receipts.set(receiptKey, { write, commandJson, resultJson, result: next })
+          results.push(next)
         }
 
-        if (projectedUsage === undefined) return { documents: results, changed: false };
+        if (projectedUsage === undefined) return { documents: results, changed: false }
 
         // Both persisted rows have six bound columns: sixteen rows stay below the DO
         // driver's 100-parameter limit. The surrounding transaction owns all revision
@@ -901,7 +902,7 @@ const makeMemoryServices = Effect.fnUntraced(function* () {
           generation: document.generation,
           revision: document.source.revision,
           document_json: documentJson,
-        }));
+        }))
 
         for (const chunk of Arr.chunksOf(documentRows, 16)) {
           const changedRows = yield* sql<Record<string, unknown>>`
@@ -912,15 +913,15 @@ const makeMemoryServices = Effect.fnUntraced(function* () {
               revision = excluded.revision,
               document_json = excluded.document_json
             RETURNING 1 AS changed
-          `;
+          `
 
-          const changed = yield* decodeRows(MemoryChangeCountRow, changedRows, operation);
+          const changed = yield* decodeRows(MemoryChangeCountRow, changedRows, operation)
 
           if (changed.length !== chunk.length || changed.some((row) => row.changed !== 1)) {
-            return yield* storageError(operation, "corrupt");
+            return yield* storageError(operation, 'corrupt')
           }
         }
-        yield* failpoint.hit("memory:change:after-state");
+        yield* failpoint.hit('memory:change:after-state')
 
         const receiptRows = Array.from(receipts.values(), ({ write, commandJson, resultJson }) => ({
           namespace: write.key.namespace.address,
@@ -929,65 +930,68 @@ const makeMemoryServices = Effect.fnUntraced(function* () {
           format_version: STORAGE_VERSION,
           command_json: commandJson,
           result_json: resultJson,
-        }));
+        }))
 
         for (const chunk of Arr.chunksOf(receiptRows, 16)) {
           yield* sql`
             INSERT INTO effect_agent_memory_receipts_v1 ${sql.insert(chunk)}
-          `;
+          `
         }
-        yield* failpoint.hit("memory:change:after-receipt");
+        yield* failpoint.hit('memory:change:after-receipt')
 
-        for (const [key, { document, bytes }] of documents)
-          views?.set(key, { _tag: "Document", value: { document, bytes } });
-        for (const [key, { commandJson, result }] of receipts)
-          views?.set(key, { _tag: "Receipt", value: { commandJson, result } });
-        views?.set("usage", { _tag: "Usage", value: projectedUsage });
+        for (const [key, { document, bytes }] of documents) {
+          views?.set(key, { _tag: 'Document', value: { document, bytes } })
+        }
+        for (const [key, { commandJson, result }] of receipts) {
+          views?.set(key, { _tag: 'Receipt', value: { commandJson, result } })
+        }
+        views?.set('usage', { _tag: 'Usage', value: projectedUsage })
 
-        return { documents: results, changed: true };
+        return { documents: results, changed: true }
       }),
-    ).pipe(Effect.catchTag("SqlError", () => Effect.fail(storageError(operation))));
+    ).pipe(Effect.catchTag('SqlError', () => Effect.fail(storageError(operation))))
 
-    if (transactionResult.changed) yield* failpoint.hit("memory:change:after");
+    if (transactionResult.changed) yield* failpoint.hit('memory:change:after')
 
-    return transactionResult.documents;
-  });
+    return transactionResult.documents
+  })
 
-  const change = Effect.fnUntraced(function* (write: MemoryWrite) {
-    return (yield* changeMany([write]))[0];
-  });
+  const change = Effect.fnUntraced(function*(write: MemoryWrite) {
+    return (yield* changeMany([write]))[0]
+  })
 
   const batchWriter = SqlMemoryBatchWriter.of({
-    changeMany: Effect.fnUntraced(function* <Namespace extends MemoryNamespace>(
+    changeMany: Effect.fnUntraced(function*<Namespace extends MemoryNamespace>(
       writes: ReadonlyArray<MemoryWrite<Namespace>>,
     ) {
-      const documents = yield* changeMany(writes);
+      const documents = yield* changeMany(writes)
 
-      return yield* Effect.forEach(documents, (document, index) =>
-        MemoryDocument.restore(writes[index].key.namespace, document),
-      );
+      return yield* Effect.forEach(
+        documents,
+        (document, index) => MemoryDocument.restore(writes[index].key.namespace, document),
+      )
     }),
-  });
+  })
 
   return Context.make(MemoryReader, MemoryReader.fromAdapter({ get })).pipe(
     Context.add(MemoryWriter, MemoryWriter.fromAdapter({ change })),
     Context.add(SqlMemoryBatchWriter, batchWriter),
-  );
-});
+  )
+})
 
 /** SQLite memory ports with the mutation failpoint kept injectable for recovery tests. */
 export const memoryStoreLayerWithFailpoints: Layer.Layer<
   MemoryReader | MemoryWriter | SqlMemoryBatchWriter,
   SqliteMemoryInitializationError,
   SqlClientService.SqlClient | MemoryMutationFailpoint
-> = Layer.effectContext(makeMemoryServices());
+> = Layer.effectContext(makeMemoryServices())
 
 /** SQLite memory reader, single writer and batch writer with the production no-op failpoint. */
 export const memoryStoreLayer: Layer.Layer<
   MemoryReader | MemoryWriter | SqlMemoryBatchWriter,
   SqliteMemoryInitializationError,
   SqlClientService.SqlClient
-> = memoryStoreLayerWithFailpoints.pipe(Layer.provide(MemoryMutationFailpoint.layer));
+> = memoryStoreLayerWithFailpoints.pipe(Layer.provide(MemoryMutationFailpoint.layer))
 
 /** Reads an existing memory schema without writes, transactions, or mutation failpoints. */
 export const memoryReaderLayer: Layer.Layer<
@@ -996,9 +1000,9 @@ export const memoryReaderLayer: Layer.Layer<
   SqlClientService.SqlClient
 > = Layer.effect(
   MemoryReader,
-  Effect.gen(function* () {
-    const sql = yield* SqlClientService.SqlClient;
-    const operation = "open memory reader";
+  Effect.gen(function*() {
+    const sql = yield* SqlClientService.SqlClient
+    const operation = 'open memory reader'
 
     const tables = yield* query(
       sql<Record<string, unknown>>`
@@ -1008,10 +1012,10 @@ export const memoryReaderLayer: Layer.Layer<
         )
       `,
       operation,
-    ).pipe(Effect.flatMap((rows) => decodeRows(MemoryTableRow, rows, operation)));
+    ).pipe(Effect.flatMap((rows) => decodeRows(MemoryTableRow, rows, operation)))
 
     if (tables.length !== 3) {
-      return yield* storageError(operation, tables.length === 0 ? "unavailable" : "incompatible");
+      return yield* storageError(operation, tables.length === 0 ? 'unavailable' : 'incompatible')
     }
 
     const metadata = yield* query(
@@ -1019,10 +1023,10 @@ export const memoryReaderLayer: Layer.Layer<
         SELECT version FROM effect_agent_memory_metadata WHERE component = ${METADATA_COMPONENT}
       `,
       operation,
-    ).pipe(Effect.flatMap((rows) => decodeRows(MemoryMetadataRow, rows, operation)));
+    ).pipe(Effect.flatMap((rows) => decodeRows(MemoryMetadataRow, rows, operation)))
 
     if (metadata.length !== 1 || metadata[0].version !== STORAGE_VERSION) {
-      return yield* storageError(operation, "incompatible");
+      return yield* storageError(operation, 'incompatible')
     }
     yield* query(
       sql`
@@ -1030,9 +1034,9 @@ export const memoryReaderLayer: Layer.Layer<
         FROM effect_agent_memory_documents_v1 LIMIT 0
       `,
       operation,
-    );
-    const { get } = yield* makeMemoryReader();
+    )
+    const { get } = yield* makeMemoryReader()
 
-    return MemoryReader.fromAdapter({ get });
+    return MemoryReader.fromAdapter({ get })
   }),
-);
+)

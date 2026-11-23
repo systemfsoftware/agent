@@ -1,12 +1,12 @@
-import * as Effect from "effect/Effect";
-import * as Fiber from "effect/Fiber";
-import * as Layer from "effect/Layer";
-import * as Schema from "effect/Schema";
-import type * as Scope from "effect/Scope";
+import * as Effect from 'effect/Effect'
+import * as Fiber from 'effect/Fiber'
+import * as Layer from 'effect/Layer'
+import * as Schema from 'effect/Schema'
+import type * as Scope from 'effect/Scope'
 
-import { SubagentReservationsMemoryLive } from "./capabilities/SubagentReservations.ts";
-import { Store } from "./core/Thread.ts";
-import { ThreadHistory, layer as historyLayer } from "./engine/ThreadHistory.ts";
+import { SubagentReservationsMemoryLive } from './capabilities/SubagentReservations.ts'
+import { Store } from './core/Thread.ts'
+import { layer as historyLayer, ThreadHistory } from './engine/ThreadHistory.ts'
 
 /**
  * Run agents and attached subagents with in-memory conversation history.
@@ -23,11 +23,11 @@ import { ThreadHistory, layer as historyLayer } from "./engine/ThreadHistory.ts"
  * For storage-backed history, provide PersistentHistory.layer and a shared
  * SubagentReservationsMemoryLive instead. Durable hosts own their own assembly.
  */
-export const layer = Layer.merge(historyLayer, SubagentReservationsMemoryLive);
+export const layer = Layer.merge(historyLayer, SubagentReservationsMemoryLive)
 
 /** Disposable lifetime requires an in-memory store and its incremental history adapter. */
 export class InMemoryScopeError extends Schema.TaggedError<InMemoryScopeError>()(
-  "InMemoryScopeError",
+  'InMemoryScopeError',
   { message: Schema.String },
 ) {}
 
@@ -52,28 +52,28 @@ export const scoped = <A, E, R>(
   Exclude<Exclude<R, Store | ThreadHistory>, Scope.Scope> | Store | ThreadHistory
 > =>
   Effect.scoped(
-    Effect.gen(function* () {
-      const store = yield* Store;
-      const history = yield* ThreadHistory;
+    Effect.gen(function*() {
+      const store = yield* Store
+      const history = yield* ThreadHistory
 
       if (
         store.scoped === undefined ||
-        history.retention !== "incremental" ||
+        history.retention !== 'incremental' ||
         history.memoryStore !== store
       ) {
         return yield* InMemoryScopeError.make({
-          message: "InMemory.scoped requires a scoped in-memory store and incremental history",
-        });
+          message: 'InMemory.scoped requires a scoped in-memory store and incremental history',
+        })
       }
-      const owned = yield* store.scoped;
+      const owned = yield* store.scoped
 
       // The enclosing Layer memo map may already contain the application adapter.
       const services = Layer.fresh(ThreadHistory.layerFromStore).pipe(
         Layer.provideMerge(Layer.succeed(Store, owned)),
-      );
+      )
 
-      const fiber = yield* effect.pipe(Effect.provide(services), Effect.forkScoped);
+      const fiber = yield* effect.pipe(Effect.provide(services), Effect.forkScoped)
 
-      return yield* Fiber.join(fiber);
+      return yield* Fiber.join(fiber)
     }),
-  );
+  )

@@ -1,16 +1,16 @@
 /** Public AgentRegistration API. Implementation helpers remain private. */
 export {
-  BindingUnavailable,
-  CurrentBindingSelection,
-  type BindingSelection,
-  DurableWorkerBinding,
-  compileRegistrations,
-  definitionDigestsEqual,
-  compileBindingContracts,
-  type ReplayVersions,
-  type AgentRegistration,
   type AgentAttemptContext,
-  type ExecutableAgentBinding,
+  type AgentRegistration,
+  type BindingSelection,
+  BindingUnavailable,
+  compileBindingContracts,
+  compileRegistrations,
+  CurrentBindingSelection,
+  definitionDigestsEqual,
   type DurableBindingFailure,
+  DurableWorkerBinding,
+  type ExecutableAgentBinding,
+  type ReplayVersions,
   type ResolvedBinding,
-} from "./internal/agent-registration.ts";
+} from './internal/agent-registration.ts'

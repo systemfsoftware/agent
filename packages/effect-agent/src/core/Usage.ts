@@ -1,26 +1,26 @@
-import * as Effect from "effect/Effect";
-import * as Schema from "effect/Schema";
+import * as Effect from 'effect/Effect'
+import * as Schema from 'effect/Schema'
 
-import { RunId } from "./Identifiers.ts";
+import { RunId } from './Identifiers.ts'
 
-const UsageIdentity = Schema.NonEmptyString.check(Schema.isMaxLength(256));
+const UsageIdentity = Schema.NonEmptyString.check(Schema.isMaxLength(256))
 
 /** Bounded provider response identity. Request configuration is not response evidence. */
 export class ModelResponseIdentity extends Schema.Class<ModelResponseIdentity>(
-  "@effect-agent/core/ModelResponseIdentity",
+  '@effect-agent/core/ModelResponseIdentity',
 )({
   id: Schema.optionalKey(UsageIdentity),
   model: Schema.optionalKey(UsageIdentity),
 }) {}
 
 /** Missing legacy status means unknown, never a free call or a complete report. */
-export const UsageCompleteness = Schema.Literals(["complete", "partial", "unknown"]);
+export const UsageCompleteness = Schema.Literals(['complete', 'partial', 'unknown'])
 
 const hasAdditiveTotal = (total: number, components: ReadonlyArray<number>): boolean => {
-  const sum = components.reduce((accumulator, component) => accumulator + component, 0);
+  const sum = components.reduce((accumulator, component) => accumulator + component, 0)
 
-  return Number.isSafeInteger(sum) && total === sum;
-};
+  return Number.isSafeInteger(sum) && total === sum
+}
 
 const InputTokenUsageFields = Schema.Struct({
   total: Schema.Natural,
@@ -30,13 +30,13 @@ const InputTokenUsageFields = Schema.Struct({
 }).check(
   Schema.makeFilter(
     (usage) => hasAdditiveTotal(usage.total, [usage.uncached, usage.cacheRead, usage.cacheWrite]),
-    { title: "Input token total equals uncached, cache-read, and cache-write components" },
+    { title: 'Input token total equals uncached, cache-read, and cache-write components' },
   ),
-);
+)
 
 /** Provider-reported input-token components for one completed model call. */
 export class InputTokenUsage extends Schema.Class<InputTokenUsage>(
-  "@effect-agent/core/InputTokenUsage",
+  '@effect-agent/core/InputTokenUsage',
 )(InputTokenUsageFields) {}
 
 const OutputTokenUsageFields = Schema.Struct({
@@ -45,18 +45,18 @@ const OutputTokenUsageFields = Schema.Struct({
   reasoning: Schema.Natural,
 }).check(
   Schema.makeFilter((usage) => hasAdditiveTotal(usage.total, [usage.text, usage.reasoning]), {
-    title: "Output token total equals text and reasoning components",
+    title: 'Output token total equals text and reasoning components',
   }),
-);
+)
 
 /** Provider-reported output-token components for one completed model call. */
 export class OutputTokenUsage extends Schema.Class<OutputTokenUsage>(
-  "@effect-agent/core/OutputTokenUsage",
+  '@effect-agent/core/OutputTokenUsage',
 )(OutputTokenUsageFields) {}
 
 /** Canonical, provider-independent accounting for one completed model call. */
 export class ModelCallUsage extends Schema.Class<ModelCallUsage>(
-  "@effect-agent/core/ModelCallUsage",
+  '@effect-agent/core/ModelCallUsage',
 )({
   provider: UsageIdentity,
   /** Configured binding identity. See response.model for provider-reported identity. */
@@ -64,9 +64,9 @@ export class ModelCallUsage extends Schema.Class<ModelCallUsage>(
   serviceTier: Schema.optionalKey(UsageIdentity),
   pricingVersion: Schema.optionalKey(UsageIdentity),
   response: Schema.optionalKey(ModelResponseIdentity),
-  purpose: Schema.optionalKey(Schema.Literals(["turn", "summary"])),
+  purpose: Schema.optionalKey(Schema.Literals(['turn', 'summary'])),
   usageStatus: Schema.optionalKey(UsageCompleteness),
-  pricingStatus: Schema.optionalKey(Schema.Literals(["estimated", "unknown"])),
+  pricingStatus: Schema.optionalKey(Schema.Literals(['estimated', 'unknown'])),
   inputTokens: InputTokenUsage,
   outputTokens: OutputTokenUsage,
   /** Observed hosted web searches; excludes OpenAI page/find actions. Absent in legacy records. */
@@ -79,7 +79,7 @@ export class ModelCallUsage extends Schema.Class<ModelCallUsage>(
  * Numeric zero with unknown coverage never establishes free execution. Missing legacy
  * statuses mean unknown. Unobserved calls are excluded from the numeric call/token totals.
  */
-export class RunTotals extends Schema.Class<RunTotals>("@effect-agent/core/RunTotals")({
+export class RunTotals extends Schema.Class<RunTotals>('@effect-agent/core/RunTotals')({
   modelCalls: Schema.Natural,
   inputTokens: Schema.Natural,
   outputTokens: Schema.Natural,
@@ -93,14 +93,14 @@ export class RunTotals extends Schema.Class<RunTotals>("@effect-agent/core/RunTo
 
 /** Own Run usage and disjoint attached-descendant usage. Add each component once. */
 export class RunUsageReport extends Schema.Class<RunUsageReport>(
-  "@effect-agent/core/RunUsageReport",
+  '@effect-agent/core/RunUsageReport',
 )({
   usage: RunTotals,
   delegatedUsage: RunTotals,
 }) {}
 
 /** A verified child report retained across durable parent Attempts. */
-export class ChildRunUsage extends Schema.Class<ChildRunUsage>("@effect-agent/core/ChildRunUsage")({
+export class ChildRunUsage extends Schema.Class<ChildRunUsage>('@effect-agent/core/ChildRunUsage')({
   runId: RunId,
   report: RunUsageReport,
 }) {}
@@ -113,22 +113,22 @@ export const emptyRunTotals = (): RunTotals =>
     inputTokens: 0,
     outputTokens: 0,
     costMicrousd: 0,
-    usageStatus: "complete",
-    pricingStatus: "complete",
+    usageStatus: 'complete',
+    pricingStatus: 'complete',
     unobservedModelCalls: 0,
-  });
+  })
 
 /** No accounting evidence, including legacy child reports. This is not known zero spend. */
 export const unknownRunTotals = (): RunTotals =>
   RunTotals.make({
     ...emptyRunTotals(),
-    usageStatus: "unknown",
-    pricingStatus: "unknown",
-  });
+    usageStatus: 'unknown',
+    pricingStatus: 'unknown',
+  })
 
 /** Settlement-sized aggregate for calls sharing one pricing identity. */
 export class ModelUsageGroup extends Schema.Class<ModelUsageGroup>(
-  "@effect-agent/core/ModelUsageGroup",
+  '@effect-agent/core/ModelUsageGroup',
 )({
   provider: UsageIdentity,
   model: UsageIdentity,
@@ -167,8 +167,8 @@ const RunUsageSummaryFields = Schema.Struct({
           group.responseModel ?? null,
           group.serviceTier ?? null,
           group.pricingVersion ?? null,
-        ]),
-      );
+        ])
+      )
 
       return (
         new Set(identities).size === identities.length &&
@@ -213,44 +213,43 @@ const RunUsageSummaryFields = Schema.Struct({
           summary.costMicrousd,
           summary.byModel.map((group) => group.costMicrousd),
         )
-      );
+      )
     },
     {
-      title:
-        "Run usage totals equal unique per-model pricing groups within safe-integer accounting",
+      title: 'Run usage totals equal unique per-model pricing groups within safe-integer accounting',
     },
   ),
-);
+)
 
 /** Settlement aggregate included with a terminal Run settlement. */
 export class RunUsageSummary extends Schema.Class<RunUsageSummary>(
-  "@effect-agent/core/RunUsageSummary",
+  '@effect-agent/core/RunUsageSummary',
 )(RunUsageSummaryFields) {}
 
 interface MutableUsageGroup {
-  readonly provider: string;
-  readonly model: string;
-  readonly responseModel?: string | undefined;
-  readonly serviceTier?: string | undefined;
-  readonly pricingVersion?: string | undefined;
-  modelCalls: number;
-  webSearchCalls: number | undefined;
+  readonly provider: string
+  readonly model: string
+  readonly responseModel?: string | undefined
+  readonly serviceTier?: string | undefined
+  readonly pricingVersion?: string | undefined
+  modelCalls: number
+  webSearchCalls: number | undefined
   inputTokens: {
-    total: number;
-    uncached: number;
-    cacheRead: number;
-    cacheWrite: number;
-  };
-  outputTokens: { total: number; text: number; reasoning: number };
-  costMicrousd: number;
+    total: number
+    uncached: number
+    cacheRead: number
+    cacheWrite: number
+  }
+  outputTokens: { total: number; text: number; reasoning: number }
+  costMicrousd: number
 }
 
-const emptyInputTokens = () => ({ total: 0, uncached: 0, cacheRead: 0, cacheWrite: 0 });
-const emptyOutputTokens = () => ({ total: 0, text: 0, reasoning: 0 });
+const emptyInputTokens = () => ({ total: 0, uncached: 0, cacheRead: 0, cacheWrite: 0 })
+const emptyOutputTokens = () => ({ total: 0, text: 0, reasoning: 0 })
 
 /** Canonical usage could not be aggregated without exceeding safe-integer accounting. */
 export class UsageAggregationError extends Schema.TaggedError<UsageAggregationError>()(
-  "UsageAggregationError",
+  'UsageAggregationError',
   {
     field: Schema.NonEmptyString,
     message: Schema.String,
@@ -262,81 +261,80 @@ const checkedAdd = (
   left: number,
   right: number,
 ): Effect.Effect<number, UsageAggregationError> => {
-  const total = left + right;
+  const total = left + right
 
   return Number.isSafeInteger(left) &&
-    left >= 0 &&
-    Number.isSafeInteger(right) &&
-    right >= 0 &&
-    Number.isSafeInteger(total)
+      left >= 0 &&
+      Number.isSafeInteger(right) &&
+      right >= 0 &&
+      Number.isSafeInteger(total)
     ? Effect.succeed(total)
     : Effect.fail(
-        UsageAggregationError.make({
-          field,
-          message: `Canonical usage aggregation exceeded the safe-integer range at ${field}`,
-        }),
-      );
-};
+      UsageAggregationError.make({
+        field,
+        message: `Canonical usage aggregation exceeded the safe-integer range at ${field}`,
+      }),
+    )
+}
 
 /** Combine disjoint totals, retaining uncertainty and rejecting numeric overflow. */
-export const sumRunTotals = Effect.fnUntraced(function* (
+export const sumRunTotals = Effect.fnUntraced(function*(
   contributions: ReadonlyArray<RunTotals>,
 ): Effect.fn.Return<RunTotals, UsageAggregationError> {
-  let modelCalls = 0;
-  let webSearchCalls: number | undefined = 0;
-  let inputTokens = 0;
-  let outputTokens = 0;
-  let costMicrousd = 0;
-  let unobservedModelCalls = 0;
-  const usageStatuses: Array<typeof UsageCompleteness.Type> = [];
-  const pricingStatuses: Array<typeof UsageCompleteness.Type> = [];
+  let modelCalls = 0
+  let webSearchCalls: number | undefined = 0
+  let inputTokens = 0
+  let outputTokens = 0
+  let costMicrousd = 0
+  let unobservedModelCalls = 0
+  const usageStatuses: Array<typeof UsageCompleteness.Type> = []
+  const pricingStatuses: Array<typeof UsageCompleteness.Type> = []
 
   for (const contribution of contributions) {
     const value = yield* Schema.decodeEffect(RunTotals)(contribution).pipe(
-      Effect.mapError(() =>
-        UsageAggregationError.make({ field: "totals", message: "Invalid Run totals" }),
-      ),
-    );
+      Effect.mapError(() => UsageAggregationError.make({ field: 'totals', message: 'Invalid Run totals' })),
+    )
 
-    modelCalls = yield* checkedAdd("modelCalls", modelCalls, value.modelCalls);
-    if (value.webSearchCalls === undefined && value.modelCalls > 0) webSearchCalls = undefined;
-    else if (webSearchCalls !== undefined)
+    modelCalls = yield* checkedAdd('modelCalls', modelCalls, value.modelCalls)
+    if (value.webSearchCalls === undefined && value.modelCalls > 0) webSearchCalls = undefined
+    else if (webSearchCalls !== undefined) {
       webSearchCalls = yield* checkedAdd(
-        "webSearchCalls",
+        'webSearchCalls',
         webSearchCalls,
         value.webSearchCalls ?? 0,
-      );
-    inputTokens = yield* checkedAdd("inputTokens", inputTokens, value.inputTokens);
-    outputTokens = yield* checkedAdd("outputTokens", outputTokens, value.outputTokens);
-    costMicrousd = yield* checkedAdd("costMicrousd", costMicrousd, value.costMicrousd);
+      )
+    }
+    inputTokens = yield* checkedAdd('inputTokens', inputTokens, value.inputTokens)
+    outputTokens = yield* checkedAdd('outputTokens', outputTokens, value.outputTokens)
+    costMicrousd = yield* checkedAdd('costMicrousd', costMicrousd, value.costMicrousd)
     unobservedModelCalls = yield* checkedAdd(
-      "unobservedModelCalls",
+      'unobservedModelCalls',
       unobservedModelCalls,
       value.unobservedModelCalls ?? 0,
-    );
+    )
     // Known empty contributions are identities; unknown empty contributions are evidence gaps.
     if (
       value.modelCalls > 0 ||
       (value.unobservedModelCalls ?? 0) > 0 ||
-      value.usageStatus !== "complete"
+      value.usageStatus !== 'complete'
     ) {
-      usageStatuses.push(value.usageStatus ?? "unknown");
+      usageStatuses.push(value.usageStatus ?? 'unknown')
     }
     if (
       value.modelCalls > 0 ||
       (value.unobservedModelCalls ?? 0) > 0 ||
-      value.pricingStatus !== "complete"
+      value.pricingStatus !== 'complete'
     ) {
-      pricingStatuses.push(value.pricingStatus ?? "unknown");
+      pricingStatuses.push(value.pricingStatus ?? 'unknown')
     }
   }
 
   const coverage = (statuses: ReadonlyArray<typeof UsageCompleteness.Type>) =>
-    statuses.every((status) => status === "complete")
-      ? ("complete" as const)
-      : statuses.every((status) => status === "unknown")
-        ? ("unknown" as const)
-        : ("partial" as const);
+    statuses.every((status) => status === 'complete')
+      ? ('complete' as const)
+      : statuses.every((status) => status === 'unknown')
+      ? ('unknown' as const)
+      : ('partial' as const)
 
   return RunTotals.make({
     modelCalls,
@@ -347,8 +345,8 @@ export const sumRunTotals = Effect.fnUntraced(function* (
     unobservedModelCalls,
     usageStatus: coverage(usageStatuses),
     pricingStatus: coverage(pricingStatuses),
-  });
-});
+  })
+})
 
 /** Flatten a canonical settlement summary without discarding its coverage markers. */
 export const runTotalsFromSummary = (summary: RunUsageSummary): RunTotals =>
@@ -358,52 +356,48 @@ export const runTotalsFromSummary = (summary: RunUsageSummary): RunTotals =>
     inputTokens: summary.inputTokens.total,
     outputTokens: summary.outputTokens.total,
     costMicrousd: summary.costMicrousd,
-    usageStatus: summary.usageStatus ?? "unknown",
-    pricingStatus: summary.pricingStatus ?? "unknown",
+    usageStatus: summary.usageStatus ?? 'unknown',
+    pricingStatus: summary.pricingStatus ?? 'unknown',
     unobservedModelCalls: summary.unobservedModelCalls ?? 0,
-  });
+  })
 
 /**
  * Deterministically aggregate canonical per-call usage without making cached tokens free.
  * A validated seed retains earlier call totals and pricing groups without retaining those calls.
  * Empty contributions do not change completeness; the seed is never mutated.
  */
-export const summarizeModelUsage = Effect.fnUntraced(function* (
+export const summarizeModelUsage = Effect.fnUntraced(function*(
   calls: ReadonlyArray<ModelCallUsage>,
   seed?: RunUsageSummary,
 ): Effect.fn.Return<RunUsageSummary, UsageAggregationError> {
-  const initial =
-    seed === undefined
-      ? undefined
-      : yield* Schema.decodeEffect(RunUsageSummary)(seed).pipe(
-          Effect.mapError(() =>
-            UsageAggregationError.make({
-              field: "seed",
-              message: "Canonical usage seed does not satisfy the RunUsageSummary Schema",
-            }),
-          ),
-        );
+  const initial = seed === undefined
+    ? undefined
+    : yield* Schema.decodeEffect(RunUsageSummary)(seed).pipe(
+      Effect.mapError(() =>
+        UsageAggregationError.make({
+          field: 'seed',
+          message: 'Canonical usage seed does not satisfy the RunUsageSummary Schema',
+        })
+      ),
+    )
 
-  const inputTokens = initial === undefined ? emptyInputTokens() : { ...initial.inputTokens };
-  const outputTokens = initial === undefined ? emptyOutputTokens() : { ...initial.outputTokens };
-  const groups = new Map<string, MutableUsageGroup>();
-  let modelCalls = initial?.modelCalls ?? 0;
+  const inputTokens = initial === undefined ? emptyInputTokens() : { ...initial.inputTokens }
+  const outputTokens = initial === undefined ? emptyOutputTokens() : { ...initial.outputTokens }
+  const groups = new Map<string, MutableUsageGroup>()
+  let modelCalls = initial?.modelCalls ?? 0
 
-  let webSearchCalls =
-    initial === undefined || initial.modelCalls === 0 ? 0 : initial.webSearchCalls;
+  let webSearchCalls = initial === undefined || initial.modelCalls === 0 ? 0 : initial.webSearchCalls
 
-  let costMicrousd = initial?.costMicrousd ?? 0;
-  const hasSeedCalls = modelCalls > 0;
+  let costMicrousd = initial?.costMicrousd ?? 0
+  const hasSeedCalls = modelCalls > 0
 
-  let allUsageUnknown =
-    !hasSeedCalls || initial?.usageStatus === undefined || initial.usageStatus === "unknown";
+  let allUsageUnknown = !hasSeedCalls || initial?.usageStatus === undefined || initial.usageStatus === 'unknown'
 
-  let allUsageComplete = !hasSeedCalls || initial?.usageStatus === "complete";
+  let allUsageComplete = !hasSeedCalls || initial?.usageStatus === 'complete'
 
-  let allPricingUnknown =
-    !hasSeedCalls || initial?.pricingStatus === undefined || initial.pricingStatus === "unknown";
+  let allPricingUnknown = !hasSeedCalls || initial?.pricingStatus === undefined || initial.pricingStatus === 'unknown'
 
-  let allPricingComplete = !hasSeedCalls || initial?.pricingStatus === "complete";
+  let allPricingComplete = !hasSeedCalls || initial?.pricingStatus === 'complete'
 
   for (const group of initial?.byModel ?? []) {
     const key = JSON.stringify([
@@ -412,62 +406,61 @@ export const summarizeModelUsage = Effect.fnUntraced(function* (
       group.responseModel ?? null,
       group.serviceTier ?? null,
       group.pricingVersion ?? null,
-    ]);
+    ])
 
     groups.set(key, {
       ...group,
       webSearchCalls: group.webSearchCalls,
       inputTokens: { ...group.inputTokens },
       outputTokens: { ...group.outputTokens },
-    });
+    })
   }
 
   for (const call of calls) {
-    allUsageUnknown &&= call.usageStatus === undefined || call.usageStatus === "unknown";
-    allUsageComplete &&= call.usageStatus === "complete";
-    allPricingUnknown &&= call.pricingStatus !== "estimated";
-    allPricingComplete &&= call.pricingStatus === "estimated";
-    modelCalls = yield* checkedAdd("modelCalls", modelCalls, 1);
-    webSearchCalls =
-      webSearchCalls === undefined || call.webSearchCalls === undefined
-        ? undefined
-        : yield* checkedAdd("webSearchCalls", webSearchCalls, call.webSearchCalls);
+    allUsageUnknown &&= call.usageStatus === undefined || call.usageStatus === 'unknown'
+    allUsageComplete &&= call.usageStatus === 'complete'
+    allPricingUnknown &&= call.pricingStatus !== 'estimated'
+    allPricingComplete &&= call.pricingStatus === 'estimated'
+    modelCalls = yield* checkedAdd('modelCalls', modelCalls, 1)
+    webSearchCalls = webSearchCalls === undefined || call.webSearchCalls === undefined
+      ? undefined
+      : yield* checkedAdd('webSearchCalls', webSearchCalls, call.webSearchCalls)
     inputTokens.total = yield* checkedAdd(
-      "inputTokens.total",
+      'inputTokens.total',
       inputTokens.total,
       call.inputTokens.total,
-    );
+    )
     inputTokens.uncached = yield* checkedAdd(
-      "inputTokens.uncached",
+      'inputTokens.uncached',
       inputTokens.uncached,
       call.inputTokens.uncached,
-    );
+    )
     inputTokens.cacheRead = yield* checkedAdd(
-      "inputTokens.cacheRead",
+      'inputTokens.cacheRead',
       inputTokens.cacheRead,
       call.inputTokens.cacheRead,
-    );
+    )
     inputTokens.cacheWrite = yield* checkedAdd(
-      "inputTokens.cacheWrite",
+      'inputTokens.cacheWrite',
       inputTokens.cacheWrite,
       call.inputTokens.cacheWrite,
-    );
+    )
     outputTokens.total = yield* checkedAdd(
-      "outputTokens.total",
+      'outputTokens.total',
       outputTokens.total,
       call.outputTokens.total,
-    );
+    )
     outputTokens.text = yield* checkedAdd(
-      "outputTokens.text",
+      'outputTokens.text',
       outputTokens.text,
       call.outputTokens.text,
-    );
+    )
     outputTokens.reasoning = yield* checkedAdd(
-      "outputTokens.reasoning",
+      'outputTokens.reasoning',
       outputTokens.reasoning,
       call.outputTokens.reasoning,
-    );
-    costMicrousd = yield* checkedAdd("costMicrousd", costMicrousd, call.costMicrousd);
+    )
+    costMicrousd = yield* checkedAdd('costMicrousd', costMicrousd, call.costMicrousd)
 
     const key = JSON.stringify([
       call.provider,
@@ -475,9 +468,9 @@ export const summarizeModelUsage = Effect.fnUntraced(function* (
       call.response?.model ?? null,
       call.serviceTier ?? null,
       call.pricingVersion ?? null,
-    ]);
+    ])
 
-    let group = groups.get(key);
+    let group = groups.get(key)
 
     if (group === undefined) {
       group = {
@@ -491,54 +484,53 @@ export const summarizeModelUsage = Effect.fnUntraced(function* (
         inputTokens: emptyInputTokens(),
         outputTokens: emptyOutputTokens(),
         costMicrousd: 0,
-      };
-      groups.set(key, group);
+      }
+      groups.set(key, group)
     }
-    group.modelCalls = yield* checkedAdd("byModel.modelCalls", group.modelCalls, 1);
-    group.webSearchCalls =
-      group.webSearchCalls === undefined || call.webSearchCalls === undefined
-        ? undefined
-        : yield* checkedAdd("byModel.webSearchCalls", group.webSearchCalls, call.webSearchCalls);
+    group.modelCalls = yield* checkedAdd('byModel.modelCalls', group.modelCalls, 1)
+    group.webSearchCalls = group.webSearchCalls === undefined || call.webSearchCalls === undefined
+      ? undefined
+      : yield* checkedAdd('byModel.webSearchCalls', group.webSearchCalls, call.webSearchCalls)
     group.inputTokens.total = yield* checkedAdd(
-      "byModel.inputTokens.total",
+      'byModel.inputTokens.total',
       group.inputTokens.total,
       call.inputTokens.total,
-    );
+    )
     group.inputTokens.uncached = yield* checkedAdd(
-      "byModel.inputTokens.uncached",
+      'byModel.inputTokens.uncached',
       group.inputTokens.uncached,
       call.inputTokens.uncached,
-    );
+    )
     group.inputTokens.cacheRead = yield* checkedAdd(
-      "byModel.inputTokens.cacheRead",
+      'byModel.inputTokens.cacheRead',
       group.inputTokens.cacheRead,
       call.inputTokens.cacheRead,
-    );
+    )
     group.inputTokens.cacheWrite = yield* checkedAdd(
-      "byModel.inputTokens.cacheWrite",
+      'byModel.inputTokens.cacheWrite',
       group.inputTokens.cacheWrite,
       call.inputTokens.cacheWrite,
-    );
+    )
     group.outputTokens.total = yield* checkedAdd(
-      "byModel.outputTokens.total",
+      'byModel.outputTokens.total',
       group.outputTokens.total,
       call.outputTokens.total,
-    );
+    )
     group.outputTokens.text = yield* checkedAdd(
-      "byModel.outputTokens.text",
+      'byModel.outputTokens.text',
       group.outputTokens.text,
       call.outputTokens.text,
-    );
+    )
     group.outputTokens.reasoning = yield* checkedAdd(
-      "byModel.outputTokens.reasoning",
+      'byModel.outputTokens.reasoning',
       group.outputTokens.reasoning,
       call.outputTokens.reasoning,
-    );
+    )
     group.costMicrousd = yield* checkedAdd(
-      "byModel.costMicrousd",
+      'byModel.costMicrousd',
       group.costMicrousd,
       call.costMicrousd,
-    );
+    )
   }
 
   return RunUsageSummary.make({
@@ -547,8 +539,8 @@ export const summarizeModelUsage = Effect.fnUntraced(function* (
     inputTokens: InputTokenUsage.make(inputTokens),
     outputTokens: OutputTokenUsage.make(outputTokens),
     costMicrousd,
-    usageStatus: allUsageUnknown ? "unknown" : allUsageComplete ? "complete" : "partial",
-    pricingStatus: allPricingUnknown ? "unknown" : allPricingComplete ? "complete" : "partial",
+    usageStatus: allUsageUnknown ? 'unknown' : allUsageComplete ? 'complete' : 'partial',
+    pricingStatus: allPricingUnknown ? 'unknown' : allPricingComplete ? 'complete' : 'partial',
     ...(initial?.unobservedModelCalls === undefined
       ? {}
       : { unobservedModelCalls: initial.unobservedModelCalls }),
@@ -564,7 +556,7 @@ export const summarizeModelUsage = Effect.fnUntraced(function* (
         inputTokens: InputTokenUsage.make(group.inputTokens),
         outputTokens: OutputTokenUsage.make(group.outputTokens),
         costMicrousd: group.costMicrousd,
-      }),
+      })
     ),
-  });
-});
+  })
+})

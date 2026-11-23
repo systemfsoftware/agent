@@ -1,110 +1,99 @@
-import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
-import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
-import { describe, expect, it } from "@effect/vitest";
+import * as NodeCrypto from '@effect/platform-node/NodeCrypto'
+import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
+import { describe, expect, it } from '@effect/vitest'
 import {
   NodeDurableAgentRuntime,
   type NodeDurableAgentRuntimeInitializationError,
   type NodeDurableAgentRuntimeOptions,
   type NodeDurableAgentRuntimeServices,
-} from "@yielded/agent-platform-node/node-durable-agent-runtime";
-import { NodeDurableHost } from "@yielded/agent-platform-node/node-durable-host";
-import * as NodeHost from "@yielded/agent-platform-node/node-durable-host";
-import * as Agent from "@yielded/agent/agent";
-import { AgentPolicy } from "@yielded/agent/agent-policy";
-import { digestDefinitions } from "@yielded/agent/digest";
-import {
-  DurableAgentRuntime,
-  type DurableSubmitOptions,
-} from "@yielded/agent/durable-agent-runtime";
-import {
-  DurableRuntimeFailpoint,
-  DurableRuntimeFailpointError,
-} from "@yielded/agent/durable-failpoint";
-import { ToolExecutionClass } from "@yielded/agent/durable-step";
-import { ThreadId } from "@yielded/agent/identifiers";
-import * as Output from "@yielded/agent/output";
-import {
-  DefinitionDigests,
-  DefinitionDigestInput,
-  Digest,
-  type RecordEnvelope,
-} from "@yielded/agent/records";
-import { runIdForSubmission } from "@yielded/agent/run-journal";
-import { RunContextPreparation, RunToolAuthorization } from "@yielded/agent/run-options";
+} from '@yielded/agent-platform-node/node-durable-agent-runtime'
+import { NodeDurableHost } from '@yielded/agent-platform-node/node-durable-host'
+import * as NodeHost from '@yielded/agent-platform-node/node-durable-host'
+import * as Agent from '@yielded/agent/agent'
+import { AgentPolicy } from '@yielded/agent/agent-policy'
+import { digestDefinitions } from '@yielded/agent/digest'
+import { DurableAgentRuntime, type DurableSubmitOptions } from '@yielded/agent/durable-agent-runtime'
+import { DurableRuntimeFailpoint, DurableRuntimeFailpointError } from '@yielded/agent/durable-failpoint'
+import { ToolExecutionClass } from '@yielded/agent/durable-step'
+import { ThreadId } from '@yielded/agent/identifiers'
+import * as Output from '@yielded/agent/output'
+import { DefinitionDigestInput, DefinitionDigests, Digest, type RecordEnvelope } from '@yielded/agent/records'
+import { runIdForSubmission } from '@yielded/agent/run-journal'
+import { RunContextPreparation, RunToolAuthorization } from '@yielded/agent/run-options'
 import {
   IdempotencyKey,
   Principal,
   RecoverySnapshotRequest,
   SubmissionLedger,
   SubmissionLookupById,
-} from "@yielded/agent/submission-ledger";
-import { ThreadRead, ThreadStore } from "@yielded/agent/thread-store";
-import { ToolReconciler } from "@yielded/agent/tool-reconciler";
-import * as LanguageModel from "effect/ai/LanguageModel";
-import * as Model from "effect/ai/Model";
-import * as Prompt from "effect/ai/Prompt";
-import type * as Response from "effect/ai/Response";
-import * as Tool from "effect/ai/Tool";
-import * as Toolkit from "effect/ai/Toolkit";
-import * as Cause from "effect/Cause";
-import * as Context from "effect/Context";
-import * as Deferred from "effect/Deferred";
-import * as Effect from "effect/Effect";
-import * as Exit from "effect/Exit";
-import * as Fiber from "effect/Fiber";
-import * as FileSystem from "effect/FileSystem";
-import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
-import type * as PlatformError from "effect/PlatformError";
-import * as Ref from "effect/Ref";
-import * as Schedule from "effect/Schedule";
-import * as Schema from "effect/Schema";
-import * as Stream from "effect/Stream";
-import * as TestClock from "effect/testing/TestClock";
+} from '@yielded/agent/submission-ledger'
+import { ThreadRead, ThreadStore } from '@yielded/agent/thread-store'
+import { ToolReconciler } from '@yielded/agent/tool-reconciler'
+import * as LanguageModel from 'effect/ai/LanguageModel'
+import * as Model from 'effect/ai/Model'
+import * as Prompt from 'effect/ai/Prompt'
+import type * as Response from 'effect/ai/Response'
+import * as Tool from 'effect/ai/Tool'
+import * as Toolkit from 'effect/ai/Toolkit'
+import * as Cause from 'effect/Cause'
+import * as Context from 'effect/Context'
+import * as Deferred from 'effect/Deferred'
+import * as Effect from 'effect/Effect'
+import * as Exit from 'effect/Exit'
+import * as Fiber from 'effect/Fiber'
+import * as FileSystem from 'effect/FileSystem'
+import * as Layer from 'effect/Layer'
+import * as Option from 'effect/Option'
+import type * as PlatformError from 'effect/PlatformError'
+import * as Ref from 'effect/Ref'
+import * as Schedule from 'effect/Schedule'
+import * as Schema from 'effect/Schema'
+import * as Stream from 'effect/Stream'
+import * as TestClock from 'effect/testing/TestClock'
 
-const hostLayerProbe = NodeDurableHost.layer;
+const hostLayerProbe = NodeDurableHost.layer
 
-const SHA_A = Schema.decodeSync(Digest)("a".repeat(64));
-const DIGESTS = DefinitionDigests.make({ agent: SHA_A, model: SHA_A, tools: SHA_A });
-const PRINCIPAL = Schema.decodeSync(Principal)("principal-platform-node");
-const decodeThreadId = Schema.decodeSync(ThreadId);
-const decodeIdempotencyKey = Schema.decodeSync(IdempotencyKey);
+const SHA_A = Schema.decodeSync(Digest)('a'.repeat(64))
+const DIGESTS = DefinitionDigests.make({ agent: SHA_A, model: SHA_A, tools: SHA_A })
+const PRINCIPAL = Schema.decodeSync(Principal)('principal-platform-node')
+const decodeThreadId = Schema.decodeSync(ThreadId)
+const decodeIdempotencyKey = Schema.decodeSync(IdempotencyKey)
 
 const runtimeOptions = (
   filename: string,
   overrides?: Partial<NodeDurableAgentRuntimeOptions>,
 ): NodeDurableAgentRuntimeOptions => ({
   filename,
-  deploymentId: "deployment-platform-node",
-  producerId: "producer-platform-node",
+  deploymentId: 'deployment-platform-node',
+  producerId: 'producer-platform-node',
   wakeScanInterval: 1_000,
   ...overrides,
-});
+})
 
 const submitOptions = (threadId: string, idempotencyKey: string): DurableSubmitOptions => ({
   threadId: decodeThreadId(threadId),
   principal: PRINCIPAL,
   idempotencyKey: decodeIdempotencyKey(idempotencyKey),
   definitions: DIGESTS,
-});
+})
 
-const usage = { inputTokens: {}, outputTokens: {} };
+const usage = { inputTokens: {}, outputTokens: {} }
 
 const finalParts = (text: string): ReadonlyArray<Response.StreamPartEncoded> => [
-  { type: "text-start", id: "answer" },
-  { type: "text-delta", id: "answer", delta: text },
-  { type: "text-end", id: "answer" },
-  { type: "finish", reason: "stop", usage },
-];
+  { type: 'text-start', id: 'answer' },
+  { type: 'text-delta', id: 'answer', delta: text },
+  { type: 'text-end', id: 'answer' },
+  { type: 'finish', reason: 'stop', usage },
+]
 
-const makeScriptedModel = Effect.fn("PlatformNodeTest.makeScriptedModel")(function* (
+const makeScriptedModel = Effect.fn('PlatformNodeTest.makeScriptedModel')(function*(
   script: (call: number, prompt: Prompt.Prompt) => ReadonlyArray<Response.StreamPartEncoded>,
 ) {
-  const calls = yield* Ref.make(0);
+  const calls = yield* Ref.make(0)
 
   return Model.make(
-    "scripted",
-    "platform-node-test",
+    'scripted',
+    'platform-node-test',
     Layer.effect(
       LanguageModel.LanguageModel,
       LanguageModel.make({
@@ -117,10 +106,10 @@ const makeScriptedModel = Effect.fn("PlatformNodeTest.makeScriptedModel")(functi
           ),
       }),
     ),
-  );
-});
+  )
+})
 
-const plannerDefinition = Agent.make("platform-node-planner", {
+const plannerDefinition = Agent.make('platform-node-planner', {
   input: Schema.Struct({ question: Schema.String }),
   output: Schema.Struct({ answer: Schema.String }),
   instructions: ({ question }) => `Answer ${question} as JSON.`,
@@ -128,25 +117,25 @@ const plannerDefinition = Agent.make("platform-node-planner", {
   policy: AgentPolicy.make({
     maxTurns: 3,
     maxToolCalls: 2,
-    maxDuration: "30 seconds",
+    maxDuration: '30 seconds',
     toolConcurrency: 1,
   }),
-});
+})
 
 const withTemporaryDatabase = <A, E>(
   use: (filename: string) => Effect.Effect<A, E>,
 ): Effect.Effect<A, E | PlatformError.PlatformError> =>
   Effect.scoped(
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
+    Effect.gen(function*() {
+      const fs = yield* FileSystem.FileSystem
 
       const directory = yield* fs.makeTempDirectoryScoped({
-        prefix: "effect-agent-platform-node-",
-      });
+        prefix: 'effect-agent-platform-node-',
+      })
 
-      return yield* use(`${directory}/host.sqlite`);
+      return yield* use(`${directory}/host.sqlite`)
     }),
-  ).pipe(Effect.provide(NodeFileSystem.layer));
+  ).pipe(Effect.provide(NodeFileSystem.layer))
 
 /** One host "process": the full DN stack over `filename`, closed (and drained) when `effect` ends. */
 const withHost = <A, E, R>(
@@ -156,84 +145,83 @@ const withHost = <A, E, R>(
   A,
   E | Layer.Error<typeof hostLayerProbe> | NodeDurableAgentRuntimeInitializationError,
   Exclude<R, NodeDurableHost | NodeDurableAgentRuntimeServices>
-> => Effect.provide(effect, NodeDurableHost.layerStack(options));
+> => Effect.provide(effect, NodeDurableHost.layerStack(options))
 
 const failureOf = <A, E>(exit: Exit.Exit<A, E>): unknown => {
-  expect(Exit.isFailure(exit)).toBe(true);
-  if (Exit.isSuccess(exit)) throw new Error("Expected the Effect to fail");
+  expect(Exit.isFailure(exit)).toBe(true)
+  if (Exit.isSuccess(exit)) throw new Error('Expected the Effect to fail')
 
-  return Cause.squash(exit.cause);
-};
+  return Cause.squash(exit.cause)
+}
 
-describe("NodeDurableAgentRuntime", () => {
+describe('NodeDurableAgentRuntime', () => {
   // d5410af permits two managed hosts over one file; producer names cannot prove host death.
-  it.effect("rejects a second managed host and releases exclusion when its owner closes", () =>
+  it.effect('rejects a second managed host and releases exclusion when its owner closes', () =>
     withTemporaryDatabase((filename) =>
-      Effect.gen(function* () {
-        const options = runtimeOptions(filename, { busyTimeout: 0 });
+      Effect.gen(function*() {
+        const options = runtimeOptions(filename, { busyTimeout: 0 })
 
-        yield* Effect.gen(function* () {
-          const owner = yield* NodeDurableHost;
+        yield* Effect.gen(function*() {
+          const owner = yield* NodeDurableHost
 
           const duplicate = yield* Effect.void.pipe(
             Effect.provide(NodeHost.layer([], options)),
             Effect.exit,
-          );
+          )
 
           expect(failureOf(duplicate)).toMatchObject({
-            _tag: "SqliteStorageError",
-            operation: "acquire exclusive host",
-          });
-          expect(yield* owner.admissionOpen).toBe(true);
-        }).pipe(Effect.provide(NodeHost.layer([], options)));
+            _tag: 'SqliteStorageError',
+            operation: 'acquire exclusive host',
+          })
+          expect(yield* owner.admissionOpen).toBe(true)
+        }).pipe(Effect.provide(NodeHost.layer([], options)))
 
-        yield* Effect.void.pipe(Effect.provide(NodeHost.layer([], options)));
-      }),
-    ),
-  );
+        yield* Effect.void.pipe(Effect.provide(NodeHost.layer([], options)))
+      })
+    ))
 
   // b92f250d refused a Turn that appended no messages, and that failure ended every host worker.
-  it.effect("settles an empty model stop and keeps its Thread usable", () =>
+  it.effect('settles an empty model stop and keeps its Thread usable', () =>
     withTemporaryDatabase((filename) =>
-      Effect.gen(function* () {
-        const prompts: Array<Prompt.Prompt> = [];
+      Effect.gen(function*() {
+        const prompts: Array<Prompt.Prompt> = []
 
         const emptyStop: ReadonlyArray<Response.StreamPartEncoded> = [
-          { type: "finish", reason: "stop", usage },
-        ];
+          { type: 'finish', reason: 'stop', usage },
+        ]
 
         const model = yield* makeScriptedModel((call, prompt) => {
-          prompts.push(prompt);
+          prompts.push(prompt)
 
           switch (call) {
             case 1:
               return [
-                { type: "tool-call", id: "call-ping", name: "ping", params: {} },
-                { type: "finish", reason: "tool-calls", usage },
-              ];
+                { type: 'tool-call', id: 'call-ping', name: 'ping', params: {} },
+                { type: 'finish', reason: 'tool-calls', usage },
+              ]
             case 3:
-              return finalParts("third");
+              return finalParts('third')
             default:
-              return emptyStop;
+              return emptyStop
           }
-        });
+        })
 
-        const Ping = Tool.make("ping", { success: Schema.String });
-        const tools = Toolkit.make(Ping);
+        const Ping = Tool.make('ping', { success: Schema.String })
+        const tools = Toolkit.make(Ping)
 
-        const definition = Agent.make("platform-node-empty-stop", {
+        const definition = Agent.make('platform-node-empty-stop', {
           input: Schema.Struct({ question: Schema.String }),
           output: Output.text(Schema.String),
-          instructions: "Answer the question.",
+          instructions: 'Answer the question.',
           inputPrompt: ({ question }) => question,
           toolkit: tools,
-        });
+        })
 
-        const threadId = decodeThreadId("node-empty-stop");
+        const threadId = decodeThreadId('node-empty-stop')
 
-        yield* Effect.gen(function* () {
-          const host = yield* NodeDurableHost;
-          const runtime = yield* DurableAgentRuntime;
+        yield* Effect.gen(function*() {
+          const host = yield* NodeDurableHost
+          const runtime = yield* DurableAgentRuntime
 
           const settle = (question: string, key: string) =>
             runtime
@@ -246,15 +234,15 @@ describe("NodeDurableAgentRuntime", () => {
                   idempotencyKey: decodeIdempotencyKey(key),
                 },
               )
-              .pipe(Effect.flatMap(host.awaitSettlement));
+              .pipe(Effect.flatMap(host.awaitSettlement))
 
           // The first Turn holds only its input; a later Turn appends no message.
-          expect((yield* settle("first", "empty-stop-1")).outcome).toBe("completed");
-          expect((yield* settle("second", "empty-stop-2")).outcome).toBe("completed");
-          expect(yield* host.admissionOpen).toBe(true);
-          expect((yield* settle("third", "empty-stop-3")).outcome).toBe("completed");
-          expect(JSON.stringify(prompts[3]?.content)).toContain("first");
-          expect((yield* runtime.verify(threadId)).ok).toBe(true);
+          expect((yield* settle('first', 'empty-stop-1')).outcome).toBe('completed')
+          expect((yield* settle('second', 'empty-stop-2')).outcome).toBe('completed')
+          expect(yield* host.admissionOpen).toBe(true)
+          expect((yield* settle('third', 'empty-stop-3')).outcome).toBe('completed')
+          expect(JSON.stringify(prompts[3]?.content)).toContain('first')
+          expect((yield* runtime.verify(threadId)).ok).toBe(true)
         }).pipe(
           Effect.provide(
             NodeHost.layer(
@@ -262,98 +250,97 @@ describe("NodeDurableAgentRuntime", () => {
                 {
                   agent: Agent.withModel(definition, model),
                   definitions: DefinitionDigestInput.make({
-                    agent: "v1",
-                    model: "v1",
-                    tools: "v1",
+                    agent: 'v1',
+                    model: 'v1',
+                    tools: 'v1',
                   }),
                 },
               ],
               runtimeOptions(filename, { settlementPollInterval: 5 }),
-            ).pipe(Layer.provide(tools.toLayer({ ping: () => Effect.succeed("pong") }))),
+            ).pipe(Layer.provide(tools.toLayer({ ping: () => Effect.succeed('pong') }))),
           ),
-        );
-      }),
-    ),
-  );
+        )
+      })
+    ))
 
   // efa46d13 drained joined input before it committed the Turn that stopped, so a later restart
   // read that response as proof that its prompt held the input.
-  it.live("keeps input that joins at a model stop across a restart", () =>
+  it.live('keeps input that joins at a model stop across a restart', () =>
     withTemporaryDatabase((filename) =>
-      Effect.gen(function* () {
-        const started = yield* Deferred.make<void>();
-        const release = yield* Deferred.make<void>();
-        const prompts: Array<string> = [];
+      Effect.gen(function*() {
+        const started = yield* Deferred.make<void>()
+        const release = yield* Deferred.make<void>()
+        const prompts: Array<string> = []
 
         const model = Model.make(
-          "scripted",
-          "platform-node-test",
+          'scripted',
+          'platform-node-test',
           Layer.effect(
             LanguageModel.LanguageModel,
             LanguageModel.make({
               generateText: () => Effect.succeed([]),
               streamText: ({ prompt }) =>
                 Stream.unwrap(
-                  Effect.gen(function* () {
-                    prompts.push(JSON.stringify(prompt.content));
+                  Effect.gen(function*() {
+                    prompts.push(JSON.stringify(prompt.content))
                     if (prompts.length === 1) {
-                      yield* Deferred.succeed(started, undefined);
-                      yield* Deferred.await(release);
+                      yield* Deferred.succeed(started, undefined)
+                      yield* Deferred.await(release)
                     }
 
-                    return Stream.fromIterable(finalParts(`answer ${prompts.length}`));
+                    return Stream.fromIterable(finalParts(`answer ${prompts.length}`))
                   }),
                 ),
             }),
           ),
-        );
+        )
 
-        const definition = Agent.make("platform-node-stop-join", {
+        const definition = Agent.make('platform-node-stop-join', {
           input: Schema.Struct({ question: Schema.String }),
           output: Output.text(Schema.String),
-          instructions: "Answer the question.",
+          instructions: 'Answer the question.',
           inputPrompt: ({ question }) => question,
           toolkit: Toolkit.empty,
-        });
+        })
 
         const registrations = [
           {
             agent: Agent.withModel(definition, model),
-            definitions: DefinitionDigestInput.make({ agent: "v1", model: "v1", tools: "v1" }),
+            definitions: DefinitionDigestInput.make({ agent: 'v1', model: 'v1', tools: 'v1' }),
           },
-        ];
+        ]
 
         const options = {
-          threadId: decodeThreadId("node-stop-join"),
+          threadId: decodeThreadId('node-stop-join'),
           principal: PRINCIPAL,
-        };
+        }
 
-        let isCrashed = false;
+        let isCrashed = false
 
-        const [root, joined] = yield* Effect.gen(function* () {
-          const host = yield* NodeDurableHost;
-          const runtime = yield* DurableAgentRuntime;
+        const [root, joined] = yield* Effect.gen(function*() {
+          const host = yield* NodeDurableHost
+          const runtime = yield* DurableAgentRuntime
 
           const root = yield* runtime.submitRegistered(
             { definition },
-            { question: "root question" },
-            { ...options, idempotencyKey: decodeIdempotencyKey("root") },
-          );
+            { question: 'root question' },
+            { ...options, idempotencyKey: decodeIdempotencyKey('root') },
+          )
 
-          yield* Deferred.await(started);
+          yield* Deferred.await(started)
 
           const joined = yield* runtime.submitRegistered(
             { definition },
-            { question: "joined question" },
-            { ...options, idempotencyKey: decodeIdempotencyKey("joined") },
-          );
+            { question: 'joined question' },
+            { ...options, idempotencyKey: decodeIdempotencyKey('joined') },
+          )
 
-          yield* Deferred.succeed(release, undefined);
+          yield* Deferred.succeed(release, undefined)
           yield* host.admissionOpen.pipe(
-            Effect.repeat({ until: (isOpen) => !isOpen, schedule: Schedule.spaced("10 millis") }),
-          );
+            Effect.repeat({ until: (isOpen) => !isOpen, schedule: Schedule.spaced('10 millis') }),
+          )
 
-          return [root, joined] as const;
+          return [root, joined] as const
         }).pipe(
           Effect.provide(
             NodeHost.layer(
@@ -362,190 +349,187 @@ describe("NodeDurableAgentRuntime", () => {
                 settlementPollInterval: 5,
                 // Crash after the first canonical commit that carries the Turn's response.
                 runtimeFailpoint: (location) => {
-                  if (isCrashed || !location.startsWith("turn:after-")) return Effect.void;
-                  isCrashed = true;
+                  if (isCrashed || !location.startsWith('turn:after-')) return Effect.void
+                  isCrashed = true
 
-                  return Effect.fail(DurableRuntimeFailpointError.make({ location }));
+                  return Effect.fail(DurableRuntimeFailpointError.make({ location }))
                 },
               }),
             ),
           ),
-        );
+        )
 
-        yield* Effect.gen(function* () {
-          const host = yield* NodeDurableHost;
+        yield* Effect.gen(function*() {
+          const host = yield* NodeDurableHost
 
-          expect((yield* host.awaitSettlement(root)).outcome).toBe("completed");
-          expect((yield* host.awaitSettlement(joined)).outcome).toBe("completed");
-          expect(prompts.at(-1)).toContain("joined question");
+          expect((yield* host.awaitSettlement(root)).outcome).toBe('completed')
+          expect((yield* host.awaitSettlement(joined)).outcome).toBe('completed')
+          expect(prompts.at(-1)).toContain('joined question')
         }).pipe(
           Effect.provide(
             NodeHost.layer(registrations, runtimeOptions(filename, { settlementPollInterval: 5 })),
           ),
-        );
-      }),
-    ),
-  );
+        )
+      })
+    ))
 
-  it.effect("supervises managed workers and releases their resources on failure", () =>
+  it.effect('supervises managed workers and releases their resources on failure', () =>
     withTemporaryDatabase((filename) =>
-      Effect.gen(function* () {
-        const ready = yield* Deferred.make<NodeDurableHost["Service"]>();
-        const started = yield* Deferred.make<void>();
-        const release = yield* Deferred.make<void>();
-        const marks: Array<string> = [];
-        const model = yield* makeScriptedModel(() => finalParts('{"answer":"unused"}'));
+      Effect.gen(function*() {
+        const ready = yield* Deferred.make<NodeDurableHost['Service']>()
+        const started = yield* Deferred.make<void>()
+        const release = yield* Deferred.make<void>()
+        const marks: Array<string> = []
+        const model = yield* makeScriptedModel(() => finalParts('{"answer":"unused"}'))
 
-        class Resource extends Context.Service<Resource, string>()("test/ManagedHostResource") {}
+        class Resource extends Context.Service<Resource, string>()('test/ManagedHostResource') {}
 
         const agent = Agent.withModel(
-          Agent.make("managed-worker", {
+          Agent.make('managed-worker', {
             input: plannerDefinition.input,
             output: plannerDefinition.output,
             instructions: () => Resource,
             toolkit: Toolkit.empty,
           }),
           model,
-        );
+        )
 
-        const definitions = DefinitionDigestInput.make({ agent: "v1", model: "v1", tools: "v1" });
+        const definitions = DefinitionDigestInput.make({ agent: 'v1', model: 'v1', tools: 'v1' })
 
         const digests = yield* digestDefinitions(definitions).pipe(
           Effect.provide(NodeCrypto.layer),
-        );
+        )
 
         const live = NodeHost.layer(
           [{ agent, definitions }],
           runtimeOptions(filename, {
             runtimeFailpoint: (location) =>
-              location === "claim:after-claim"
-                ? Effect.gen(function* () {
-                    yield* Deferred.succeed(started, undefined);
-                    yield* Deferred.await(release);
+              location === 'claim:after-claim'
+                ? Effect.gen(function*() {
+                  yield* Deferred.succeed(started, undefined)
+                  yield* Deferred.await(release)
 
-                    return yield* DurableRuntimeFailpointError.make({ location });
-                  }).pipe(
-                    Effect.ensuring(
-                      Effect.sync(() => {
-                        marks.push("worker-finalized");
-                      }),
-                    ),
-                  )
+                  return yield* DurableRuntimeFailpointError.make({ location })
+                }).pipe(
+                  Effect.ensuring(
+                    Effect.sync(() => {
+                      marks.push('worker-finalized')
+                    }),
+                  ),
+                )
                 : Effect.void,
           }),
         ).pipe(
           Layer.provide(
             Layer.effect(
               Resource,
-              Effect.acquireRelease(Effect.succeed("Answer as JSON."), () =>
+              Effect.acquireRelease(Effect.succeed('Answer as JSON.'), () =>
                 Effect.sync(() => {
-                  marks.push("resource-finalized");
-                }),
-              ),
+                  marks.push('resource-finalized')
+                })),
             ),
           ),
-        );
+        )
 
-        const main = Effect.gen(function* () {
-          const host = yield* NodeDurableHost;
+        const main = Effect.gen(function*() {
+          const host = yield* NodeDurableHost
 
-          yield* Deferred.succeed(ready, host);
+          yield* Deferred.succeed(ready, host)
           yield* host.submit(
             agent,
-            { question: "wait" },
+            { question: 'wait' },
             {
-              ...submitOptions("managed-thread", "managed-input"),
+              ...submitOptions('managed-thread', 'managed-input'),
               definitions: digests,
             },
-          );
+          )
           yield* NodeHost.run.pipe(
             Effect.onError(() =>
-              Effect.gen(function* () {
-                expect(yield* host.admissionOpen).toBe(false);
+              Effect.gen(function*() {
+                expect(yield* host.admissionOpen).toBe(false)
                 expect(
                   yield* host
                     .submit(
                       agent,
-                      { question: "too late" },
+                      { question: 'too late' },
                       {
-                        ...submitOptions("late-thread", "late-input"),
+                        ...submitOptions('late-thread', 'late-input'),
                         definitions: digests,
                       },
                     )
                     .pipe(Effect.result),
                 ).toMatchObject({
-                  _tag: "Failure",
-                  failure: { _tag: "AdmissionClosed" },
-                });
-              }),
+                  _tag: 'Failure',
+                  failure: { _tag: 'AdmissionClosed' },
+                })
+              })
             ),
-          );
-        }).pipe(Effect.provide(live));
+          )
+        }).pipe(Effect.provide(live))
 
-        const fiber = yield* main.pipe(Effect.forkChild);
+        const fiber = yield* main.pipe(Effect.forkChild)
 
-        const host = yield* Deferred.await(ready);
+        const host = yield* Deferred.await(ready)
 
-        yield* Deferred.await(started);
-        yield* Deferred.succeed(release, undefined);
-        const exit = yield* Fiber.await(fiber);
+        yield* Deferred.await(started)
+        yield* Deferred.succeed(release, undefined)
+        const exit = yield* Fiber.await(fiber)
 
-        expect(marks).toEqual(["worker-finalized", "resource-finalized"]);
-        expect(yield* host.admissionOpen).toBe(false);
-        expect(Exit.isFailure(exit)).toBe(true);
-        expect(failureOf(exit)).toMatchObject({ _tag: "DurableRuntimeFailpointError" });
-      }),
-    ),
-  );
+        expect(marks).toEqual(['worker-finalized', 'resource-finalized'])
+        expect(yield* host.admissionOpen).toBe(false)
+        expect(Exit.isFailure(exit)).toBe(true)
+        expect(failureOf(exit)).toMatchObject({ _tag: 'DurableRuntimeFailpointError' })
+      })
+    ))
 
   it.effect(
-    "shares one bounded managed pool across observers and closes admission before draining it",
+    'shares one bounded managed pool across observers and closes admission before draining it',
     () =>
       withTemporaryDatabase((filename) =>
-        Effect.gen(function* () {
-          const started = yield* Deferred.make<void>();
-          const ready = yield* Deferred.make<NodeDurableHost["Service"]>();
-          const claimed = yield* Ref.make(0);
-          const finalized = yield* Ref.make(0);
-          const model = yield* makeScriptedModel(() => finalParts('{"answer":"unused"}'));
-          const agent = Agent.withModel(plannerDefinition, model);
-          const definitions = DefinitionDigestInput.make({ agent: "v1", model: "v1", tools: "v1" });
+        Effect.gen(function*() {
+          const started = yield* Deferred.make<void>()
+          const ready = yield* Deferred.make<NodeDurableHost['Service']>()
+          const claimed = yield* Ref.make(0)
+          const finalized = yield* Ref.make(0)
+          const model = yield* makeScriptedModel(() => finalParts('{"answer":"unused"}'))
+          const agent = Agent.withModel(plannerDefinition, model)
+          const definitions = DefinitionDigestInput.make({ agent: 'v1', model: 'v1', tools: 'v1' })
 
           const digests = yield* digestDefinitions(definitions).pipe(
             Effect.provide(NodeCrypto.layer),
-          );
+          )
 
           const live = NodeHost.layer(
             [{ agent, definitions }],
             runtimeOptions(filename, {
               workerConcurrency: 2,
               runtimeFailpoint: (location) =>
-                location === "claim:after-claim"
-                  ? Effect.gen(function* () {
-                      const count = yield* Ref.updateAndGet(claimed, (n) => n + 1);
+                location === 'claim:after-claim'
+                  ? Effect.gen(function*() {
+                    const count = yield* Ref.updateAndGet(claimed, (n) => n + 1)
 
-                      if (count === 2) yield* Deferred.succeed(started, undefined);
+                    if (count === 2) yield* Deferred.succeed(started, undefined)
 
-                      return yield* Effect.never;
-                    }).pipe(
-                      Effect.ensuring(
-                        Effect.gen(function* () {
-                          const host = yield* Deferred.await(ready);
+                    return yield* Effect.never
+                  }).pipe(
+                    Effect.ensuring(
+                      Effect.gen(function*() {
+                        const host = yield* Deferred.await(ready)
 
-                          expect(yield* host.admissionOpen).toBe(false);
-                          yield* Ref.update(finalized, (n) => n + 1);
-                        }),
-                      ),
-                    )
+                        expect(yield* host.admissionOpen).toBe(false)
+                        yield* Ref.update(finalized, (n) => n + 1)
+                      }),
+                    ),
+                  )
                   : Effect.void,
             }),
-          );
+          )
 
-          yield* Effect.gen(function* () {
-            const host = yield* NodeDurableHost;
+          yield* Effect.gen(function*() {
+            const host = yield* NodeDurableHost
 
-            yield* Deferred.succeed(ready, host);
-            for (const id of ["first", "second", "third"]) {
+            yield* Deferred.succeed(ready, host)
+            for (const id of ['first', 'second', 'third']) {
               yield* host.submit(
                 agent,
                 { question: id },
@@ -553,42 +537,42 @@ describe("NodeDurableAgentRuntime", () => {
                   ...submitOptions(id, id),
                   definitions: digests,
                 },
-              );
+              )
             }
-            yield* Deferred.await(started);
-            const first = yield* NodeHost.run.pipe(Effect.forkChild);
-            const second = yield* NodeHost.run.pipe(Effect.forkChild);
+            yield* Deferred.await(started)
+            const first = yield* NodeHost.run.pipe(Effect.forkChild)
+            const second = yield* NodeHost.run.pipe(Effect.forkChild)
 
-            yield* Fiber.interrupt(first);
-            yield* Fiber.interrupt(second);
-            expect(yield* host.admissionOpen).toBe(true);
-            expect(yield* Ref.get(claimed)).toBe(2);
-            expect(yield* Ref.get(finalized)).toBe(0);
-          }).pipe(Effect.provide(live));
-          expect(yield* Ref.get(finalized)).toBe(2);
-        }),
+            yield* Fiber.interrupt(first)
+            yield* Fiber.interrupt(second)
+            expect(yield* host.admissionOpen).toBe(true)
+            expect(yield* Ref.get(claimed)).toBe(2)
+            expect(yield* Ref.get(finalized)).toBe(0)
+          }).pipe(Effect.provide(live))
+          expect(yield* Ref.get(finalized)).toBe(2)
+        })
       ),
-  );
+  )
 
-  for (const mode of ["timeout"] as const) {
+  for (const mode of ['timeout'] as const) {
     it.effect(`startup keeps admission closed after a recovery ${mode}`, () =>
       withTemporaryDatabase((filename) =>
-        Effect.gen(function* () {
-          const runtime = yield* DurableAgentRuntime;
-          const store = yield* ThreadStore;
-          const ledger = yield* SubmissionLedger;
-          const entered = yield* Deferred.make<void>();
-          let active = 0;
-          let admitted = false;
+        Effect.gen(function*() {
+          const runtime = yield* DurableAgentRuntime
+          const store = yield* ThreadStore
+          const ledger = yield* SubmissionLedger
+          const entered = yield* Deferred.make<void>()
+          let active = 0
+          let admitted = false
 
           const receipt = yield* runtime.submit(
             { definition: plannerDefinition },
-            { question: "keep the original accepted input" },
-            submitOptions("startup-blocked", "original"),
-          );
+            { question: 'keep the original accepted input' },
+            submitOptions('startup-blocked', 'original'),
+          )
 
-          const lookup = SubmissionLookupById.make({ submissionId: receipt.submissionId });
-          const before = yield* ledger.lookup(lookup);
+          const lookup = SubmissionLookupById.make({ submissionId: receipt.submissionId })
+          const before = yield* ledger.lookup(lookup)
 
           const blockedStore = ThreadStore.of({
             ...store,
@@ -596,18 +580,18 @@ describe("NodeDurableAgentRuntime", () => {
               Stream.unwrap(
                 Effect.acquireRelease(
                   Effect.sync(() => {
-                    active++;
+                    active++
                   }),
                   () =>
                     Effect.sync(() => {
-                      active--;
+                      active--
                     }),
                 ).pipe(
                   Effect.andThen(Deferred.succeed(entered, undefined)),
                   Effect.andThen(Effect.never),
                 ),
               ),
-          });
+          })
 
           const blockedRuntime = Layer.fresh(DurableAgentRuntime.layer).pipe(
             Layer.provide(Layer.succeed(ThreadStore, blockedStore)),
@@ -618,118 +602,117 @@ describe("NodeDurableAgentRuntime", () => {
                 ToolReconciler.uncertain,
               ),
             ),
-          );
+          )
 
           const startup = yield* Effect.forkChild(
-            Effect.gen(function* () {
-              yield* NodeDurableHost;
-              admitted = true;
+            Effect.gen(function*() {
+              yield* NodeDurableHost
+              admitted = true
             }).pipe(
               Effect.provide(NodeDurableHost.layer.pipe(Layer.provide(blockedRuntime))),
               Effect.exit,
             ),
-          );
+          )
 
-          yield* Deferred.await(entered);
-          yield* TestClock.adjust("30 seconds");
+          yield* Deferred.await(entered)
+          yield* TestClock.adjust('30 seconds')
           expect(failureOf(yield* Fiber.join(startup))).toMatchObject({
-            _tag: "RecoveryBlocked",
+            _tag: 'RecoveryBlocked',
             threadId: receipt.threadId,
-            failure: { phase: "recovery", reason: mode },
-          });
-          expect(admitted).toBe(false);
-          expect(active).toBe(0);
-          expect(yield* ledger.lookup(lookup)).toEqual(before);
+            failure: { phase: 'recovery', reason: mode },
+          })
+          expect(admitted).toBe(false)
+          expect(active).toBe(0)
+          expect(yield* ledger.lookup(lookup)).toEqual(before)
           expect(
             yield* runtime.submit(
               { definition: plannerDefinition },
-              { question: "keep the original accepted input" },
-              submitOptions("startup-blocked", "original"),
+              { question: 'keep the original accepted input' },
+              submitOptions('startup-blocked', 'original'),
             ),
-          ).toEqual(receipt);
+          ).toEqual(receipt)
         }).pipe(
           Effect.scoped,
           Effect.provide(NodeDurableAgentRuntime.layer(runtimeOptions(filename))),
-        ),
-      ),
-    );
+        )
+      ))
   }
 
   it.effect(
-    "captures independent preparation and authorization Layers in each registered Node host",
+    'captures independent preparation and authorization Layers in each registered Node host',
     () =>
       withTemporaryDatabase((filename) =>
-        Effect.gen(function* () {
-          const marks: Array<string> = [];
+        Effect.gen(function*() {
+          const marks: Array<string> = []
 
           const tools = Toolkit.make(
-            Tool.make("book", {
+            Tool.make('book', {
               parameters: Schema.Struct({}),
               success: Schema.String,
-            }).annotate(ToolExecutionClass, "readonly"),
-          );
+            }).annotate(ToolExecutionClass, 'readonly'),
+          )
 
           const model = yield* makeScriptedModel((call) => [
             {
-              type: "tool-call",
+              type: 'tool-call',
               id: `book-${call}`,
-              name: "book",
+              name: 'book',
               params: {},
               providerExecuted: false,
             },
-            { type: "finish", reason: "tool-calls", usage },
-          ]);
+            { type: 'finish', reason: 'tool-calls', usage },
+          ])
 
           const agent = Agent.withModel(
-            Agent.make("node-run-services", {
+            Agent.make('node-run-services', {
               input: Schema.String,
               output: Schema.String,
-              instructions: "Book it.",
+              instructions: 'Book it.',
               toolkit: tools,
               policy: plannerDefinition.policy,
             }),
             model,
-          );
+          )
 
           const handlers = tools.toLayer({
             book: () =>
               Effect.sync(() => {
-                marks.push("handler");
+                marks.push('handler')
 
-                return "booked";
+                return 'booked'
               }),
-          });
+          })
 
-          const definitions = DefinitionDigestInput.make({ agent: "v1", model: "v1", tools: "v1" });
+          const definitions = DefinitionDigestInput.make({ agent: 'v1', model: 'v1', tools: 'v1' })
 
           const definitionsDigest = yield* digestDefinitions(definitions).pipe(
             Effect.provide(NodeCrypto.layer),
-          );
+          )
 
-          const threadId = decodeThreadId("node-run-services");
+          const threadId = decodeThreadId('node-run-services')
 
           for (const incarnation of [1, 2]) {
             const runContext = Layer.succeed(RunContextPreparation, {
               hook: {
                 prepare: ({ source }) =>
                   Effect.sync(() => {
-                    if (incarnation === 2) expect(JSON.stringify(source)).toContain("booked");
+                    if (incarnation === 2) expect(JSON.stringify(source)).toContain('booked')
 
-                    return { prompt: source };
+                    return { prompt: source }
                   }),
               },
-            });
+            })
 
             const toolAuthorization = Layer.succeed(RunToolAuthorization, {
               authorize: () =>
                 Effect.sync(() => {
-                  marks.push(`authorize:${incarnation}`);
+                  marks.push(`authorize:${incarnation}`)
 
                   return incarnation === 1
-                    ? { _tag: "allowed" as const }
-                    : { _tag: "denied" as const, reason: "revoked" };
+                    ? { _tag: 'allowed' as const }
+                    : { _tag: 'denied' as const, reason: 'revoked' }
                 }),
-            });
+            })
 
             const live = NodeDurableHost.layerRegistered(
               [{ agent, definitions }],
@@ -737,161 +720,161 @@ describe("NodeDurableAgentRuntime", () => {
                 runContext,
                 toolAuthorization,
                 runtimeFailpoint: (location) =>
-                  incarnation === 1 && location === "turn:after-canonical-append"
+                  incarnation === 1 && location === 'turn:after-canonical-append'
                     ? Effect.fail(DurableRuntimeFailpointError.make({ location }))
                     : Effect.void,
               }),
-            ).pipe(Layer.provide(handlers));
+            ).pipe(Layer.provide(handlers))
 
-            yield* Effect.gen(function* () {
-              const runtime = yield* DurableAgentRuntime;
+            yield* Effect.gen(function*() {
+              const runtime = yield* DurableAgentRuntime
 
               if (incarnation === 1) {
-                yield* runtime.submit(agent, "book", {
-                  ...submitOptions(threadId, "book"),
+                yield* runtime.submit(agent, 'book', {
+                  ...submitOptions(threadId, 'book'),
                   definitions: definitionsDigest,
-                });
+                })
 
                 const interrupted = yield* runtime
                   .processThreadResolved(threadId)
-                  .pipe(Effect.exit);
+                  .pipe(Effect.exit)
 
                 expect(failureOf(interrupted)).toHaveProperty(
-                  "_tag",
-                  "DurableRuntimeFailpointError",
-                );
+                  '_tag',
+                  'DurableRuntimeFailpointError',
+                )
               } else {
                 const settlements = yield* runtime
                   .processThreadResolved(threadId)
-                  .pipe(Effect.provide(RunToolAuthorization.allowAll));
+                  .pipe(Effect.provide(RunToolAuthorization.allowAll))
 
                 expect(settlements[0]).toMatchObject({
-                  outcome: "failed",
-                  failure: { errorTag: "AgentToolAuthorizationDenied" },
-                });
+                  outcome: 'failed',
+                  failure: { errorTag: 'AgentToolAuthorizationDenied' },
+                })
               }
-            }).pipe(Effect.provide(live));
+            }).pipe(Effect.provide(live))
           }
           expect(marks.filter((mark) => /^(authorize|handler)/.test(mark))).toEqual([
-            "authorize:1",
-            "handler",
-            "authorize:2",
-          ]);
-        }),
+            'authorize:1',
+            'handler',
+            'authorize:2',
+          ])
+        })
       ),
-  );
+  )
 
   // Regression: https://github.com/yielded-dev/agent/commit/6ceda1d2
-  it.effect("keeps accepted input owed across incompatible current Bindings", () =>
+  it.effect('keeps accepted input owed across incompatible current Bindings', () =>
     withTemporaryDatabase((filename) =>
-      Effect.gen(function* () {
-        const started = yield* Deferred.make<void>();
-        const instructions: Array<string> = [];
-        const requests: Array<Prompt.Prompt> = [];
-        const definitions = DefinitionDigestInput.make({ agent: "v1", model: "v1", tools: "v1" });
+      Effect.gen(function*() {
+        const started = yield* Deferred.make<void>()
+        const instructions: Array<string> = []
+        const requests: Array<Prompt.Prompt> = []
+        const definitions = DefinitionDigestInput.make({ agent: 'v1', model: 'v1', tools: 'v1' })
 
         const digests = yield* digestDefinitions(definitions).pipe(
           Effect.provide(NodeCrypto.layer),
-        );
+        )
 
         const definitionOptions = {
           input: plannerDefinition.input,
           output: plannerDefinition.output,
           toolkit: plannerDefinition.toolkit,
           policy: plannerDefinition.policy,
-        };
+        }
 
-        const original = Agent.make("node-input-binding", {
+        const original = Agent.make('node-input-binding', {
           ...definitionOptions,
           instructions: ({ question }) => {
-            instructions.push(`original:${question}`);
+            instructions.push(`original:${question}`)
 
-            return `Original instructions for ${question}.`;
+            return `Original instructions for ${question}.`
           },
-        });
+        })
 
         const blockedModel = Model.make(
-          "scripted",
-          "blocked-input-binding",
+          'scripted',
+          'blocked-input-binding',
           Layer.effect(
             LanguageModel.LanguageModel,
             LanguageModel.make({
               generateText: () => Effect.succeed([]),
               streamText: ({ prompt }) => {
-                requests.push(prompt);
+                requests.push(prompt)
 
                 return Stream.unwrap(
                   Deferred.succeed(started, undefined).pipe(Effect.andThen(Effect.never)),
-                );
+                )
               },
             }),
           ),
-        );
+        )
 
-        const initialAgent = Agent.withModel(original, blockedModel);
+        const initialAgent = Agent.withModel(original, blockedModel)
 
-        const readRecords = Effect.fnUntraced(function* (threadId: ThreadId) {
-          const store = yield* ThreadStore;
+        const readRecords = Effect.fnUntraced(function*(threadId: ThreadId) {
+          const store = yield* ThreadStore
 
-          return yield* Stream.runCollect(store.read(ThreadRead.make({ threadId, limit: 1_024 })));
-        });
+          return yield* Stream.runCollect(store.read(ThreadRead.make({ threadId, limit: 1_024 })))
+        })
 
-        const accepted = yield* Effect.gen(function* () {
-          const runtime = yield* DurableAgentRuntime;
-          const store = yield* ThreadStore;
+        const accepted = yield* Effect.gen(function*() {
+          const runtime = yield* DurableAgentRuntime
+          const store = yield* ThreadStore
 
           const saved = yield* runtime.submit(
             initialAgent,
-            { question: "saved" },
+            { question: 'saved' },
             {
-              ...submitOptions("binding-saved", "saved"),
+              ...submitOptions('binding-saved', 'saved'),
               definitions: digests,
             },
-          );
+          )
 
           const queued = yield* runtime.submit(
             initialAgent,
-            { question: "queued" },
+            { question: 'queued' },
             {
-              ...submitOptions("binding-queued", "queued"),
+              ...submitOptions('binding-queued', 'queued'),
               definitions: digests,
             },
-          );
+          )
 
-          const fiber = yield* runtime.processThreadHead(saved.threadId).pipe(Effect.forkChild);
+          const fiber = yield* runtime.processThreadHead(saved.threadId).pipe(Effect.forkChild)
 
-          yield* Deferred.await(started);
-          yield* Fiber.interrupt(fiber);
-          const records = yield* readRecords(saved.threadId);
-          const queuedRecords = yield* readRecords(queued.threadId);
+          yield* Deferred.await(started)
+          yield* Fiber.interrupt(fiber)
+          const records = yield* readRecords(saved.threadId)
+          const queuedRecords = yield* readRecords(queued.threadId)
 
           const execution = Option.getOrThrow(
             yield* store.readExecution({
               threadId: saved.threadId,
               runId: runIdForSubmission(saved.submissionId),
             }),
-          );
+          )
 
           expect(
-            execution.operational.filter(({ payload }) => payload._tag === "RunContextRecorded"),
-          ).toHaveLength(1);
+            execution.operational.filter(({ payload }) => payload._tag === 'RunContextRecorded'),
+          ).toHaveLength(1)
 
           const starts = execution.operational.filter(
-            ({ payload }) => payload._tag === "RunStarted",
-          );
+            ({ payload }) => payload._tag === 'RunStarted',
+          )
 
-          expect(starts).toHaveLength(1);
+          expect(starts).toHaveLength(1)
           expect(
             yield* store.readExecution({
               threadId: queued.threadId,
               runId: runIdForSubmission(queued.submissionId),
             }),
-          ).toEqual(Option.none());
+          ).toEqual(Option.none())
 
           return [
             { receipt: saved, records, starts },
             { receipt: queued, records: queuedRecords, starts: undefined },
-          ];
+          ]
         }).pipe(
           Effect.provide(
             NodeDurableHost.layerRegistered(
@@ -899,43 +882,43 @@ describe("NodeDurableAgentRuntime", () => {
               runtimeOptions(filename),
             ),
           ),
-        );
+        )
 
         const model = yield* makeScriptedModel((_call, prompt) => {
-          requests.push(prompt);
+          requests.push(prompt)
 
-          return finalParts('{"answer":"done"}');
-        });
+          return finalParts('{"answer":"done"}')
+        })
 
         const incompatible = Agent.withModel(
           Agent.make(original.id, {
             ...definitionOptions,
             input: Schema.Struct({ question: Schema.String, newRequiredField: Schema.String }),
             instructions: ({ question }) => {
-              instructions.push(`incompatible:${question}`);
+              instructions.push(`incompatible:${question}`)
 
-              return `Incompatible instructions for ${question}.`;
+              return `Incompatible instructions for ${question}.`
             },
           }),
           model,
-        );
+        )
 
-        const rejected = yield* Effect.gen(function* () {
-          const runtime = yield* DurableAgentRuntime;
-          const ledger = yield* SubmissionLedger;
+        const rejected = yield* Effect.gen(function*() {
+          const runtime = yield* DurableAgentRuntime
+          const ledger = yield* SubmissionLedger
 
           return yield* Effect.forEach(accepted, ({ receipt }) =>
-            Effect.gen(function* () {
-              const result = yield* runtime.processThreadHead(receipt.threadId).pipe(Effect.result);
-              const status = yield* runtime.submissionStatus(receipt);
+            Effect.gen(function*() {
+              const result = yield* runtime.processThreadHead(receipt.threadId).pipe(Effect.result)
+              const status = yield* runtime.submissionStatus(receipt)
 
               const snapshot = yield* ledger.loadRecoverySnapshot(
                 RecoverySnapshotRequest.make({
                   submissionId: receipt.submissionId,
                 }),
-              );
+              )
 
-              const records = yield* readRecords(receipt.threadId);
+              const records = yield* readRecords(receipt.threadId)
 
               return {
                 result,
@@ -943,12 +926,11 @@ describe("NodeDurableAgentRuntime", () => {
                 hasOwner: snapshot.hasOwner,
                 terminal: records.filter(
                   ({ record }) =>
-                    record.payload._tag === "RunFailed" ||
-                    record.payload._tag === "SubmissionSettled",
+                    record.payload._tag === 'RunFailed' ||
+                    record.payload._tag === 'SubmissionSettled',
                 ),
-              };
-            }),
-          );
+              }
+            }))
         }).pipe(
           Effect.provide(
             NodeDurableHost.layerRegistered(
@@ -956,39 +938,39 @@ describe("NodeDurableAgentRuntime", () => {
               runtimeOptions(filename),
             ),
           ),
-        );
+        )
 
         expect(rejected).toMatchObject(
           accepted.map(() => ({
-            result: { _tag: "Failure", failure: { _tag: "BindingUnavailable" } },
-            status: { _tag: "pending" },
+            result: { _tag: 'Failure', failure: { _tag: 'BindingUnavailable' } },
+            status: { _tag: 'pending' },
             hasOwner: false,
             terminal: [],
           })),
-        );
-        expect(instructions).toEqual(["original:saved"]);
-        expect(requests).toHaveLength(1);
+        )
+        expect(instructions).toEqual(['original:saved'])
+        expect(requests).toHaveLength(1)
 
         const compatible = Agent.withModel(
           Agent.make(original.id, {
             ...definitionOptions,
             instructions: ({ question }) => {
-              instructions.push(`current:${question}`);
+              instructions.push(`current:${question}`)
 
-              return `Current instructions for ${question}.`;
+              return `Current instructions for ${question}.`
             },
           }),
           model,
-        );
+        )
 
-        let inspectStart: Effect.Effect<void> = Effect.void;
+        let inspectStart: Effect.Effect<void> = Effect.void
 
-        yield* Effect.gen(function* () {
-          const runtime = yield* DurableAgentRuntime;
-          const store = yield* ThreadStore;
+        yield* Effect.gen(function*() {
+          const runtime = yield* DurableAgentRuntime
+          const store = yield* ThreadStore
 
           for (const { receipt, records: prefix, starts } of accepted) {
-            const completingStarts: Array<RecordEnvelope> = [];
+            const completingStarts: Array<RecordEnvelope> = []
 
             inspectStart = store
               .readExecution({
@@ -999,31 +981,31 @@ describe("NodeDurableAgentRuntime", () => {
                 Effect.map((execution) => {
                   completingStarts.push(
                     ...Option.getOrThrow(execution).operational.filter(
-                      ({ payload }) => payload._tag === "RunStarted",
+                      ({ payload }) => payload._tag === 'RunStarted',
                     ),
-                  );
+                  )
                 }),
                 Effect.orDie,
-              );
-            yield* runtime.processThreadHead(receipt.threadId);
+              )
+            yield* runtime.processThreadHead(receipt.threadId)
             expect(yield* runtime.submissionStatus(receipt)).toMatchObject({
-              _tag: "settled",
-              settlement: { submissionId: receipt.submissionId, outcome: "completed" },
-            });
-            const records = yield* readRecords(receipt.threadId);
+              _tag: 'settled',
+              settlement: { submissionId: receipt.submissionId, outcome: 'completed' },
+            })
+            const records = yield* readRecords(receipt.threadId)
 
-            expect(records.slice(0, prefix.length)).toEqual(prefix);
-            expect(completingStarts).toHaveLength(1);
-            if (starts !== undefined) expect(completingStarts).toEqual(starts);
+            expect(records.slice(0, prefix.length)).toEqual(prefix)
+            expect(completingStarts).toHaveLength(1)
+            if (starts !== undefined) expect(completingStarts).toEqual(starts)
             expect(
               yield* store.readExecution({
                 threadId: receipt.threadId,
                 runId: runIdForSubmission(receipt.submissionId),
               }),
-            ).toEqual(Option.none());
+            ).toEqual(Option.none())
             expect(
-              records.filter(({ record }) => record.payload._tag === "SubmissionSettled"),
-            ).toHaveLength(1);
+              records.filter(({ record }) => record.payload._tag === 'SubmissionSettled'),
+            ).toHaveLength(1)
           }
         }).pipe(
           Effect.provide(
@@ -1031,149 +1013,147 @@ describe("NodeDurableAgentRuntime", () => {
               [{ agent: compatible, definitions }],
               runtimeOptions(filename, {
                 runtimeFailpoint: (location) =>
-                  location === "terminalize:before-publication" ? inspectStart : Effect.void,
+                  location === 'terminalize:before-publication' ? inspectStart : Effect.void,
               }),
             ),
           ),
-        );
-        expect(instructions).toEqual(["original:saved", "current:queued"]);
-        expect(requests).toHaveLength(3);
-        expect(JSON.stringify(requests[1])).toContain("Original instructions for saved.");
-        expect(JSON.stringify(requests[1])).not.toContain("Current instructions");
-        expect(JSON.stringify(requests[2])).toContain("Current instructions for queued.");
-      }),
-    ),
-  );
+        )
+        expect(instructions).toEqual(['original:saved', 'current:queued'])
+        expect(requests).toHaveLength(3)
+        expect(JSON.stringify(requests[1])).toContain('Original instructions for saved.')
+        expect(JSON.stringify(requests[1])).not.toContain('Current instructions')
+        expect(JSON.stringify(requests[2])).toContain('Current instructions for queued.')
+      })
+    ))
 
-  it.effect("keeps projected root and joined inputs private across Node host recovery", () =>
+  it.effect('keeps projected root and joined inputs private across Node host recovery', () =>
     withTemporaryDatabase((filename) =>
-      Effect.gen(function* () {
-        const sentinel = "HOST-ONLY-INPUT-SENTINEL";
-        const requests: Array<Prompt.Prompt> = [];
-        const authorizedInputs: Array<unknown> = [];
-        const projectedInputs: Array<string> = [];
-        const inputSchema = Schema.Struct({ question: Schema.String, hostOnly: Schema.String });
+      Effect.gen(function*() {
+        const sentinel = 'HOST-ONLY-INPUT-SENTINEL'
+        const requests: Array<Prompt.Prompt> = []
+        const authorizedInputs: Array<unknown> = []
+        const projectedInputs: Array<string> = []
+        const inputSchema = Schema.Struct({ question: Schema.String, hostOnly: Schema.String })
 
         const tools = Toolkit.make(
-          Tool.make("lookup", {
+          Tool.make('lookup', {
             parameters: Schema.Struct({}),
             // This recovery proof needs a response committed before approval preflight.
             needsApproval: () => false,
             success: Schema.String,
-          }).annotate(ToolExecutionClass, "readonly"),
-        );
+          }).annotate(ToolExecutionClass, 'readonly'),
+        )
 
         const model = yield* makeScriptedModel((call, prompt) => {
-          requests.push(prompt);
-          expect(JSON.stringify(prompt)).not.toContain(sentinel);
+          requests.push(prompt)
+          expect(JSON.stringify(prompt)).not.toContain(sentinel)
 
           return call === 0
             ? [
-                {
-                  type: "tool-call",
-                  id: "lookup-projected-input",
-                  name: "lookup",
-                  params: {},
-                  providerExecuted: false,
-                },
-                { type: "finish", reason: "tool-calls", usage },
-              ]
-            : finalParts('{"answer":"done"}');
-        });
+              {
+                type: 'tool-call',
+                id: 'lookup-projected-input',
+                name: 'lookup',
+                params: {},
+                providerExecuted: false,
+              },
+              { type: 'finish', reason: 'tool-calls', usage },
+            ]
+            : finalParts('{"answer":"done"}')
+        })
 
         const agent = Agent.withModel(
-          Agent.make("node-input-projection", {
+          Agent.make('node-input-projection', {
             input: inputSchema,
             output: Schema.Struct({ answer: Schema.String }),
-            instructions: "Answer the public question.",
+            instructions: 'Answer the public question.',
             inputPrompt: (input) =>
               Effect.sync(() => {
-                expect(input.hostOnly).toBe(sentinel);
-                projectedInputs.push(input.question);
+                expect(input.hostOnly).toBe(sentinel)
+                projectedInputs.push(input.question)
 
                 return Prompt.make([
-                  { role: "user", content: [{ type: "text", text: input.question }] },
-                ]);
+                  { role: 'user', content: [{ type: 'text', text: input.question }] },
+                ])
               }),
             toolkit: tools,
             policy: plannerDefinition.policy,
           }),
           model,
-        );
+        )
 
-        const threadId = decodeThreadId("node-input-projection");
-        const rootInput = { question: "public root question", hostOnly: sentinel };
-        const joinedInput = { question: "public joined question", hostOnly: sentinel };
-        const handlers = tools.toLayer({ lookup: () => Effect.succeed("public result") });
+        const threadId = decodeThreadId('node-input-projection')
+        const rootInput = { question: 'public root question', hostOnly: sentinel }
+        const joinedInput = { question: 'public joined question', hostOnly: sentinel }
+        const handlers = tools.toLayer({ lookup: () => Effect.succeed('public result') })
 
         const toolAuthorization = Layer.succeed(RunToolAuthorization, {
           authorize: ({ input }) =>
             Effect.sync(() => {
-              authorizedInputs.push(input);
+              authorizedInputs.push(input)
 
-              return { _tag: "allowed" as const };
+              return { _tag: 'allowed' as const }
             }),
-        });
+        })
 
         for (const incarnation of [1, 2, 3]) {
           yield* withHost(
             runtimeOptions(filename, {
               toolAuthorization,
               runtimeFailpoint: (location) =>
-                (incarnation === 1 && location === "join:after-canonical-append") ||
-                (incarnation === 2 && location === "turn:after-response-append")
+                (incarnation === 1 && location === 'join:after-canonical-append') ||
+                  (incarnation === 2 && location === 'turn:after-response-append')
                   ? Effect.fail(DurableRuntimeFailpointError.make({ location }))
                   : Effect.void,
             }),
-            Effect.gen(function* () {
-              const runtime = yield* DurableAgentRuntime;
+            Effect.gen(function*() {
+              const runtime = yield* DurableAgentRuntime
 
               if (incarnation === 1) {
-                yield* runtime.submit(agent, rootInput, submitOptions(threadId, "root"));
-                yield* runtime.submit(agent, joinedInput, submitOptions(threadId, "joined"));
+                yield* runtime.submit(agent, rootInput, submitOptions(threadId, 'root'))
+                yield* runtime.submit(agent, joinedInput, submitOptions(threadId, 'joined'))
               }
-              const result = yield* Effect.exit(runtime.processThread(agent, threadId));
+              const result = yield* Effect.exit(runtime.processThread(agent, threadId))
 
               if (incarnation < 3) {
-                expect(failureOf(result)).toHaveProperty("_tag", "DurableRuntimeFailpointError");
+                expect(failureOf(result)).toHaveProperty('_tag', 'DurableRuntimeFailpointError')
               } else {
-                expect(Exit.isSuccess(result)).toBe(true);
-                const store = yield* ThreadStore;
+                expect(Exit.isSuccess(result)).toBe(true)
+                const store = yield* ThreadStore
 
                 const records = yield* Stream.runCollect(
                   store.read(ThreadRead.make({ threadId, limit: 1_024 })),
-                );
+                )
 
                 const inputs = records.flatMap(({ record }) =>
-                  record.payload._tag === "UserInputRecorded" ? [record.payload.input] : [],
-                );
+                  record.payload._tag === 'UserInputRecorded' ? [record.payload.input] : []
+                )
 
-                expect(inputs).toEqual([rootInput, joinedInput]);
+                expect(inputs).toEqual([rootInput, joinedInput])
 
                 const responses = records.filter(
-                  ({ record }) => record.payload._tag === "ModelResponseRecorded",
-                );
+                  ({ record }) => record.payload._tag === 'ModelResponseRecorded',
+                )
 
-                expect(responses).toHaveLength(2);
-                expect(JSON.stringify(responses)).not.toContain(sentinel);
+                expect(responses).toHaveLength(2)
+                expect(JSON.stringify(responses)).not.toContain(sentinel)
 
                 const settlements = records.flatMap(({ record }) =>
-                  record.payload._tag === "SubmissionSettled" ? [record.payload.outcome] : [],
-                );
+                  record.payload._tag === 'SubmissionSettled' ? [record.payload.outcome] : []
+                )
 
-                expect(settlements).toEqual(["completed", "completed"]);
+                expect(settlements).toEqual(['completed', 'completed'])
               }
             }).pipe(Effect.provide(handlers)),
-          );
+          )
         }
-        expect(requests).toHaveLength(2);
+        expect(requests).toHaveLength(2)
         for (const request of requests) {
-          expect(JSON.stringify(request)).toContain(rootInput.question);
-          expect(JSON.stringify(request)).toContain(joinedInput.question);
+          expect(JSON.stringify(request)).toContain(rootInput.question)
+          expect(JSON.stringify(request)).toContain(joinedInput.question)
         }
-        expect(authorizedInputs).toEqual([rootInput]);
-        expect(projectedInputs).toContain(joinedInput.question);
-      }),
-    ),
-  );
-});
+        expect(authorizedInputs).toEqual([rootInput])
+        expect(projectedInputs).toContain(joinedInput.question)
+      })
+    ))
+})

@@ -1,13 +1,13 @@
-import * as DateTime from "effect/DateTime";
-import * as Redacted from "effect/Redacted";
+import * as DateTime from 'effect/DateTime'
+import * as Redacted from 'effect/Redacted'
 
-import { utf8ByteLength } from "../../core/internal/utf8.ts";
+import { utf8ByteLength } from '../../core/internal/utf8.ts'
 
-const DEFAULT_MAX_DEPTH = 128;
-const OBJECT_OVERHEAD_BYTES = 32;
-const PROPERTY_OVERHEAD_BYTES = 8;
-const dateTimeUtcPrototype = Object.getPrototypeOf(DateTime.makeUnsafe(0)) as object;
-const redactedPrototype = Object.getPrototypeOf(Redacted.make(undefined)) as object;
+const DEFAULT_MAX_DEPTH = 128
+const OBJECT_OVERHEAD_BYTES = 32
+const PROPERTY_OVERHEAD_BYTES = 8
+const dateTimeUtcPrototype = Object.getPrototypeOf(DateTime.makeUnsafe(0)) as object
+const redactedPrototype = Object.getPrototypeOf(Redacted.make(undefined)) as object
 
 const intrinsicViewPrototypes = new Set<object>([
   DataView.prototype,
@@ -22,114 +22,111 @@ const intrinsicViewPrototypes = new Set<object>([
   Float64Array.prototype,
   BigInt64Array.prototype,
   BigUint64Array.prototype,
-]);
+])
 
 const arrayBufferByteLengthGetter = Object.getOwnPropertyDescriptor(
   ArrayBuffer.prototype,
-  "byteLength",
-)?.get;
+  'byteLength',
+)?.get
 
-const typedArrayPrototype = Object.getPrototypeOf(Uint8Array.prototype) as object;
-const typedArrayBufferGetter = Object.getOwnPropertyDescriptor(typedArrayPrototype, "buffer")?.get;
-const typedArrayLengthGetter = Object.getOwnPropertyDescriptor(typedArrayPrototype, "length")?.get;
-const dataViewBufferGetter = Object.getOwnPropertyDescriptor(DataView.prototype, "buffer")?.get;
-const urlConstructor = Reflect.get(globalThis, "URL");
+const typedArrayPrototype = Object.getPrototypeOf(Uint8Array.prototype) as object
+const typedArrayBufferGetter = Object.getOwnPropertyDescriptor(typedArrayPrototype, 'buffer')?.get
+const typedArrayLengthGetter = Object.getOwnPropertyDescriptor(typedArrayPrototype, 'length')?.get
+const dataViewBufferGetter = Object.getOwnPropertyDescriptor(DataView.prototype, 'buffer')?.get
+const urlConstructor = Reflect.get(globalThis, 'URL')
 
-const urlPrototypeDescriptor =
-  typeof urlConstructor === "function"
-    ? Object.getOwnPropertyDescriptor(urlConstructor, "prototype")
-    : undefined;
+const urlPrototypeDescriptor = typeof urlConstructor === 'function'
+  ? Object.getOwnPropertyDescriptor(urlConstructor, 'prototype')
+  : undefined
 
-const urlHrefGetter =
-  urlPrototypeDescriptor !== undefined &&
-  "value" in urlPrototypeDescriptor &&
-  urlPrototypeDescriptor.value !== null &&
-  typeof urlPrototypeDescriptor.value === "object"
-    ? Object.getOwnPropertyDescriptor(urlPrototypeDescriptor.value, "href")?.get
-    : undefined;
+const urlHrefGetter = urlPrototypeDescriptor !== undefined &&
+    'value' in urlPrototypeDescriptor &&
+    urlPrototypeDescriptor.value !== null &&
+    typeof urlPrototypeDescriptor.value === 'object'
+  ? Object.getOwnPropertyDescriptor(urlPrototypeDescriptor.value, 'href')?.get
+  : undefined
 
-const urlPrototype =
-  urlPrototypeDescriptor !== undefined &&
-  "value" in urlPrototypeDescriptor &&
-  urlPrototypeDescriptor.value !== null &&
-  typeof urlPrototypeDescriptor.value === "object"
-    ? urlPrototypeDescriptor.value
-    : undefined;
+const urlPrototype = urlPrototypeDescriptor !== undefined &&
+    'value' in urlPrototypeDescriptor &&
+    urlPrototypeDescriptor.value !== null &&
+    typeof urlPrototypeDescriptor.value === 'object'
+  ? urlPrototypeDescriptor.value
+  : undefined
 
 const intrinsicArrayBufferByteLength = (value: object): number | undefined => {
-  if (arrayBufferByteLengthGetter === undefined) return undefined;
+  if (arrayBufferByteLengthGetter === undefined) return undefined
   try {
-    const byteLength = Reflect.apply(arrayBufferByteLengthGetter, value, []);
+    const byteLength = Reflect.apply(arrayBufferByteLengthGetter, value, [])
 
-    return Number.isSafeInteger(byteLength) && byteLength >= 0 ? byteLength : undefined;
+    return Number.isSafeInteger(byteLength) && byteLength >= 0 ? byteLength : undefined
   } catch {
-    return undefined;
+    return undefined
   }
-};
+}
 
 const intrinsicViewBackingByteLength = (value: object): number | undefined => {
-  const getters = [typedArrayBufferGetter, dataViewBufferGetter];
+  const getters = [typedArrayBufferGetter, dataViewBufferGetter]
 
   for (const getter of getters) {
-    if (getter === undefined) continue;
+    if (getter === undefined) continue
     try {
-      const buffer = Reflect.apply(getter, value, []);
+      const buffer = Reflect.apply(getter, value, [])
 
-      if (buffer !== null && typeof buffer === "object") {
-        return intrinsicArrayBufferByteLength(buffer);
+      if (buffer !== null && typeof buffer === 'object') {
+        return intrinsicArrayBufferByteLength(buffer)
       }
     } catch {
       // Try the other supported view family without consulting user properties.
     }
   }
 
-  return undefined;
-};
+  return undefined
+}
 
 const intrinsicTypedArrayLength = (value: object): number | undefined => {
-  if (typedArrayLengthGetter === undefined) return undefined;
+  if (typedArrayLengthGetter === undefined) return undefined
   try {
-    const length = Reflect.apply(typedArrayLengthGetter, value, []);
+    const length = Reflect.apply(typedArrayLengthGetter, value, [])
 
-    return Number.isSafeInteger(length) && length >= 0 ? length : undefined;
+    return Number.isSafeInteger(length) && length >= 0 ? length : undefined
   } catch {
-    return undefined;
+    return undefined
   }
-};
+}
 
 const intrinsicUrlByteLength = (value: object): number | undefined => {
-  if (urlHrefGetter === undefined) return undefined;
+  if (urlHrefGetter === undefined) return undefined
   try {
-    const href = Reflect.apply(urlHrefGetter, value, []);
+    const href = Reflect.apply(urlHrefGetter, value, [])
 
-    return typeof href === "string" ? utf8ByteLength(href) + 2 : undefined;
+    return typeof href === 'string' ? utf8ByteLength(href) + 2 : undefined
   } catch {
-    return undefined;
+    return undefined
   }
-};
+}
 
 const inspectPrototype = (
   prototype: object | null,
   isArray: boolean,
   knownSafePrototypes: ReadonlySet<object>,
 ): boolean => {
-  if (prototype === null) return true;
+  if (prototype === null) return true
   if (isArray) {
-    return prototype === Array.prototype;
+    return prototype === Array.prototype
   }
 
   return (
     prototype === Object.prototype ||
     prototype === dateTimeUtcPrototype ||
     knownSafePrototypes.has(prototype)
-  );
-};
+  )
+}
 
 const isCanonicalArrayIndex = (key: string): boolean => {
-  const index = Number(key);
+  const index = Number(key)
 
-  return Number.isInteger(index) && index >= 0 && index < 0xffff_ffff && String(index) === key;
-};
+  return Number.isInteger(index) && index >= 0 && index < 0xffff_ffff && String(index) === key
+}
 
 /**
  * Conservatively measure one response value without invoking user getters,
@@ -158,94 +155,94 @@ export const boundedValueFootprint = (
     !Number.isSafeInteger(maxDepth) ||
     maxDepth < 0
   ) {
-    return undefined;
+    return undefined
   }
 
-  let total = 0;
-  const ancestors = new WeakSet<object>();
+  let total = 0
+  const ancestors = new WeakSet<object>()
 
   const add = (bytes: number): boolean => {
-    if (!Number.isSafeInteger(bytes) || bytes < 0 || bytes > maxBytes - total) return false;
-    total += bytes;
+    if (!Number.isSafeInteger(bytes) || bytes < 0 || bytes > maxBytes - total) return false
+    total += bytes
 
-    return true;
-  };
+    return true
+  }
 
   const canMaterializeIndexedKeys = (count: number): boolean => {
-    if (!Number.isSafeInteger(count) || count < 0) return false;
-    if (count === 0) return true;
-    const largestKeyBytes = utf8ByteLength(String(count - 1));
-    const temporaryBytesPerKey = PROPERTY_OVERHEAD_BYTES + largestKeyBytes;
+    if (!Number.isSafeInteger(count) || count < 0) return false
+    if (count === 0) return true
+    const largestKeyBytes = utf8ByteLength(String(count - 1))
+    const temporaryBytesPerKey = PROPERTY_OVERHEAD_BYTES + largestKeyBytes
 
-    return count <= Math.floor((maxBytes - total) / temporaryBytesPerKey);
-  };
+    return count <= Math.floor((maxBytes - total) / temporaryBytesPerKey)
+  }
 
   const visit = (value: unknown, depth: number): boolean => {
-    if (depth > maxDepth) return false;
-    if (value === null) return add(4);
+    if (depth > maxDepth) return false
+    if (value === null) return add(4)
     switch (typeof value) {
-      case "string":
-        return add(utf8ByteLength(value) + 2);
-      case "boolean":
-        return add(4);
-      case "number":
-        return add(16);
-      case "bigint":
-      case "symbol":
-        return false;
-      case "undefined":
-        return add(16);
-      case "function":
-        return false;
-      case "object": {
-        if (ancestors.has(value) || !add(OBJECT_OVERHEAD_BYTES)) return false;
-        const prototype = Object.getPrototypeOf(value);
-        let skipIndexedProperties = false;
-        let indexedPropertyCount = 0;
-        let supportedSpecialObject = false;
+      case 'string':
+        return add(utf8ByteLength(value) + 2)
+      case 'boolean':
+        return add(4)
+      case 'number':
+        return add(16)
+      case 'bigint':
+      case 'symbol':
+        return false
+      case 'undefined':
+        return add(16)
+      case 'function':
+        return false
+      case 'object': {
+        if (ancestors.has(value) || !add(OBJECT_OVERHEAD_BYTES)) return false
+        const prototype = Object.getPrototypeOf(value)
+        let skipIndexedProperties = false
+        let indexedPropertyCount = 0
+        let supportedSpecialObject = false
 
         if (ArrayBuffer.isView(value)) {
-          if (!intrinsicViewPrototypes.has(prototype)) return false;
-          const byteLength = intrinsicViewBackingByteLength(value);
+          if (!intrinsicViewPrototypes.has(prototype)) return false
+          const byteLength = intrinsicViewBackingByteLength(value)
 
-          if (byteLength === undefined || !add(byteLength)) return false;
+          if (byteLength === undefined || !add(byteLength)) return false
           if (prototype !== DataView.prototype) {
-            const length = intrinsicTypedArrayLength(value);
+            const length = intrinsicTypedArrayLength(value)
 
-            if (length === undefined) return false;
-            indexedPropertyCount = length;
+            if (length === undefined) return false
+            indexedPropertyCount = length
           }
-          skipIndexedProperties = true;
-          supportedSpecialObject = true;
+          skipIndexedProperties = true
+          supportedSpecialObject = true
         }
         if (prototype === ArrayBuffer.prototype) {
-          const bufferByteLength = intrinsicArrayBufferByteLength(value);
+          const bufferByteLength = intrinsicArrayBufferByteLength(value)
 
-          if (bufferByteLength === undefined || !add(bufferByteLength)) return false;
-          supportedSpecialObject = true;
+          if (bufferByteLength === undefined || !add(bufferByteLength)) return false
+          supportedSpecialObject = true
         }
         if (urlPrototype !== undefined && prototype === urlPrototype) {
-          const urlByteLength = intrinsicUrlByteLength(value);
+          const urlByteLength = intrinsicUrlByteLength(value)
 
-          if (urlByteLength === undefined || !add(urlByteLength)) return false;
-          supportedSpecialObject = true;
+          if (urlByteLength === undefined || !add(urlByteLength)) return false
+          supportedSpecialObject = true
         }
-        let redactedValue: unknown;
-        let isRedacted = false;
+        let redactedValue: unknown
+        let isRedacted = false
 
         if (prototype === redactedPrototype) {
-          const labelDescriptor = Object.getOwnPropertyDescriptor(value, "label");
+          const labelDescriptor = Object.getOwnPropertyDescriptor(value, 'label')
 
-          if (labelDescriptor !== undefined && !("value" in labelDescriptor)) return false;
+          if (labelDescriptor !== undefined && !('value' in labelDescriptor)) return false
           try {
-            redactedValue = Redacted.value(value as Redacted.Redacted<unknown>);
-            isRedacted = true;
+            redactedValue = Redacted.value(value as Redacted.Redacted<unknown>)
+            isRedacted = true
           } catch {
-            return false;
+            return false
           }
         }
 
-        const isArray = Array.isArray(value);
+        const isArray = Array.isArray(value)
 
         if (
           !supportedSpecialObject &&
@@ -255,61 +252,61 @@ export const boundedValueFootprint = (
           // Maps, Sets, arbitrary class instances, and other objects can retain storage that
           // own-key traversal cannot see. Only plain data and caller-supplied exact prototypes
           // whose implementations guarantee own-property state are measurable.
-          return false;
+          return false
         }
         if (isArray) {
-          const lengthDescriptor = Object.getOwnPropertyDescriptor(value, "length");
+          const lengthDescriptor = Object.getOwnPropertyDescriptor(value, 'length')
 
           if (
             lengthDescriptor === undefined ||
-            !("value" in lengthDescriptor) ||
+            !('value' in lengthDescriptor) ||
             !Number.isSafeInteger(lengthDescriptor.value) ||
             lengthDescriptor.value < 0 ||
             !add(lengthDescriptor.value)
           ) {
-            return false;
+            return false
           }
-          indexedPropertyCount = lengthDescriptor.value;
+          indexedPropertyCount = lengthDescriptor.value
         }
 
         // `Reflect.ownKeys` eagerly allocates one string per dense array or typed-array index.
         // Reject before that allocation when even the conservative temporary key list cannot fit
         // inside the caller's allowance. Sparse arrays deliberately use their worst-case length.
-        if (!canMaterializeIndexedKeys(indexedPropertyCount)) return false;
+        if (!canMaterializeIndexedKeys(indexedPropertyCount)) return false
 
-        ancestors.add(value);
+        ancestors.add(value)
         try {
-          if (isRedacted && !visit(redactedValue, depth + 1)) return false;
+          if (isRedacted && !visit(redactedValue, depth + 1)) return false
           for (const key of Reflect.ownKeys(value)) {
-            if (key === "length" && isArray) continue;
-            if (typeof key === "symbol") return false;
-            if (skipIndexedProperties && isCanonicalArrayIndex(key)) continue;
-            if (!add(PROPERTY_OVERHEAD_BYTES)) return false;
-            if (!add(utf8ByteLength(key))) return false;
-            const descriptor = Object.getOwnPropertyDescriptor(value, key);
+            if (key === 'length' && isArray) continue
+            if (typeof key === 'symbol') return false
+            if (skipIndexedProperties && isCanonicalArrayIndex(key)) continue
+            if (!add(PROPERTY_OVERHEAD_BYTES)) return false
+            if (!add(utf8ByteLength(key))) return false
+            const descriptor = Object.getOwnPropertyDescriptor(value, key)
 
-            if (descriptor === undefined) return false;
-            if ("value" in descriptor) {
-              if (!visit(descriptor.value, depth + 1)) return false;
+            if (descriptor === undefined) return false
+            if ('value' in descriptor) {
+              if (!visit(descriptor.value, depth + 1)) return false
             } else {
               // Accessors and functions may retain arbitrarily large closure graphs.
-              return false;
+              return false
             }
           }
 
-          return true;
+          return true
         } finally {
-          ancestors.delete(value);
+          ancestors.delete(value)
         }
       }
     }
 
-    return false;
-  };
+    return false
+  }
 
   try {
-    return visit(root, 0) ? total : undefined;
+    return visit(root, 0) ? total : undefined
   } catch {
-    return undefined;
+    return undefined
   }
-};
+}

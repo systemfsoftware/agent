@@ -1,35 +1,31 @@
-import * as Effect from "effect/Effect";
-import * as Schema from "effect/Schema";
+import * as Effect from 'effect/Effect'
+import * as Schema from 'effect/Schema'
 
-import { readMemoryDocument } from "./internal/memory-document.ts";
-import { utf8ByteLength as byteLength, utf8Bytes } from "./internal/utf8.ts";
-import { MemoryLookup, MemoryPassage } from "./MemoryReference.ts";
-import { MemoryAccess } from "./MemoryRevalidation.ts";
-import type { MemoryKey } from "./MemoryStore.ts";
-import type { MemoryIndexCandidate } from "./SemanticMemoryIndex.ts";
-import {
-  MemoryIndexError,
-  MemoryIndexSearch,
-  SemanticMemoryProfile,
-} from "./SemanticMemoryIndex.ts";
+import { readMemoryDocument } from './internal/memory-document.ts'
+import { utf8ByteLength as byteLength, utf8Bytes } from './internal/utf8.ts'
+import { MemoryLookup, MemoryPassage } from './MemoryReference.ts'
+import { MemoryAccess } from './MemoryRevalidation.ts'
+import type { MemoryKey } from './MemoryStore.ts'
+import type { MemoryIndexCandidate } from './SemanticMemoryIndex.ts'
+import { MemoryIndexError, MemoryIndexSearch, SemanticMemoryProfile } from './SemanticMemoryIndex.ts'
 
 export class SemanticMemoryError extends Schema.TaggedError<SemanticMemoryError>()(
-  "SemanticMemoryError",
+  'SemanticMemoryError',
   {
     operation: Schema.NonEmptyString,
     reason: Schema.Literals([
-      "invalid-input",
-      "invalid-embedding",
-      "budget",
-      "timeout",
-      "source-changed",
-      "unavailable",
+      'invalid-input',
+      'invalid-embedding',
+      'budget',
+      'timeout',
+      'source-changed',
+      'unavailable',
     ]),
   },
 ) {}
 
 export class SemanticCandidateLimits extends Schema.Class<SemanticCandidateLimits>(
-  "@effect-agent/core/SemanticCandidateLimits",
+  '@effect-agent/core/SemanticCandidateLimits',
 )({
   maxCandidates: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 128 })),
   maxScannedChunks: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 65_536 })),
@@ -44,7 +40,7 @@ export class SemanticCandidateLimits extends Schema.Class<SemanticCandidateLimit
 }) {}
 
 export class SemanticCandidateResult extends Schema.Class<SemanticCandidateResult>(
-  "@effect-agent/core/SemanticCandidateResult",
+  '@effect-agent/core/SemanticCandidateResult',
 )({
   lookup: MemoryLookup,
   scannedChunks: Schema.Natural,
@@ -58,7 +54,7 @@ export class SemanticCandidateResult extends Schema.Class<SemanticCandidateResul
  * authoritative metadata/attribution. maxOutputBytes bounds their aggregate, not source reads or
  * a transport envelope. One passage is constructed at a time before this check.
  */
-export const revalidateSemanticMemoryCandidates = Effect.fnUntraced(function* (
+export const revalidateSemanticMemoryCandidates = Effect.fnUntraced(function*(
   found: MemoryIndexSearch,
   access: MemoryAccess,
   profile: SemanticMemoryProfile,
@@ -72,40 +68,38 @@ export const revalidateSemanticMemoryCandidates = Effect.fnUntraced(function* (
       limits: SemanticCandidateLimits,
     }),
   )({ found, access, profile, limits }).pipe(
-    Effect.mapError(() =>
-      MemoryIndexError.make({ operation: "validate candidates", reason: "corrupt" }),
-    ),
-  );
+    Effect.mapError(() => MemoryIndexError.make({ operation: 'validate candidates', reason: 'corrupt' })),
+  )
 
-  found = input.found;
-  access = input.access;
-  profile = input.profile;
-  limits = input.limits;
+  found = input.found
+  access = input.access
+  profile = input.profile
+  limits = input.limits
   if (
     found.candidates.length > limits.maxCandidates ||
     found.scannedChunks > limits.maxScannedChunks ||
     found.scannedChunks < found.candidates.length
   ) {
     return yield* MemoryIndexError.make({
-      operation: "validate candidate bounds",
-      reason: "corrupt",
-    });
+      operation: 'validate candidate bounds',
+      reason: 'corrupt',
+    })
   }
 
   const groups = new Map<
     string,
     {
-      readonly key: MemoryKey;
+      readonly key: MemoryKey
       readonly candidates: Array<{
-        readonly rank: number;
-        readonly candidate: MemoryIndexCandidate;
-      }>;
+        readonly rank: number
+        readonly candidate: MemoryIndexCandidate
+      }>
     }
-  >();
+  >()
 
-  const rankedPassages: Array<{ readonly rank: number; readonly passage: MemoryPassage }> = [];
-  let staleExcluded = 0;
-  let unauthorizedExcluded = 0;
+  const rankedPassages: Array<{ readonly rank: number; readonly passage: MemoryPassage }> = []
+  let staleExcluded = 0
+  let unauthorizedExcluded = 0
 
   for (const [rank, candidate] of found.candidates.entries()) {
     if (
@@ -114,32 +108,32 @@ export const revalidateSemanticMemoryCandidates = Effect.fnUntraced(function* (
       candidate.score < limits.minScore
     ) {
       return yield* MemoryIndexError.make({
-        operation: "validate candidate identity",
-        reason: "corrupt",
-      });
+        operation: 'validate candidate identity',
+        reason: 'corrupt',
+      })
     }
-    const group = groups.get(candidate.key.id);
+    const group = groups.get(candidate.key.id)
 
     if (group === undefined) {
-      groups.set(candidate.key.id, { key: candidate.key, candidates: [{ rank, candidate }] });
-    } else group.candidates.push({ rank, candidate });
+      groups.set(candidate.key.id, { key: candidate.key, candidates: [{ rank, candidate }] })
+    } else group.candidates.push({ rank, candidate })
   }
-  const maxSourceBytes = limits.maxSourceBytes ?? 16_777_216;
-  const maxOutputBytes = limits.maxOutputBytes ?? 16_777_216;
-  let sourceBytes = 0;
-  let outputBytes = 0;
+  const maxSourceBytes = limits.maxSourceBytes ?? 16_777_216
+  const maxOutputBytes = limits.maxOutputBytes ?? 16_777_216
+  let sourceBytes = 0
+  let outputBytes = 0
 
   for (const group of groups.values()) {
-    yield* Effect.yieldNow;
-    const document = yield* readMemoryDocument(group.key);
+    yield* Effect.yieldNow
+    const document = yield* readMemoryDocument(group.key)
 
-    if (document === null || document._tag === "WithdrawnMemoryDocument") {
-      staleExcluded += group.candidates.length;
-      continue;
+    if (document === null || document._tag === 'WithdrawnMemoryDocument') {
+      staleExcluded += group.candidates.length
+      continue
     }
     if (!document.scopes.includes(access.scope)) {
-      unauthorizedExcluded += group.candidates.length;
-      continue;
+      unauthorizedExcluded += group.candidates.length
+      continue
     }
 
     const current = group.candidates.filter(
@@ -147,27 +141,27 @@ export const revalidateSemanticMemoryCandidates = Effect.fnUntraced(function* (
         document.generation === candidate.sourceGeneration &&
         document.source.revision === candidate.source.revision &&
         document.source.locator === candidate.source.locator,
-    );
+    )
 
-    staleExcluded += group.candidates.length - current.length;
-    if (current.length === 0) continue;
-    const encoded = JSON.stringify(document);
-    const remainingSourceBytes = maxSourceBytes - sourceBytes;
-    const encodedBytes = encoded.length <= remainingSourceBytes ? byteLength(encoded) : undefined;
+    staleExcluded += group.candidates.length - current.length
+    if (current.length === 0) continue
+    const encoded = JSON.stringify(document)
+    const remainingSourceBytes = maxSourceBytes - sourceBytes
+    const encodedBytes = encoded.length <= remainingSourceBytes ? byteLength(encoded) : undefined
 
     if (encodedBytes === undefined || encodedBytes > remainingSourceBytes) {
       return yield* SemanticMemoryError.make({
-        operation: "query source bytes",
-        reason: "budget",
-      });
+        operation: 'query source bytes',
+        reason: 'budget',
+      })
     }
-    sourceBytes += encodedBytes;
-    const encodedDocument = utf8Bytes(document.content.text);
+    sourceBytes += encodedBytes
+    const encodedDocument = utf8Bytes(document.content.text)
 
     for (const { rank, candidate } of current) {
       if (!sameExcerpt(encodedDocument, candidate, profile.maxChunkBytes)) {
-        staleExcluded += 1;
-        continue;
+        staleExcluded += 1
+        continue
       }
 
       const passage = MemoryPassage.make({
@@ -176,52 +170,51 @@ export const revalidateSemanticMemoryCandidates = Effect.fnUntraced(function* (
         source: document.source,
         passageId: candidate.passageId,
         content: { ...document.content, text: candidate.text },
-      });
+      })
 
-      const encodedPassage = JSON.stringify(passage);
-      const remainingOutputBytes = maxOutputBytes - outputBytes;
+      const encodedPassage = JSON.stringify(passage)
+      const remainingOutputBytes = maxOutputBytes - outputBytes
 
-      const passageBytes =
-        encodedPassage.length <= remainingOutputBytes ? byteLength(encodedPassage) : undefined;
+      const passageBytes = encodedPassage.length <= remainingOutputBytes ? byteLength(encodedPassage) : undefined
 
       if (passageBytes === undefined || passageBytes > remainingOutputBytes) {
         return yield* SemanticMemoryError.make({
-          operation: "query output bytes",
-          reason: "budget",
-        });
+          operation: 'query output bytes',
+          reason: 'budget',
+        })
       }
-      outputBytes += passageBytes;
-      rankedPassages.push({ rank, passage });
+      outputBytes += passageBytes
+      rankedPassages.push({ rank, passage })
     }
   }
 
   const passages = rankedPassages
     .sort((left, right) => left.rank - right.rank)
-    .map(({ passage }) => passage);
+    .map(({ passage }) => passage)
 
   return SemanticCandidateResult.make({
-    lookup: passages.length === 0 ? { _tag: "NoMatch" } : { _tag: "Found", passages },
+    lookup: passages.length === 0 ? { _tag: 'NoMatch' } : { _tag: 'Found', passages },
     scannedChunks: found.scannedChunks,
     staleExcluded,
     unauthorizedExcluded,
-  });
-});
+  })
+})
 
 const sameExcerpt = (
   encodedDocument: Uint8Array,
   candidate: {
-    readonly startByte: number;
-    readonly endByte: number;
-    readonly text: string;
+    readonly startByte: number
+    readonly endByte: number
+    readonly text: string
   },
   maxChunkBytes: number,
 ): boolean => {
-  const bytes = utf8Bytes(candidate.text);
+  const bytes = utf8Bytes(candidate.text)
 
   return (
     candidate.startByte < candidate.endByte &&
     bytes.length === candidate.endByte - candidate.startByte &&
     bytes.length <= maxChunkBytes &&
     bytes.every((byte, index) => encodedDocument[candidate.startByte + index] === byte)
-  );
-};
+  )
+}

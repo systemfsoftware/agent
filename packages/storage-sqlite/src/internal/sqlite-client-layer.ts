@@ -1,8 +1,8 @@
-import * as SqliteClient from "@effect/sql-sqlite-node/SqliteClient";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
+import * as SqliteClient from '@effect/sql-sqlite-node/SqliteClient'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
 
-import { SqliteStorageError } from "../SqliteStorageError.ts";
+import { SqliteStorageError } from '../SqliteStorageError.ts'
 
 export const sqliteClientLayer = (
   options: Parameters<typeof SqliteClient.layer>[0],
@@ -14,6 +14,6 @@ export const sqliteClientLayer = (
         Layer.Success<ReturnType<typeof SqliteClient.layer>>,
         SqliteStorageError,
         never
-      >(Effect.fail(SqliteStorageError.make({ operation, message: cause.message, cause }))),
+      >(Effect.fail(SqliteStorageError.make({ operation, message: cause.message, cause })))
     ),
-  );
+  )

@@ -22,23 +22,19 @@ in components or routes.
 
 ## Project command policy
 
-Vite+ is the unified toolchain and command authority for this repository. It wraps Vite, Rolldown, Vitest, tsdown, Oxlint, Oxfmt, and Vite Task behind the `vp` CLI; Vite+ is distinct from Vite.
-
-Run `vp help` for available commands and `vp <command> --help` for command-specific options. Documentation is available locally in `node_modules/vite-plus/docs` and online at https://viteplus.dev/guide/.
+The toolchain is pnpm, tsdown, vitest, oxlint (the `@systemfsoftware` preset), dprint, commitlint and
+`effect-tsgo`. `package.json` owns what each script runs.
 
 Use these repository commands:
 
-- Install dependencies: `vp install`.
-- Full handoff gate: `vp run ready`.
-- Repository static and export checks: `vp run check`.
-- Static checks: `vp check`.
-- Format check: `vp fmt --check`; format fixes: `vp fmt`.
-- Lint only: `vp lint`; lint fixes: `vp lint --fix`.
-- Tests only: `vp test`.
-- Other repository tasks and package scripts: `vp run <task>`.
-- Toolchain or runtime troubleshooting: run `vp env doctor` and include its output when asking for help.
-
-Do not use `bun run`, `npm run`, `pnpm run`, or `yarn run` in this repository. Do not invoke underlying tools such as `tsc`, `vitest`, `oxlint`, or `oxfmt` directly; use the Vite+ entry points above.
+- Install dependencies: `pnpm install --ignore-scripts && pnpm run prepare`.
+- Format check: `pnpm format:check`; format fixes: `pnpm format`.
+- Lint: `pnpm lint`.
+- Typecheck: `pnpm typecheck`.
+- Build: `pnpm build`.
+- Tests: `pnpm test`, or one package with `pnpm --filter <package> test`.
+- Repository export, record-format and purity checks: `pnpm check:exports`, `pnpm check:record-format`
+  and `pnpm check:package-purity`.
 
 # Instructions for implementation agents
 
@@ -51,8 +47,7 @@ Before editing code:
 
 1. Read `README.md`.
 2. Read `GLOSSARY.md` when changing domain concepts or public terminology.
-3. Read `docs/TOOLCHAIN.md`.
-   Before changing runtime, storage, or platform packages, also read the authoritative
+3. Before changing runtime, storage, or platform packages, also read the authoritative
    [runtime model](docs/src/content/docs/concepts/runtime-model.mdx).
 4. Read the relevant guide, API comments, and neighboring tests for the modules in scope.
 5. Read `node_modules/effect/AGENTS.md` before writing Effect code (the canonical Effect
@@ -147,27 +142,23 @@ internal boundaries as well as package imports.
 An inward package must not import an outward package. If a feature appears to require that, define
 or deepen an inward port and implement an outward adapter.
 
-Framework code lives only in `packages/*`; do not create an `apps/` workspace. Runnable consumer
-benches live in `examples/*`, remain leaf workspaces, and may depend inward on public framework
-packages and `@yielded/agent-testing`. Create a new framework package only for a
+Framework code lives only in `packages/*`; do not create an `apps/` workspace. Create a new framework package only for a
 genuinely new framework concern agreed with the repository owner. Provider integrations remain upstream Effect AI Layers, not framework provider
 packages.
 
 ## Toolchain rules
 
-- Bun `1.4.2` is the package manager. Use `catalog:` for shared dependencies and `workspace:*`
-  for repository packages.
-- The root catalog is the single source for the exact Effect v4 version. Do not pin Effect
+- pnpm `12.9.0` is the package manager. Use `catalog:` (declared in `pnpm-workspace.yaml`) for shared
+  dependencies and `workspace:*` for repository packages.
+- The catalog is the single source for the exact Effect v4 version. Do not pin Effect
   independently in a package.
-- After changing an Effect-family version, run `vp install` and `vp run check`.
+- After changing an Effect-family version, run `pnpm install` and `pnpm typecheck`.
 - Shared contributor skills under `.agents/skills` are authored in [danieljvdm/skills](https://github.com/danieljvdm/skills) and distributed by Dev Kit. Copies track their source in a `.dev-kit-origin.json` receipt. Check for upstream updates with `bunx @danieljvdm/dev-kit@latest skills status`, and fast-forward an unmodified skill with `bunx @danieljvdm/dev-kit@latest skills update <name>`; a skill with local edits is left for an agent merge instead of being overwritten. Add a new skill from the approved catalog with `bunx @danieljvdm/dev-kit@latest skills add <name>`.
 - Contributor agent skills are repository tooling. They are not runtime Skill definitions and
   must not be imported by `@yielded/agent*`.
-- Before handoff, run `vp run ready`.
-- For live model calls, follow [live credentials](docs/TOOLCHAIN.md#live-credentials). When
-  `INFISICAL_UNIVERSAL_AUTH_CLIENT_ID` is set, load keys through that machine identity rather than
-  asking for a personal Infisical login; otherwise use provider keys already in the environment.
-- For lockfile-only PR fixes, push after `vp install --frozen-lockfile` passes; finish full validation afterward.
+- Before handoff, run `pnpm lint`, `pnpm typecheck` and `pnpm test`.
+- For live model calls, use provider keys already in the environment.
+- For lockfile-only PR fixes, push after `pnpm install --frozen-lockfile` passes; finish full validation afterward.
 
 Keep shared skills identical to their pinned source. Improve shared guidance in the source repository, then refresh the copies through Dev Kit. Put repository-specific commands, gates, and constraints in this file or linked guidance. `.agents/skills/test-audit` remains local. Keep contributor skills committed so fresh checkouts are self-contained.
 
@@ -207,7 +198,7 @@ Being a library does not waive this bar or require tests for every transition.
 
 For a new regression, cite its pre-existing public issue or offending commit beside the test. For an explicit human test request, record the requested seam before implementation. A current PR, invented incident, or private identifier is not regression provenance, and a citation alone does not establish test value.
 
-Load the [testing skill](.agents/skills/testing/SKILL.md) before planning proof or adding, retaining, or removing tests. It owns selection, failure-first isolation and evidence reuse. Keep useful public-contract, recovery and authority checks at their strongest boundary; remove redundant matrices and implementation mirrors. The final `vp run ready` gate still applies.
+Load the [testing skill](.agents/skills/testing/SKILL.md) before planning proof or adding, retaining, or removing tests. It owns selection, failure-first isolation and evidence reuse. Keep useful public-contract, recovery and authority checks at their strongest boundary; remove redundant matrices and implementation mirrors. The final `pnpm lint`, `pnpm typecheck` and `pnpm test` gate still applies.
 
 Exercise E2E workflows through their real entrypoint to an independently checked outcome, preserving the storage, authorization, orchestration and provider boundaries needed by the proof. Use one representative scenario; add failure or recovery paths only for a requirement or concrete risk in scope. Prefer existing acceptance commands and direct interaction over new harnesses.
 
@@ -240,13 +231,13 @@ Resolving an inline conversation alone does not clear a blocking review.
 Parallel agents must own disjoint packages or documents. Shared domain schemas, error unions,
 journal records, and public exports require one designated integrator.
 Before integrating parallel work, review the combined diff and run
-`vp run ready`. Add focused verification only for a concrete remaining question;
+`pnpm lint`, `pnpm typecheck` and `pnpm test`. Add focused verification only for a concrete remaining question;
 do not automatically repeat successful adapter, schema or crash suites.
 
 ## Completion standard
 
 Finish when the requested observable outcomes have sufficient evidence, relevant
-public contracts and operational limitations are documented, and `vp run ready`
+public contracts and operational limitations are documented, and `pnpm lint`, `pnpm typecheck` and `pnpm test`
 passes. Choose failure, interruption, resource, recovery and security checks for
 concrete risks in the change; this is not a mandatory scenario matrix. Preserve
 blocked required proof explicitly. A new source file, state transition or public
@@ -255,7 +246,7 @@ API does not imply a new test file.
 ## Worktree startup
 
 Create worktrees from cached refs; fetch explicitly when a newer base is needed.
-Run `vp install` when dependencies or `node_modules/effect/AGENTS.md` are needed.
+Run `pnpm install` when dependencies or `node_modules/effect/AGENTS.md` are needed.
 Installation uses Bun's shared store and keeps project-specific packages local.
 Start only the development services needed for the task, explicitly. Worktree
 creation itself should not install dependencies or start servers.

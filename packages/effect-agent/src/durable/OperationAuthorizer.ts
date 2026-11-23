@@ -1,10 +1,10 @@
-import * as Context from "effect/Context";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Schema from "effect/Schema";
+import * as Context from 'effect/Context'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
+import * as Schema from 'effect/Schema'
 
-import { ThreadId, SubmissionId } from "../core/Identifiers.ts";
-import { Principal } from "./SubmissionLedger.ts";
+import { SubmissionId, ThreadId } from '../core/Identifiers.ts'
+import { Principal } from './SubmissionLedger.ts'
 
 /**
  * Administrative/observation operations submitted to authorization (P7 WP1; SEC-003/SEC-011,
@@ -13,19 +13,19 @@ import { Principal } from "./SubmissionLedger.ts";
  * administration, and the two durable resolution paths.
  */
 export const AuthorizedOperation = Schema.Literals([
-  "observe",
-  "awaitSettlement",
-  "abort",
-  "explain",
-  "verify",
-  "retry",
-  "wake",
-  "scanObligations",
-  "resolveUnknown",
-  "resolveApproval",
-]);
+  'observe',
+  'awaitSettlement',
+  'abort',
+  'explain',
+  'verify',
+  'retry',
+  'wake',
+  'scanObligations',
+  'resolveUnknown',
+  'resolveApproval',
+])
 
-export type AuthorizedOperation = typeof AuthorizedOperation.Type;
+export type AuthorizedOperation = typeof AuthorizedOperation.Type
 
 /**
  * One authorization question. `principal` is present only when the host authenticated a caller
@@ -33,7 +33,7 @@ export type AuthorizedOperation = typeof AuthorizedOperation.Type;
  * identity under the default authorizer keeps the pre-P7 service-possession behavior.
  */
 export class OperationAuthorizationRequest extends Schema.Class<OperationAuthorizationRequest>(
-  "@effect-agent/thread/OperationAuthorizationRequest",
+  '@effect-agent/thread/OperationAuthorizationRequest',
 )({
   operation: AuthorizedOperation,
   threadId: Schema.optionalKey(ThreadId),
@@ -42,7 +42,7 @@ export class OperationAuthorizationRequest extends Schema.Class<OperationAuthori
 }) {}
 
 /** A typed, fail-closed authorization denial (never a defect, never silent). */
-export class OperationDenied extends Schema.TaggedError<OperationDenied>()("OperationDenied", {
+export class OperationDenied extends Schema.TaggedError<OperationDenied>()('OperationDenied', {
   operation: AuthorizedOperation,
   reason: Schema.String.check(Schema.isMaxLength(4_096)),
   threadId: Schema.optionalKey(ThreadId),
@@ -58,7 +58,7 @@ export class OperationDenied extends Schema.TaggedError<OperationDenied>()("Oper
 export interface OperationAuthorizerService {
   readonly authorize: (
     request: OperationAuthorizationRequest,
-  ) => Effect.Effect<void, OperationDenied>;
+  ) => Effect.Effect<void, OperationDenied>
 }
 
 /**
@@ -70,7 +70,7 @@ export interface OperationAuthorizerService {
  */
 export const possessionOperationAuthorizer: OperationAuthorizerService = {
   authorize: () => Effect.void,
-};
+}
 
 /**
  * Context reference with the possession default, mirroring `DurableApprovalResolver`: the
@@ -78,11 +78,12 @@ export const possessionOperationAuthorizer: OperationAuthorizerService = {
  * the answer. References resolve at Layer construction, so provide the override when building
  * `DurableAgentRuntime.layer` (e.g. `Layer.provide(operationAuthorizerLayer(...))`).
  */
-export const OperationAuthorizer: Context.Reference<OperationAuthorizerService> =
-  Context.Reference<OperationAuthorizerService>("@effect-agent/thread/OperationAuthorizer", {
-    defaultValue: () => possessionOperationAuthorizer,
-  });
+export const OperationAuthorizer: Context.Reference<OperationAuthorizerService> = Context.Reference<
+  OperationAuthorizerService
+>('@effect-agent/thread/OperationAuthorizer', {
+  defaultValue: () => possessionOperationAuthorizer,
+})
 
 /** Layer carrying a host-supplied authorization decision procedure. */
 export const operationAuthorizerLayer = (service: OperationAuthorizerService): Layer.Layer<never> =>
-  Layer.succeedContext(Context.make(OperationAuthorizer, service));
+  Layer.succeedContext(Context.make(OperationAuthorizer, service))

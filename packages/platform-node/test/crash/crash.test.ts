@@ -1,9 +1,9 @@
-import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
-import { expect, layer } from "@effect/vitest";
-import { NodeDurableHost } from "@yielded/agent-platform-node/node-durable-host";
-import * as Agent from "@yielded/agent/agent";
-import { DurableAgentRuntime, recoveryRepairRecordId } from "@yielded/agent/durable-agent-runtime";
-import { type CanonicalRecordEnvelope, type RecordEnvelope } from "@yielded/agent/records";
+import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
+import { expect, layer } from '@effect/vitest'
+import { NodeDurableHost } from '@yielded/agent-platform-node/node-durable-host'
+import * as Agent from '@yielded/agent/agent'
+import { DurableAgentRuntime, recoveryRepairRecordId } from '@yielded/agent/durable-agent-runtime'
+import { type CanonicalRecordEnvelope, type RecordEnvelope } from '@yielded/agent/records'
 import {
   modelResponseInterruptedRecordId,
   modelResponseRecordId,
@@ -14,69 +14,71 @@ import {
   toolCallSettledRecordId,
   toolCallUnknownRecordId,
   toolStepSettledRecordId,
-} from "@yielded/agent/run-journal";
-import { StorageOwner, RunStorage } from "@yielded/agent/run-storage";
+} from '@yielded/agent/run-journal'
+import { RunStorage, StorageOwner } from '@yielded/agent/run-storage'
 import {
   AbortCommand,
   ApprovalDecisionCommand,
   ClaimRequest,
   RecoverySnapshotRequest,
-  SubmissionLedger,
   submissionInputRecordId,
+  SubmissionLedger,
   submissionSettlementRecordId,
-} from "@yielded/agent/submission-ledger";
-import { ThreadStore } from "@yielded/agent/thread-store";
-import * as Prompt from "effect/ai/Prompt";
-import * as Deferred from "effect/Deferred";
-import * as Effect from "effect/Effect";
-import * as Exit from "effect/Exit";
-import * as Fiber from "effect/Fiber";
-import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
-import * as Stream from "effect/Stream";
+} from '@yielded/agent/submission-ledger'
+import { ThreadStore } from '@yielded/agent/thread-store'
+import * as Prompt from 'effect/ai/Prompt'
+import * as Deferred from 'effect/Deferred'
+import * as Effect from 'effect/Effect'
+import * as Exit from 'effect/Exit'
+import * as Fiber from 'effect/Fiber'
+import * as Option from 'effect/Option'
+import * as Schema from 'effect/Schema'
+import * as Stream from 'effect/Stream'
 
 import {
-  BOOK_CALL_ID,
-  BOOK_REF,
-  SECOND_BOOK_CALL_ID,
-  SECOND_BOOK_REF,
-  CHILD_ANSWER,
-  CRASH_QUESTION,
-  FRESH_ANSWER,
-  ITINERARY_CALL_ID,
-  JOIN_QUESTION,
-  STEP_REF,
   approvalDefinition,
   approvalTools,
+  BOOK_CALL_ID,
+  BOOK_REF,
   bookDefinition,
   bookIdempotentDefinition,
   bookIdempotentTools,
   bookTools,
+  CHILD_ANSWER,
+  CRASH_QUESTION,
   crashSubmitOptions,
   decodeThreadId,
   decodeToolCallId,
   finalParts,
+  FRESH_ANSWER,
+  ITINERARY_CALL_ID,
   itineraryDefinition,
+  JOIN_QUESTION,
   makeBookToolLayer,
   makeItineraryToolLayer,
   makeScriptedModel,
   makeScriptedStreamModel,
-  toolCallParts,
-  STALE_ANSWER,
   plannerDefinition,
   searchDefinition,
   searchToolLayer,
+  SECOND_BOOK_CALL_ID,
+  SECOND_BOOK_REF,
+  STALE_ANSWER,
+  STEP_REF,
   supplierCount,
   supplierReconcilerLayer,
-} from "./fixtures.ts";
+  toolCallParts,
+} from './fixtures.ts'
 import {
   assertConvergence,
   childMessages,
+  type ChildOptions,
+  type CrashSite,
   expectKilled,
   failureTag,
+  logTags,
   lookupByKey,
   lookupState,
-  logTags,
   readLog,
   runWorkerToExit,
   startWorker,
@@ -85,9 +87,7 @@ import {
   withCrashSite,
   withHost,
   withRuntime,
-  type ChildOptions,
-  type CrashSite,
-} from "./harness.ts";
+} from './harness.ts'
 
 /**
  * Process-kill crash harness (plan §Crash matrix + §4.3, durability §15). Every test spawns
@@ -107,101 +107,101 @@ import {
  * with `excludeTestServices`.
  */
 
-const resubmit = Effect.fnUntraced(function* (thread: string, key: string) {
-  const runtime = yield* DurableAgentRuntime;
+const resubmit = Effect.fnUntraced(function*(thread: string, key: string) {
+  const runtime = yield* DurableAgentRuntime
 
   return yield* runtime.submit(
     { definition: plannerDefinition },
     { question: CRASH_QUESTION },
     crashSubmitOptions(thread, key),
-  );
-});
+  )
+})
 
-const drainPlanner = Effect.fnUntraced(function* (thread: string, answer: string) {
-  const runtime = yield* DurableAgentRuntime;
-  const model = yield* makeScriptedModel(() => finalParts(answer));
-  const agent = Agent.withModel(plannerDefinition, model);
+const drainPlanner = Effect.fnUntraced(function*(thread: string, answer: string) {
+  const runtime = yield* DurableAgentRuntime
+  const model = yield* makeScriptedModel(() => finalParts(answer))
+  const agent = Agent.withModel(plannerDefinition, model)
 
-  return yield* runtime.processThread(agent, decodeThreadId(thread));
-});
+  return yield* runtime.processThread(agent, decodeThreadId(thread))
+})
 
-const drainSearch = Effect.fnUntraced(function* (thread: string, answer: string) {
-  const runtime = yield* DurableAgentRuntime;
-  const model = yield* makeScriptedModel(() => finalParts(answer));
-  const agent = Agent.withModel(searchDefinition, model);
+const drainSearch = Effect.fnUntraced(function*(thread: string, answer: string) {
+  const runtime = yield* DurableAgentRuntime
+  const model = yield* makeScriptedModel(() => finalParts(answer))
+  const agent = Agent.withModel(searchDefinition, model)
 
   return yield* runtime
     .processThread(agent, decodeThreadId(thread))
-    .pipe(Effect.provide(searchToolLayer));
-});
+    .pipe(Effect.provide(searchToolLayer))
+})
 
-const drainUncertainBook = Effect.fnUntraced(function* (
+const drainUncertainBook = Effect.fnUntraced(function*(
   site: CrashSite,
   thread: string,
   answer: string,
 ) {
-  const runtime = yield* DurableAgentRuntime;
-  const model = yield* makeScriptedModel(() => finalParts(answer));
-  const agent = Agent.withModel(bookDefinition, model);
+  const runtime = yield* DurableAgentRuntime
+  const model = yield* makeScriptedModel(() => finalParts(answer))
+  const agent = Agent.withModel(bookDefinition, model)
 
   return yield* runtime
     .processThread(agent, decodeThreadId(thread))
-    .pipe(Effect.provide(makeBookToolLayer(site.supplier, bookTools)));
-});
+    .pipe(Effect.provide(makeBookToolLayer(site.supplier, bookTools)))
+})
 
-const drainIdempotentBook = Effect.fnUntraced(function* (
+const drainIdempotentBook = Effect.fnUntraced(function*(
   site: CrashSite,
   thread: string,
   answer: string,
 ) {
-  const runtime = yield* DurableAgentRuntime;
-  const model = yield* makeScriptedModel(() => finalParts(answer));
-  const agent = Agent.withModel(bookIdempotentDefinition, model);
+  const runtime = yield* DurableAgentRuntime
+  const model = yield* makeScriptedModel(() => finalParts(answer))
+  const agent = Agent.withModel(bookIdempotentDefinition, model)
 
   return yield* runtime
     .processThread(agent, decodeThreadId(thread))
-    .pipe(Effect.provide(makeBookToolLayer(site.supplier, bookIdempotentTools)));
-});
+    .pipe(Effect.provide(makeBookToolLayer(site.supplier, bookIdempotentTools)))
+})
 
-const drainApprovalBook = Effect.fnUntraced(function* (
+const drainApprovalBook = Effect.fnUntraced(function*(
   site: CrashSite,
   thread: string,
   answer: string,
 ) {
-  const runtime = yield* DurableAgentRuntime;
-  const model = yield* makeScriptedModel(() => finalParts(answer));
-  const agent = Agent.withModel(approvalDefinition, model);
+  const runtime = yield* DurableAgentRuntime
+  const model = yield* makeScriptedModel(() => finalParts(answer))
+  const agent = Agent.withModel(approvalDefinition, model)
 
   return yield* runtime
     .processThread(agent, decodeThreadId(thread))
-    .pipe(Effect.provide(makeBookToolLayer(site.supplier, approvalTools)));
-});
+    .pipe(Effect.provide(makeBookToolLayer(site.supplier, approvalTools)))
+})
 
-const drainItinerary = Effect.fnUntraced(function* (
+const drainItinerary = Effect.fnUntraced(function*(
   site: CrashSite,
   thread: string,
   answer: string,
 ) {
-  const runtime = yield* DurableAgentRuntime;
-  const model = yield* makeScriptedModel(() => finalParts(answer));
-  const agent = Agent.withModel(itineraryDefinition, model);
+  const runtime = yield* DurableAgentRuntime
+  const model = yield* makeScriptedModel(() => finalParts(answer))
+  const agent = Agent.withModel(itineraryDefinition, model)
 
   return yield* runtime
     .processThread(agent, decodeThreadId(thread))
-    .pipe(Effect.provide(makeItineraryToolLayer(site.supplier)));
-});
+    .pipe(Effect.provide(makeItineraryToolLayer(site.supplier)))
+})
 
 /** Spawn a second-process resolution driver against the shared file and require success. */
-const runResolver = Effect.fnUntraced(function* (options: ChildOptions) {
-  const result = yield* runWorkerToExit(options);
+const runResolver = Effect.fnUntraced(function*(options: ChildOptions) {
+  const result = yield* runWorkerToExit(options)
 
-  expect(result.exit.code, `resolver stderr: ${result.stderr}`).toBe(0);
-  const resolved = childMessages(result.stdout).find((message) => message.kind === "resolved");
+  expect(result.exit.code, `resolver stderr: ${result.stderr}`).toBe(0)
+  const resolved = childMessages(result.stdout).find((message) => message.kind === 'resolved')
 
-  expect(resolved).toBeDefined();
+  expect(resolved).toBeDefined()
 
-  return resolved;
-});
+  return resolved
+})
 
 /** Occurrences of `needle` inside the committed model-response messages (coverage evidence). */
 const responseOccurrences = (
@@ -209,129 +209,129 @@ const responseOccurrences = (
   needle: string,
 ): number =>
   records
-    .filter((envelope) => envelope.record.payload._tag === "ModelResponseRecorded")
+    .filter((envelope) => envelope.record.payload._tag === 'ModelResponseRecorded')
     .map((envelope) => JSON.stringify(envelope.record.payload).split(needle).length - 1)
-    .reduce((sum, count) => sum + count, 0);
+    .reduce((sum, count) => sum + count, 0)
 
 /** The supplier-store honesty claims of one crash row (plan §4.3, durability §10). */
 layer(NodeFileSystem.layer, { excludeTestServices: true })(
-  "DN crash matrix (real process kills)",
+  'DN crash matrix (real process kills)',
   (it) => {
     it.effect(
-      "kill at submit:after-admit: recovery completes materialization; the same key resumes",
+      'kill at submit:after-admit: recovery completes materialization; the same key resumes',
       () =>
         withCrashSite((site) =>
-          Effect.gen(function* () {
-            const thread = "thread-kill-admit";
-            const key = "kill-admit-1";
+          Effect.gen(function*() {
+            const thread = 'thread-kill-admit'
+            const key = 'kill-admit-1'
 
             const result = yield* runWorkerToExit({
               db: site.db,
-              scenario: "submit",
+              scenario: 'submit',
               thread,
               key,
-              killAt: "submit:after-admit",
-            });
+              killAt: 'submit:after-admit',
+            })
 
-            expectKilled(result);
+            expectKilled(result)
 
             yield* withHost(
               site.db,
-              Effect.gen(function* () {
-                const host = yield* NodeDurableHost;
-                const snapshot = yield* lookupByKey(thread, key);
+              Effect.gen(function*() {
+                const host = yield* NodeDurableHost
+                const snapshot = yield* lookupByKey(thread, key)
 
-                expect(yield* lookupState(snapshot.submissionId)).toBe("ready");
-                const records = yield* readLog(thread);
+                expect(yield* lookupState(snapshot.submissionId)).toBe('ready')
+                const records = yield* readLog(thread)
 
-                expect(records[0]?.record.recordId).toBe(`thread-created:${thread}`);
+                expect(records[0]?.record.recordId).toBe(`thread-created:${thread}`)
 
                 // Reattachment: the identical payload under the same key resumes the Receipt.
-                const receipt = yield* resubmit(thread, key);
+                const receipt = yield* resubmit(thread, key)
 
-                expect(receipt.receiptId).toBe(snapshot.receiptId);
-                expect(receipt.submissionId).toBe(snapshot.submissionId);
-                expect(Number(receipt.queueSequence)).toBe(Number(snapshot.queueSequence));
+                expect(receipt.receiptId).toBe(snapshot.receiptId)
+                expect(receipt.submissionId).toBe(snapshot.submissionId)
+                expect(Number(receipt.queueSequence)).toBe(Number(snapshot.queueSequence))
 
                 // The same key with DIFFERENT content is refused, never silently replaced.
-                const runtime = yield* DurableAgentRuntime;
+                const runtime = yield* DurableAgentRuntime
 
                 const conflict = yield* Effect.exit(
                   runtime.submit(
                     { definition: plannerDefinition },
-                    { question: "a conflicting question" },
+                    { question: 'a conflicting question' },
                     crashSubmitOptions(thread, key),
                   ),
-                );
+                )
 
-                expect(failureTag(conflict)).toBe("AdmissionConflict");
+                expect(failureTag(conflict)).toBe('AdmissionConflict')
 
-                const settlements = yield* drainPlanner(thread, CHILD_ANSWER);
+                const settlements = yield* drainPlanner(thread, CHILD_ANSWER)
 
-                expect(settlements).toHaveLength(1);
-                expect(settlements[0]?.outcome).toBe("completed");
-                const settlement = yield* host.awaitSettlement(receipt);
+                expect(settlements).toHaveLength(1)
+                expect(settlements[0]?.outcome).toBe('completed')
+                const settlement = yield* host.awaitSettlement(receipt)
 
-                expect(settlement.outcome).toBe("completed");
-                yield* assertConvergence(thread, [snapshot.submissionId]);
+                expect(settlement.outcome).toBe('completed')
+                yield* assertConvergence(thread, [snapshot.submissionId])
               }),
-            );
-          }),
+            )
+          })
         ),
       30_000,
-    );
+    )
 
     it.effect(
-      "RUN-030: process loss after Run-start append preserves the committed Run clock",
+      'RUN-030: process loss after Run-start append preserves the committed Run clock',
       () =>
         Effect.forEach(
-          ["run:after-start-append"] as const,
+          ['run:after-start-append'] as const,
           (killAt) =>
             withCrashSite((site) =>
-              Effect.gen(function* () {
-                const thread = `thread-${killAt}`;
-                const key = "run-clock";
+              Effect.gen(function*() {
+                const thread = `thread-${killAt}`
+                const key = 'run-clock'
 
                 expectKilled(
                   yield* runWorkerToExit({
                     db: site.db,
-                    scenario: "run",
+                    scenario: 'run',
                     thread,
                     key,
                     killAt,
                   }),
-                );
+                )
 
                 const before = yield* withRuntime(
                   site.db,
-                  Effect.gen(function* () {
-                    const snapshot = yield* lookupByKey(thread, key);
-                    const store = yield* ThreadStore;
+                  Effect.gen(function*() {
+                    const snapshot = yield* lookupByKey(thread, key)
+                    const store = yield* ThreadStore
 
                     const execution = Option.getOrThrow(
                       yield* store.readExecution({
                         threadId: decodeThreadId(thread),
                         runId: runIdForSubmission(snapshot.submissionId),
                       }),
-                    );
+                    )
 
                     const starts = execution.operational.filter(
-                      ({ payload }) => payload._tag === "RunStarted",
-                    );
+                      ({ payload }) => payload._tag === 'RunStarted',
+                    )
 
-                    expect(starts).toHaveLength(1);
+                    expect(starts).toHaveLength(1)
 
-                    return { starts, submissionId: snapshot.submissionId };
+                    return { starts, submissionId: snapshot.submissionId }
                   }),
-                );
+                )
 
-                const completingStarts: Array<RecordEnvelope> = [];
-                let inspectStart: Effect.Effect<void> = Effect.void;
+                const completingStarts: Array<RecordEnvelope> = []
+                let inspectStart: Effect.Effect<void> = Effect.void
 
                 yield* withHost(
                   site.db,
-                  Effect.gen(function* () {
-                    const store = yield* ThreadStore;
+                  Effect.gen(function*() {
+                    const store = yield* ThreadStore
 
                     inspectStart = store
                       .readExecution({
@@ -342,887 +342,885 @@ layer(NodeFileSystem.layer, { excludeTestServices: true })(
                         Effect.map((execution) => {
                           completingStarts.push(
                             ...Option.getOrThrow(execution).operational.filter(
-                              ({ payload }) => payload._tag === "RunStarted",
+                              ({ payload }) => payload._tag === 'RunStarted',
                             ),
-                          );
+                          )
                         }),
                         Effect.orDie,
-                      );
+                      )
                     expect(
                       (yield* drainPlanner(thread, CHILD_ANSWER)).map((entry) => entry.outcome),
-                    ).toEqual(["completed"]);
-                    expect(completingStarts).toHaveLength(1);
-                    expect(completingStarts).toEqual(before.starts);
+                    ).toEqual(['completed'])
+                    expect(completingStarts).toHaveLength(1)
+                    expect(completingStarts).toEqual(before.starts)
                     expect(
                       yield* store.readExecution({
                         threadId: decodeThreadId(thread),
                         runId: runIdForSubmission(before.submissionId),
                       }),
-                    ).toEqual(Option.none());
-                    yield* assertConvergence(thread, [before.submissionId]);
+                    ).toEqual(Option.none())
+                    yield* assertConvergence(thread, [before.submissionId])
                   }),
                   {
                     runtimeFailpoint: (location) =>
-                      location === "terminalize:before-publication" ? inspectStart : Effect.void,
+                      location === 'terminalize:before-publication' ? inspectStart : Effect.void,
                   },
-                );
-              }),
+                )
+              })
             ),
           { discard: true },
         ),
       30_000,
-    );
+    )
 
     it.effect(
-      "kill at input:after-canonical-append: the applied input survives and FIFO holds for the queued Submission",
+      'kill at input:after-canonical-append: the applied input survives and FIFO holds for the queued Submission',
       () =>
         withCrashSite((site) =>
-          Effect.gen(function* () {
-            const thread = "thread-kill-input";
-            const key = "kill-input";
+          Effect.gen(function*() {
+            const thread = 'thread-kill-input'
+            const key = 'kill-input'
 
             const result = yield* runWorkerToExit({
               db: site.db,
-              scenario: "run-two",
+              scenario: 'run-two',
               thread,
               key,
-              killAt: "input:after-canonical-append",
-            });
+              killAt: 'input:after-canonical-append',
+            })
 
-            expectKilled(result);
+            expectKilled(result)
 
             yield* withHost(
               site.db,
-              Effect.gen(function* () {
-                const storage = yield* RunStorage;
-                const head = yield* lookupByKey(thread, `${key}-1`);
-                const queued = yield* lookupByKey(thread, `${key}-2`);
+              Effect.gen(function*() {
+                const storage = yield* RunStorage
+                const head = yield* lookupByKey(thread, `${key}-1`)
+                const queued = yield* lookupByKey(thread, `${key}-2`)
 
                 // FIFO: a direct claim grants ONLY the unsettled lane head.
                 const claimed = yield* storage.claim(
                   ClaimRequest.make({ threadId: decodeThreadId(thread) }),
-                );
+                )
 
-                expect(Option.isSome(claimed)).toBe(true);
-                if (Option.isNone(claimed)) throw new Error("Expected a claimable lane head");
-                expect(claimed.value.claim.submissionId).toBe(head.submissionId);
-                yield* claimed.value.release;
+                expect(Option.isSome(claimed)).toBe(true)
+                if (Option.isNone(claimed)) throw new Error('Expected a claimable lane head')
+                expect(claimed.value.claim.submissionId).toBe(head.submissionId)
+                yield* claimed.value.release
 
-                const settlements = yield* drainPlanner(thread, CHILD_ANSWER);
+                const settlements = yield* drainPlanner(thread, CHILD_ANSWER)
 
                 // P5 (plan §2.5): the queued Submission joins the resumed head Run at its
                 // first Turn seam and settles WITH it — one head settlement, both settled in
                 // admitted FIFO order (assertConvergence pins the canonical ordering).
                 expect(settlements.map((settlement) => settlement.submissionId)).toEqual([
                   head.submissionId,
-                ]);
-                const records = yield* readLog(thread);
+                ])
+                const records = yield* readLog(thread)
 
                 expect(
                   records.filter(
-                    (envelope) =>
-                      envelope.record.recordId === submissionInputRecordId(head.submissionId),
+                    (envelope) => envelope.record.recordId === submissionInputRecordId(head.submissionId),
                   ),
-                ).toHaveLength(1);
-                yield* assertConvergence(thread, [head.submissionId, queued.submissionId]);
+                ).toHaveLength(1)
+                yield* assertConvergence(thread, [head.submissionId, queued.submissionId])
               }),
-            );
-          }),
+            )
+          })
         ),
       30_000,
-    );
+    )
 
     it.effect(
-      "SIGKILL mid model Turn: a new Attempt resumes from the committed Turn boundary and the client reattaches",
+      'SIGKILL mid model Turn: a new Attempt resumes from the committed Turn boundary and the client reattaches',
       () =>
         withCrashSite((site) =>
-          Effect.gen(function* () {
-            const thread = "thread-kill-midturn";
-            const key = "kill-midturn-1";
+          Effect.gen(function*() {
+            const thread = 'thread-kill-midturn'
+            const key = 'kill-midturn-1'
 
             const exit = yield* Effect.scoped(
-              Effect.gen(function* () {
+              Effect.gen(function*() {
                 const handle = yield* startWorker({
                   db: site.db,
-                  scenario: "run-blocked",
+                  scenario: 'run-blocked',
                   thread,
                   key,
                   markerFile: site.marker,
                   releaseFile: site.release,
-                });
+                })
 
                 // Turn 1 (tool call) is canonical once the marker exists; Turn 2 is mid-stream.
-                yield* waitForFile(site.marker);
-                handle.kill();
+                yield* waitForFile(site.marker)
+                handle.kill()
 
-                return yield* handle.awaitExit;
+                return yield* handle.awaitExit
               }),
-            );
+            )
 
-            expect(exit.signal).toBe("SIGKILL");
+            expect(exit.signal).toBe('SIGKILL')
 
             yield* withHost(
               site.db,
-              Effect.gen(function* () {
-                const host = yield* NodeDurableHost;
-                const snapshot = yield* lookupByKey(thread, key);
-                const runId = runIdForSubmission(snapshot.submissionId);
+              Effect.gen(function*() {
+                const host = yield* NodeDurableHost
+                const snapshot = yield* lookupByKey(thread, key)
+                const runId = runIdForSubmission(snapshot.submissionId)
 
                 // Client restart: same-key resubmission reattaches to the original Receipt.
-                const receipt = yield* resubmit(thread, key);
+                const receipt = yield* resubmit(thread, key)
 
-                expect(receipt.receiptId).toBe(snapshot.receiptId);
-                expect(receipt.submissionId).toBe(snapshot.submissionId);
+                expect(receipt.receiptId).toBe(snapshot.receiptId)
+                expect(receipt.submissionId).toBe(snapshot.submissionId)
 
-                const settlements = yield* drainSearch(thread, FRESH_ANSWER);
+                const settlements = yield* drainSearch(thread, FRESH_ANSWER)
 
-                expect(settlements).toHaveLength(1);
-                expect(settlements[0]?.outcome).toBe("completed");
+                expect(settlements).toHaveLength(1)
+                expect(settlements[0]?.outcome).toBe('completed')
 
-                const records = yield* readLog(thread);
+                const records = yield* readLog(thread)
 
                 expect(
                   records.filter(
                     (envelope) => envelope.record.recordId === modelResponseRecordId(runId, 1),
                   ),
-                ).toHaveLength(1);
+                ).toHaveLength(1)
                 expect(records.map((envelope) => envelope.record.recordId)).toContain(
                   modelResponseRecordId(runId, 2),
-                );
+                )
                 expect(records.map((envelope) => envelope.record.recordId)).toContain(
                   modelResponseInterruptedRecordId(runId),
-                );
-                const settlement = yield* host.awaitSettlement(receipt);
+                )
+                const settlement = yield* host.awaitSettlement(receipt)
 
-                expect(settlement.outcome).toBe("completed");
-                yield* assertConvergence(thread, [snapshot.submissionId]);
+                expect(settlement.outcome).toBe('completed')
+                yield* assertConvergence(thread, [snapshot.submissionId])
               }),
-            );
-          }),
+            )
+          })
         ),
       30_000,
-    );
+    )
 
     it.effect(
-      "a closed local Attempt cannot append a late model response over its replacement",
+      'a closed local Attempt cannot append a late model response over its replacement',
       () =>
         withCrashSite((site) =>
           withRuntime(
             site.db,
-            Effect.gen(function* () {
-              const thread = "thread-fenced";
-              const key = "fenced-1";
-              const runtime = yield* DurableAgentRuntime;
-              const owner = yield* StorageOwner;
-              const started = yield* Deferred.make<void>();
-              const release = yield* Deferred.make<void>();
+            Effect.gen(function*() {
+              const thread = 'thread-fenced'
+              const key = 'fenced-1'
+              const runtime = yield* DurableAgentRuntime
+              const owner = yield* StorageOwner
+              const started = yield* Deferred.make<void>()
+              const release = yield* Deferred.make<void>()
 
               const model = yield* makeScriptedStreamModel((call) =>
                 call === 0
                   ? Stream.fromIterable(toolCallParts)
                   : call === 1
-                    ? Stream.fromEffect(
-                        Deferred.succeed(started, undefined).pipe(
-                          Effect.andThen(Deferred.await(release)),
-                        ),
-                      ).pipe(Stream.flatMap(() => Stream.fromIterable(finalParts(STALE_ANSWER))))
-                    : Stream.fromIterable(finalParts(FRESH_ANSWER)),
-              );
+                  ? Stream.fromEffect(
+                    Deferred.succeed(started, undefined).pipe(
+                      Effect.andThen(Deferred.await(release)),
+                    ),
+                  ).pipe(Stream.flatMap(() => Stream.fromIterable(finalParts(STALE_ANSWER))))
+                  : Stream.fromIterable(finalParts(FRESH_ANSWER))
+              )
 
-              const agent = Agent.withModel(searchDefinition, model);
+              const agent = Agent.withModel(searchDefinition, model)
 
               const receipt = yield* runtime.submit(
                 agent,
                 { question: CRASH_QUESTION },
                 crashSubmitOptions(thread, key),
-              );
+              )
 
               const stale = yield* runtime
                 .processThread(agent, receipt.threadId)
-                .pipe(Effect.forkChild);
+                .pipe(Effect.forkChild)
 
-              yield* Deferred.await(started);
-              expect(owner.hasOwner(receipt.threadId, receipt.submissionId)).toBe(true);
+              yield* Deferred.await(started)
+              expect(owner.hasOwner(receipt.threadId, receipt.submissionId)).toBe(true)
               yield* owner.withMutation(
                 Effect.sync(() => owner.closeSubmission(receipt.threadId, receipt.submissionId)),
-              );
-              const settlements = yield* runtime.processThread(agent, receipt.threadId);
+              )
+              const settlements = yield* runtime.processThread(agent, receipt.threadId)
 
-              expect(settlements.map((settlement) => settlement.outcome)).toEqual(["completed"]);
-              yield* Deferred.succeed(release, undefined);
-              const staleExit = yield* Fiber.await(stale);
+              expect(settlements.map((settlement) => settlement.outcome)).toEqual(['completed'])
+              yield* Deferred.succeed(release, undefined)
+              const staleExit = yield* Fiber.await(stale)
 
-              expect(Exit.isFailure(staleExit)).toBe(true);
-              if (Exit.isFailure(staleExit)) expect(failureTag(staleExit)).toBe("OwnershipLost");
-              const records = yield* readLog(thread);
-              const runId = runIdForSubmission(receipt.submissionId);
+              expect(Exit.isFailure(staleExit)).toBe(true)
+              if (Exit.isFailure(staleExit)) expect(failureTag(staleExit)).toBe('OwnershipLost')
+              const records = yield* readLog(thread)
+              const runId = runIdForSubmission(receipt.submissionId)
 
               const turnTwo = records.filter(
                 (envelope) => envelope.record.recordId === modelResponseRecordId(runId, 2),
-              );
+              )
 
-              expect(turnTwo).toHaveLength(1);
-              const payload = turnTwo[0]?.record.payload;
+              expect(turnTwo).toHaveLength(1)
+              const payload = turnTwo[0]?.record.payload
 
-              expect(payload?._tag).toBe("ModelResponseRecorded");
-              if (payload?._tag === "ModelResponseRecorded") {
-                const messages = yield* Schema.decodeEffect(Prompt.Prompt)(payload.messages);
+              expect(payload?._tag).toBe('ModelResponseRecorded')
+              if (payload?._tag === 'ModelResponseRecorded') {
+                const messages = yield* Schema.decodeEffect(Prompt.Prompt)(payload.messages)
 
                 const text = messages.content
-                  .filter((message) => message.role === "assistant")
+                  .filter((message) => message.role === 'assistant')
                   .flatMap((message) => message.content)
-                  .filter((part) => part.type === "text")
+                  .filter((part) => part.type === 'text')
                   .map((part) => part.text)
-                  .join("");
+                  .join('')
 
-                expect(text).toBe(FRESH_ANSWER);
+                expect(text).toBe(FRESH_ANSWER)
               }
-              yield* assertConvergence(thread, [receipt.submissionId]);
+              yield* assertConvergence(thread, [receipt.submissionId])
             }).pipe(Effect.provide(searchToolLayer)),
-          ),
+          )
         ),
       30_000,
-    );
+    )
 
     it.effect(
-      "kill before settlement publication: durable completion avoids another model call and settles once",
+      'kill before settlement publication: durable completion avoids another model call and settles once',
       () =>
         withCrashSite((site) =>
-          Effect.gen(function* () {
-            const thread = "thread-kill-prepublication";
-            const key = "kill-prepublication-1";
+          Effect.gen(function*() {
+            const thread = 'thread-kill-prepublication'
+            const key = 'kill-prepublication-1'
 
             const result = yield* runWorkerToExit({
               db: site.db,
-              scenario: "run",
+              scenario: 'run',
               thread,
               key,
-              killAt: "terminalize:before-publication",
-            });
+              killAt: 'terminalize:before-publication',
+            })
 
-            expectKilled(result);
+            expectKilled(result)
 
             const before = yield* withRuntime(
               site.db,
-              Effect.gen(function* () {
-                const snapshot = yield* lookupByKey(thread, key);
-                const store = yield* ThreadStore;
+              Effect.gen(function*() {
+                const snapshot = yield* lookupByKey(thread, key)
+                const store = yield* ThreadStore
 
                 const execution = Option.getOrThrow(
                   yield* store.readExecution({
                     threadId: decodeThreadId(thread),
                     runId: runIdForSubmission(snapshot.submissionId),
                   }),
-                );
+                )
 
                 const completions = execution.operational.flatMap(({ payload }) =>
-                  payload._tag === "RunCompleted" ? [payload] : [],
-                );
+                  payload._tag === 'RunCompleted' ? [payload] : []
+                )
 
-                expect(completions).toHaveLength(1);
+                expect(completions).toHaveLength(1)
 
                 return {
                   records: yield* readLog(thread),
                   completions,
                   submissionId: snapshot.submissionId,
-                };
+                }
               }),
-            );
+            )
 
             yield* withHost(
               site.db,
-              Effect.gen(function* () {
-                const store = yield* ThreadStore;
+              Effect.gen(function*() {
+                const store = yield* ThreadStore
 
-                const settlements = yield* drainPlanner(thread, FRESH_ANSWER);
+                const settlements = yield* drainPlanner(thread, FRESH_ANSWER)
 
-                expect(settlements).toHaveLength(1);
-                expect(settlements[0]?.outcome).toBe("completed");
+                expect(settlements).toHaveLength(1)
+                expect(settlements[0]?.outcome).toBe('completed')
 
                 // The response and Run completion committed atomically before
                 // publication, so recovery terminalizes without another model call.
-                const records = yield* readLog(thread);
+                const records = yield* readLog(thread)
 
-                expect(records.slice(0, before.records.length)).toEqual(before.records);
+                expect(records.slice(0, before.records.length)).toEqual(before.records)
                 expect(
-                  logTags(records).filter((tag) => tag === "ModelResponseRecorded"),
-                ).toHaveLength(1);
-                expect(logTags(records).filter((tag) => tag === "SubmissionSettled")).toHaveLength(
+                  logTags(records).filter((tag) => tag === 'ModelResponseRecorded'),
+                ).toHaveLength(1)
+                expect(logTags(records).filter((tag) => tag === 'SubmissionSettled')).toHaveLength(
                   1,
-                );
+                )
                 expect(
                   records.flatMap(({ record: { payload } }) =>
-                    payload._tag === "SubmissionSettled" ? [payload.result] : [],
+                    payload._tag === 'SubmissionSettled' ? [payload.result] : []
                   ),
-                ).toEqual(before.completions.map((completion) => completion.output));
+                ).toEqual(before.completions.map((completion) => completion.output))
                 expect(
                   yield* store.readExecution({
                     threadId: decodeThreadId(thread),
                     runId: runIdForSubmission(before.submissionId),
                   }),
-                ).toEqual(Option.none());
-                yield* assertConvergence(thread, [before.submissionId]);
+                ).toEqual(Option.none())
+                yield* assertConvergence(thread, [before.submissionId])
               }),
-            );
-          }),
+            )
+          })
         ),
       30_000,
-    );
+    )
 
     it.effect(
-      "kill at terminalize:after-canonical-append: atomic finalization survives and the record is never rewritten",
+      'kill at terminalize:after-canonical-append: atomic finalization survives and the record is never rewritten',
       () =>
         withCrashSite((site) =>
-          Effect.gen(function* () {
-            const thread = "thread-kill-finalize";
-            const key = "kill-finalize-1";
+          Effect.gen(function*() {
+            const thread = 'thread-kill-finalize'
+            const key = 'kill-finalize-1'
 
             const result = yield* runWorkerToExit({
               db: site.db,
-              scenario: "run",
+              scenario: 'run',
               thread,
               key,
-              killAt: "terminalize:after-canonical-append",
-            });
+              killAt: 'terminalize:after-canonical-append',
+            })
 
-            expectKilled(result);
+            expectKilled(result)
 
             // The SQL publisher commits the outcome and plain-root finalization together.
             const before = yield* withRuntime(
               site.db,
-              Effect.gen(function* () {
-                const snapshot = yield* lookupByKey(thread, key);
+              Effect.gen(function*() {
+                const snapshot = yield* lookupByKey(thread, key)
 
-                expect(snapshot.state).toBe("settled");
-                const records = yield* readLog(thread);
+                expect(snapshot.state).toBe('settled')
+                const records = yield* readLog(thread)
 
                 const settled = records.filter(
-                  (envelope) => envelope.record.payload._tag === "SubmissionSettled",
-                );
+                  (envelope) => envelope.record.payload._tag === 'SubmissionSettled',
+                )
 
-                expect(settled).toHaveLength(1);
-                const envelope = settled[0];
+                expect(settled).toHaveLength(1)
+                const envelope = settled[0]
 
-                if (envelope === undefined) throw new Error("Expected a settled record");
+                if (envelope === undefined) throw new Error('Expected a settled record')
 
-                return { submissionId: snapshot.submissionId, envelope };
+                return { submissionId: snapshot.submissionId, envelope }
               }),
-            );
+            )
 
             yield* withHost(
               site.db,
-              Effect.gen(function* () {
-                const host = yield* NodeDurableHost;
+              Effect.gen(function*() {
+                const host = yield* NodeDurableHost
 
-                expect(yield* lookupState(before.submissionId)).toBe("settled");
+                expect(yield* lookupState(before.submissionId)).toBe('settled')
 
-                const records = yield* readLog(thread);
+                const records = yield* readLog(thread)
 
                 const settled = records.filter(
-                  (envelope) => envelope.record.payload._tag === "SubmissionSettled",
-                );
+                  (envelope) => envelope.record.payload._tag === 'SubmissionSettled',
+                )
 
-                expect(settled).toHaveLength(1);
-                expect(settled[0]).toEqual(before.envelope);
+                expect(settled).toHaveLength(1)
+                expect(settled[0]).toEqual(before.envelope)
 
-                const receipt = yield* resubmit(thread, key);
-                const settlement = yield* host.awaitSettlement(receipt);
+                const receipt = yield* resubmit(thread, key)
+                const settlement = yield* host.awaitSettlement(receipt)
 
-                expect(settlement.outcome).toBe("completed");
-                yield* assertConvergence(thread, [before.submissionId]);
+                expect(settlement.outcome).toBe('completed')
+                yield* assertConvergence(thread, [before.submissionId])
               }),
-            );
-          }),
+            )
+          })
         ),
       30_000,
-    );
+    )
 
     it.effect(
-      "kill at abort:after-intent on a QUEUED submission: the aborted non-head settles without waiting for the head",
+      'kill at abort:after-intent on a QUEUED submission: the aborted non-head settles without waiting for the head',
       () =>
         withCrashSite((site) =>
-          Effect.gen(function* () {
+          Effect.gen(function*() {
             // P7 §7(c): settlement order of never-run work is not execution order — restart
             // recovery settles the aborted, never-claimed, non-head `ready` Submission
             // immediately, while the head is still unsettled (DUR-004 bounds execution;
             // DUR-012 permits settling inactive accepted work without an Attempt).
-            const thread = "thread-abort-queued";
-            const key = "abort-queued-1";
+            const thread = 'thread-abort-queued'
+            const key = 'abort-queued-1'
 
             const result = yield* runWorkerToExit({
               db: site.db,
-              scenario: "abort-queued",
+              scenario: 'abort-queued',
               thread,
               key,
-              killAt: "abort:after-intent",
-            });
+              killAt: 'abort:after-intent',
+            })
 
-            expectKilled(result);
+            expectKilled(result)
 
             yield* withHost(
               site.db,
-              Effect.gen(function* () {
-                const runtime = yield* DurableAgentRuntime;
-                const head = yield* lookupByKey(thread, `${key}-head`);
-                const queued = yield* lookupByKey(thread, `${key}-queued`);
+              Effect.gen(function*() {
+                const runtime = yield* DurableAgentRuntime
+                const head = yield* lookupByKey(thread, `${key}-head`)
+                const queued = yield* lookupByKey(thread, `${key}-queued`)
 
                 // The aborted non-head is settled while the head is still nonterminal.
-                expect(queued.state).toBe("settled");
-                expect(queued.settledOutcome).toBe("aborted");
-                expect(head.state).not.toBe("settled");
+                expect(queued.state).toBe('settled')
+                expect(queued.settledOutcome).toBe('aborted')
+                expect(head.state).not.toBe('settled')
 
-                const midRecords = yield* readLog(thread);
-                const midIds = midRecords.map((envelope) => envelope.record.recordId);
+                const midRecords = yield* readLog(thread)
+                const midIds = midRecords.map((envelope) => envelope.record.recordId)
 
                 // Never claimed: no canonical input, no model call; abort precedes settlement.
-                expect(midIds).not.toContain(submissionInputRecordId(queued.submissionId));
+                expect(midIds).not.toContain(submissionInputRecordId(queued.submissionId))
                 // A repair without a claim cannot append an audit under another writer's epoch.
                 expect(midIds).not.toContain(
-                  recoveryRepairRecordId(queued.submissionId, "SettleAborted"),
-                );
+                  recoveryRepairRecordId(queued.submissionId, 'SettleAborted'),
+                )
 
                 // The head then completes normally behind the already-settled non-head.
-                const settlements = yield* drainPlanner(thread, '{"answer":"post-abort"}');
+                const settlements = yield* drainPlanner(thread, '{"answer":"post-abort"}')
 
                 expect(settlements.map((settlement) => settlement.submissionId)).toEqual([
                   head.submissionId,
-                ]);
-                expect(settlements[0]?.outcome).toBe("completed");
+                ])
+                expect(settlements[0]?.outcome).toBe('completed')
 
-                const records = yield* readLog(thread);
-                const recordIds = records.map((envelope) => envelope.record.recordId);
+                const records = yield* readLog(thread)
+                const recordIds = records.map((envelope) => envelope.record.recordId)
 
                 expect(
                   recordIds.indexOf(submissionSettlementRecordId(queued.submissionId)),
-                ).toBeLessThan(recordIds.indexOf(submissionSettlementRecordId(head.submissionId)));
+                ).toBeLessThan(recordIds.indexOf(submissionSettlementRecordId(head.submissionId)))
 
                 // A settled Submission can never be aborted into a different outcome (DUR-012).
                 const conflict = yield* Effect.exit(
                   runtime.abort(
                     AbortCommand.make({
                       submissionId: queued.submissionId,
-                      author: "operator",
-                      reason: "second abort",
+                      author: 'operator',
+                      reason: 'second abort',
                     }),
                   ),
-                );
+                )
 
-                expect(failureTag(conflict)).toBe("SettlementConflict");
-                yield* assertConvergence(thread, [head.submissionId, queued.submissionId]);
+                expect(failureTag(conflict)).toBe('SettlementConflict')
+                yield* assertConvergence(thread, [head.submissionId, queued.submissionId])
               }),
-            );
-          }),
+            )
+          })
         ),
       30_000,
-    );
+    )
 
     it.effect(
-      "abort routed to the active owner: canonical AbortRequested precedes settlement",
+      'abort routed to the active owner: canonical AbortRequested precedes settlement',
       () =>
         withCrashSite((site) =>
-          Effect.gen(function* () {
-            const thread = "thread-abort-active";
-            const key = "abort-active-1";
+          Effect.gen(function*() {
+            const thread = 'thread-abort-active'
+            const key = 'abort-active-1'
 
             yield* Effect.scoped(
-              Effect.gen(function* () {
+              Effect.gen(function*() {
                 const handle = yield* startWorker({
                   db: site.db,
-                  scenario: "abort-active",
+                  scenario: 'abort-active',
                   thread,
                   key,
                   markerFile: site.marker,
                   releaseFile: site.release,
-                });
+                })
 
                 // The child's Attempt is live and blocked inside its first model call.
-                yield* waitForFile(site.marker);
+                yield* waitForFile(site.marker)
 
                 // Route the operator command to the sole owner through the fixture's file channel.
-                yield* touchFile(site.release);
+                yield* touchFile(site.release)
 
-                const exit = yield* handle.awaitExit;
+                const exit = yield* handle.awaitExit
 
-                expect(exit.code, `stderr: ${handle.stderrText()}`).toBe(0);
+                expect(exit.code, `stderr: ${handle.stderrText()}`).toBe(0)
 
                 const settled = childMessages(handle.stdoutText()).find(
-                  (message) => message.kind === "settlements",
-                );
+                  (message) => message.kind === 'settlements',
+                )
 
-                expect(settled?.kind === "settlements" && settled.settlements.length).toBe(1);
-                if (settled?.kind === "settlements") {
-                  expect(settled.settlements[0]?.outcome).toBe("aborted");
+                expect(settled?.kind === 'settlements' && settled.settlements.length).toBe(1)
+                if (settled?.kind === 'settlements') {
+                  expect(settled.settlements[0]?.outcome).toBe('aborted')
                 }
               }),
-            );
+            )
 
             yield* withHost(
               site.db,
-              Effect.gen(function* () {
-                const host = yield* NodeDurableHost;
-                const runtime = yield* DurableAgentRuntime;
-                const snapshot = yield* lookupByKey(thread, key);
+              Effect.gen(function*() {
+                const host = yield* NodeDurableHost
+                const runtime = yield* DurableAgentRuntime
+                const snapshot = yield* lookupByKey(thread, key)
 
-                expect(snapshot.state).toBe("settled");
+                expect(snapshot.state).toBe('settled')
 
-                const records = yield* readLog(thread);
-                const tags = logTags(records);
+                const records = yield* readLog(thread)
+                const tags = logTags(records)
 
                 // The canonical abort precedes settlement, with no committed model response.
-                expect(tags.indexOf("AbortRequested")).toBeGreaterThanOrEqual(0);
-                expect(tags.indexOf("AbortRequested")).toBeLessThan(
-                  tags.indexOf("SubmissionSettled"),
-                );
-                expect(tags).not.toContain("ModelResponseRecorded");
-                expect(tags).toContain("UserInputRecorded");
+                expect(tags.indexOf('AbortRequested')).toBeGreaterThanOrEqual(0)
+                expect(tags.indexOf('AbortRequested')).toBeLessThan(
+                  tags.indexOf('SubmissionSettled'),
+                )
+                expect(tags).not.toContain('ModelResponseRecorded')
+                expect(tags).toContain('UserInputRecorded')
 
-                const receipt = yield* resubmit(thread, key);
-                const settlement = yield* host.awaitSettlement(receipt);
+                const receipt = yield* resubmit(thread, key)
+                const settlement = yield* host.awaitSettlement(receipt)
 
-                expect(settlement.outcome).toBe("aborted");
+                expect(settlement.outcome).toBe('aborted')
 
                 const conflict = yield* Effect.exit(
                   runtime.abort(
                     AbortCommand.make({
                       submissionId: snapshot.submissionId,
-                      author: "operator",
-                      reason: "stop the run",
+                      author: 'operator',
+                      reason: 'stop the run',
                     }),
                   ),
-                );
+                )
 
-                expect(failureTag(conflict)).toBe("SettlementConflict");
-                yield* assertConvergence(thread, [snapshot.submissionId]);
+                expect(failureTag(conflict)).toBe('SettlementConflict')
+                yield* assertConvergence(thread, [snapshot.submissionId])
               }),
-            );
-          }),
+            )
+          })
         ),
       30_000,
-    );
+    )
 
     // ------------------------------------------------------------------------------------------
     // P5 rows (plan §4.3): durable ordinary Tools, Durable Steps, approval suspension, joining.
     // ------------------------------------------------------------------------------------------
 
     it.effect(
-      "kill at turn:after-response-append under the default reconciler: Unknown parks work until resolveUnknown from a second process",
+      'kill at turn:after-response-append under the default reconciler: Unknown parks work until resolveUnknown from a second process',
       () =>
         withCrashSite((site) =>
-          Effect.gen(function* () {
-            const thread = "thread-kill-declared-unknown";
-            const key = "kill-declared-unknown-1";
+          Effect.gen(function*() {
+            const thread = 'thread-kill-declared-unknown'
+            const key = 'kill-declared-unknown-1'
 
             const result = yield* runWorkerToExit({
               db: site.db,
-              scenario: "run-uncertain",
+              scenario: 'run-uncertain',
               thread,
               key,
-              killAt: "turn:after-response-append",
+              killAt: 'turn:after-response-append',
               supplierDir: site.supplier,
-            });
+            })
 
-            expectKilled(result);
+            expectKilled(result)
 
             const retained = yield* withHost(
               site.db,
-              Effect.gen(function* () {
-                const snapshot = yield* lookupByKey(thread, key);
-                const runId = runIdForSubmission(snapshot.submissionId);
+              Effect.gen(function*() {
+                const snapshot = yield* lookupByKey(thread, key)
+                const runId = runIdForSubmission(snapshot.submissionId)
 
-                expect(yield* lookupState(snapshot.submissionId)).toBe("unknown");
+                expect(yield* lookupState(snapshot.submissionId)).toBe('unknown')
                 expect(
                   (yield* readLog(thread)).map((envelope) => envelope.record.recordId),
-                ).toContain(toolCallUnknownRecordId(runId, 1, decodeToolCallId(BOOK_CALL_ID)));
+                ).toContain(toolCallUnknownRecordId(runId, 1, decodeToolCallId(BOOK_CALL_ID)))
 
                 // The unresolved ordinary call is never auto-replayed: draining grants nothing.
-                const blocked = yield* drainUncertainBook(site, thread, FRESH_ANSWER);
+                const blocked = yield* drainUncertainBook(site, thread, FRESH_ANSWER)
 
-                expect(blocked).toEqual([]);
-                expect(supplierCount(site.supplier, "book", BOOK_REF)).toBe(0);
+                expect(blocked).toEqual([])
+                expect(supplierCount(site.supplier, 'book', BOOK_REF)).toBe(0)
 
-                return yield* readLog(thread);
+                return yield* readLog(thread)
               }),
-            );
+            )
 
             // The observer closes before a new process becomes the sole owner.
             yield* runResolver({
               db: site.db,
-              scenario: "resolve-unknown",
+              scenario: 'resolve-unknown',
               thread,
               key,
-            });
+            })
             yield* withHost(
               site.db,
-              Effect.gen(function* () {
-                const snapshot = yield* lookupByKey(thread, key);
-                const runId = runIdForSubmission(snapshot.submissionId);
+              Effect.gen(function*() {
+                const snapshot = yield* lookupByKey(thread, key)
+                const runId = runIdForSubmission(snapshot.submissionId)
 
-                expect(yield* lookupState(snapshot.submissionId)).toBe("input-applied");
-                expect(yield* readLog(thread)).toEqual(retained);
-                const ledger = yield* SubmissionLedger;
+                expect(yield* lookupState(snapshot.submissionId)).toBe('input-applied')
+                expect(yield* readLog(thread)).toEqual(retained)
+                const ledger = yield* SubmissionLedger
 
                 const resolved = yield* ledger.loadRecoverySnapshot(
                   RecoverySnapshotRequest.make({ submissionId: snapshot.submissionId }),
-                );
+                )
 
                 expect(resolved.unknownResolutions).toMatchObject([
                   {
                     toolCallId: BOOK_CALL_ID,
-                    author: "operator",
-                    reason: "the supplier store shows the call never started",
-                    resolution: { _tag: "NeverHappened" },
+                    author: 'operator',
+                    reason: 'the supplier store shows the call never started',
+                    resolution: { _tag: 'NeverHappened' },
                   },
-                ]);
+                ])
 
-                const settlements = yield* drainUncertainBook(site, thread, FRESH_ANSWER);
+                const settlements = yield* drainUncertainBook(site, thread, FRESH_ANSWER)
 
-                expect(settlements).toHaveLength(1);
-                expect(settlements[0]?.outcome).toBe("completed");
-                expect(supplierCount(site.supplier, "book", BOOK_REF)).toBe(1);
+                expect(settlements).toHaveLength(1)
+                expect(settlements[0]?.outcome).toBe('completed')
+                expect(supplierCount(site.supplier, 'book', BOOK_REF)).toBe(1)
 
-                const records = yield* readLog(thread);
+                const records = yield* readLog(thread)
 
-                expect(records.slice(0, retained.length)).toEqual(retained);
+                expect(records.slice(0, retained.length)).toEqual(retained)
                 expect(
                   records.filter(
                     (envelope) =>
                       envelope.record.recordId ===
-                      toolCallSettledRecordId(runId, 1, decodeToolCallId(BOOK_CALL_ID)),
+                        toolCallSettledRecordId(runId, 1, decodeToolCallId(BOOK_CALL_ID)),
                   ),
-                ).toHaveLength(1);
+                ).toHaveLength(1)
                 yield* assertConvergence(thread, [snapshot.submissionId], {
                   site,
                   counts: { [`book:${BOOK_REF}`]: 1 },
-                });
+                })
               }),
-            );
-          }),
+            )
+          })
         ),
       30_000,
-    );
+    )
 
     it.effect(
-      "SIGKILL mid-handler: the reconciler recovers the supplier booking without a second call",
+      'SIGKILL mid-handler: the reconciler recovers the supplier booking without a second call',
       () =>
         withCrashSite((site) =>
-          Effect.gen(function* () {
-            const thread = "thread-kill-midhandler";
-            const key = "kill-midhandler-1";
+          Effect.gen(function*() {
+            const thread = 'thread-kill-midhandler'
+            const key = 'kill-midhandler-1'
 
             const exit = yield* Effect.scoped(
-              Effect.gen(function* () {
+              Effect.gen(function*() {
                 const handle = yield* startWorker({
                   db: site.db,
-                  scenario: "run-uncertain",
+                  scenario: 'run-uncertain',
                   thread,
                   key,
                   supplierDir: site.supplier,
                   markerFile: site.marker,
-                });
+                })
 
                 // The handler has performed the EXTERNAL booking (marker proves it) but will
                 // never return: kill the process while the call is prepared-but-unsettled.
-                yield* waitForFile(site.marker);
-                handle.kill();
+                yield* waitForFile(site.marker)
+                handle.kill()
 
-                return yield* handle.awaitExit;
+                return yield* handle.awaitExit
               }),
-            );
+            )
 
-            expect(exit.signal).toBe("SIGKILL");
-            expect(supplierCount(site.supplier, "book", BOOK_REF)).toBe(1);
+            expect(exit.signal).toBe('SIGKILL')
+            expect(supplierCount(site.supplier, 'book', BOOK_REF)).toBe(1)
 
             yield* withHost(
               site.db,
-              Effect.gen(function* () {
-                const snapshot = yield* lookupByKey(thread, key);
-                const runId = runIdForSubmission(snapshot.submissionId);
+              Effect.gen(function*() {
+                const snapshot = yield* lookupByKey(thread, key)
+                const runId = runIdForSubmission(snapshot.submissionId)
 
-                expect(supplierCount(site.supplier, "book", BOOK_REF)).toBe(1);
+                expect(supplierCount(site.supplier, 'book', BOOK_REF)).toBe(1)
 
-                const records = yield* readLog(thread);
+                const records = yield* readLog(thread)
 
                 const settled = records.find(
                   (envelope) =>
                     envelope.record.recordId ===
-                    toolCallSettledRecordId(runId, 1, decodeToolCallId(BOOK_CALL_ID)),
-                )?.record.payload;
+                      toolCallSettledRecordId(runId, 1, decodeToolCallId(BOOK_CALL_ID)),
+                )?.record.payload
 
-                expect(settled?._tag).toBe("ToolCallSettled");
-                if (settled?._tag === "ToolCallSettled") {
-                  expect(settled.result).toEqual({ confirmation: `confirmed-${BOOK_REF}` });
-                  expect(settled.isFailure).toBe(false);
+                expect(settled?._tag).toBe('ToolCallSettled')
+                if (settled?._tag === 'ToolCallSettled') {
+                  expect(settled.result).toEqual({ confirmation: `confirmed-${BOOK_REF}` })
+                  expect(settled.isFailure).toBe(false)
                 }
 
                 const resolved = records.find(
                   (envelope) =>
                     envelope.record.recordId ===
-                    toolCallResolvedRecordId(runId, 1, decodeToolCallId(BOOK_CALL_ID)),
-                )?.record.payload;
+                      toolCallResolvedRecordId(runId, 1, decodeToolCallId(BOOK_CALL_ID)),
+                )?.record.payload
 
-                expect(resolved?._tag).toBe("ToolCallResolved");
-                if (resolved?._tag === "ToolCallResolved") {
-                  expect(resolved.resolution).toBe("completed-with-result");
-                  expect(resolved.author).toBe("reconciler");
+                expect(resolved?._tag).toBe('ToolCallResolved')
+                if (resolved?._tag === 'ToolCallResolved') {
+                  expect(resolved.resolution).toBe('completed-with-result')
+                  expect(resolved.author).toBe('reconciler')
                 }
 
-                const settlements = yield* drainUncertainBook(site, thread, FRESH_ANSWER);
+                const settlements = yield* drainUncertainBook(site, thread, FRESH_ANSWER)
 
-                expect(settlements).toHaveLength(1);
-                expect(settlements[0]?.outcome).toBe("completed");
+                expect(settlements).toHaveLength(1)
+                expect(settlements[0]?.outcome).toBe('completed')
                 // The supplier call count stays 1: the recovered outcome was never re-executed.
-                expect(supplierCount(site.supplier, "book", BOOK_REF)).toBe(1);
+                expect(supplierCount(site.supplier, 'book', BOOK_REF)).toBe(1)
                 yield* assertConvergence(thread, [snapshot.submissionId], {
                   site,
                   counts: { [`book:${BOOK_REF}`]: 1 },
-                });
+                })
               }),
               { toolReconciler: supplierReconcilerLayer(site.supplier) },
-            );
-          }),
+            )
+          })
         ),
       30_000,
-    );
+    )
 
     it.effect(
-      "kill after the handler returns, before the results append: the idempotent contract re-executes honestly",
+      'kill after the handler returns, before the results append: the idempotent contract re-executes honestly',
       () =>
         withCrashSite((site) =>
-          Effect.gen(function* () {
-            const thread = "thread-kill-preresults";
-            const key = "kill-preresults-1";
+          Effect.gen(function*() {
+            const thread = 'thread-kill-preresults'
+            const key = 'kill-preresults-1'
 
             // The supplier gate arms `append:before` to fire only once the booking exists, so the
             // kill lands exactly between the handler's return and the Turn's results append.
             const result = yield* runWorkerToExit({
               db: site.db,
-              scenario: "run-idempotent",
+              scenario: 'run-idempotent',
               thread,
               key,
-              killAtStorage: "append:before",
+              killAtStorage: 'append:before',
               killRequiresSupplier: `book:${BOOK_REF}`,
               supplierDir: site.supplier,
-            });
+            })
 
-            expectKilled(result);
-            expect(supplierCount(site.supplier, "book", BOOK_REF)).toBe(1);
+            expectKilled(result)
+            expect(supplierCount(site.supplier, 'book', BOOK_REF)).toBe(1)
 
             // Deliberately NO recovery pass: a recovery pass has no Agent Binding, so the
             // annotation is invisible there and the default reconciler would fail closed to
             // Unknown. The WORKER resume owns the declared idempotency contract.
             yield* withRuntime(
               site.db,
-              Effect.gen(function* () {
-                const snapshot = yield* lookupByKey(thread, key);
-                const runId = runIdForSubmission(snapshot.submissionId);
+              Effect.gen(function*() {
+                const snapshot = yield* lookupByKey(thread, key)
+                const runId = runIdForSubmission(snapshot.submissionId)
 
-                expect(snapshot.state).not.toBe("settled");
-                const before = (yield* readLog(thread)).map((envelope) => envelope.record.recordId);
+                expect(snapshot.state).not.toBe('settled')
+                const before = (yield* readLog(thread)).map((envelope) => envelope.record.recordId)
 
                 // The result was lost in memory: the declaration is canonical, settlement is not.
-                expect(before).toContain(modelResponseRecordId(runId, 1));
+                expect(before).toContain(modelResponseRecordId(runId, 1))
                 expect(before).not.toContain(
                   toolCallSettledRecordId(runId, 1, decodeToolCallId(BOOK_CALL_ID)),
-                );
+                )
 
-                const settlements = yield* drainIdempotentBook(site, thread, FRESH_ANSWER);
+                const settlements = yield* drainIdempotentBook(site, thread, FRESH_ANSWER)
 
-                expect(settlements).toHaveLength(1);
-                expect(settlements[0]?.outcome).toBe("completed");
+                expect(settlements).toHaveLength(1)
+                expect(settlements[0]?.outcome).toBe('completed')
 
                 // Honest at-least-once: the declared contract re-executed the external call and
                 // the duplicate is OBSERVABLE — supplier count 2, never hidden (rule 8).
-                expect(supplierCount(site.supplier, "book", BOOK_REF)).toBe(2);
-                const records = yield* readLog(thread);
+                expect(supplierCount(site.supplier, 'book', BOOK_REF)).toBe(2)
+                const records = yield* readLog(thread)
 
-                expect(logTags(records)).not.toContain("ToolCallUnknown");
+                expect(logTags(records)).not.toContain('ToolCallUnknown')
                 expect(
                   records.filter(
                     (envelope) =>
                       envelope.record.recordId ===
-                      toolCallSettledRecordId(runId, 1, decodeToolCallId(BOOK_CALL_ID)),
+                        toolCallSettledRecordId(runId, 1, decodeToolCallId(BOOK_CALL_ID)),
                   ),
-                ).toHaveLength(1);
+                ).toHaveLength(1)
                 yield* assertConvergence(thread, [snapshot.submissionId], {
                   site,
                   counts: { [`book:${BOOK_REF}`]: 2 },
-                });
+                })
               }),
-            );
-          }),
+            )
+          })
         ),
       30_000,
-    );
+    )
 
     it.effect(
-      "kill at step:after-step-append: step 1 replays from its record while step 2 executes once",
+      'kill at step:after-step-append: step 1 replays from its record while step 2 executes once',
       () =>
         withCrashSite((site) =>
-          Effect.gen(function* () {
-            const thread = "thread-kill-step";
-            const key = "kill-step-1";
+          Effect.gen(function*() {
+            const thread = 'thread-kill-step'
+            const key = 'kill-step-1'
 
             const result = yield* runWorkerToExit({
               db: site.db,
-              scenario: "run-steps",
+              scenario: 'run-steps',
               thread,
               key,
-              killAt: "step:after-step-append",
+              killAt: 'step:after-step-append',
               supplierDir: site.supplier,
-            });
+            })
 
-            expectKilled(result);
+            expectKilled(result)
             // Step 1 executed and committed; step 2 never ran; the handler entered once.
-            expect(supplierCount(site.supplier, "itinerary-enter", STEP_REF)).toBe(1);
-            expect(supplierCount(site.supplier, "reserve-flight", STEP_REF)).toBe(1);
-            expect(supplierCount(site.supplier, "reserve-lodging", STEP_REF)).toBe(0);
+            expect(supplierCount(site.supplier, 'itinerary-enter', STEP_REF)).toBe(1)
+            expect(supplierCount(site.supplier, 'reserve-flight', STEP_REF)).toBe(1)
+            expect(supplierCount(site.supplier, 'reserve-lodging', STEP_REF)).toBe(0)
 
             yield* withHost(
               site.db,
-              Effect.gen(function* () {
-                const snapshot = yield* lookupByKey(thread, key);
-                const runId = runIdForSubmission(snapshot.submissionId);
-                const callId = decodeToolCallId(ITINERARY_CALL_ID);
-                const committed = yield* readLog(thread);
+              Effect.gen(function*() {
+                const snapshot = yield* lookupByKey(thread, key)
+                const runId = runIdForSubmission(snapshot.submissionId)
+                const callId = decodeToolCallId(ITINERARY_CALL_ID)
+                const committed = yield* readLog(thread)
 
                 expect(committed.map((envelope) => envelope.record.recordId)).toContain(
-                  toolStepSettledRecordId(runId, callId, "reserve-flight"),
-                );
+                  toolStepSettledRecordId(runId, callId, 'reserve-flight'),
+                )
 
-                const settlements = yield* drainItinerary(site, thread, FRESH_ANSWER);
+                const settlements = yield* drainItinerary(site, thread, FRESH_ANSWER)
 
-                expect(settlements).toHaveLength(1);
-                expect(settlements[0]?.outcome).toBe("completed");
+                expect(settlements).toHaveLength(1)
+                expect(settlements[0]?.outcome).toBe('completed')
 
                 // The handler re-entered honestly (at-least-once), step 1 replayed its recorded
                 // result WITHOUT executing (supplier count stays 1), step 2 executed exactly once.
-                expect(supplierCount(site.supplier, "itinerary-enter", STEP_REF)).toBe(2);
-                expect(supplierCount(site.supplier, "reserve-flight", STEP_REF)).toBe(1);
-                expect(supplierCount(site.supplier, "reserve-lodging", STEP_REF)).toBe(1);
+                expect(supplierCount(site.supplier, 'itinerary-enter', STEP_REF)).toBe(2)
+                expect(supplierCount(site.supplier, 'reserve-flight', STEP_REF)).toBe(1)
+                expect(supplierCount(site.supplier, 'reserve-lodging', STEP_REF)).toBe(1)
 
-                const records = yield* readLog(thread);
+                const records = yield* readLog(thread)
 
                 expect(
                   records.filter(
                     (envelope) =>
                       envelope.record.recordId ===
-                      toolStepSettledRecordId(runId, callId, "reserve-flight"),
+                        toolStepSettledRecordId(runId, callId, 'reserve-flight'),
                   ),
-                ).toHaveLength(1);
+                ).toHaveLength(1)
                 expect(records.map((envelope) => envelope.record.recordId)).toContain(
-                  toolStepSettledRecordId(runId, callId, "reserve-lodging"),
-                );
+                  toolStepSettledRecordId(runId, callId, 'reserve-lodging'),
+                )
 
                 const settled = records.find(
-                  (envelope) =>
-                    envelope.record.recordId === toolCallSettledRecordId(runId, 1, callId),
-                )?.record.payload;
+                  (envelope) => envelope.record.recordId === toolCallSettledRecordId(runId, 1, callId),
+                )?.record.payload
 
-                expect(settled?._tag).toBe("ToolCallSettled");
-                if (settled?._tag === "ToolCallSettled") {
+                expect(settled?._tag).toBe('ToolCallSettled')
+                if (settled?._tag === 'ToolCallSettled') {
                   expect(settled.result).toEqual({
                     state: `flight-${STEP_REF}+lodging-${STEP_REF}`,
-                  });
+                  })
                 }
                 yield* assertConvergence(thread, [snapshot.submissionId], {
                   site,
@@ -1231,399 +1229,398 @@ layer(NodeFileSystem.layer, { excludeTestServices: true })(
                     [`reserve-flight:${STEP_REF}`]: 1,
                     [`reserve-lodging:${STEP_REF}`]: 1,
                   },
-                });
+                })
               }),
               { toolReconciler: supplierReconcilerLayer(site.supplier) },
-            );
-          }),
+            )
+          })
         ),
       30_000,
-    );
+    )
 
     it.effect(
-      "kill at approval:after-request-append: recovery repairs the suspension from history and nothing executes",
+      'kill at approval:after-request-append: recovery repairs the suspension from history and nothing executes',
       () =>
         withCrashSite((site) =>
-          Effect.gen(function* () {
-            const thread = "thread-kill-approval-request";
-            const key = "kill-approval-request-1";
+          Effect.gen(function*() {
+            const thread = 'thread-kill-approval-request'
+            const key = 'kill-approval-request-1'
 
             const result = yield* runWorkerToExit({
               db: site.db,
-              scenario: "suspend-approval",
+              scenario: 'suspend-approval',
               thread,
               key,
-              killAt: "approval:after-request-append",
+              killAt: 'approval:after-request-append',
               supplierDir: site.supplier,
-            });
+            })
 
-            expectKilled(result);
+            expectKilled(result)
 
             // Before recovery: the request is canonical, the ledger never suspended.
             yield* withRuntime(
               site.db,
-              Effect.gen(function* () {
-                const snapshot = yield* lookupByKey(thread, key);
-                const runId = runIdForSubmission(snapshot.submissionId);
+              Effect.gen(function*() {
+                const snapshot = yield* lookupByKey(thread, key)
+                const runId = runIdForSubmission(snapshot.submissionId)
 
-                expect(snapshot.state).toBe("input-applied");
+                expect(snapshot.state).toBe('input-applied')
                 expect(
                   (yield* readLog(thread)).map((envelope) => envelope.record.recordId),
-                ).toContain(toolApprovalRequestRecordId(runId, 1, decodeToolCallId(BOOK_CALL_ID)));
+                ).toContain(toolApprovalRequestRecordId(runId, 1, decodeToolCallId(BOOK_CALL_ID)))
               }),
-            );
+            )
 
             yield* withHost(
               site.db,
-              Effect.gen(function* () {
-                const snapshot = yield* lookupByKey(thread, key);
+              Effect.gen(function*() {
+                const snapshot = yield* lookupByKey(thread, key)
 
-                expect(yield* lookupState(snapshot.submissionId)).toBe("suspended");
-                expect(supplierCount(site.supplier, "book", BOOK_REF)).toBe(0);
+                expect(yield* lookupState(snapshot.submissionId)).toBe('suspended')
+                expect(supplierCount(site.supplier, 'book', BOOK_REF)).toBe(0)
               }),
-            );
+            )
             yield* runResolver({
               db: site.db,
-              scenario: "resolve-approval",
+              scenario: 'resolve-approval',
               thread,
               key,
-              decision: "approved",
-            });
+              decision: 'approved',
+            })
             yield* withHost(
               site.db,
-              Effect.gen(function* () {
-                const snapshot = yield* lookupByKey(thread, key);
-                const runId = runIdForSubmission(snapshot.submissionId);
+              Effect.gen(function*() {
+                const snapshot = yield* lookupByKey(thread, key)
+                const runId = runIdForSubmission(snapshot.submissionId)
 
-                expect(yield* lookupState(snapshot.submissionId)).toBe("input-applied");
+                expect(yield* lookupState(snapshot.submissionId)).toBe('input-applied')
 
-                const settlements = yield* drainApprovalBook(site, thread, FRESH_ANSWER);
+                const settlements = yield* drainApprovalBook(site, thread, FRESH_ANSWER)
 
-                expect(settlements).toHaveLength(1);
-                expect(settlements[0]?.outcome).toBe("completed");
-                expect(supplierCount(site.supplier, "book", BOOK_REF)).toBe(1);
+                expect(settlements).toHaveLength(1)
+                expect(settlements[0]?.outcome).toBe('completed')
+                expect(supplierCount(site.supplier, 'book', BOOK_REF)).toBe(1)
 
                 // The request was appended exactly once across the crash and both Attempts.
-                const records = yield* readLog(thread);
+                const records = yield* readLog(thread)
 
                 expect(
                   records.filter(
-                    (envelope) => envelope.record.payload._tag === "ToolApprovalRequested",
+                    (envelope) => envelope.record.payload._tag === 'ToolApprovalRequested',
                   ),
-                ).toHaveLength(1);
+                ).toHaveLength(1)
 
                 const decision = records.find(
                   (envelope) =>
                     envelope.record.recordId ===
-                    toolApprovalDecisionRecordId(runId, 1, decodeToolCallId(BOOK_CALL_ID)),
-                )?.record.payload;
+                      toolApprovalDecisionRecordId(runId, 1, decodeToolCallId(BOOK_CALL_ID)),
+                )?.record.payload
 
-                expect(decision?._tag).toBe("ToolApprovalDecided");
-                if (decision?._tag === "ToolApprovalDecided") {
-                  expect(decision.decision).toBe("approved");
-                  expect(decision.resolver).toBe("operator");
+                expect(decision?._tag).toBe('ToolApprovalDecided')
+                if (decision?._tag === 'ToolApprovalDecided') {
+                  expect(decision.decision).toBe('approved')
+                  expect(decision.resolver).toBe('operator')
                 }
                 yield* assertConvergence(thread, [snapshot.submissionId], {
                   site,
                   counts: { [`book:${BOOK_REF}`]: 1 },
-                });
+                })
               }),
-            );
-          }),
+            )
+          })
         ),
       30_000,
-    );
+    )
 
     // The requests-first barrier rules out A's canonical decision preceding B's request.
     // Kill at the reachable prefix instead: A requested, B absent, no handler dispatched.
     it.effect(
-      "reopens sequential approvals after the first request without losing initial-dispatch proof",
+      'reopens sequential approvals after the first request without losing initial-dispatch proof',
       () =>
         withCrashSite((site) =>
-          Effect.gen(function* () {
-            const thread = "thread-kill-sequential-approval";
-            const key = "kill-sequential-approval";
+          Effect.gen(function*() {
+            const thread = 'thread-kill-sequential-approval'
+            const key = 'kill-sequential-approval'
 
             const result = yield* runWorkerToExit({
               db: site.db,
-              scenario: "suspend-sequential-approval",
+              scenario: 'suspend-sequential-approval',
               thread,
               key,
-              killAt: "approval:after-request-append",
+              killAt: 'approval:after-request-append',
               supplierDir: site.supplier,
-            });
+            })
 
-            expectKilled(result);
+            expectKilled(result)
             yield* withRuntime(
               site.db,
-              Effect.gen(function* () {
-                const records = yield* readLog(thread);
+              Effect.gen(function*() {
+                const records = yield* readLog(thread)
 
                 const requests = records.flatMap(({ record: { payload } }) =>
-                  payload._tag === "ToolApprovalRequested" ? [payload.toolCallId] : [],
-                );
+                  payload._tag === 'ToolApprovalRequested' ? [payload.toolCallId] : []
+                )
 
-                expect(requests).toEqual([BOOK_CALL_ID]);
-                expect(logTags(records)).not.toContain("ToolApprovalDecided");
-                expect(logTags(records)).not.toContain("ToolCallUnknown");
+                expect(requests).toEqual([BOOK_CALL_ID])
+                expect(logTags(records)).not.toContain('ToolApprovalDecided')
+                expect(logTags(records)).not.toContain('ToolCallUnknown')
               }),
-            );
-            expect(supplierCount(site.supplier, "book", BOOK_REF)).toBe(0);
-            expect(supplierCount(site.supplier, "book", SECOND_BOOK_REF)).toBe(0);
+            )
+            expect(supplierCount(site.supplier, 'book', BOOK_REF)).toBe(0)
+            expect(supplierCount(site.supplier, 'book', SECOND_BOOK_REF)).toBe(0)
             yield* withHost(
               site.db,
-              Effect.gen(function* () {
-                const runtime = yield* DurableAgentRuntime;
-                const snapshot = yield* lookupByKey(thread, key);
+              Effect.gen(function*() {
+                const runtime = yield* DurableAgentRuntime
+                const snapshot = yield* lookupByKey(thread, key)
 
-                expect(snapshot.state).toBe("suspended");
+                expect(snapshot.state).toBe('suspended')
                 yield* runtime.resolveApproval(
                   ApprovalDecisionCommand.make({
                     submissionId: snapshot.submissionId,
                     toolCallId: decodeToolCallId(BOOK_CALL_ID),
-                    decision: "approved",
-                    resolver: "operator",
-                    reason: "Approve the first call after restart",
+                    decision: 'approved',
+                    resolver: 'operator',
+                    reason: 'Approve the first call after restart',
                   }),
-                );
-                expect(yield* drainApprovalBook(site, thread, FRESH_ANSWER)).toEqual([]);
-                expect(yield* lookupState(snapshot.submissionId)).toBe("suspended");
-                expect(supplierCount(site.supplier, "book", BOOK_REF)).toBe(0);
-                expect(supplierCount(site.supplier, "book", SECOND_BOOK_REF)).toBe(0);
-                const intermediate = yield* readLog(thread);
+                )
+                expect(yield* drainApprovalBook(site, thread, FRESH_ANSWER)).toEqual([])
+                expect(yield* lookupState(snapshot.submissionId)).toBe('suspended')
+                expect(supplierCount(site.supplier, 'book', BOOK_REF)).toBe(0)
+                expect(supplierCount(site.supplier, 'book', SECOND_BOOK_REF)).toBe(0)
+                const intermediate = yield* readLog(thread)
 
                 const secondRequest = intermediate.findIndex(
                   ({ record: { payload } }) =>
-                    payload._tag === "ToolApprovalRequested" &&
+                    payload._tag === 'ToolApprovalRequested' &&
                     payload.toolCallId === SECOND_BOOK_CALL_ID,
-                );
+                )
 
                 const firstDecision = intermediate.findIndex(
                   ({ record: { payload } }) =>
-                    payload._tag === "ToolApprovalDecided" && payload.toolCallId === BOOK_CALL_ID,
-                );
+                    payload._tag === 'ToolApprovalDecided' && payload.toolCallId === BOOK_CALL_ID,
+                )
 
-                expect(secondRequest).toBeGreaterThan(-1);
-                expect(firstDecision).toBeGreaterThan(secondRequest);
-                expect(logTags(intermediate)).not.toContain("ToolCallUnknown");
+                expect(secondRequest).toBeGreaterThan(-1)
+                expect(firstDecision).toBeGreaterThan(secondRequest)
+                expect(logTags(intermediate)).not.toContain('ToolCallUnknown')
                 yield* runtime.resolveApproval(
                   ApprovalDecisionCommand.make({
                     submissionId: snapshot.submissionId,
                     toolCallId: decodeToolCallId(SECOND_BOOK_CALL_ID),
-                    decision: "approved",
-                    resolver: "operator",
-                    reason: "Approve the second call after restart",
+                    decision: 'approved',
+                    resolver: 'operator',
+                    reason: 'Approve the second call after restart',
                   }),
-                );
-                const settlements = yield* drainApprovalBook(site, thread, FRESH_ANSWER);
+                )
+                const settlements = yield* drainApprovalBook(site, thread, FRESH_ANSWER)
 
-                expect(settlements).toHaveLength(1);
-                expect(settlements[0]?.outcome).toBe("completed");
-                expect(logTags(yield* readLog(thread))).not.toContain("ToolCallUnknown");
+                expect(settlements).toHaveLength(1)
+                expect(settlements[0]?.outcome).toBe('completed')
+                expect(logTags(yield* readLog(thread))).not.toContain('ToolCallUnknown')
                 yield* assertConvergence(thread, [snapshot.submissionId], {
                   site,
                   counts: { [`book:${BOOK_REF}`]: 1, [`book:${SECOND_BOOK_REF}`]: 1 },
-                });
+                })
               }),
-            );
-          }),
+            )
+          })
         ),
       30_000,
-    );
+    )
 
     it.effect(
-      "kill at join:after-claim: RevertJoining returns the queued Submission and it joins exactly once",
+      'kill at join:after-claim: RevertJoining returns the queued Submission and it joins exactly once',
       () =>
         withCrashSite((site) =>
-          Effect.gen(function* () {
-            const thread = "thread-kill-join-claim";
-            const key = "kill-join-claim";
+          Effect.gen(function*() {
+            const thread = 'thread-kill-join-claim'
+            const key = 'kill-join-claim'
 
             const result = yield* runWorkerToExit({
               db: site.db,
-              scenario: "run-join",
+              scenario: 'run-join',
               thread,
               key,
-              killAt: "join:after-claim",
-            });
+              killAt: 'join:after-claim',
+            })
 
-            expectKilled(result);
+            expectKilled(result)
 
             // Before recovery: the claim is durable, the canonical input never committed.
             const queuedId = yield* withRuntime(
               site.db,
-              Effect.gen(function* () {
-                const queued = yield* lookupByKey(thread, `${key}-2`);
+              Effect.gen(function*() {
+                const queued = yield* lookupByKey(thread, `${key}-2`)
 
-                expect(queued.state).toBe("joining");
+                expect(queued.state).toBe('joining')
                 expect(
                   (yield* readLog(thread)).map((envelope) => envelope.record.recordId),
-                ).not.toContain(submissionInputRecordId(queued.submissionId));
+                ).not.toContain(submissionInputRecordId(queued.submissionId))
 
-                return queued.submissionId;
+                return queued.submissionId
               }),
-            );
+            )
 
             yield* withHost(
               site.db,
-              Effect.gen(function* () {
-                const headSnapshot = yield* lookupByKey(thread, `${key}-1`);
+              Effect.gen(function*() {
+                const headSnapshot = yield* lookupByKey(thread, `${key}-1`)
 
-                expect(yield* lookupState(queuedId)).toBe("ready");
+                expect(yield* lookupState(queuedId)).toBe('ready')
 
-                const settlements = yield* drainPlanner(thread, FRESH_ANSWER);
+                const settlements = yield* drainPlanner(thread, FRESH_ANSWER)
 
                 // One HEAD settlement: the reverted Submission re-joined the resumed host Run.
                 expect(settlements.map((settlement) => settlement.submissionId)).toEqual([
                   headSnapshot.submissionId,
-                ]);
-                expect(yield* lookupState(queuedId)).toBe("settled");
+                ])
+                expect(yield* lookupState(queuedId)).toBe('settled')
 
                 // Delivered exactly once: one canonical input record ever, and the queued text
                 // entered exactly one committed model response (the coverage rule's evidence).
-                const records = yield* readLog(thread);
+                const records = yield* readLog(thread)
 
                 expect(
                   records.filter(
                     (envelope) => envelope.record.recordId === submissionInputRecordId(queuedId),
                   ),
-                ).toHaveLength(1);
-                expect(responseOccurrences(records, JOIN_QUESTION)).toBe(1);
-                yield* assertConvergence(thread, [headSnapshot.submissionId, queuedId]);
+                ).toHaveLength(1)
+                expect(responseOccurrences(records, JOIN_QUESTION)).toBe(1)
+                yield* assertConvergence(thread, [headSnapshot.submissionId, queuedId])
               }),
-            );
-          }),
+            )
+          })
         ),
       30_000,
-    );
+    )
 
     it.effect(
-      "kill at join:after-canonical-append: RepairJoinMarker reattaches the input without duplication",
+      'kill at join:after-canonical-append: RepairJoinMarker reattaches the input without duplication',
       () =>
         withCrashSite((site) =>
-          Effect.gen(function* () {
-            const thread = "thread-kill-join-append";
-            const key = "kill-join-append";
+          Effect.gen(function*() {
+            const thread = 'thread-kill-join-append'
+            const key = 'kill-join-append'
 
             const result = yield* runWorkerToExit({
               db: site.db,
-              scenario: "run-join",
+              scenario: 'run-join',
               thread,
               key,
-              killAt: "join:after-canonical-append",
-            });
+              killAt: 'join:after-canonical-append',
+            })
 
-            expectKilled(result);
+            expectKilled(result)
 
             // Before recovery: the input is canonical, only the joined marker was lost.
             const queuedId = yield* withRuntime(
               site.db,
-              Effect.gen(function* () {
-                const queued = yield* lookupByKey(thread, `${key}-2`);
+              Effect.gen(function*() {
+                const queued = yield* lookupByKey(thread, `${key}-2`)
 
-                expect(queued.state).toBe("joining");
+                expect(queued.state).toBe('joining')
                 expect(
                   (yield* readLog(thread)).map((envelope) => envelope.record.recordId),
-                ).toContain(submissionInputRecordId(queued.submissionId));
+                ).toContain(submissionInputRecordId(queued.submissionId))
 
-                return queued.submissionId;
+                return queued.submissionId
               }),
-            );
+            )
 
             yield* withHost(
               site.db,
-              Effect.gen(function* () {
-                const headSnapshot = yield* lookupByKey(thread, `${key}-1`);
+              Effect.gen(function*() {
+                const headSnapshot = yield* lookupByKey(thread, `${key}-1`)
 
-                expect(yield* lookupState(queuedId)).toBe("joined");
+                expect(yield* lookupState(queuedId)).toBe('joined')
 
-                const settlements = yield* drainPlanner(thread, FRESH_ANSWER);
+                const settlements = yield* drainPlanner(thread, FRESH_ANSWER)
 
                 expect(settlements.map((settlement) => settlement.submissionId)).toEqual([
                   headSnapshot.submissionId,
-                ]);
-                expect(yield* lookupState(queuedId)).toBe("settled");
+                ])
+                expect(yield* lookupState(queuedId)).toBe('settled')
 
                 // Reattached, never duplicated: one canonical record, one prompt coverage.
-                const records = yield* readLog(thread);
+                const records = yield* readLog(thread)
 
                 expect(
                   records.filter(
                     (envelope) => envelope.record.recordId === submissionInputRecordId(queuedId),
                   ),
-                ).toHaveLength(1);
-                expect(responseOccurrences(records, JOIN_QUESTION)).toBe(1);
-                yield* assertConvergence(thread, [headSnapshot.submissionId, queuedId]);
+                ).toHaveLength(1)
+                expect(responseOccurrences(records, JOIN_QUESTION)).toBe(1)
+                yield* assertConvergence(thread, [headSnapshot.submissionId, queuedId])
               }),
-            );
-          }),
+            )
+          })
         ),
       30_000,
-    );
+    )
 
     it.effect(
-      "kill between host finalization and joined settlement: SettleJoinedWithHost completes the obligation",
+      'kill between host finalization and joined settlement: SettleJoinedWithHost completes the obligation',
       () =>
         withCrashSite((site) =>
-          Effect.gen(function* () {
-            const thread = "thread-kill-joined-settle";
-            const key = "kill-joined-settle";
+          Effect.gen(function*() {
+            const thread = 'thread-kill-joined-settle'
+            const key = 'kill-joined-settle'
 
             // The FIRST ledger finalization of the run is the host's: the kill lands after the
             // host is fully settled but before the joined settlement loop starts.
             const result = yield* runWorkerToExit({
               db: site.db,
-              scenario: "run-join",
+              scenario: 'run-join',
               thread,
               key,
-              killAtStorage: "ledger:finalize-settlement:after",
-            });
+              killAtStorage: 'ledger:finalize-settlement:after',
+            })
 
-            expectKilled(result);
+            expectKilled(result)
 
             const ids = yield* withRuntime(
               site.db,
-              Effect.gen(function* () {
-                const head = yield* lookupByKey(thread, `${key}-1`);
-                const queued = yield* lookupByKey(thread, `${key}-2`);
+              Effect.gen(function*() {
+                const head = yield* lookupByKey(thread, `${key}-1`)
+                const queued = yield* lookupByKey(thread, `${key}-2`)
 
-                expect(head.state).toBe("settled");
-                expect(queued.state).toBe("joined");
+                expect(head.state).toBe('settled')
+                expect(queued.state).toBe('joined')
 
                 const recordIds = (yield* readLog(thread)).map(
                   (envelope) => envelope.record.recordId,
-                );
+                )
 
-                expect(recordIds).toContain(submissionSettlementRecordId(head.submissionId));
-                expect(recordIds).not.toContain(submissionSettlementRecordId(queued.submissionId));
+                expect(recordIds).toContain(submissionSettlementRecordId(head.submissionId))
+                expect(recordIds).not.toContain(submissionSettlementRecordId(queued.submissionId))
 
-                return { head: head.submissionId, queued: queued.submissionId };
+                return { head: head.submissionId, queued: queued.submissionId }
               }),
-            );
+            )
 
             yield* withHost(
               site.db,
-              Effect.gen(function* () {
-                expect(yield* lookupState(ids.queued)).toBe("settled");
+              Effect.gen(function*() {
+                expect(yield* lookupState(ids.queued)).toBe('settled')
 
-                const records = yield* readLog(thread);
+                const records = yield* readLog(thread)
 
                 const joinedSettlement = records.find(
-                  (envelope) =>
-                    envelope.record.recordId === submissionSettlementRecordId(ids.queued),
-                )?.record.payload;
+                  (envelope) => envelope.record.recordId === submissionSettlementRecordId(ids.queued),
+                )?.record.payload
 
-                expect(joinedSettlement?._tag).toBe("SubmissionSettled");
-                if (joinedSettlement?._tag === "SubmissionSettled") {
-                  expect(joinedSettlement.outcome).toBe("completed");
-                  expect(joinedSettlement.runId).toBe(runIdForSubmission(ids.head));
+                expect(joinedSettlement?._tag).toBe('SubmissionSettled')
+                if (joinedSettlement?._tag === 'SubmissionSettled') {
+                  expect(joinedSettlement.outcome).toBe('completed')
+                  expect(joinedSettlement.runId).toBe(runIdForSubmission(ids.head))
                 }
-                yield* assertConvergence(thread, [ids.head, ids.queued]);
+                yield* assertConvergence(thread, [ids.head, ids.queued])
               }),
-            );
-          }),
+            )
+          })
         ),
       30_000,
-    );
+    )
   },
-);
+)

@@ -1,44 +1,36 @@
-import * as DateTime from "effect/DateTime";
-import * as Effect from "effect/Effect";
-import * as Equal from "effect/Equal";
-import * as Result from "effect/Result";
-import * as Schema from "effect/Schema";
+import * as DateTime from 'effect/DateTime'
+import * as Effect from 'effect/Effect'
+import * as Equal from 'effect/Equal'
+import * as Result from 'effect/Result'
+import * as Schema from 'effect/Schema'
 
-import { Update } from "../core/AgentUpdates.ts";
+import { Update } from '../core/AgentUpdates.ts'
+import { AgentId, DelegationId, ReceiptId, RunId, SettlementId, SubmissionId, ThreadId } from '../core/Identifiers.ts'
+import { WorkerUpdate } from '../core/Worker.ts'
+import { digestJson } from './Digest.ts'
+import { Receipt } from './DurableAgentRuntime.ts'
 import {
-  AgentId,
-  ReceiptId,
-  SettlementId,
-  SubmissionId,
-  ThreadId,
-  RunId,
-  DelegationId,
-} from "../core/Identifiers.ts";
-import { WorkerUpdate } from "../core/Worker.ts";
-import { digestJson } from "./Digest.ts";
-import { Receipt } from "./DurableAgentRuntime.ts";
-import {
-  MessageDeliveryStore,
-  readPending,
   messageDeliveryCapacity,
+  MessageDeliveryStore,
   prepareMessageDelivery,
-} from "./MessageDelivery.ts";
-import { DefinitionDigests, Digest } from "./Records.ts";
-import { IdempotencyKey, Principal, QueueSequence, Settlement } from "./SubmissionLedger.ts";
+  readPending,
+} from './MessageDelivery.ts'
+import { DefinitionDigests, Digest } from './Records.ts'
+import { IdempotencyKey, Principal, QueueSequence, Settlement } from './SubmissionLedger.ts'
 
 export class MessageDeliveryConformanceViolation extends Schema.TaggedError<MessageDeliveryConformanceViolation>()(
-  "MessageDeliveryConformanceViolation",
+  'MessageDeliveryConformanceViolation',
   { message: Schema.String },
 ) {}
 
 const verify = (condition: boolean, message: string) =>
-  condition ? Effect.void : Effect.fail(MessageDeliveryConformanceViolation.make({ message }));
+  condition ? Effect.void : Effect.fail(MessageDeliveryConformanceViolation.make({ message }))
 
 /** One valid frozen envelope shared by real storage and restart tests. */
-export const makeMessageDeliveryFixture = Effect.fn("MessageDeliveryConformance.fixture")(
-  function* (messageId = "message", owner = "sender", text = "hello") {
-    const digest = yield* Schema.decodeEffect(Digest)("a".repeat(64)).pipe(Effect.orDie);
-    const input = { text };
+export const makeMessageDeliveryFixture = Effect.fn('MessageDeliveryConformance.fixture')(
+  function*(messageId = 'message', owner = 'sender', text = 'hello') {
+    const digest = yield* Schema.decodeEffect(Digest)('a'.repeat(64)).pipe(Effect.orDie)
+    const input = { text }
 
     return yield* prepareMessageDelivery({
       key: {
@@ -56,32 +48,32 @@ export const makeMessageDeliveryFixture = Effect.fn("MessageDeliveryConformance.
       },
       envelope: {
         schemaVersion: 1,
-        threadId: yield* Schema.decodeEffect(ThreadId)("receiver").pipe(Effect.orDie),
-        deliveryPrincipal: yield* Schema.decodeEffect(Principal)("principal").pipe(Effect.orDie),
-        agentId: yield* Schema.decodeEffect(AgentId)("agent").pipe(Effect.orDie),
+        threadId: yield* Schema.decodeEffect(ThreadId)('receiver').pipe(Effect.orDie),
+        deliveryPrincipal: yield* Schema.decodeEffect(Principal)('principal').pipe(Effect.orDie),
+        agentId: yield* Schema.decodeEffect(AgentId)('agent').pipe(Effect.orDie),
         definitions: DefinitionDigests.make({ agent: digest, model: digest, tools: digest }),
         input,
         inputDigest: yield* digestJson(input),
         admissionKey: yield* Schema.decodeEffect(IdempotencyKey)(
           `admit:${owner}:${messageId}`,
         ).pipe(Effect.orDie),
-        authorization: { policyId: "policy", decisionId: "decision" },
+        authorization: { policyId: 'policy', decisionId: 'decision' },
       },
-    });
+    })
   },
-);
+)
 
 export const messageDeliveryFixtureReceipt = Receipt.make({
-  threadId: Schema.decodeSync(ThreadId)("receiver"),
-  receiptId: Schema.decodeSync(ReceiptId)("receipt"),
-  submissionId: Schema.decodeSync(SubmissionId)("submission"),
+  threadId: Schema.decodeSync(ThreadId)('receiver'),
+  receiptId: Schema.decodeSync(ReceiptId)('receipt'),
+  submissionId: Schema.decodeSync(SubmissionId)('submission'),
   queueSequence: Schema.decodeSync(QueueSequence)(0),
-});
+})
 
 export const makeWorkerUpdateDeliveryFixture = Effect.fn(
-  "MessageDeliveryConformance.updateFixture",
-)(function* (id: string) {
-  const base = yield* makeMessageDeliveryFixture(id);
+  'MessageDeliveryConformance.updateFixture',
+)(function*(id: string) {
+  const base = yield* makeMessageDeliveryFixture(id)
 
   return yield* prepareMessageDelivery({
     key: base.key,
@@ -91,329 +83,330 @@ export const makeWorkerUpdateDeliveryFixture = Effect.fn(
     envelope: {
       ...base.envelope,
       messageAdmission: WorkerUpdate.make({
-        _tag: "WorkerUpdate",
+        _tag: 'WorkerUpdate',
         schemaVersion: 1,
         worker: {
           schemaVersion: 1,
-          delegationId: yield* Schema.decodeEffect(DelegationId)("worker").pipe(Effect.orDie),
-          targetAgentId: yield* Schema.decodeEffect(AgentId)("child").pipe(Effect.orDie),
+          delegationId: yield* Schema.decodeEffect(DelegationId)('worker').pipe(Effect.orDie),
+          targetAgentId: yield* Schema.decodeEffect(AgentId)('child').pipe(Effect.orDie),
           threadId: base.key.ownerThreadId,
         },
         update: Update.make({
           schemaVersion: 1,
-          agentId: yield* Schema.decodeEffect(AgentId)("child").pipe(Effect.orDie),
+          agentId: yield* Schema.decodeEffect(AgentId)('child').pipe(Effect.orDie),
           threadId: base.key.ownerThreadId,
-          runId: yield* Schema.decodeEffect(RunId)("run").pipe(Effect.orDie),
+          runId: yield* Schema.decodeEffect(RunId)('run').pipe(Effect.orDie),
           updateId: base.key.messageId,
           sequence: 1,
           value: { finding: id },
         }),
       }),
     },
-  });
-});
+  })
+})
 
 /** Every case starts with an empty store; all clocks and expected values are explicit. */
 export const messageDeliveryStoreConformanceCases = [
   {
-    name: "reserves ordinary delivery capacity when worker updates saturate their separate bound",
-    run: Effect.gen(function* () {
-      const store = yield* MessageDeliveryStore;
-      const capacity = messageDeliveryCapacity(store.limits, true);
+    name: 'reserves ordinary delivery capacity when worker updates saturate their separate bound',
+    run: Effect.gen(function*() {
+      const store = yield* MessageDeliveryStore
+      const capacity = messageDeliveryCapacity(store.limits, true)
 
-      for (let index = 0; index < capacity.pending; index++)
-        yield* store.insert(yield* makeWorkerUpdateDeliveryFixture(`update-${index}`));
+      for (let index = 0; index < capacity.pending; index++) {
+        yield* store.insert(yield* makeWorkerUpdateDeliveryFixture(`update-${index}`))
+      }
 
       const refused = yield* store
-        .insert(yield* makeWorkerUpdateDeliveryFixture("overflow"))
-        .pipe(Effect.result);
+        .insert(yield* makeWorkerUpdateDeliveryFixture('overflow'))
+        .pipe(Effect.result)
 
       yield* verify(
         Result.isFailure(refused) &&
-          refused.failure._tag === "MessageDeliveryError" &&
-          refused.failure.reason === "capacity",
-        "Updates must stop at their independent pending bound",
-      );
-      const terminal = yield* makeMessageDeliveryFixture("terminal");
+          refused.failure._tag === 'MessageDeliveryError' &&
+          refused.failure.reason === 'capacity',
+        'Updates must stop at their independent pending bound',
+      )
+      const terminal = yield* makeMessageDeliveryFixture('terminal')
 
       yield* verify(
-        (yield* store.insert(terminal)).status === "pending",
-        "Update pressure must preserve ordinary terminal capacity",
-      );
+        (yield* store.insert(terminal)).status === 'pending',
+        'Update pressure must preserve ordinary terminal capacity',
+      )
       yield* verify(
         (yield* store.get({
           ...terminal.key,
-          messageId: yield* Schema.decodeEffect(IdempotencyKey)("overflow").pipe(Effect.orDie),
+          messageId: yield* Schema.decodeEffect(IdempotencyKey)('overflow').pipe(Effect.orDie),
         })) === null,
-        "Rejected update must not mutate delivery storage",
-      );
+        'Rejected update must not mutate delivery storage',
+      )
     }),
   },
   {
-    name: "retains predecessor identity and defers ordering waits without spending attempts",
-    run: Effect.gen(function* () {
-      const store = yield* MessageDeliveryStore;
+    name: 'retains predecessor identity and defers ordering waits without spending attempts',
+    run: Effect.gen(function*() {
+      const store = yield* MessageDeliveryStore
 
       const initial = {
-        ...(yield* makeMessageDeliveryFixture("later")),
-        predecessor: yield* Schema.decodeEffect(IdempotencyKey)("earlier").pipe(Effect.orDie),
-      };
+        ...(yield* makeMessageDeliveryFixture('later')),
+        predecessor: yield* Schema.decodeEffect(IdempotencyKey)('earlier').pipe(Effect.orDie),
+      }
 
-      yield* store.insert(initial);
+      yield* store.insert(initial)
 
       const deferred = yield* store.change(initial.key, {
-        _tag: "Defer",
+        _tag: 'Defer',
         expectedVersion: 1,
         nowMillis: 0,
         untilMillis: 100,
-      });
+      })
 
       yield* verify(
         deferred.retry.attempts === 0 &&
           deferred.retry.automaticAttempts === 0 &&
           deferred.retry.nextAttemptAtMillis === 100,
-        "Ordering waits must remain bounded without exhausting transport retries",
-      );
+        'Ordering waits must remain bounded without exhausting transport retries',
+      )
       yield* verify(
         (yield* store.due(99, 10)).length === 0 && (yield* store.due(100, 10)).length === 1,
-        "Deferral must advance the persisted wake deadline",
-      );
+        'Deferral must advance the persisted wake deadline',
+      )
 
       yield* verify(
         Equal.equals(yield* readPending({ ownerThreadId: initial.key.ownerThreadId, limit: 1 }), [
           deferred,
         ]),
-        "Future-due retained work must remain visible before any canonical reservation",
-      );
+        'Future-due retained work must remain visible before any canonical reservation',
+      )
 
       const changed = yield* store
         .insert({
           ...initial,
-          predecessor: yield* Schema.decodeEffect(IdempotencyKey)("different").pipe(Effect.orDie),
+          predecessor: yield* Schema.decodeEffect(IdempotencyKey)('different').pipe(Effect.orDie),
         })
-        .pipe(Effect.result);
+        .pipe(Effect.result)
 
       yield* verify(
         Result.isFailure(changed) &&
-          changed.failure._tag === "MessageDeliveryError" &&
-          changed.failure.reason === "conflict",
-        "A retry cannot replace its ordering predecessor",
-      );
+          changed.failure._tag === 'MessageDeliveryError' &&
+          changed.failure.reason === 'conflict',
+        'A retry cannot replace its ordering predecessor',
+      )
     }),
   },
   {
-    name: "retains pending, accepted and processed facts with stable duplicate admission",
-    run: Effect.gen(function* () {
-      const store = yield* MessageDeliveryStore;
-      const initial = yield* makeMessageDeliveryFixture();
+    name: 'retains pending, accepted and processed facts with stable duplicate admission',
+    run: Effect.gen(function*() {
+      const store = yield* MessageDeliveryStore
+      const initial = yield* makeMessageDeliveryFixture()
 
-      yield* store.insert(initial);
+      yield* store.insert(initial)
       yield* verify(
         Equal.equals(yield* store.due(0, 10), [initial.key]),
-        "Pending work must be independently discoverable",
-      );
+        'Pending work must be independently discoverable',
+      )
 
       const claim = yield* store.change(initial.key, {
-        _tag: "Claim",
+        _tag: 'Claim',
         nowMillis: 0,
         expectedVersion: 1,
-      });
+      })
 
       const accepted = yield* store.change(initial.key, {
-        _tag: "Accept",
+        _tag: 'Accept',
         nowMillis: 1,
         expectedVersion: claim.version,
         receipt: messageDeliveryFixtureReceipt,
-      });
+      })
 
       yield* verify(
-        accepted.status === "accepted" && accepted.settlement === null,
-        "Acceptance must not claim processing",
-      );
+        accepted.status === 'accepted' && accepted.settlement === null,
+        'Acceptance must not claim processing',
+      )
 
       yield* verify(
         Equal.equals(yield* readPending({ ownerThreadId: initial.key.ownerThreadId, limit: 1 }), [
           accepted,
         ]),
-        "Accepted work must retain its exact receipt and envelope in the pending read",
-      );
+        'Accepted work must retain its exact receipt and envelope in the pending read',
+      )
 
       const secondClaim = yield* store.change(initial.key, {
-        _tag: "Claim",
+        _tag: 'Claim',
         nowMillis: 6,
         expectedVersion: accepted.version,
-      });
+      })
 
       const settlement = Settlement.make({
         receiptId: messageDeliveryFixtureReceipt.receiptId,
         submissionId: messageDeliveryFixtureReceipt.submissionId,
-        settlementId: yield* Schema.decodeEffect(SettlementId)("settlement").pipe(Effect.orDie),
-        outcome: "completed",
+        settlementId: yield* Schema.decodeEffect(SettlementId)('settlement').pipe(Effect.orDie),
+        outcome: 'completed',
         settledAt: DateTime.makeUnsafe(7),
-      });
+      })
 
       const processed = yield* store.change(initial.key, {
-        _tag: "Process",
+        _tag: 'Process',
         nowMillis: 7,
         expectedVersion: secondClaim.version,
         settlement,
-      });
+      })
 
       yield* verify(
-        processed.status === "processed",
-        "Canonical settlement must finish processing",
-      );
+        processed.status === 'processed',
+        'Canonical settlement must finish processing',
+      )
       yield* verify(
         Equal.equals(yield* store.insert(initial), processed),
-        "Replay must preserve terminal evidence",
-      );
+        'Replay must preserve terminal evidence',
+      )
       yield* verify(
         (yield* store.nextDeadline()) === null,
-        "Processed work must release its wake deadline",
-      );
+        'Processed work must release its wake deadline',
+      )
       yield* verify(
         (yield* readPending({ ownerThreadId: initial.key.ownerThreadId, limit: 1 })).length === 0,
-        "Processed history must not enter pending authorization reads",
-      );
+        'Processed history must not enter pending authorization reads',
+      )
     }),
   },
   {
-    name: "rejects conflicting identity and scopes cursors and discovery to the source owner",
-    run: Effect.gen(function* () {
-      const store = yield* MessageDeliveryStore;
-      const a = yield* makeMessageDeliveryFixture("a");
-      const b = yield* makeMessageDeliveryFixture("b");
-      const other = yield* makeMessageDeliveryFixture("a", "other");
+    name: 'rejects conflicting identity and scopes cursors and discovery to the source owner',
+    run: Effect.gen(function*() {
+      const store = yield* MessageDeliveryStore
+      const a = yield* makeMessageDeliveryFixture('a')
+      const b = yield* makeMessageDeliveryFixture('b')
+      const other = yield* makeMessageDeliveryFixture('a', 'other')
 
-      yield* store.insert(a);
-      yield* store.insert(b);
-      yield* store.insert(other);
+      yield* store.insert(a)
+      yield* store.insert(b)
+      yield* store.insert(other)
 
       const conflict = yield* store
-        .insert(yield* makeMessageDeliveryFixture("a", "sender", "changed"))
-        .pipe(Effect.result);
+        .insert(yield* makeMessageDeliveryFixture('a', 'sender', 'changed'))
+        .pipe(Effect.result)
 
       yield* verify(
         Result.isFailure(conflict) &&
-          conflict.failure._tag === "MessageDeliveryError" &&
-          conflict.failure.reason === "conflict",
-        "Conflicting replay must be refused",
-      );
+          conflict.failure._tag === 'MessageDeliveryError' &&
+          conflict.failure.reason === 'conflict',
+        'Conflicting replay must be refused',
+      )
       yield* verify(
         Equal.equals(yield* store.get(a.key), a),
-        "Refusal must preserve original input",
-      );
+        'Refusal must preserve original input',
+      )
 
       const overflow = yield* readPending({ ownerThreadId: a.key.ownerThreadId, limit: 1 }).pipe(
         Effect.result,
-      );
+      )
 
       yield* verify(
-        Result.isFailure(overflow) && overflow.failure.reason === "capacity",
-        "Overflow must fail without a partial inventory",
-      );
+        Result.isFailure(overflow) && overflow.failure.reason === 'capacity',
+        'Overflow must fail without a partial inventory',
+      )
       yield* verify(
         Equal.equals(yield* readPending({ ownerThreadId: other.key.ownerThreadId, limit: 1 }), [
           other,
         ]),
-        "Pending reads must use the source owner",
-      );
+        'Pending reads must use the source owner',
+      )
 
       const page = yield* store.list({
         ownerThreadId: a.key.ownerThreadId,
         limit: 1,
         pendingOnly: true,
-      });
+      })
 
       yield* verify(
-        page.items.length === 1 && page.items[0]?.key.messageId === "a" && page.next === "a",
-        "First page must remain owner scoped",
-      );
+        page.items.length === 1 && page.items[0]?.key.messageId === 'a' && page.next === 'a',
+        'First page must remain owner scoped',
+      )
 
       const next = yield* store.list({
         ownerThreadId: a.key.ownerThreadId,
         limit: 1,
         after: a.key.messageId,
         pendingOnly: true,
-      });
+      })
 
       yield* verify(
-        next.items.length === 1 && next.items[0]?.key.messageId === "b" && next.next === null,
-        "Cursor must be stable",
-      );
+        next.items.length === 1 && next.items[0]?.key.messageId === 'b' && next.next === null,
+        'Cursor must be stable',
+      )
       yield* verify(
         Equal.equals(yield* store.due(0, 10, other.key.ownerThreadId), [other.key]),
-        "Owner-scoped scans must not expose another source",
-      );
+        'Owner-scoped scans must not expose another source',
+      )
     }),
   },
   {
-    name: "fences stale completion and preserves parked work for explicit recovery",
-    run: Effect.gen(function* () {
-      const store = yield* MessageDeliveryStore;
-      const initial = yield* makeMessageDeliveryFixture();
+    name: 'fences stale completion and preserves parked work for explicit recovery',
+    run: Effect.gen(function*() {
+      const store = yield* MessageDeliveryStore
+      const initial = yield* makeMessageDeliveryFixture()
 
-      yield* store.insert(initial);
+      yield* store.insert(initial)
 
       const old = yield* store.change(initial.key, {
-        _tag: "Claim",
+        _tag: 'Claim',
         nowMillis: 0,
         expectedVersion: 1,
-      });
+      })
 
       const current = yield* store.change(initial.key, {
-        _tag: "Claim",
+        _tag: 'Claim',
         nowMillis: 101,
         expectedVersion: old.version,
-      });
+      })
 
       const stale = yield* store
         .change(initial.key, {
-          _tag: "Accept",
+          _tag: 'Accept',
           nowMillis: 102,
           expectedVersion: old.version,
           receipt: messageDeliveryFixtureReceipt,
         })
-        .pipe(Effect.result);
+        .pipe(Effect.result)
 
       yield* verify(
         Result.isFailure(stale) &&
-          stale.failure._tag === "MessageDeliveryError" &&
-          stale.failure.reason === "conflict",
-        "Old claims cannot commit",
-      );
+          stale.failure._tag === 'MessageDeliveryError' &&
+          stale.failure.reason === 'conflict',
+        'Old claims cannot commit',
+      )
 
       const parked = yield* store.change(initial.key, {
-        _tag: "Park",
+        _tag: 'Park',
         nowMillis: 102,
         expectedVersion: current.version,
-        reason: "exhausted",
-      });
+        reason: 'exhausted',
+      })
 
       yield* verify(
-        (yield* store.nextDeadline()) === null && parked.status === "parked",
-        "Parked work must remain inspectable without busy polling",
-      );
+        (yield* store.nextDeadline()) === null && parked.status === 'parked',
+        'Parked work must remain inspectable without busy polling',
+      )
 
       yield* verify(
         Equal.equals(yield* readPending({ ownerThreadId: initial.key.ownerThreadId, limit: 1 }), [
           parked,
         ]),
-        "Parked uncertainty must remain visible without a wake deadline",
-      );
+        'Parked uncertainty must remain visible without a wake deadline',
+      )
 
       const recovered = yield* store.change(initial.key, {
-        _tag: "Recover",
+        _tag: 'Recover',
         nowMillis: 103,
         expectedVersion: parked.version,
         deadlineAtMillis: 2_000,
-      });
+      })
 
       yield* verify(
         recovered.retry.generation === 1 && Equal.equals(recovered.envelope, initial.envelope),
-        "Explicit retry must preserve the frozen envelope",
-      );
-      yield* verify((yield* store.nextDeadline()) === 103, "Recovered work must be discoverable");
+        'Explicit retry must preserve the frozen envelope',
+      )
+      yield* verify((yield* store.nextDeadline()) === 103, 'Recovered work must be discoverable')
     }),
   },
-] as const;
+] as const

@@ -1,42 +1,37 @@
-import type * as Prompt from "effect/ai/Prompt";
-import * as Context from "effect/Context";
-import type * as DateTime from "effect/DateTime";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Schema from "effect/Schema";
+import type * as Prompt from 'effect/ai/Prompt'
+import * as Context from 'effect/Context'
+import type * as DateTime from 'effect/DateTime'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
+import * as Schema from 'effect/Schema'
 
-import type { AnyDefinition } from "../../core/Agent.ts";
-import type { AgentPolicy } from "../../core/AgentPolicy.ts";
-import type { Update, UpdateError } from "../../core/AgentUpdates.ts";
+import type { AnyDefinition } from '../../core/Agent.ts'
+import type { AgentPolicy } from '../../core/AgentPolicy.ts'
+import type { Update, UpdateError } from '../../core/AgentUpdates.ts'
 import type {
   AgentId,
-  ThreadId,
   DelegationId,
   ReceiptId,
   RunId,
   SubmissionId,
+  ThreadId,
   ToolCallId,
   TurnId,
-} from "../../core/Identifiers.ts";
-import type { CompletionMetadata } from "../../core/internal/completion.ts";
-import { RunPolicyUsage } from "../../core/RunPolicyUsage.ts";
+} from '../../core/Identifiers.ts'
+import type { CompletionMetadata } from '../../core/internal/completion.ts'
+import { RunPolicyUsage } from '../../core/RunPolicyUsage.ts'
 import type {
   DelegationDepth,
-  SubagentParentLink,
-  SubagentGrant,
   SubagentBudgetReservation,
-} from "../../core/SubagentContract.ts";
-import { Selection, type Snapshot } from "../../core/ToolExposure.ts";
-import type { ToolParameterRejection } from "../../core/ToolResult.ts";
-import {
-  ChildRunUsage,
-  UsageCompleteness,
-  type RunTotals,
-  type ModelCallUsage,
-} from "../../core/Usage.ts";
-import type { FrameworkMessage, WorkerBudgetScope } from "../../core/Worker.ts";
-import type { RunStepHook } from "../DurableStep.ts";
-import type { RunOptions, RunToolCallDescriptor } from "../RunOptions.ts";
+  SubagentGrant,
+  SubagentParentLink,
+} from '../../core/SubagentContract.ts'
+import { Selection, type Snapshot } from '../../core/ToolExposure.ts'
+import type { ToolParameterRejection } from '../../core/ToolResult.ts'
+import { ChildRunUsage, type ModelCallUsage, type RunTotals, UsageCompleteness } from '../../core/Usage.ts'
+import type { FrameworkMessage, WorkerBudgetScope } from '../../core/Worker.ts'
+import type { RunStepHook } from '../DurableStep.ts'
+import type { RunOptions, RunToolCallDescriptor } from '../RunOptions.ts'
 
 /**
  * Validated response facts supplied by the interpreter. Messages include only this
@@ -45,32 +40,32 @@ import type { RunOptions, RunToolCallDescriptor } from "../RunOptions.ts";
  */
 export interface RunTurnResponse {
   /** Rejected fresh arguments; persist atomically with the response and restore on resume. */
-  readonly toolParameterRejections?: ReadonlyArray<ToolParameterRejection> | undefined;
-  readonly toolExposure?: Snapshot | undefined;
-  readonly messages: ReadonlyArray<Prompt.Message>;
-  readonly runScopedPrefixLength?: number | undefined;
-  readonly calls: ReadonlyArray<RunToolCallDescriptor>;
+  readonly toolParameterRejections?: ReadonlyArray<ToolParameterRejection> | undefined
+  readonly toolExposure?: Snapshot | undefined
+  readonly messages: ReadonlyArray<Prompt.Message>
+  readonly runScopedPrefixLength?: number | undefined
+  readonly calls: ReadonlyArray<RunToolCallDescriptor>
 }
 
 /** One validated, stream-closed application Tool outcome in declaration order. */
 export interface RunTurnToolResult {
-  readonly toolCallId: ToolCallId;
-  readonly toolName: string;
-  readonly result: unknown;
-  readonly isFailure: boolean;
-  readonly toolSelection?: Selection | undefined;
-  readonly budgetRejected?: boolean | undefined;
+  readonly toolCallId: ToolCallId
+  readonly toolName: string
+  readonly result: unknown
+  readonly isFailure: boolean
+  readonly toolSelection?: Selection | undefined
+  readonly budgetRejected?: boolean | undefined
 }
 
 /** Encoded terminal values. They become authoritative after canonical acceptance. */
 export interface RunTurnCompletion extends CompletionMetadata {
-  readonly output: unknown;
-  readonly runDisposition?: unknown;
+  readonly output: unknown
+  readonly runDisposition?: unknown
 }
 
 interface RunTurnIdentity {
-  readonly turn: number;
-  readonly turnId: TurnId;
+  readonly turn: number
+  readonly turnId: TurnId
 }
 
 /**
@@ -79,27 +74,28 @@ interface RunTurnIdentity {
  * an omitted response was already committed or restored. Partial commits preserve
  * closed siblings before child suspension, without declaring the whole Turn settled.
  */
-export type RunTurnCommit = RunTurnIdentity &
-  (
+export type RunTurnCommit =
+  & RunTurnIdentity
+  & (
     | {
-        readonly _tag: "Response";
-        readonly response: RunTurnResponse;
-        /**
-         * The interpreter proved that the model's hosted Tools and every declared ordinary
-         * application call are readonly, with no approval preflight. The coordinator may retain
-         * an owned response until settlement, but must promote it before any persisted call-scoped
-         * capability.
-         */
-        readonly defer?: true | undefined;
-      }
+      readonly _tag: 'Response'
+      readonly response: RunTurnResponse
+      /**
+       * The interpreter proved that the model's hosted Tools and every declared ordinary
+       * application call are readonly, with no approval preflight. The coordinator may retain
+       * an owned response until settlement, but must promote it before any persisted call-scoped
+       * capability.
+       */
+      readonly defer?: true | undefined
+    }
     | {
-        readonly _tag: "Settled";
-        readonly response?: RunTurnResponse | undefined;
-        readonly results: ReadonlyArray<RunTurnToolResult>;
-        readonly completion?: RunTurnCompletion | undefined;
-      }
-    | { readonly _tag: "Partial"; readonly results: ReadonlyArray<RunTurnToolResult> }
-  );
+      readonly _tag: 'Settled'
+      readonly response?: RunTurnResponse | undefined
+      readonly results: ReadonlyArray<RunTurnToolResult>
+      readonly completion?: RunTurnCompletion | undefined
+    }
+    | { readonly _tag: 'Partial'; readonly results: ReadonlyArray<RunTurnToolResult> }
+  )
 
 /**
  * One compaction decision the engine applied to its model-visible view
@@ -108,23 +104,23 @@ export type RunTurnCommit = RunTurnIdentity &
  * from policy or token estimates.
  */
 export interface RunCompactionCommit {
-  readonly turn: number;
+  readonly turn: number
   /** Exact pre-compaction source and exclusive message bound; live values, never persisted. */
-  readonly source: Prompt.Prompt;
-  readonly through: number;
-  readonly kind: "clear-tool-results" | "summarize" | "rollover";
+  readonly source: Prompt.Prompt
+  readonly through: number
+  readonly kind: 'clear-tool-results' | 'summarize' | 'rollover'
   /** Present exactly when `kind` is `"summarize"`. */
-  readonly summary?: string | undefined;
+  readonly summary?: string | undefined
   /** Optional continuation state for a rollover; never a generated summary. */
-  readonly handoff?: string | undefined;
-  readonly tokensBeforeEstimate: number;
-  readonly tokensAfterEstimate: number;
+  readonly handoff?: string | undefined
+  readonly tokensBeforeEstimate: number
+  readonly tokensAfterEstimate: number
 }
 
 /** One completed model call's provider-reported usage, staged for the Turn's canonical commit. */
 export interface RunTurnUsage {
-  readonly turn: number;
-  readonly usage: ModelCallUsage;
+  readonly turn: number
+  readonly usage: ModelCallUsage
 }
 
 /**
@@ -136,10 +132,10 @@ export interface RunTurnUsage {
 export class ModelUsageAccounting extends Context.Service<
   ModelUsageAccounting,
   { readonly noteIncompleteUsage: (turn: number) => Effect.Effect<void> }
->()("@effect-agent/engine/ModelUsageAccounting") {
+>()('@effect-agent/engine/ModelUsageAccounting') {
   static readonly layerEphemeral = Layer.succeed(ModelUsageAccounting, {
     noteIncompleteUsage: () => Effect.void,
-  });
+  })
 }
 
 /**
@@ -151,10 +147,10 @@ export class ModelUsageAccounting extends Context.Service<
 export class AgentUpdateAcceptance extends Context.Service<
   AgentUpdateAcceptance,
   { readonly accept: (update: Update) => Effect.Effect<Update, UpdateError> }
->()("@effect-agent/engine/AgentUpdateAcceptance") {
+>()('@effect-agent/engine/AgentUpdateAcceptance') {
   static readonly layerEphemeral = Layer.succeed(AgentUpdateAcceptance, {
     accept: (update) => Effect.succeed(update),
-  });
+  })
 }
 
 /**
@@ -172,22 +168,22 @@ export class AgentUpdateAcceptance extends Context.Service<
  */
 export interface RunDurabilityHook<Error = never, Requirements = never> {
   /** Upper bound the coordinator can durably retain for one application Tool result. */
-  readonly toolResultMaxBytes: number;
+  readonly toolResultMaxBytes: number
   /** Fail with retained infrastructure errors before the next execution or commit boundary. */
-  readonly checkpoint: Effect.Effect<void, Error, Requirements>;
+  readonly checkpoint: Effect.Effect<void, Error, Requirements>
   /** Capture initial instruction/projection metadata once, before input/context preparation. */
   readonly initialize: (initial: {
-    readonly initialHistory: Prompt.Prompt;
-    readonly priorHistoryLength: number;
-  }) => Effect.Effect<void, Error, Requirements>;
+    readonly initialHistory: Prompt.Prompt
+    readonly priorHistoryLength: number
+  }) => Effect.Effect<void, Error, Requirements>
   /** Persist replacement count and staged usage after cancellation, before starting its successor. */
   readonly commitModelRestart?:
     | ((restart: {
-        readonly turn: number;
-        readonly turnId: TurnId;
-        readonly restart: number;
-      }) => Effect.Effect<void, Error, Requirements>)
-    | undefined;
+      readonly turn: number
+      readonly turnId: TurnId
+      readonly restart: number
+    }) => Effect.Effect<void, Error, Requirements>)
+    | undefined
   /**
    * Reserve cumulative programmatic calls and grace finalization before external execution.
    * Calls are serialized across the Run. A committed reservation
@@ -196,9 +192,9 @@ export interface RunDurabilityHook<Error = never, Requirements = never> {
    */
   readonly reservePolicyUsage?:
     | ((
-        usage: Pick<RunPolicyUsage, "programmaticToolCalls" | "finalizationUsed">,
-      ) => Effect.Effect<void, Error, Requirements>)
-    | undefined;
+      usage: Pick<RunPolicyUsage, 'programmaticToolCalls' | 'finalizationUsed'>,
+    ) => Effect.Effect<void, Error, Requirements>)
+    | undefined
   /**
    * `committed` accepts the supplied facts canonically. `deferred` is valid only for a Response
    * with `defer: true`: validation and ownership succeeded, but no canonical acceptance occurred.
@@ -209,10 +205,10 @@ export interface RunDurabilityHook<Error = never, Requirements = never> {
    */
   readonly commitTurn: (
     commit: RunTurnCommit,
-  ) => Effect.Effect<"committed" | "deferred" | "capacity-refused", Error, Requirements>;
+  ) => Effect.Effect<'committed' | 'deferred' | 'capacity-refused', Error, Requirements>
   /** Check the writer fence after approval/authorization and before handler permits; no write. */
-  readonly checkToolDispatch: Effect.Effect<void, Error, Requirements>;
-  readonly step: RunStepHook<Error, Requirements>;
+  readonly checkToolDispatch: Effect.Effect<void, Error, Requirements>
+  readonly step: RunStepHook<Error, Requirements>
   /**
    * RUN-026: called at the pre-Turn seam BEFORE the engine applies a
    * compaction to its model-visible view or starts the model call whose
@@ -224,7 +220,7 @@ export interface RunDurabilityHook<Error = never, Requirements = never> {
    */
   readonly commitCompaction: (
     commit: RunCompactionCommit,
-  ) => Effect.Effect<void, Error, Requirements>;
+  ) => Effect.Effect<void, Error, Requirements>
   /**
    * RUN-023: stage one completed model call's usage for the Turn's canonical
    * commit (the response record carries it for resume re-seeding). Staging is
@@ -233,7 +229,7 @@ export interface RunDurabilityHook<Error = never, Requirements = never> {
    * usage a later Attempt needs, so ownership changes would silently reset
    * token budgets instead of failing closed.
    */
-  readonly noteTurnUsage: (usage: RunTurnUsage) => Effect.Effect<void, Error, Requirements>;
+  readonly noteTurnUsage: (usage: RunTurnUsage) => Effect.Effect<void, Error, Requirements>
 }
 
 /**
@@ -244,9 +240,9 @@ export interface RunDurabilityHook<Error = never, Requirements = never> {
  * selection uses the stable Agent identity, independently of historical definitions.
  */
 export interface RunSubagentDigests {
-  readonly agent: string;
-  readonly model: string;
-  readonly tools: string;
+  readonly agent: string
+  readonly model: string
+  readonly tools: string
 }
 
 /**
@@ -263,37 +259,37 @@ export interface RunSubagentDigests {
  */
 export interface RunSubagentEstablishRequest {
   /** Resolved child defaults and ceilings, fixed before admission and restored on recovery. */
-  readonly policy?: AgentPolicy | undefined;
-  readonly budget?: SubagentBudgetReservation | undefined;
-  readonly toolCallId: ToolCallId;
-  readonly delegationId: DelegationId;
-  readonly targetAgentId: AgentId;
+  readonly policy?: AgentPolicy | undefined
+  readonly budget?: SubagentBudgetReservation | undefined
+  readonly toolCallId: ToolCallId
+  readonly delegationId: DelegationId
+  readonly targetAgentId: AgentId
   /** The child Run's root-relative delegation depth, bounded by its inherited grant. */
-  readonly depth: DelegationDepth;
+  readonly depth: DelegationDepth
   /** Exact target Definition from the capability; the host resolves its existing registration. */
-  readonly target: AnyDefinition;
+  readonly target: AnyDefinition
   /** The prepared child input in encoded (wire) form; it rides the canonical request record so recovery admission never needs a live handler. */
-  readonly encodedChildInput: unknown;
+  readonly encodedChildInput: unknown
   /** The delegation's authority ceiling in encoded form. */
-  readonly encodedGrant: unknown;
+  readonly encodedGrant: unknown
   /** The per-invocation budget allocation in encoded form (opaque to the engine and to storage adapters). */
-  readonly encodedAllocation: unknown;
+  readonly encodedAllocation: unknown
   /** Tightening-only child Tool Call bound, clamped to the reservation and Definition by the caller. */
-  readonly toolCallAllowance?: number | undefined;
+  readonly toolCallAllowance?: number | undefined
 }
 
 /** Durable identity of one established attached child, in core vocabulary. */
 export interface RunSubagentChildIdentity {
-  readonly childThreadId: ThreadId;
-  readonly childSubmissionId: SubmissionId;
-  readonly childRunId: RunId;
+  readonly childThreadId: ThreadId
+  readonly childSubmissionId: SubmissionId
+  readonly childRunId: RunId
   /** The child Receipt: establishment is never durable-visible before it exists (SUB-017). */
-  readonly receiptId: ReceiptId;
+  readonly receiptId: ReceiptId
 }
 
 /** The established child has not settled; the parent must suspend, never poll or respawn (SUB-018). */
 export interface ChildEstablishWaiting extends RunSubagentChildIdentity {
-  readonly _tag: "waiting";
+  readonly _tag: 'waiting'
 }
 
 /**
@@ -304,18 +300,18 @@ export interface ChildEstablishWaiting extends RunSubagentChildIdentity {
  * `{errorTag, message}` failure projection otherwise — never a raw Cause.
  */
 export interface ChildEstablishSettled extends RunSubagentChildIdentity {
-  readonly _tag: "settled";
+  readonly _tag: 'settled'
   /** Verified canonical usage; absence denotes legacy or unavailable evidence. */
-  readonly usage?: RunTotals;
-  readonly delegatedUsage?: RunTotals;
-  readonly outcome: "completed" | "failed" | "aborted";
-  readonly encodedResult: unknown;
+  readonly usage?: RunTotals
+  readonly delegatedUsage?: RunTotals
+  readonly outcome: 'completed' | 'failed' | 'aborted'
+  readonly encodedResult: unknown
   /**
    * Present when the child's durable Settlement carries the honest
    * exhaustion marker (RUN-011/RUN-018): the child completed through the
    * final-answer resolution, so its output is a budget-truncated partial.
    */
-  readonly finishReason?: "budget-exhausted" | undefined;
+  readonly finishReason?: 'budget-exhausted' | undefined
 }
 
 /**
@@ -323,16 +319,16 @@ export interface ChildEstablishSettled extends RunSubagentChildIdentity {
  * never a raw Cause). No further establishment attempt is made for this call.
  */
 export interface ChildEstablishDenied {
-  readonly _tag: "denied";
-  readonly errorTag: string;
-  readonly message: string;
+  readonly _tag: 'denied'
+  readonly errorTag: string
+  readonly message: string
 }
 
 /** Result of one idempotent durable child establishment attempt. */
 export type ChildEstablishStatus =
   | ChildEstablishWaiting
   | ChildEstablishSettled
-  | ChildEstablishDenied;
+  | ChildEstablishDenied
 
 /**
  * One settlement join handed back to the coordinator by the delegation
@@ -343,12 +339,12 @@ export type ChildEstablishStatus =
  * transitions.
  */
 export interface RunSubagentJoinRequest {
-  readonly toolCallId: ToolCallId;
+  readonly toolCallId: ToolCallId
   /** The encoded parent Tool result exactly as the Tool message will carry it. */
-  readonly encodedResult: unknown;
-  readonly isFailure: boolean;
+  readonly encodedResult: unknown
+  readonly isFailure: boolean
   /** Final consumed/released accounting decision per budget dimension (opaque encoded policy math owned by the delegation capability). */
-  readonly encodedAccounting: unknown;
+  readonly encodedAccounting: unknown
 }
 
 /**
@@ -366,18 +362,18 @@ export interface RunSubagentJoinRequest {
 export interface RunSubagentHook<Error = never, Requirements = never> {
   readonly establish: (
     request: RunSubagentEstablishRequest,
-  ) => Effect.Effect<ChildEstablishStatus, Error, Requirements>;
-  readonly join: (request: RunSubagentJoinRequest) => Effect.Effect<void, Error, Requirements>;
+  ) => Effect.Effect<ChildEstablishStatus, Error, Requirements>
+  readonly join: (request: RunSubagentJoinRequest) => Effect.Effect<void, Error, Requirements>
 }
 
 /** One declared Tool Call of a Turn being resumed, in canonical encoded form. */
 export interface RunTurnResumeCall {
-  readonly id: string;
-  readonly name: string;
+  readonly id: string
+  readonly name: string
   /** Canonical encoded parameters; re-validated through the Tool's parameter Schema before anything executes. */
-  readonly params: unknown;
+  readonly params: unknown
   /** Provider calls must have a canonical settled result and are never dispatched locally. */
-  readonly providerExecuted?: boolean;
+  readonly providerExecuted?: boolean
 }
 
 /**
@@ -394,9 +390,9 @@ export const RunTurnResumeSettledCallSchema = Schema.Struct({
   isFailure: Schema.Boolean,
   /** Engine-owned rejection evidence; never inferred from the encoded result. */
   budgetRejected: Schema.optionalKey(Schema.Literal(true)),
-});
+})
 
-export type RunTurnResumeSettledCall = typeof RunTurnResumeSettledCallSchema.Type;
+export type RunTurnResumeSettledCall = typeof RunTurnResumeSettledCallSchema.Type
 
 /**
  * Canonical cumulative usage and Stop Policy accounting restored from prior Attempts.
@@ -424,23 +420,20 @@ export const RunResumeUsageSchema = Schema.Struct({
   children: Schema.optionalKey(Schema.Array(ChildRunUsage)),
 }).check(
   Schema.makeFilter(
-    (usage) =>
-      usage.lastInputTokens <= usage.inputTokens && usage.lastOutputTokens <= usage.outputTokens,
+    (usage) => usage.lastInputTokens <= usage.inputTokens && usage.lastOutputTokens <= usage.outputTokens,
     {
-      expected: "last-call token usage no greater than cumulative token usage",
+      expected: 'last-call token usage no greater than cumulative token usage',
     },
   ),
   Schema.makeFilter(
-    (usage) =>
-      usage.modelCalls >= usage.committedTurns && usage.consecutiveToolFailures <= usage.toolCalls,
+    (usage) => usage.modelCalls >= usage.committedTurns && usage.consecutiveToolFailures <= usage.toolCalls,
     {
-      expected:
-        "model calls covering committed Turns and a failure streak within declared Tool calls",
+      expected: 'model calls covering committed Turns and a failure streak within declared Tool calls',
     },
   ),
-);
+)
 
-export type RunResumeUsage = typeof RunResumeUsageSchema.Type;
+export type RunResumeUsage = typeof RunResumeUsageSchema.Type
 
 /**
  * Resume one canonically declared Tool batch without re-invoking the model.
@@ -456,16 +449,16 @@ export type RunResumeUsage = typeof RunResumeUsageSchema.Type;
  */
 export interface RunTurnResume {
   /** Original application-result bound promised by this canonical response. */
-  readonly toolResultMaxBytes?: number | undefined;
+  readonly toolResultMaxBytes?: number | undefined
   /** A successful settled call whose original operation contract still supports completion projection. */
-  readonly settledCompletion?: ToolCallId | undefined;
+  readonly settledCompletion?: ToolCallId | undefined
   /** Canonical rejection evidence, matched to the exact call; never permits handler execution. */
-  readonly toolParameterRejections?: ReadonlyArray<ToolParameterRejection> | undefined;
-  readonly toolExposure?: Snapshot | undefined;
-  readonly turn: number;
-  readonly turnId: TurnId;
-  readonly calls: ReadonlyArray<RunTurnResumeCall>;
-  readonly settled: ReadonlyArray<RunTurnResumeSettledCall>;
+  readonly toolParameterRejections?: ReadonlyArray<ToolParameterRejection> | undefined
+  readonly toolExposure?: Snapshot | undefined
+  readonly turn: number
+  readonly turnId: TurnId
+  readonly calls: ReadonlyArray<RunTurnResumeCall>
+  readonly settled: ReadonlyArray<RunTurnResumeSettledCall>
   /**
    * The pending Turn's committed LEADING messages — the messages the durable
    * coordinator committed inside the pending Turn's canonical response record
@@ -477,23 +470,25 @@ export interface RunTurnResume {
    * between the re-evaluated initial prompt and the rebuilt assistant
    * tool-call message. Optional: absent keeps the prior behavior byte-for-byte.
    */
-  readonly leadingMessages?: Prompt.Prompt | undefined;
+  readonly leadingMessages?: Prompt.Prompt | undefined
   /**
    * The pending Turn's canonical assistant response, including text, reasoning and provider
    * options. Durable hosts pass the decoded response after its leading messages. Execution
    * still uses the independently validated `calls`; this exact response enters history instead
    * of reconstructing it from call descriptors that cannot preserve every provider field.
    */
-  readonly responseMessages?: Prompt.Prompt | undefined;
+  readonly responseMessages?: Prompt.Prompt | undefined
 }
 
 /** Interpreter protocol supplied by the owning durable coordinator or delegation capability. */
-export interface InterpreterOptions<HookError = never, HookRequirements = never> extends RunOptions<
-  HookError,
-  HookRequirements
-> {
+export interface InterpreterOptions<HookError = never, HookRequirements = never> extends
+  RunOptions<
+    HookError,
+    HookRequirements
+  >
+{
   /** Host-validated worker message; application input still supplies instructions and policy context. */
-  readonly frameworkMessage?: FrameworkMessage;
+  readonly frameworkMessage?: FrameworkMessage
 
   /**
    * Original admitted JSON for a durable continuation or verified framework message. Static
@@ -501,21 +496,21 @@ export interface InterpreterOptions<HookError = never, HookRequirements = never>
    * still require that Schema. The original value remains the policy input, and a saved prompt
    * is restored through `context` instead of rerendering the application's input prompt.
    */
-  readonly retainedInput?: Schema.Json | undefined;
+  readonly retainedInput?: Schema.Json | undefined
 
   /**
    * Canonical evaluated instructions and input messages of an unfinished Run. Reuse their
    * exact model context under a compatible current Binding; do not reevaluate instructions
    * or render the original input again. Input-dependent Bindings still decode retainedInput.
    */
-  readonly retainedContext?: Prompt.Prompt | undefined;
+  readonly retainedContext?: Prompt.Prompt | undefined
 
   /** Canonically reconstructed window identity for a resumed durable Run. */
-  readonly initialContextWindowId?: string | undefined;
+  readonly initialContextWindowId?: string | undefined
   /** Last unconsumed, settled singleton application Tool in this Run; the engine verifies its control annotation. */
-  readonly pendingContextToolCallId?: string | undefined;
+  readonly pendingContextToolCallId?: string | undefined
   /** Canonical instruction/input block for durable recovery; not re-evaluated Attempt input. */
-  readonly protectedContext?: Prompt.Prompt | undefined;
+  readonly protectedContext?: Prompt.Prompt | undefined
   /**
    * Non-model-visible Parent Link for a delegated child Run (S1 seam). It
    * never enters the model prompt or the Run's event payloads directly; the
@@ -523,15 +518,15 @@ export interface InterpreterOptions<HookError = never, HookRequirements = never>
    * for a child, `0` when absent) exposed through the locally provided
    * `AgentSpawner`, and future durable work persists it as child lineage.
    */
-  readonly parentLink?: SubagentParentLink | undefined;
+  readonly parentLink?: SubagentParentLink | undefined
   /** Durable background provenance supplies depth independently of attached parent linkage. */
-  readonly delegationDepth?: number | undefined;
+  readonly delegationDepth?: number | undefined
   /** Immutable narrowed authority restored for every delegated Attempt. */
-  readonly subagentGrant?: SubagentGrant | undefined;
+  readonly subagentGrant?: SubagentGrant | undefined
   /** Reserved subtree frame; descendants may spend only the residual after this Run's own ceiling. */
-  readonly subagentBudget?: SubagentBudgetReservation | undefined;
+  readonly subagentBudget?: SubagentBudgetReservation | undefined
   /** Native host funding provenance; never inferred from absent allocation amounts. */
-  readonly subagentBudgetScope?: WorkerBudgetScope | undefined;
+  readonly subagentBudgetScope?: WorkerBudgetScope | undefined
   /**
    * Actual wall-clock start of the logical Run, used for elapsed-time status.
    * Durable coordinators supply the canonical `RunStarted` record timestamp on
@@ -539,27 +534,27 @@ export interface InterpreterOptions<HookError = never, HookRequirements = never>
    * which may tighten the remaining allowance without changing how long the
    * Run has existed (RUN-024/RUN-030).
    */
-  readonly runStartedAt?: DateTime.Utc | undefined;
+  readonly runStartedAt?: DateTime.Utc | undefined
   /**
    * Durable turn-commit seam (P5). When absent the engine behaves exactly as
    * the ephemeral runtime: no response/prepared commits, and `DurableStep`
    * executes pass-through.
    */
-  readonly durability?: RunDurabilityHook<HookError, HookRequirements> | undefined;
+  readonly durability?: RunDurabilityHook<HookError, HookRequirements> | undefined
   /**
    * Durable-Subagent establishment/join seam (S2). When present the engine's
    * per-batch `SubagentDurability` service runs in durable mode over this
    * hook; when absent the service is the explicit ephemeral-mode default and
    * delegation Tools keep their S1 in-process spawn semantics unchanged.
    */
-  readonly subagent?: RunSubagentHook<HookError, HookRequirements> | undefined;
+  readonly subagent?: RunSubagentHook<HookError, HookRequirements> | undefined
   /**
    * Resume a declared, canonically committed Tool batch without re-invoking
    * the model (durable batch-resume seam). Consumed by the Run's first Turn.
    * Requires `resumeUsage`; missing or contradictory accounting fails with
    * `ModelProtocolError` before input, model, or Tool execution.
    */
-  readonly resume?: RunTurnResume | undefined;
+  readonly resume?: RunTurnResume | undefined
   /**
    * Cumulative usage and Stop Policy accounting of the Run's prior Attempts,
    * projected from canonical records. A fresh continuation starts at
@@ -570,5 +565,5 @@ export interface InterpreterOptions<HookError = never, HookRequirements = never>
    * must include every pending declaration, and the failure streak cannot
    * exceed the declared calls before that batch.
    */
-  readonly resumeUsage?: RunResumeUsage | undefined;
+  readonly resumeUsage?: RunResumeUsage | undefined
 }

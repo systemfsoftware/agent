@@ -1,46 +1,46 @@
-import { type ThreadId } from "@yielded/agent/identifiers";
-import type { ThreadStore, ThreadStoreError } from "@yielded/agent/thread-store";
-import { ThreadWorkDiscovery } from "@yielded/agent/thread-work";
-import { makeWakeSubscriptionHub, WakeScheduler } from "@yielded/agent/wake-scheduler";
-import * as Clock from "effect/Clock";
-import * as Context from "effect/Context";
-import type * as Duration from "effect/Duration";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
-import * as PubSub from "effect/PubSub";
-import * as Stream from "effect/Stream";
+import { type ThreadId } from '@yielded/agent/identifiers'
+import type { ThreadStore, ThreadStoreError } from '@yielded/agent/thread-store'
+import { ThreadWorkDiscovery } from '@yielded/agent/thread-work'
+import { makeWakeSubscriptionHub, WakeScheduler } from '@yielded/agent/wake-scheduler'
+import * as Clock from 'effect/Clock'
+import * as Context from 'effect/Context'
+import type * as Duration from 'effect/Duration'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
+import * as Option from 'effect/Option'
+import * as PubSub from 'effect/PubSub'
+import * as Stream from 'effect/Stream'
 
 /**
  * Bounded in-process wake buffer. Wake hints are droppable by contract (native work inventory
  * keeps liveness), so a full buffer slides out the oldest hint instead of growing without bound.
  */
-const WAKE_BUFFER_CAPACITY = 1_024;
+const WAKE_BUFFER_CAPACITY = 1_024
 
 /** Cadence authority for the Node wake scheduler's native inventory fallback. */
 export class NodeWakeSchedulerConfig extends Context.Service<
   NodeWakeSchedulerConfig,
   {
     /** Interval between scans of Threads with outstanding work, including terminal obligations. */
-    readonly scanInterval: Duration.Duration;
+    readonly scanInterval: Duration.Duration
   }
->()("@effect-agent/platform-node/NodeWakeSchedulerConfig") {
+>()('@effect-agent/platform-node/NodeWakeSchedulerConfig') {
   static layer(options: {
-    readonly scanInterval: Duration.Duration;
+    readonly scanInterval: Duration.Duration
   }): Layer.Layer<NodeWakeSchedulerConfig> {
-    return Layer.succeed(NodeWakeSchedulerConfig)({ scanInterval: options.scanInterval });
+    return Layer.succeed(NodeWakeSchedulerConfig)({ scanInterval: options.scanInterval })
   }
 }
 
-const makeWakeScheduler = Effect.gen(function* () {
-  const work = yield* ThreadWorkDiscovery.pipe(Effect.provide(ThreadWorkDiscovery.layer));
-  const config = yield* NodeWakeSchedulerConfig;
-  const clock = yield* Clock.Clock;
-  const hints = yield* PubSub.sliding<ThreadId>(WAKE_BUFFER_CAPACITY);
-  const progress = yield* makeWakeSubscriptionHub;
-  const settlements = yield* makeWakeSubscriptionHub;
+const makeWakeScheduler = Effect.gen(function*() {
+  const work = yield* ThreadWorkDiscovery.pipe(Effect.provide(ThreadWorkDiscovery.layer))
+  const config = yield* NodeWakeSchedulerConfig
+  const clock = yield* Clock.Clock
+  const hints = yield* PubSub.sliding<ThreadId>(WAKE_BUFFER_CAPACITY)
+  const progress = yield* makeWakeSubscriptionHub
+  const settlements = yield* makeWakeSubscriptionHub
 
-  yield* Effect.addFinalizer(() => PubSub.shutdown(hints));
+  yield* Effect.addFinalizer(() => PubSub.shutdown(hints))
 
   const scanOnce = Stream.paginate(undefined, (afterThreadId: ThreadId | undefined) =>
     work
@@ -52,32 +52,32 @@ const makeWakeScheduler = Effect.gen(function* () {
             page.afterThreadId === undefined ? Option.none() : Option.some(page.afterThreadId),
           ],
         ),
+      )).pipe(
+      Stream.catch((error) =>
+        Stream.fromEffect(
+          Effect.logWarning('NodeWakeScheduler native work inventory failed', error),
+        ).pipe(Stream.drain)
       ),
-  ).pipe(
-    Stream.catch((error) =>
-      Stream.fromEffect(
-        Effect.logWarning("NodeWakeScheduler native work inventory failed", error),
-      ).pipe(Stream.drain),
-    ),
-  );
+    )
 
   // Each subscriber owns its cursor. A slow subscriber retains one page and resumes it;
   // faster subscribers keep scanning without an unbounded shared snapshot or dropped pages.
   const fallbackScans = Stream.fromEffectRepeat(clock.sleep(config.scanInterval)).pipe(
     Stream.flatMap(() => scanOnce),
-  );
+  )
 
   return WakeScheduler.of({
     notify: (threadId, kind) =>
-      (kind === "progress"
+      (kind === 'progress'
         ? progress.notify(threadId)
-        : settlements.notify(threadId).pipe(Effect.andThen(progress.notify(threadId)))
-      ).pipe(Effect.andThen(PubSub.publish(hints, threadId)), Effect.asVoid),
-    subscribe: (threadId, kind) =>
-      (kind === "settlement" ? settlements : progress).subscribe(threadId),
+        : settlements.notify(threadId).pipe(Effect.andThen(progress.notify(threadId)))).pipe(
+          Effect.andThen(PubSub.publish(hints, threadId)),
+          Effect.asVoid,
+        ),
+    subscribe: (threadId, kind) => (kind === 'settlement' ? settlements : progress).subscribe(threadId),
     wakes: Stream.merge(Stream.fromPubSub(hints), fallbackScans),
-  });
-});
+  })
+})
 
 /**
  * In-process Node `WakeScheduler`: `notify` publishes to a bounded sliding PubSub for prompt
@@ -91,4 +91,4 @@ export const nodeWakeSchedulerLayer: Layer.Layer<
   WakeScheduler,
   ThreadStoreError,
   ThreadStore | NodeWakeSchedulerConfig
-> = Layer.effect(WakeScheduler)(makeWakeScheduler);
+> = Layer.effect(WakeScheduler)(makeWakeScheduler)

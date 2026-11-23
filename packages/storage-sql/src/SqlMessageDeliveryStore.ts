@@ -1,67 +1,69 @@
-import { ThreadId } from "@yielded/agent/identifiers";
+import { ThreadId } from '@yielded/agent/identifiers'
 import {
   applyMessageDeliveryChange,
   defaultMessageDeliveryStoreLimits,
+  isWorkerUpdateDelivery,
+  messageDeliveryCapacity,
   MessageDeliveryChange,
+  messageDeliveryDeadline,
   MessageDeliveryError,
-  type MessageDeliveryFailure,
   MessageDeliveryFailpoint,
+  type MessageDeliveryFailure,
   MessageDeliveryKey,
   MessageDeliveryPageRequest,
   MessageDeliveryRecord,
   MessageDeliveryStore,
   MessageDeliveryStoreLimits,
-  messageDeliveryDeadline,
   peerMessageRetentionDeadline,
-  isWorkerUpdateDelivery,
-  messageDeliveryCapacity,
   sameMessageDeliveryIdentity,
   validateMessageDelivery,
-} from "@yielded/agent/message-delivery";
-import { StorageOwner } from "@yielded/agent/run-storage";
-import { ScheduleInstant } from "@yielded/agent/schedule";
-import { SqlStorageOwner } from "@yielded/agent/sql-storage-owner";
-import { IdempotencyKey } from "@yielded/agent/submission-ledger";
-import { makeTransferFactCheck } from "@yielded/agent/thread-store";
-import * as Cause from "effect/Cause";
-import * as DateTime from "effect/DateTime";
-import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
-import * as SqlClient from "effect/sql/SqlClient";
-import type * as SqlError from "effect/sql/SqlError";
-import type * as Statement from "effect/sql/Statement";
+} from '@yielded/agent/message-delivery'
+import { StorageOwner } from '@yielded/agent/run-storage'
+import { ScheduleInstant } from '@yielded/agent/schedule'
+import { SqlStorageOwner } from '@yielded/agent/sql-storage-owner'
+import { IdempotencyKey } from '@yielded/agent/submission-ledger'
+import { makeTransferFactCheck } from '@yielded/agent/thread-store'
+import * as Cause from 'effect/Cause'
+import * as DateTime from 'effect/DateTime'
+import * as Effect from 'effect/Effect'
+import * as Option from 'effect/Option'
+import * as Schema from 'effect/Schema'
+import * as SqlClient from 'effect/sql/SqlClient'
+import type * as SqlError from 'effect/sql/SqlError'
+import type * as Statement from 'effect/sql/Statement'
 
-import { sqliteJsonText, queryIdentifier } from "./internal/sql-json.ts";
-import { makeSqlLifecyclePublication } from "./SqlLifecyclePublication.ts";
-import { makeSqlQuery, SqlInteger } from "./SqlStorage.ts";
-import { SqlStorageProgress } from "./SqlStorageProgress.ts";
-import { makeSqlThreadWork } from "./SqlThreadWork.ts";
+import { queryIdentifier, sqliteJsonText } from './internal/sql-json.ts'
+import { makeSqlLifecyclePublication } from './SqlLifecyclePublication.ts'
+import { makeSqlQuery, SqlInteger } from './SqlStorage.ts'
+import { SqlStorageProgress } from './SqlStorageProgress.ts'
+import { makeSqlThreadWork } from './SqlThreadWork.ts'
 
 const workerPaths = {
-  delegationId: ["envelope", "workerAdmission", "origin", "worker", "delegationId"],
-  targetAgentId: ["envelope", "workerAdmission", "origin", "worker", "targetAgentId"],
-  threadId: ["envelope", "workerAdmission", "origin", "worker", "threadId"],
-} as const;
+  delegationId: ['envelope', 'workerAdmission', 'origin', 'worker', 'delegationId'],
+  targetAgentId: ['envelope', 'workerAdmission', 'origin', 'worker', 'targetAgentId'],
+  threadId: ['envelope', 'workerAdmission', 'origin', 'worker', 'threadId'],
+} as const
 
 const workerField = (sql: SqlClient.SqlClient, field: keyof typeof workerPaths) =>
   sql.onDialectOrElse({
-    orElse: () => sqliteJsonText(sql, "record_json", workerPaths[field]),
+    orElse: () => sqliteJsonText(sql, 'record_json', workerPaths[field]),
     pg: () => sql.literal(`(read_metadata ->> '${field}')`),
-  });
+  })
 
 const workerStart = (sql: SqlClient.SqlClient) =>
   sql.onDialectOrElse({
     orElse: () =>
-      sql`message_id = ${sqliteJsonText(sql, "record_json", ["envelope", "workerAdmission", "origin", "firstMessageId"])}`,
+      sql`message_id = ${
+        sqliteJsonText(sql, 'record_json', ['envelope', 'workerAdmission', 'origin', 'firstMessageId'])
+      }`,
     pg: () => sql`(read_metadata ->> 'workerStart') = 'true'`,
-  });
+  })
 
 const withoutReceipt = (sql: SqlClient.SqlClient) =>
   sql.onDialectOrElse({
-    orElse: () => sql`${sqliteJsonText(sql, "record_json", ["receipt"])} IS NULL`,
+    orElse: () => sql`${sqliteJsonText(sql, 'record_json', ['receipt'])} IS NULL`,
     pg: () => sql`(read_metadata ->> 'hasReceipt') = 'false'`,
-  });
+  })
 
 const encodeMetadata = Schema.encodeSync(
   Schema.fromJsonString(
@@ -76,107 +78,109 @@ const encodeMetadata = Schema.encodeSync(
       hasReceipt: Schema.Boolean,
     }),
   ),
-);
+)
 
 /** Shared importer and delivery writer use identical native selector metadata. */
 export const messageDeliveryMetadata = (record: MessageDeliveryRecord): string => {
-  const origin = record.envelope.workerAdmission?.origin;
+  const origin = record.envelope.workerAdmission?.origin
 
   return encodeMetadata({
     workerUpdate: isWorkerUpdateDelivery(record),
     messageId: JSON.stringify(record.key.messageId),
-    peer:
-      record.envelope.messageAdmission !== undefined &&
-      "message" in record.envelope.messageAdmission,
+    peer: record.envelope.messageAdmission !== undefined &&
+      'message' in record.envelope.messageAdmission,
     delegationId: origin === undefined ? null : JSON.stringify(origin.worker.delegationId),
     targetAgentId: origin === undefined ? null : JSON.stringify(origin.worker.targetAgentId),
     threadId: origin === undefined ? null : JSON.stringify(origin.worker.threadId),
     workerStart: record.key.messageId === origin?.firstMessageId,
     hasReceipt: record.receipt !== null,
-  });
-};
+  })
+}
 
 export interface SqlMessageDeliveryStoreOptions {
-  readonly namespace?: string;
+  readonly namespace?: string
   /** UTF-8 bound on the complete persisted record, including a processed Settlement. */
-  readonly maxStoredValueBytes?: number;
+  readonly maxStoredValueBytes?: number
   /** Defaults to the client's transaction; Postgres supplies its writer-lock transaction. */
   readonly transaction?: <A>(
     body: Effect.Effect<A, MessageDeliveryFailure>,
-  ) => Effect.Effect<A, MessageDeliveryFailure | SqlError.SqlError>;
+  ) => Effect.Effect<A, MessageDeliveryFailure | SqlError.SqlError>
 }
 
 interface CanonicalMessageWriter {
-  readonly owner: StorageOwner["Service"];
+  readonly owner: StorageOwner['Service']
   readonly write: (
     records: ReadonlyArray<MessageDeliveryRecord>,
-  ) => Effect.Effect<void, MessageDeliveryError>;
+  ) => Effect.Effect<void, MessageDeliveryError>
 }
 
-const privateWriters = new WeakMap<MessageDeliveryStore["Service"], CanonicalMessageWriter>();
+const privateWriters = new WeakMap<MessageDeliveryStore['Service'], CanonicalMessageWriter>()
 
 const canonicalWriters = new WeakMap<
-  StorageOwner["Service"],
+  StorageOwner['Service'],
   {
-    readonly store: MessageDeliveryStore["Service"];
-    readonly writer: CanonicalMessageWriter;
-    references: number;
+    readonly store: MessageDeliveryStore['Service']
+    readonly writer: CanonicalMessageWriter
+    references: number
   }
->();
+>()
 
 /** Pair the configured delivery facet with its retained physical owner for this scope. */
-export const registerCanonicalMessageWriter = Effect.fnUntraced(function* (
-  owner: StorageOwner["Service"],
-  store: MessageDeliveryStore["Service"],
+export const registerCanonicalMessageWriter = Effect.fnUntraced(function*(
+  owner: StorageOwner['Service'],
+  store: MessageDeliveryStore['Service'],
 ) {
   yield* Effect.acquireRelease(
-    Effect.gen(function* () {
-      const writer = privateWriters.get(store);
+    Effect.gen(function*() {
+      const writer = privateWriters.get(store)
 
-      if (writer === undefined || writer.owner !== owner || owner.isClosed())
+      if (writer === undefined || writer.owner !== owner || owner.isClosed()) {
         return yield* MessageDeliveryError.make({
-          reason: "conflict",
-          operation: "canonical-writer-owner",
-        });
-      const current = canonicalWriters.get(owner);
+          reason: 'conflict',
+          operation: 'canonical-writer-owner',
+        })
+      }
+      const current = canonicalWriters.get(owner)
 
-      if (current !== undefined && current.store !== store)
+      if (current !== undefined && current.store !== store) {
         return yield* MessageDeliveryError.make({
-          reason: "conflict",
-          operation: "canonical-writer-conflict",
-        });
-      const retained = current ?? { store, writer, references: 0 };
+          reason: 'conflict',
+          operation: 'canonical-writer-conflict',
+        })
+      }
+      const retained = current ?? { store, writer, references: 0 }
 
-      retained.references++;
-      canonicalWriters.set(owner, retained);
+      retained.references++
+      canonicalWriters.set(owner, retained)
 
-      return retained;
+      return retained
     }),
     (retained) =>
       Effect.sync(() => {
-        if (--retained.references === 0) canonicalWriters.delete(owner);
+        if (--retained.references === 0) canonicalWriters.delete(owner)
       }),
-  );
-});
+  )
+})
 
 /**
  * Publish through the paired private insert body inside the canonical append transaction.
  * The journal supplies its retained physical owner when constructing its publication operation.
  */
-export const publishCanonicalDeliveries = Effect.fnUntraced(function* (
+export const publishCanonicalDeliveries = Effect.fnUntraced(function*(
   records: ReadonlyArray<MessageDeliveryRecord>,
 ) {
-  if (records.length === 0) return;
-  const owner = yield* StorageOwner;
-  const retained = canonicalWriters.get(owner);
+  if (records.length === 0) return
+  const owner = yield* StorageOwner
+  const retained = canonicalWriters.get(owner)
 
-  if (retained === undefined || owner.isClosed())
+  if (retained === undefined || owner.isClosed()) {
     return yield* MessageDeliveryError.make({
-      reason: "conflict",
-      operation: "canonical-writer-missing",
-    });
-  yield* retained.writer.write(records);
-});
+      reason: 'conflict',
+      operation: 'canonical-writer-missing',
+    })
+  }
+  yield* retained.writer.write(records)
+})
 
 const Row = Schema.Struct({
   owner_thread_id: ThreadId,
@@ -186,145 +190,153 @@ const Row = Schema.Struct({
   deadline_at_millis: Schema.NullOr(SqlInteger.pipe(Schema.decodeTo(ScheduleInstant))),
   peer_retained_until_millis: Schema.NullOr(SqlInteger.pipe(Schema.decodeTo(ScheduleInstant))),
   record_json: Schema.String,
-});
+})
 
 const Count = Schema.Struct({
   pending: SqlInteger.pipe(Schema.decodeTo(Schema.Natural)),
-});
+})
 
 const PendingSize = Schema.Struct({
   count: SqlInteger.pipe(Schema.decodeTo(Schema.Natural)),
   total_bytes: SqlInteger.pipe(Schema.decodeTo(Schema.Natural)),
   max_bytes: SqlInteger.pipe(Schema.decodeTo(Schema.Natural)),
-});
+})
 
 const Deadline = Schema.Struct({
   deadline: Schema.NullOr(SqlInteger.pipe(Schema.decodeTo(ScheduleInstant))),
-});
+})
 
 const Scan = Schema.Struct({
   nowMillis: ScheduleInstant,
   limit: Schema.Int.check(Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(100)),
   ownerThreadId: Schema.optionalKey(ThreadId),
-});
+})
 
-const codec = Schema.fromJsonString(MessageDeliveryRecord);
-const deliveryFitsTransfer = makeTransferFactCheck(MessageDeliveryRecord);
+const codec = Schema.fromJsonString(MessageDeliveryRecord)
+const deliveryFitsTransfer = makeTransferFactCheck(MessageDeliveryRecord)
 
 const checkTransfer = (record: MessageDeliveryRecord) =>
   deliveryFitsTransfer(record.key.ownerThreadId, { ...record, leaseUntilMillis: null })
     ? Effect.void
     : Effect.fail(
-        MessageDeliveryError.make({ reason: "capacity", operation: "transfer-page-bytes" }),
-      );
+      MessageDeliveryError.make({ reason: 'capacity', operation: 'transfer-page-bytes' }),
+    )
 
-const bytes = (text: string): number => new TextEncoder().encode(text).byteLength;
+const bytes = (text: string): number => new TextEncoder().encode(text).byteLength
 
 interface PendingRecord {
-  readonly record: MessageDeliveryRecord;
+  readonly record: MessageDeliveryRecord
   /** Size of the authoritative stored text, independent of the consuming adapter's limit. */
-  readonly storedBytes: number;
+  readonly storedBytes: number
 }
 
-const pendingRowLimit = 128;
-const pendingByteLimit = 4 * 1024 * 1024;
+const pendingRowLimit = 128
+const pendingByteLimit = 4 * 1024 * 1024
 
 const pendingBytes = (records: ReadonlyArray<PendingRecord>) =>
-  records.reduce((total, entry) => total + entry.storedBytes, 0);
+  records.reduce((total, entry) => total + entry.storedBytes, 0)
 
 // Disposable complete pending sets shared by adapters on the same physical owner.
-const pendingViews = new WeakMap<object, Map<string, Map<string, ReadonlyArray<PendingRecord>>>>();
+const pendingViews = new WeakMap<object, Map<string, Map<string, ReadonlyArray<PendingRecord>>>>()
 
 const compareMessageIds = (left: string, right: string): number => {
-  const a = new TextEncoder().encode(left);
-  const b = new TextEncoder().encode(right);
+  const a = new TextEncoder().encode(left)
+  const b = new TextEncoder().encode(right)
 
   for (let i = 0; i < Math.min(a.length, b.length); i++) {
     // oxlint-disable-next-line typescript/no-non-null-assertion -- i is bounded by both byte-array lengths
-    if (a[i] !== b[i]) return a[i]! - b[i]!;
+    if (a[i] !== b[i]) return a[i]! - b[i]!
   }
 
-  return a.length - b.length;
-};
+  return a.length - b.length
+}
 
 const storage = (operation: string, cause?: unknown) =>
   MessageDeliveryError.make({
-    reason: "storage",
+    reason: 'storage',
     operation,
     ...(cause === undefined ? {} : { cause }),
-  });
+  })
 
 const corrupt = (operation: string, cause?: unknown) =>
   MessageDeliveryError.make({
-    reason: "corrupt",
+    reason: 'corrupt',
     operation,
     ...(cause === undefined ? {} : { cause }),
-  });
+  })
 
 /**
  * Layouts with publication handoffs may upgrade only after the previous runtime has
  * rebuilt discovery and retained every outbox row. Check scalar locators before any
  * work-index rebuild can discard that evidence; never hydrate the canonical history.
  */
-export const assertLegacyMessagePublicationDrained = Effect.fnUntraced(function* (
+export const assertLegacyMessagePublicationDrained = Effect.fnUntraced(function*(
   namespace?: string,
 ) {
-  const sql = yield* SqlClient.SqlClient;
-  const { table, execute } = yield* makeSqlQuery(namespace);
+  const sql = yield* SqlClient.SqlClient
+  const { table, execute } = yield* makeSqlQuery(namespace)
 
   const query = <A extends object>(statement: Statement.Statement<A>) =>
     execute(statement).pipe(
-      Effect.mapError((cause) => storage("inspect legacy message publication", cause)),
-    );
+      Effect.mapError((cause) => storage('inspect legacy message publication', cause)),
+    )
 
-  if ((yield* query(sql`SELECT 1 FROM ${table("effect_agent_threads")} LIMIT 1`)).length === 0)
-    return;
+  if ((yield* query(sql`SELECT 1 FROM ${table('effect_agent_threads')} LIMIT 1`)).length === 0) {
+    return
+  }
 
   const present = yield* query(
     sql.onDialectOrElse({
-      pg: () => sql`SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-      WHERE n.nspname=${namespace ?? "public"} AND c.relname='effect_agent_work_entries' AND c.relkind='r'`,
-      orElse: () =>
-        sql`SELECT 1 FROM sqlite_master WHERE type='table' AND name='effect_agent_work_entries'`,
+      pg: () =>
+        sql`SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+      WHERE n.nspname=${namespace ?? 'public'} AND c.relname='effect_agent_work_entries' AND c.relkind='r'`,
+      orElse: () => sql`SELECT 1 FROM sqlite_master WHERE type='table' AND name='effect_agent_work_entries'`,
     }),
-  );
+  )
 
-  if (present.length === 0)
-    return yield* MessageDeliveryError.make({ reason: "conflict", operation: "legacy-work-index" });
+  if (present.length === 0) {
+    return yield* MessageDeliveryError.make({ reason: 'conflict', operation: 'legacy-work-index' })
+  }
 
-  const incomplete = yield* query(sql`SELECT 1 FROM ${table("effect_agent_threads")} AS owner
+  const incomplete = yield* query(sql`SELECT 1 FROM ${table('effect_agent_threads')} AS owner
     WHERE work_version<>3 OR work_state<>'ready' OR work_through_sequence<>tail_sequence
-      OR work_entry_count<>(SELECT COUNT(*) FROM ${table("effect_agent_work_entries")} AS work WHERE work.thread_id=owner.thread_id)
-    LIMIT 1`);
+      OR work_entry_count<>(SELECT COUNT(*) FROM ${
+    table('effect_agent_work_entries')
+  } AS work WHERE work.thread_id=owner.thread_id)
+    LIMIT 1`)
 
-  if (incomplete.length > 0)
-    return yield* MessageDeliveryError.make({ reason: "conflict", operation: "legacy-work-index" });
+  if (incomplete.length > 0) {
+    return yield* MessageDeliveryError.make({ reason: 'conflict', operation: 'legacy-work-index' })
+  }
 
-  const unpublished = yield* query(sql`SELECT 1 FROM ${table("effect_agent_work_entries")} AS work
+  const unpublished = yield* query(sql`SELECT 1 FROM ${table('effect_agent_work_entries')} AS work
     WHERE owner_tag='Handoff' AND handoff_kind IN ('peer', 'report', 'update')
       AND (message_id IS NULL OR NOT EXISTS (
-        SELECT 1 FROM ${table("effect_agent_message_deliveries")} AS delivery
+        SELECT 1 FROM ${table('effect_agent_message_deliveries')} AS delivery
         WHERE delivery.owner_thread_id=work.thread_id
-          AND ${sql.onDialectOrElse({
-            pg: () => sql`(delivery.read_metadata ->> 'messageId')`,
-            orElse: () => sql`json_quote(delivery.message_id)`,
-          })}=work.message_id
-      )) LIMIT 1`);
+          AND ${
+    sql.onDialectOrElse({
+      pg: () => sql`(delivery.read_metadata ->> 'messageId')`,
+      orElse: () => sql`json_quote(delivery.message_id)`,
+    })
+  }=work.message_id
+      )) LIMIT 1`)
 
-  if (unpublished.length > 0)
+  if (unpublished.length > 0) {
     return yield* MessageDeliveryError.make({
-      reason: "conflict",
-      operation: "legacy-message-publication",
-    });
-});
+      reason: 'conflict',
+      operation: 'legacy-message-publication',
+    })
+  }
+})
 
 /**
  * Backfill the retention derivative under the adapter's layout-upgrade transaction.
  * Read one bounded delivery at a time; preserve its JSON and all existing metadata.
  */
-export const backfillPeerMessageRetention = Effect.fnUntraced(function* (namespace?: string) {
-  const sql = (yield* SqlClient.SqlClient).withoutTransforms();
-  const { table } = yield* makeSqlQuery(namespace);
+export const backfillPeerMessageRetention = Effect.fnUntraced(function*(namespace?: string) {
+  const sql = (yield* SqlClient.SqlClient).withoutTransforms()
+  const { table } = yield* makeSqlQuery(namespace)
 
   const LegacyRow = Schema.Struct({
     owner_thread_id: Row.fields.owner_thread_id,
@@ -333,25 +345,25 @@ export const backfillPeerMessageRetention = Effect.fnUntraced(function* (namespa
     state: Row.fields.state,
     deadline_at_millis: Row.fields.deadline_at_millis,
     record_json: Schema.fromJsonString(MessageDeliveryRecord),
-  });
+  })
 
-  const decode = Schema.decodeUnknownEffect(Schema.Array(LegacyRow));
-  let cursor: { readonly owner: string; readonly message: string } | undefined;
+  const decode = Schema.decodeUnknownEffect(Schema.Array(LegacyRow))
+  let cursor: { readonly owner: string; readonly message: string } | undefined
 
   while (true) {
     const rows = yield* sql`
       SELECT owner_thread_id, message_id, version, state, deadline_at_millis, record_json
-      FROM ${table("effect_agent_message_deliveries")}
+      FROM ${table('effect_agent_message_deliveries')}
       ${cursor === undefined ? sql`` : sql`WHERE (owner_thread_id, message_id) > (${cursor.owner}, ${cursor.message})`}
       ORDER BY owner_thread_id, message_id LIMIT 1
-    `;
+    `
 
     const [row] = yield* decode(rows).pipe(
-      Effect.mapError(() => corrupt("upgrade delivery retention")),
-    );
+      Effect.mapError(() => corrupt('upgrade delivery retention')),
+    )
 
-    if (row === undefined) return;
-    const record = row.record_json;
+    if (row === undefined) return
+    const record = row.record_json
 
     if (
       record.key.ownerThreadId !== row.owner_thread_id ||
@@ -359,15 +371,16 @@ export const backfillPeerMessageRetention = Effect.fnUntraced(function* (namespa
       record.version !== row.version ||
       record.status !== row.state ||
       messageDeliveryDeadline(record) !== row.deadline_at_millis
-    )
-      return yield* corrupt("upgrade delivery metadata");
+    ) {
+      return yield* corrupt('upgrade delivery metadata')
+    }
 
-    yield* sql`UPDATE ${table("effect_agent_message_deliveries")}
+    yield* sql`UPDATE ${table('effect_agent_message_deliveries')}
       SET peer_retained_until_millis = ${peerMessageRetentionDeadline(record)}
-      WHERE owner_thread_id = ${row.owner_thread_id} AND message_id = ${row.message_id}`;
-    cursor = { owner: row.owner_thread_id, message: row.message_id };
+      WHERE owner_thread_id = ${row.owner_thread_id} AND message_id = ${row.message_id}`
+    cursor = { owner: row.owner_thread_id, message: row.message_id }
   }
-});
+})
 
 /**
  * Shared SQL implementation over the adapter-owned effect_agent_message_deliveries table.
@@ -376,134 +389,132 @@ export const backfillPeerMessageRetention = Effect.fnUntraced(function* (namespa
  * by (deadline_at_millis, owner_thread_id, message_id). No source/receiver ledger joins.
  * Before failpoints precede the atomic transaction; after failpoints run after its commit.
  */
-export const makeSqlMessageDeliveryStore = Effect.fnUntraced(function* (
-  retainedOwner: StorageOwner["Service"],
+export const makeSqlMessageDeliveryStore = Effect.fnUntraced(function*(
+  retainedOwner: StorageOwner['Service'],
   limits: MessageDeliveryStoreLimits = defaultMessageDeliveryStoreLimits,
   options: SqlMessageDeliveryStoreOptions = {},
 ) {
-  const progress = yield* SqlStorageProgress;
-  const config = yield* validateMessageDelivery(MessageDeliveryStoreLimits, limits, "limits");
+  const progress = yield* SqlStorageProgress
+  const config = yield* validateMessageDelivery(MessageDeliveryStoreLimits, limits, 'limits')
 
   const maxStoredValueBytes = yield* validateMessageDelivery(
     Schema.Int.check(Schema.isGreaterThan(0)),
     options.maxStoredValueBytes ?? 16 * 1_024 * 1_024,
-    "stored-value-limit",
-  );
+    'stored-value-limit',
+  )
 
-  const sql = yield* SqlClient.SqlClient;
-  const { table: relation, execute } = yield* makeSqlQuery(options.namespace);
+  const sql = yield* SqlClient.SqlClient
+  const { table: relation, execute } = yield* makeSqlQuery(options.namespace)
 
   const work = yield* makeSqlThreadWork(
     options.namespace === undefined ? {} : { namespace: options.namespace },
-  );
+  )
 
-  const decodeRowArray = Schema.decodeUnknownEffect(Schema.Array(Row));
-  const decodeCountRows = Schema.decodeUnknownEffect(Schema.Array(Count));
-  const decodePendingSizeRows = Schema.decodeUnknownEffect(Schema.Array(PendingSize));
-  const decodeDeadlineRows = Schema.decodeUnknownEffect(Schema.Array(Deadline));
-  const decodeRecordJson = Schema.decodeEffect(codec);
+  const decodeRowArray = Schema.decodeUnknownEffect(Schema.Array(Row))
+  const decodeCountRows = Schema.decodeUnknownEffect(Schema.Array(Count))
+  const decodePendingSizeRows = Schema.decodeUnknownEffect(Schema.Array(PendingSize))
+  const decodeDeadlineRows = Schema.decodeUnknownEffect(Schema.Array(Deadline))
+  const decodeRecordJson = Schema.decodeEffect(codec)
 
   const query = <A extends object>(operation: string, statement: Statement.Statement<A>) =>
-    execute(statement).pipe(Effect.mapError((cause) => storage(operation, cause)));
+    execute(statement).pipe(Effect.mapError((cause) => storage(operation, cause)))
 
-  const owner = yield* SqlStorageOwner;
-  let pending: Map<string, ReadonlyArray<PendingRecord>> | undefined;
+  const owner = yield* SqlStorageOwner
+  let pending: Map<string, ReadonlyArray<PendingRecord>> | undefined
 
   if (owner !== undefined) {
-    const identity = owner.identity ?? owner;
-    let namespaces = pendingViews.get(identity);
+    const identity = owner.identity ?? owner
+    let namespaces = pendingViews.get(identity)
 
     if (namespaces === undefined) {
-      namespaces = new Map();
-      pendingViews.set(identity, namespaces);
+      namespaces = new Map()
+      pendingViews.set(identity, namespaces)
     }
-    const namespace = options.namespace ?? "";
+    const namespace = options.namespace ?? ''
 
-    pending = namespaces.get(namespace);
+    pending = namespaces.get(namespace)
     if (pending === undefined) {
-      const view = new Map<string, ReadonlyArray<PendingRecord>>();
+      const view = new Map<string, ReadonlyArray<PendingRecord>>()
 
-      pending = view;
-      namespaces.set(namespace, view);
-      owner.invalidators.add(() => view.clear());
+      pending = view
+      namespaces.set(namespace, view)
+      owner.invalidators.add(() => view.clear())
     }
   }
 
   const recordProgress = progress
-    .committed("delivery")
+    .committed('delivery')
     .pipe(
       Effect.catchCause((cause) =>
-        Effect.failCause(Cause.map(cause, (error) => storage("enroll delivery progress", error))),
+        Effect.failCause(Cause.map(cause, (error) => storage('enroll delivery progress', error)))
       ),
-    );
+    )
 
-  const isPending = (record: MessageDeliveryRecord) =>
-    record.status !== "processed" && record.status !== "refused";
+  const isPending = (record: MessageDeliveryRecord) => record.status !== 'processed' && record.status !== 'refused'
 
   const retainPending = (threadId: string, records: ReadonlyArray<PendingRecord>) => {
-    if (pending === undefined) return;
-    pending.delete(threadId);
-    if (records.length > pendingRowLimit || pendingBytes(records) > pendingByteLimit) return;
-    pending.set(threadId, records);
-    let total = 0;
+    if (pending === undefined) return
+    pending.delete(threadId)
+    if (records.length > pendingRowLimit || pendingBytes(records) > pendingByteLimit) return
+    pending.set(threadId, records)
+    let total = 0
 
-    for (const rows of pending.values()) total += pendingBytes(rows);
+    for (const rows of pending.values()) total += pendingBytes(rows)
     while (pending.size > 128 || total > pendingByteLimit) {
-      const oldest = pending.entries().next().value;
+      const oldest = pending.entries().next().value
 
-      if (oldest === undefined) break;
-      total -= pendingBytes(oldest[1]);
-      pending.delete(oldest[0]);
+      if (oldest === undefined) break
+      total -= pendingBytes(oldest[1])
+      pending.delete(oldest[0])
     }
-  };
+  }
 
   const updatePending = (record: MessageDeliveryRecord, storedBytes: number) => {
-    const prior = pending?.get(record.key.ownerThreadId);
+    const prior = pending?.get(record.key.ownerThreadId)
 
-    if (prior === undefined) return;
-    const next = prior.filter((value) => value.record.key.messageId !== record.key.messageId);
+    if (prior === undefined) return
+    const next = prior.filter((value) => value.record.key.messageId !== record.key.messageId)
 
-    if (isPending(record)) next.push({ record, storedBytes });
-    retainPending(record.key.ownerThreadId, next);
-  };
+    if (isPending(record)) next.push({ record, storedBytes })
+    retainPending(record.key.ownerThreadId, next)
+  }
 
-  const read = <A, E, R>(body: Effect.Effect<A, E, R>) =>
-    owner === undefined ? body : owner.read(body);
+  const read = <A, E, R>(body: Effect.Effect<A, E, R>) => owner === undefined ? body : owner.read(body)
 
   const transaction = <A>(body: Effect.Effect<A, MessageDeliveryFailure>) =>
     (options.transaction === undefined
       ? owner === undefined
         ? sql.withTransaction(body)
         : owner.transaction(body).pipe(Effect.provideService(SqlClient.SqlClient, sql))
-      : options.transaction(body)
-    ).pipe(Effect.catchTag("SqlError", () => storage("transaction")));
+      : options.transaction(body)).pipe(Effect.catchTag('SqlError', () => storage('transaction')))
 
   const lifecycle = yield* makeSqlLifecyclePublication(options.namespace, maxStoredValueBytes).pipe(
-    Effect.mapError((cause) => storage("lifecycle", cause)),
-  );
+    Effect.mapError((cause) => storage('lifecycle', cause)),
+  )
 
-  const failpoint = yield* MessageDeliveryFailpoint;
+  const failpoint = yield* MessageDeliveryFailpoint
 
-  const encode = Effect.fnUntraced(function* (record: MessageDeliveryRecord) {
+  const encode = Effect.fnUntraced(function*(record: MessageDeliveryRecord) {
     const text = yield* Schema.encodeEffect(codec)(record).pipe(
-      Effect.mapError((cause) => corrupt("encode", cause)),
-    );
+      Effect.mapError((cause) => corrupt('encode', cause)),
+    )
 
-    if (bytes(text) > maxStoredValueBytes)
+    if (bytes(text) > maxStoredValueBytes) {
       return yield* MessageDeliveryError.make({
-        reason: "capacity",
-        operation: "stored-value-bytes",
-      });
+        reason: 'capacity',
+        operation: 'stored-value-bytes',
+      })
+    }
 
-    return text;
-  });
+    return text
+  })
 
-  const decode = Effect.fnUntraced(function* (row: typeof Row.Type) {
-    if (bytes(row.record_json) > maxStoredValueBytes) return yield* corrupt("stored-value-bytes");
+  const decode = Effect.fnUntraced(function*(row: typeof Row.Type) {
+    if (bytes(row.record_json) > maxStoredValueBytes) return yield* corrupt('stored-value-bytes')
 
     const record = yield* decodeRecordJson(row.record_json).pipe(
-      Effect.mapError((cause) => corrupt("decode", cause)),
-    );
+      Effect.mapError((cause) => corrupt('decode', cause)),
+    )
 
     if (
       record.key.ownerThreadId !== row.owner_thread_id ||
@@ -513,39 +524,41 @@ export const makeSqlMessageDeliveryStore = Effect.fnUntraced(function* (
       messageDeliveryDeadline(record) !== row.deadline_at_millis ||
       peerMessageRetentionDeadline(record) !== row.peer_retained_until_millis
     ) {
-      return yield* corrupt("row-metadata");
+      return yield* corrupt('row-metadata')
     }
 
-    return record;
-  });
+    return record
+  })
 
   const decodeRows = (rows: unknown) =>
     decodeRowArray(rows).pipe(
-      Effect.mapError((cause) => corrupt("rows", cause)),
+      Effect.mapError((cause) => corrupt('rows', cause)),
       Effect.flatMap((rows) => Effect.forEach(rows, decode)),
-    );
+    )
 
-  const get: MessageDeliveryStore["Service"]["get"] = Effect.fnUntraced(function* (key) {
-    const input = yield* validateMessageDelivery(MessageDeliveryKey, key, "get");
+  const get: MessageDeliveryStore['Service']['get'] = Effect.fnUntraced(function*(key) {
+    const input = yield* validateMessageDelivery(MessageDeliveryKey, key, 'get')
 
     const rows = yield* query(
-      "get",
-      sql`SELECT owner_thread_id, message_id, version, state, deadline_at_millis, peer_retained_until_millis, record_json FROM ${relation("effect_agent_message_deliveries")} WHERE owner_thread_id = ${input.ownerThreadId} AND message_id = ${input.messageId}`,
-    );
+      'get',
+      sql`SELECT owner_thread_id, message_id, version, state, deadline_at_millis, peer_retained_until_millis, record_json FROM ${
+        relation('effect_agent_message_deliveries')
+      } WHERE owner_thread_id = ${input.ownerThreadId} AND message_id = ${input.messageId}`,
+    )
 
-    return (yield* decodeRows(rows))[0] ?? null;
-  });
+    return (yield* decodeRows(rows))[0] ?? null
+  })
 
-  const prepareInsert = Effect.fnUntraced(function* (record: MessageDeliveryRecord) {
-    const text = yield* encode(record);
+  const prepareInsert = Effect.fnUntraced(function*(record: MessageDeliveryRecord) {
+    const text = yield* encode(record)
 
     const input = yield* decodeRecordJson(text).pipe(
-      Effect.mapError((cause) => corrupt("insert", cause)),
-    );
+      Effect.mapError((cause) => corrupt('insert', cause)),
+    )
 
     if (
       input.version !== 1 ||
-      input.status !== "pending" ||
+      input.status !== 'pending' ||
       input.leaseUntilMillis !== null ||
       input.retry.attempts !== 0 ||
       input.retry.generation !== 0 ||
@@ -555,157 +568,186 @@ export const makeSqlMessageDeliveryStore = Effect.fnUntraced(function* (
       input.retry.lastFailure !== null ||
       input.deadlineAtMillis !== input.initialDeadlineAtMillis
     ) {
-      return yield* MessageDeliveryError.make({ reason: "validation", operation: "insert-state" });
+      return yield* MessageDeliveryError.make({ reason: 'validation', operation: 'insert-state' })
     }
-    if (bytes(JSON.stringify(input.envelope)) > config.maxEnvelopeBytes)
-      return yield* MessageDeliveryError.make({ reason: "capacity", operation: "envelope-bytes" });
+    if (bytes(JSON.stringify(input.envelope)) > config.maxEnvelopeBytes) {
+      return yield* MessageDeliveryError.make({ reason: 'capacity', operation: 'envelope-bytes' })
+    }
 
-    return { input, text };
-  });
+    return { input, text }
+  })
 
-  const insertInTransaction = Effect.fnUntraced(function* ({
+  const insertInTransaction = Effect.fnUntraced(function*({
     input,
     text,
   }: {
-    readonly input: MessageDeliveryRecord;
-    readonly text: string;
+    readonly input: MessageDeliveryRecord
+    readonly text: string
   }) {
-    const existing = yield* get(input.key);
+    const existing = yield* get(input.key)
 
     if (existing !== null) {
-      if (!sameMessageDeliveryIdentity(existing, input))
-        return yield* MessageDeliveryError.make({ reason: "conflict", operation: "insert" });
+      if (!sameMessageDeliveryIdentity(existing, input)) {
+        return yield* MessageDeliveryError.make({ reason: 'conflict', operation: 'insert' })
+      }
 
       yield* work
         .initializeDeliveryOwner(input.key.ownerThreadId)
-        .pipe(Effect.mapError((cause) => storage("initialize delivery owner", cause)));
+        .pipe(Effect.mapError((cause) => storage('initialize delivery owner', cause)))
 
-      return existing;
+      return existing
     }
 
-    yield* checkTransfer(input);
-    const update = isWorkerUpdateDelivery(input);
-    const capacity = messageDeliveryCapacity(config, update);
+    yield* checkTransfer(input)
+    const update = isWorkerUpdateDelivery(input)
+    const capacity = messageDeliveryCapacity(config, update)
 
     const counts = yield* query(
-      "count",
+      'count',
       sql`SELECT COUNT(*) AS pending FROM (
-            SELECT 1 FROM ${relation("effect_agent_message_deliveries")}
-            ${sql.onDialectOrElse({
-              orElse: () => sql`INDEXED BY effect_agent_message_deliveries_capacity`,
-              pg: () => sql``,
-            })}
+            SELECT 1 FROM ${relation('effect_agent_message_deliveries')}
+            ${
+        sql.onDialectOrElse({
+          orElse: () => sql`INDEXED BY effect_agent_message_deliveries_capacity`,
+          pg: () => sql``,
+        })
+      }
             WHERE owner_thread_id = ${input.key.ownerThreadId}
               AND state IN ('pending', 'accepted', 'parked')
-              AND ${sql.onDialectOrElse({
-                orElse: () =>
-                  sql`(COALESCE(${sqliteJsonText(sql, "record_json", ["envelope", "messageAdmission", "_tag"])}, '') = 'WorkerUpdate') = ${update ? 1 : 0}`,
-                pg: () => sql`(read_metadata ->> 'workerUpdate') = ${String(update)}`,
-              })}
+              AND ${
+        sql.onDialectOrElse({
+          orElse: () =>
+            sql`(COALESCE(${
+              sqliteJsonText(sql, 'record_json', ['envelope', 'messageAdmission', '_tag'])
+            }, '') = 'WorkerUpdate') = ${update ? 1 : 0}`,
+          pg: () => sql`(read_metadata ->> 'workerUpdate') = ${String(update)}`,
+        })
+      }
             LIMIT ${capacity.pending}
           ) live_capacity`,
-    );
+    )
 
     const count = (yield* decodeCountRows(counts).pipe(
-      Effect.mapError((cause) => corrupt("count", cause)),
-    ))[0];
+      Effect.mapError((cause) => corrupt('count', cause)),
+    ))[0]
 
-    if (count === undefined) return yield* corrupt("count");
-    if (count.pending >= capacity.pending)
-      return yield* MessageDeliveryError.make({ reason: "capacity", operation: "insert" });
+    if (count === undefined) return yield* corrupt('count')
+    if (count.pending >= capacity.pending) {
+      return yield* MessageDeliveryError.make({ reason: 'capacity', operation: 'insert' })
+    }
     yield* query(
-      "insert",
-      sql`INSERT INTO ${relation("effect_agent_message_deliveries")} (owner_thread_id, message_id, version, state, deadline_at_millis, peer_retained_until_millis, record_json ${sql.onDialectOrElse({ orElse: () => sql``, pg: () => sql`, read_metadata` })}) VALUES (${input.key.ownerThreadId}, ${input.key.messageId}, ${input.version}, ${input.status}, ${messageDeliveryDeadline(input)}, ${peerMessageRetentionDeadline(input)}, ${text} ${sql.onDialectOrElse({ orElse: () => sql``, pg: () => sql`, ${messageDeliveryMetadata(input)}::jsonb` })})`,
-    );
+      'insert',
+      sql`INSERT INTO ${
+        relation('effect_agent_message_deliveries')
+      } (owner_thread_id, message_id, version, state, deadline_at_millis, peer_retained_until_millis, record_json ${
+        sql.onDialectOrElse({ orElse: () => sql``, pg: () => sql`, read_metadata` })
+      }) VALUES (${input.key.ownerThreadId}, ${input.key.messageId}, ${input.version}, ${input.status}, ${
+        messageDeliveryDeadline(input)
+      }, ${peerMessageRetentionDeadline(input)}, ${text} ${
+        sql.onDialectOrElse({ orElse: () => sql``, pg: () => sql`, ${messageDeliveryMetadata(input)}::jsonb` })
+      })`,
+    )
     yield* work
       .initializeDeliveryOwner(input.key.ownerThreadId)
-      .pipe(Effect.mapError((cause) => storage("initialize delivery owner", cause)));
-    updatePending(input, bytes(text));
-    yield* recordProgress;
+      .pipe(Effect.mapError((cause) => storage('initialize delivery owner', cause)))
+    updatePending(input, bytes(text))
+    yield* recordProgress
 
-    if (lifecycle !== undefined)
+    if (lifecycle !== undefined) {
       yield* lifecycle
         .retain({
           id: JSON.stringify([
             input.key.ownerThreadId,
-            "delivery",
+            'delivery',
             input.key.messageId,
             input.version,
           ]),
           ownerThreadId: input.key.ownerThreadId,
           createdAt: DateTime.makeUnsafe(input.createdAtMillis),
           fact: {
-            _tag: "DeliveryRetained",
+            _tag: 'DeliveryRetained',
             key: input.key,
             envelope: input.envelope,
             createdAtMillis: input.createdAtMillis,
           },
         })
-        .pipe(Effect.mapError((cause) => storage("retain lifecycle", cause)));
+        .pipe(Effect.mapError((cause) => storage('retain lifecycle', cause)))
+    }
 
-    return input;
-  });
+    return input
+  })
 
-  const insert: MessageDeliveryStore["Service"]["insert"] = Effect.fnUntraced(function* (record) {
-    const prepared = yield* prepareInsert(record);
+  const insert: MessageDeliveryStore['Service']['insert'] = Effect.fnUntraced(function*(record) {
+    const prepared = yield* prepareInsert(record)
 
-    yield* failpoint.hit("message-delivery:insert:before");
-    const result = yield* transaction(insertInTransaction(prepared));
+    yield* failpoint.hit('message-delivery:insert:before')
+    const result = yield* transaction(insertInTransaction(prepared))
 
-    yield* failpoint.hit("message-delivery:insert:after");
+    yield* failpoint.hit('message-delivery:insert:after')
 
-    return result;
-  });
+    return result
+  })
 
-  const change: MessageDeliveryStore["Service"]["change"] = Effect.fnUntraced(
-    function* (key, change) {
-      const decodedKey = yield* validateMessageDelivery(MessageDeliveryKey, key, "change");
-      const input = yield* validateMessageDelivery(MessageDeliveryChange, change, "change");
-      const point = `message-delivery:${input._tag.toLowerCase()}`;
+  const change: MessageDeliveryStore['Service']['change'] = Effect.fnUntraced(
+    function*(key, change) {
+      const decodedKey = yield* validateMessageDelivery(MessageDeliveryKey, key, 'change')
+      const input = yield* validateMessageDelivery(MessageDeliveryChange, change, 'change')
+      const point = `message-delivery:${input._tag.toLowerCase()}`
 
-      yield* failpoint.hit(`${point}:before`);
+      yield* failpoint.hit(`${point}:before`)
 
       const result = yield* transaction(
-        Effect.gen(function* () {
-          const current = yield* get(decodedKey);
+        Effect.gen(function*() {
+          const current = yield* get(decodedKey)
 
-          if (current === null)
-            return yield* MessageDeliveryError.make({ reason: "not-found", operation: "change" });
-          const next = yield* Effect.fromResult(applyMessageDeliveryChange(current, input));
+          if (current === null) {
+            return yield* MessageDeliveryError.make({ reason: 'not-found', operation: 'change' })
+          }
+          const next = yield* Effect.fromResult(applyMessageDeliveryChange(current, input))
 
-          if (next === current) return current;
-          yield* checkTransfer(next);
-          const text = yield* encode(next);
+          if (next === current) return current
+          yield* checkTransfer(next)
+          const text = yield* encode(next)
 
           const updated = yield* query(
-            "change",
-            sql`UPDATE ${relation("effect_agent_message_deliveries")} SET version = ${next.version}, state = ${next.status}, deadline_at_millis = ${messageDeliveryDeadline(next)}, peer_retained_until_millis = ${peerMessageRetentionDeadline(next)}, record_json = ${text} ${sql.onDialectOrElse({ orElse: () => sql``, pg: () => sql`, read_metadata = ${messageDeliveryMetadata(next)}::jsonb` })} WHERE owner_thread_id = ${decodedKey.ownerThreadId} AND message_id = ${decodedKey.messageId} AND version = ${current.version} RETURNING owner_thread_id, message_id, version, state, deadline_at_millis, peer_retained_until_millis, record_json`,
-          );
+            'change',
+            sql`UPDATE ${
+              relation('effect_agent_message_deliveries')
+            } SET version = ${next.version}, state = ${next.status}, deadline_at_millis = ${
+              messageDeliveryDeadline(next)
+            }, peer_retained_until_millis = ${peerMessageRetentionDeadline(next)}, record_json = ${text} ${
+              sql.onDialectOrElse({
+                orElse: () => sql``,
+                pg: () => sql`, read_metadata = ${messageDeliveryMetadata(next)}::jsonb`,
+              })
+            } WHERE owner_thread_id = ${decodedKey.ownerThreadId} AND message_id = ${decodedKey.messageId} AND version = ${current.version} RETURNING owner_thread_id, message_id, version, state, deadline_at_millis, peer_retained_until_millis, record_json`,
+          )
 
-          const rows = yield* decodeRows(updated);
+          const rows = yield* decodeRows(updated)
 
-          if (rows.length !== 1 || rows[0] === undefined)
-            return yield* MessageDeliveryError.make({ reason: "conflict", operation: "change" });
-          updatePending(rows[0], bytes(text));
+          if (rows.length !== 1 || rows[0] === undefined) {
+            return yield* MessageDeliveryError.make({ reason: 'conflict', operation: 'change' })
+          }
+          updatePending(rows[0], bytes(text))
 
           if (
             lifecycle !== undefined &&
             (current.status !== next.status ||
               current.receipt !== next.receipt ||
               current.settlement !== next.settlement)
-          )
+          ) {
             yield* lifecycle
               .retain({
                 id: JSON.stringify([
                   next.key.ownerThreadId,
-                  "delivery",
+                  'delivery',
                   next.key.messageId,
                   next.version,
                 ]),
                 ownerThreadId: next.key.ownerThreadId,
                 createdAt: yield* DateTime.now,
                 fact: {
-                  _tag: "DeliveryChanged",
+                  _tag: 'DeliveryChanged',
                   key: next.key,
                   envelope: next.envelope,
                   status: next.status,
@@ -714,26 +756,28 @@ export const makeSqlMessageDeliveryStore = Effect.fnUntraced(function* (
                   version: next.version,
                 },
               })
-              .pipe(Effect.mapError((cause) => storage("retain lifecycle", cause)));
+              .pipe(Effect.mapError((cause) => storage('retain lifecycle', cause)))
+          }
 
           if (
-            input._tag === "Accept" ||
-            input._tag === "Process" ||
-            input._tag === "Refuse" ||
-            input._tag === "Complete" ||
-            input._tag === "Recover"
-          )
-            yield* recordProgress;
+            input._tag === 'Accept' ||
+            input._tag === 'Process' ||
+            input._tag === 'Refuse' ||
+            input._tag === 'Complete' ||
+            input._tag === 'Recover'
+          ) {
+            yield* recordProgress
+          }
 
-          return rows[0];
+          return rows[0]
         }),
-      );
+      )
 
-      yield* failpoint.hit(`${point}:after`);
+      yield* failpoint.hit(`${point}:after`)
 
-      return result;
+      return result
     },
-  );
+  )
 
   const store = MessageDeliveryStore.of({
     ...(lifecycle === undefined ? {} : { lifecyclePublications: lifecycle.storage }),
@@ -742,48 +786,60 @@ export const makeSqlMessageDeliveryStore = Effect.fnUntraced(function* (
     insert,
     get,
     change,
-    list: Effect.fnUntraced(function* (request) {
-      const input = yield* validateMessageDelivery(MessageDeliveryPageRequest, request, "list");
+    list: Effect.fnUntraced(function*(request) {
+      const input = yield* validateMessageDelivery(MessageDeliveryPageRequest, request, 'list')
 
       if (pending !== undefined && input.pendingOnly) {
-        let complete = pending.get(input.ownerThreadId);
+        let complete = pending.get(input.ownerThreadId)
 
         if (complete === undefined) {
           // Bound payload allocation before fetching text. Oversized complete sets fall back to
           // the requested page; the owner read gate keeps this proof and hydration consistent.
           const sizes = yield* query(
-            "pending-view-size",
-            sql`SELECT COUNT(*) AS count, COALESCE(SUM(record_bytes), 0) AS total_bytes, COALESCE(MAX(record_bytes), 0) AS max_bytes FROM (SELECT ${sql.onDialectOrElse({ orElse: () => sql`length(CAST(record_json AS BLOB))`, pg: () => sql`octet_length(record_json)` })} AS record_bytes FROM ${relation("effect_agent_message_deliveries")} WHERE owner_thread_id = ${input.ownerThreadId} AND state NOT IN ('processed', 'refused') LIMIT ${pendingRowLimit + 1}) AS pending_sizes`,
-          );
+            'pending-view-size',
+            sql`SELECT COUNT(*) AS count, COALESCE(SUM(record_bytes), 0) AS total_bytes, COALESCE(MAX(record_bytes), 0) AS max_bytes FROM (SELECT ${
+              sql.onDialectOrElse({
+                orElse: () => sql`length(CAST(record_json AS BLOB))`,
+                pg: () => sql`octet_length(record_json)`,
+              })
+            } AS record_bytes FROM ${
+              relation('effect_agent_message_deliveries')
+            } WHERE owner_thread_id = ${input.ownerThreadId} AND state NOT IN ('processed', 'refused') LIMIT ${
+              pendingRowLimit + 1
+            }) AS pending_sizes`,
+          )
 
           const size = (yield* decodePendingSizeRows(sizes).pipe(
-            Effect.mapError((cause) => corrupt("pending-view-size", cause)),
-          ))[0];
+            Effect.mapError((cause) => corrupt('pending-view-size', cause)),
+          ))[0]
 
-          if (size === undefined) return yield* corrupt("pending-view-size");
+          if (size === undefined) return yield* corrupt('pending-view-size')
           if (
             size.count <= pendingRowLimit &&
             size.total_bytes <= pendingByteLimit &&
             size.max_bytes <= maxStoredValueBytes
           ) {
             const rows = yield* query(
-              "pending-view",
-              sql`SELECT owner_thread_id, message_id, version, state, deadline_at_millis, peer_retained_until_millis, record_json FROM ${relation("effect_agent_message_deliveries")} WHERE owner_thread_id = ${input.ownerThreadId} AND state NOT IN ('processed', 'refused') ORDER BY message_id LIMIT ${pendingRowLimit + 1}`,
-            );
+              'pending-view',
+              sql`SELECT owner_thread_id, message_id, version, state, deadline_at_millis, peer_retained_until_millis, record_json FROM ${
+                relation('effect_agent_message_deliveries')
+              } WHERE owner_thread_id = ${input.ownerThreadId} AND state NOT IN ('processed', 'refused') ORDER BY message_id LIMIT ${
+                pendingRowLimit + 1
+              }`,
+            )
 
             const records = yield* decodeRowArray(rows).pipe(
-              Effect.mapError((cause) => corrupt("rows", cause)),
+              Effect.mapError((cause) => corrupt('rows', cause)),
               Effect.flatMap((rows) =>
                 Effect.forEach(rows, (row) =>
                   decode(row).pipe(
                     Effect.map((record) => ({ record, storedBytes: bytes(row.record_json) })),
-                  ),
-                ),
+                  ))
               ),
-            );
+            )
 
-            retainPending(input.ownerThreadId, records);
-            complete = pending.get(input.ownerThreadId);
+            retainPending(input.ownerThreadId, records)
+            complete = pending.get(input.ownerThreadId)
           }
         }
         if (complete !== undefined) {
@@ -792,110 +848,125 @@ export const makeSqlMessageDeliveryStore = Effect.fnUntraced(function* (
               if (
                 input.after !== undefined &&
                 compareMessageIds(record.key.messageId, input.after) <= 0
-              )
-                return false;
-              const origin = record.envelope.workerAdmission?.origin;
+              ) {
+                return false
+              }
+              const origin = record.envelope.workerAdmission?.origin
 
               if (
                 input.workerStarts !== undefined &&
                 (origin?.worker.delegationId !== input.workerStarts.delegationId ||
                   origin.worker.targetAgentId !== input.workerStarts.targetAgentId ||
                   origin.firstMessageId !== record.key.messageId)
-              )
-                return false;
+              ) {
+                return false
+              }
 
               return (
                 input.pendingWorker === undefined ||
                 (origin?.worker.threadId === input.pendingWorker &&
                   record.receipt === null &&
-                  (record.status === "pending" || record.status === "parked"))
-              );
+                  (record.status === 'pending' || record.status === 'parked'))
+              )
             })
             .sort((a, b) => compareMessageIds(a.record.key.messageId, b.record.key.messageId))
-            .slice(0, input.limit + 1);
+            .slice(0, input.limit + 1)
 
           // A shared view must enforce the requesting adapter's bound, including lookahead.
-          if (selected.some((entry) => entry.storedBytes > maxStoredValueBytes))
-            return yield* corrupt("stored-value-bytes");
+          if (selected.some((entry) => entry.storedBytes > maxStoredValueBytes)) {
+            return yield* corrupt('stored-value-bytes')
+          }
 
-          const items = selected.slice(0, input.limit).map((entry) => entry.record);
+          const items = selected.slice(0, input.limit).map((entry) => entry.record)
 
           return {
             items,
             next: selected.length > input.limit ? (items.at(-1)?.key.messageId ?? null) : null,
-          };
+          }
         }
       }
 
       const rows = yield* query(
-        "list",
-        sql`SELECT owner_thread_id, message_id, version, state, deadline_at_millis, peer_retained_until_millis, record_json FROM ${relation("effect_agent_message_deliveries")} WHERE owner_thread_id = ${input.ownerThreadId} ${input.after === undefined ? sql`` : sql`AND message_id > ${input.after}`} ${input.pendingOnly ? sql`AND state NOT IN ('processed', 'refused')` : sql``}
+        'list',
+        sql`SELECT owner_thread_id, message_id, version, state, deadline_at_millis, peer_retained_until_millis, record_json FROM ${
+          relation('effect_agent_message_deliveries')
+        } WHERE owner_thread_id = ${input.ownerThreadId} ${
+          input.after === undefined ? sql`` : sql`AND message_id > ${input.after}`
+        } ${input.pendingOnly ? sql`AND state NOT IN ('processed', 'refused')` : sql``}
         ${
           input.workerStarts === undefined
             ? sql``
-            : sql`AND ${workerField(sql, "delegationId")} = ${queryIdentifier(sql, input.workerStarts.delegationId)}
-          AND ${workerField(sql, "targetAgentId")} = ${queryIdentifier(sql, input.workerStarts.targetAgentId)}
+            : sql`AND ${workerField(sql, 'delegationId')} = ${queryIdentifier(sql, input.workerStarts.delegationId)}
+          AND ${workerField(sql, 'targetAgentId')} = ${queryIdentifier(sql, input.workerStarts.targetAgentId)}
           AND ${workerStart(sql)}`
         }
         ${
           input.pendingWorker === undefined
             ? sql``
-            : sql`AND ${workerField(sql, "threadId")} = ${queryIdentifier(sql, input.pendingWorker)}
+            : sql`AND ${workerField(sql, 'threadId')} = ${queryIdentifier(sql, input.pendingWorker)}
           AND state IN ('pending', 'parked') AND ${withoutReceipt(sql)}`
         }
         ORDER BY message_id LIMIT ${input.limit + 1}`,
-      );
+      )
 
-      const records = yield* decodeRows(rows);
-      const items = records.slice(0, input.limit);
+      const records = yield* decodeRows(rows)
+      const items = records.slice(0, input.limit)
 
       return {
         items,
         next: records.length > input.limit ? (items.at(-1)?.key.messageId ?? null) : null,
-      };
+      }
     }, read),
-    due: Effect.fnUntraced(function* (nowMillis, limit, ownerThreadId) {
+    due: Effect.fnUntraced(function*(nowMillis, limit, ownerThreadId) {
       const input = yield* validateMessageDelivery(
         Scan,
         { nowMillis, limit, ...(ownerThreadId === undefined ? {} : { ownerThreadId }) },
-        "due",
-      );
+        'due',
+      )
 
       const rows = yield* query(
-        "due",
-        sql`SELECT owner_thread_id, message_id, version, state, deadline_at_millis, peer_retained_until_millis, record_json FROM ${relation("effect_agent_message_deliveries")} WHERE deadline_at_millis IS NOT NULL AND deadline_at_millis <= ${input.nowMillis} ${input.ownerThreadId === undefined ? sql`` : sql`AND owner_thread_id = ${input.ownerThreadId}`} ORDER BY deadline_at_millis, owner_thread_id, message_id LIMIT ${input.limit}`,
-      );
+        'due',
+        sql`SELECT owner_thread_id, message_id, version, state, deadline_at_millis, peer_retained_until_millis, record_json FROM ${
+          relation('effect_agent_message_deliveries')
+        } WHERE deadline_at_millis IS NOT NULL AND deadline_at_millis <= ${input.nowMillis} ${
+          input.ownerThreadId === undefined ? sql`` : sql`AND owner_thread_id = ${input.ownerThreadId}`
+        } ORDER BY deadline_at_millis, owner_thread_id, message_id LIMIT ${input.limit}`,
+      )
 
-      return (yield* decodeRows(rows)).map((record) => record.key);
+      return (yield* decodeRows(rows)).map((record) => record.key)
     }),
-    nextDeadline: Effect.fnUntraced(function* (ownerThreadId) {
-      if (ownerThreadId !== undefined)
-        yield* validateMessageDelivery(ThreadId, ownerThreadId, "nextDeadline");
+    nextDeadline: Effect.fnUntraced(function*(ownerThreadId) {
+      if (ownerThreadId !== undefined) {
+        yield* validateMessageDelivery(ThreadId, ownerThreadId, 'nextDeadline')
+      }
 
       const rows = yield* query(
-        "next-deadline",
-        sql`SELECT MIN(deadline_at_millis) AS deadline FROM ${relation("effect_agent_message_deliveries")} ${ownerThreadId === undefined ? sql`` : sql`WHERE owner_thread_id = ${ownerThreadId}`}`,
-      );
+        'next-deadline',
+        sql`SELECT MIN(deadline_at_millis) AS deadline FROM ${relation('effect_agent_message_deliveries')} ${
+          ownerThreadId === undefined ? sql`` : sql`WHERE owner_thread_id = ${ownerThreadId}`
+        }`,
+      )
 
       const decoded = yield* decodeDeadlineRows(rows).pipe(
-        Effect.mapError((cause) => corrupt("next-deadline", cause)),
-      );
+        Effect.mapError((cause) => corrupt('next-deadline', cause)),
+      )
 
-      return decoded[0]?.deadline ?? null;
+      return decoded[0]?.deadline ?? null
     }),
-  });
+  })
 
   privateWriters.set(store, {
     owner: retainedOwner,
-    write: Effect.fnUntraced(function* (records) {
-      if (Option.isNone(yield* Effect.serviceOption(sql.transactionService)))
+    write: Effect.fnUntraced(function*(records) {
+      if (Option.isNone(yield* Effect.serviceOption(sql.transactionService))) {
         return yield* MessageDeliveryError.make({
-          reason: "conflict",
-          operation: "canonical-writer-transaction",
-        });
-      for (const record of records) yield* insertInTransaction(yield* prepareInsert(record));
+          reason: 'conflict',
+          operation: 'canonical-writer-transaction',
+        })
+      }
+      for (const record of records) yield* insertInTransaction(yield* prepareInsert(record))
     }),
-  });
+  })
 
-  return store;
-});
+  return store
+})

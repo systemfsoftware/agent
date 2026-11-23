@@ -1,14 +1,14 @@
-import * as Context from "effect/Context";
-import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
-import * as Stream from "effect/Stream";
+import * as Context from 'effect/Context'
+import * as Effect from 'effect/Effect'
+import * as Option from 'effect/Option'
+import * as Schema from 'effect/Schema'
+import * as Stream from 'effect/Stream'
 
-import { AgentId, ThreadId, RunId } from "./Identifiers.ts";
-import { IdempotencyKey } from "./Receipt.ts";
+import { AgentId, RunId, ThreadId } from './Identifiers.ts'
+import { IdempotencyKey } from './Receipt.ts'
 
 /** Canonical schema-encoded intermediate output, scoped to one logical Run. */
-export class Update extends Schema.Class<Update>("@effect-agent/core/AgentUpdates/Update")({
+export class Update extends Schema.Class<Update>('@effect-agent/core/AgentUpdates/Update')({
   schemaVersion: Schema.Literal(1),
   agentId: AgentId,
   threadId: ThreadId,
@@ -19,15 +19,15 @@ export class Update extends Schema.Class<Update>("@effect-agent/core/AgentUpdate
 }) {}
 
 /** Fail-closed update acceptance and decoding errors; payloads are never included. */
-export class UpdateError extends Schema.TaggedError<UpdateError>()("AgentUpdateError", {
+export class UpdateError extends Schema.TaggedError<UpdateError>()('AgentUpdateError', {
   reason: Schema.Literals([
-    "validation",
-    "unavailable",
-    "conflict",
-    "capacity",
-    "storage",
-    "identity",
-    "denied",
+    'validation',
+    'unavailable',
+    'conflict',
+    'capacity',
+    'storage',
+    'identity',
+    'denied',
   ]),
 }) {}
 
@@ -36,69 +36,69 @@ export class Emitter extends Context.Service<
   Emitter,
   {
     readonly emit: (request: {
-      readonly target: { readonly id: AgentId; readonly updates?: Schema.Top | undefined };
-      readonly updateId: IdempotencyKey;
-      readonly value: Schema.Json;
-    }) => Effect.Effect<Update, UpdateError>;
+      readonly target: { readonly id: AgentId; readonly updates?: Schema.Top | undefined }
+      readonly updateId: IdempotencyKey
+      readonly value: Schema.Json
+    }) => Effect.Effect<Update, UpdateError>
   }
->()("@effect-agent/core/AgentUpdates/Emitter") {}
+>()('@effect-agent/core/AgentUpdates/Emitter') {}
 
 /** Structural schema boundary accepted by definitions and their model bindings. */
 type Source<S extends Schema.Top> = {
-  readonly id: AgentId;
-  readonly updates?: S | undefined;
-};
+  readonly id: AgentId
+  readonly updates?: S | undefined
+}
 
-type BoundSource<S extends Schema.Top> = Source<S> | { readonly definition: Source<S> };
+type BoundSource<S extends Schema.Top> = Source<S> | { readonly definition: Source<S> }
 
 /** Emit a decoded update under an explicit stable key. Retries cannot replace accepted values. */
-export const emit = Effect.fnUntraced(function* <S extends Schema.Top>(
+export const emit = Effect.fnUntraced(function*<S extends Schema.Top>(
   agent: BoundSource<S>,
-  value: NoInfer<S["Type"]>,
+  value: NoInfer<S['Type']>,
   options: { readonly idempotencyKey: IdempotencyKey },
-): Effect.fn.Return<Update, UpdateError, Emitter | S["EncodingServices"]> {
-  const target = "definition" in agent ? agent.definition : agent;
+): Effect.fn.Return<Update, UpdateError, Emitter | S['EncodingServices']> {
+  const target = 'definition' in agent ? agent.definition : agent
 
-  if (target.updates === undefined) return yield* UpdateError.make({ reason: "unavailable" });
+  if (target.updates === undefined) return yield* UpdateError.make({ reason: 'unavailable' })
 
   const updateId = yield* Schema.decodeEffect(IdempotencyKey)(options.idempotencyKey).pipe(
-    Effect.mapError(() => UpdateError.make({ reason: "validation" })),
-  );
+    Effect.mapError(() => UpdateError.make({ reason: 'validation' })),
+  )
 
   const encoded = yield* Schema.encodeEffect(target.updates)(value).pipe(
     Effect.flatMap(Schema.decodeUnknownEffect(Schema.Json)),
-    Effect.mapError(() => UpdateError.make({ reason: "validation" })),
-  );
+    Effect.mapError(() => UpdateError.make({ reason: 'validation' })),
+  )
 
-  const emitter = yield* Effect.serviceOption(Emitter);
+  const emitter = yield* Effect.serviceOption(Emitter)
 
-  if (Option.isNone(emitter)) return yield* UpdateError.make({ reason: "unavailable" });
+  if (Option.isNone(emitter)) return yield* UpdateError.make({ reason: 'unavailable' })
 
-  return yield* emitter.value.emit({ target, updateId, value: encoded });
-});
+  return yield* emitter.value.emit({ target, updateId, value: encoded })
+})
 
 /** Decode canonical update data through its declaring Agent Schema. */
-export const decode = Effect.fnUntraced(function* <S extends Schema.Top>(
+export const decode = Effect.fnUntraced(function*<S extends Schema.Top>(
   agent: BoundSource<S>,
   update: Update,
-): Effect.fn.Return<S["Type"], UpdateError, S["DecodingServices"]> {
-  const definition = "definition" in agent ? agent.definition : agent;
+): Effect.fn.Return<S['Type'], UpdateError, S['DecodingServices']> {
+  const definition = 'definition' in agent ? agent.definition : agent
 
-  if (definition.updates === undefined) return yield* UpdateError.make({ reason: "unavailable" });
+  if (definition.updates === undefined) return yield* UpdateError.make({ reason: 'unavailable' })
 
   const decoded = yield* Schema.decodeEffect(Update)(update).pipe(
-    Effect.mapError(() => UpdateError.make({ reason: "validation" })),
-  );
+    Effect.mapError(() => UpdateError.make({ reason: 'validation' })),
+  )
 
-  if (decoded.agentId !== definition.id) return yield* UpdateError.make({ reason: "identity" });
+  if (decoded.agentId !== definition.id) return yield* UpdateError.make({ reason: 'identity' })
 
   return yield* Schema.decodeEffect(definition.updates)(decoded.value).pipe(
-    Effect.mapError(() => UpdateError.make({ reason: "validation" })),
-  );
-});
+    Effect.mapError(() => UpdateError.make({ reason: 'validation' })),
+  )
+})
 
 /** Decode an encoded update stream without hiding its failures or requirements. */
 export const observe = <S extends Schema.Top, E, R>(
   agent: BoundSource<S>,
   updates: Stream.Stream<Update, E, R>,
-) => updates.pipe(Stream.mapEffect((update) => decode(agent, update)));
+) => updates.pipe(Stream.mapEffect((update) => decode(agent, update)))

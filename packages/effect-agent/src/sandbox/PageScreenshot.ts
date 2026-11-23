@@ -1,6 +1,6 @@
-import * as Context from "effect/Context";
-import type * as Effect from "effect/Effect";
-import * as Schema from "effect/Schema";
+import * as Context from 'effect/Context'
+import type * as Effect from 'effect/Effect'
+import * as Schema from 'effect/Schema'
 
 import {
   PageCaptureEngine,
@@ -12,22 +12,22 @@ import {
   PageNavigationOptions,
   PageResourcePolicy,
   PageViewport,
-} from "./PageCapture.ts";
-import { SandboxImplementation } from "./Sandbox.ts";
+} from './PageCapture.ts'
+import { SandboxImplementation } from './Sandbox.ts'
 
-const MAX_SCREENSHOT_BYTES = 8 * 1024 * 1024;
-const PositiveInt = Schema.Int.check(Schema.isGreaterThan(0));
+const MAX_SCREENSHOT_BYTES = 8 * 1024 * 1024
+const PositiveInt = Schema.Int.check(Schema.isGreaterThan(0))
 
 /** The byte limit and full-page choice are fixed before Browser Run starts. */
 export class PageScreenshotLimits extends Schema.Class<PageScreenshotLimits>(
-  "PageScreenshotLimits",
+  'PageScreenshotLimits',
 )({
   maxOutputBytes: PositiveInt.check(Schema.isLessThanOrEqualTo(MAX_SCREENSHOT_BYTES)),
 }) {}
 
 /** Schema-first request for exactly one PNG screenshot. */
 export class PageScreenshotRequest extends Schema.Class<PageScreenshotRequest>(
-  "PageScreenshotRequest",
+  'PageScreenshotRequest',
 )({
   target: PageCaptureTarget,
   engine: PageCaptureEngine,
@@ -40,16 +40,16 @@ export class PageScreenshotRequest extends Schema.Class<PageScreenshotRequest>(
 
 /** The only successful output: bytes are caller-owned and never durable framework data. */
 export class PageScreenshotResult extends Schema.Class<PageScreenshotResult>(
-  "PageScreenshotResult",
+  'PageScreenshotResult',
 )({
   implementation: SandboxImplementation,
-  mediaType: Schema.Literal("image/png"),
+  mediaType: Schema.Literal('image/png'),
   bytes: Schema.Uint8Array.check(Schema.isMaxLength(MAX_SCREENSHOT_BYTES)),
 }) {}
 
 /** The response crossed the request's PNG byte limit. */
 export class PageScreenshotOutputLimitError extends Schema.TaggedError<PageScreenshotOutputLimitError>()(
-  "PageScreenshotOutputLimitError",
+  'PageScreenshotOutputLimitError',
   {
     implementation: SandboxImplementation,
     limit: PositiveInt,
@@ -64,9 +64,9 @@ export const PageScreenshotError = Schema.Union([
   PageCaptureUnsupportedError,
   PageCaptureProtocolError,
   PageScreenshotOutputLimitError,
-]);
+])
 
-export type PageScreenshotError = typeof PageScreenshotError.Type;
+export type PageScreenshotError = typeof PageScreenshotError.Type
 
 /** Stateless, one-output PNG capture port. It owns neither persistence nor later byte handoff. */
 export class PageScreenshot extends Context.Service<
@@ -74,10 +74,10 @@ export class PageScreenshot extends Context.Service<
   {
     readonly capture: (
       request: PageScreenshotRequest,
-    ) => Effect.Effect<PageScreenshotResult, PageScreenshotError>;
+    ) => Effect.Effect<PageScreenshotResult, PageScreenshotError>
   }
->()("@effect-agent/sandbox/PageScreenshot") {}
+>()('@effect-agent/sandbox/PageScreenshot') {}
 
 export type PageScreenshotCapture = (
   request: PageScreenshotRequest,
-) => Effect.Effect<PageScreenshotResult, PageScreenshotError>;
+) => Effect.Effect<PageScreenshotResult, PageScreenshotError>

@@ -1,41 +1,41 @@
-import * as Clock from "effect/Clock";
-import * as Context from "effect/Context";
-import * as CryptoDigest from "effect/crypto/Digest";
-import * as DateTime from "effect/DateTime";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Result from "effect/Result";
-import * as Schema from "effect/Schema";
-import * as Semaphore from "effect/Semaphore";
+import * as Clock from 'effect/Clock'
+import * as Context from 'effect/Context'
+import * as CryptoDigest from 'effect/crypto/Digest'
+import * as DateTime from 'effect/DateTime'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
+import * as Result from 'effect/Result'
+import * as Schema from 'effect/Schema'
+import * as Semaphore from 'effect/Semaphore'
 
-import * as FailureDiagnostic from "../core/FailureDiagnostic.ts";
-import { AgentId, DelegationId, ThreadId } from "../core/Identifiers.ts";
-import { Receipt } from "../core/Receipt.ts";
-import { WorkerUpdate } from "../core/Worker.ts";
-import { digestJson } from "./Digest.ts";
-import type { LifecyclePublicationStorage } from "./LifecyclePublication.ts";
+import * as FailureDiagnostic from '../core/FailureDiagnostic.ts'
+import { AgentId, DelegationId, ThreadId } from '../core/Identifiers.ts'
+import { Receipt } from '../core/Receipt.ts'
+import { WorkerUpdate } from '../core/Worker.ts'
+import { digestJson } from './Digest.ts'
+import type { LifecyclePublicationStorage } from './LifecyclePublication.ts'
 import {
   admitPreparedInput,
+  PreparedInput,
   PreparedInputAdmission,
   PreparedInputRetryReason,
-  PreparedInput,
-} from "./PreparedInputAdmission.ts";
-import { Digest, type RecordEnvelope } from "./Records.ts";
-import { ScheduleInstant, ScheduleRetry } from "./Schedule.ts";
-import { IdempotencyKey, Settlement } from "./SubmissionLedger.ts";
+} from './PreparedInputAdmission.ts'
+import { Digest, type RecordEnvelope } from './Records.ts'
+import { ScheduleInstant, ScheduleRetry } from './Schedule.ts'
+import { IdempotencyKey, Settlement } from './SubmissionLedger.ts'
 
-const Positive = Schema.Int.check(Schema.isGreaterThan(0));
-const BoundedName = Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(256));
-const receiptsEqual = Schema.toEquivalence(Receipt);
-const settlementsEqual = Schema.toEquivalence(Settlement);
+const Positive = Schema.Int.check(Schema.isGreaterThan(0))
+const BoundedName = Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(256))
+const receiptsEqual = Schema.toEquivalence(Receipt)
+const settlementsEqual = Schema.toEquivalence(Settlement)
 
 /** An owner is always a source Thread. Destination admission has its own frozen key. */
 export const MessageDeliveryKey = Schema.Struct({
   ownerThreadId: ThreadId,
   messageId: IdempotencyKey,
-});
+})
 
-export type MessageDeliveryKey = typeof MessageDeliveryKey.Type;
+export type MessageDeliveryKey = typeof MessageDeliveryKey.Type
 
 export const MessageDeliveryPolicy = Schema.Struct({
   maxAutomaticAttempts: Positive.check(Schema.isLessThanOrEqualTo(100)),
@@ -43,9 +43,9 @@ export const MessageDeliveryPolicy = Schema.Struct({
   retryBaseMillis: Positive,
   retryMaxMillis: Positive,
   settlementPollMillis: Positive,
-}).check(Schema.makeFilter((value) => value.retryBaseMillis <= value.retryMaxMillis));
+}).check(Schema.makeFilter((value) => value.retryBaseMillis <= value.retryMaxMillis))
 
-export type MessageDeliveryPolicy = typeof MessageDeliveryPolicy.Type;
+export type MessageDeliveryPolicy = typeof MessageDeliveryPolicy.Type
 
 export const defaultMessageDeliveryPolicy: MessageDeliveryPolicy = {
   maxAutomaticAttempts: 8,
@@ -53,29 +53,29 @@ export const defaultMessageDeliveryPolicy: MessageDeliveryPolicy = {
   retryBaseMillis: 1_000,
   retryMaxMillis: 60_000,
   settlementPollMillis: 5_000,
-};
+}
 
 export const MessageDeliveryStoreLimits = Schema.Struct({
   maxPendingPerOwner: Positive,
   maxEnvelopeBytes: Positive,
   /** Separate update capacity preserves the full ordinary allowance for terminal reports. */
   maxPendingUpdatesPerOwner: Schema.optionalKey(Positive),
-});
+})
 
-export type MessageDeliveryStoreLimits = typeof MessageDeliveryStoreLimits.Type;
+export type MessageDeliveryStoreLimits = typeof MessageDeliveryStoreLimits.Type
 
 export const defaultMessageDeliveryStoreLimits: MessageDeliveryStoreLimits = {
   maxPendingPerOwner: 100,
   maxEnvelopeBytes: 262_144,
   maxPendingUpdatesPerOwner: 32,
-};
+}
 
 const ParkReason = Schema.Literals([
-  "exhausted",
-  "deadline",
-  "status-unavailable",
-  "awaiting-settlement",
-]);
+  'exhausted',
+  'deadline',
+  'status-unavailable',
+  'awaiting-settlement',
+])
 
 export const MessageDeliveryRecord = Schema.Struct({
   schemaVersion: Schema.Literal(1),
@@ -90,7 +90,7 @@ export const MessageDeliveryRecord = Schema.Struct({
   deadlineAtMillis: ScheduleInstant,
   policy: MessageDeliveryPolicy,
   version: Positive,
-  status: Schema.Literals(["pending", "accepted", "processed", "refused", "parked"]),
+  status: Schema.Literals(['pending', 'accepted', 'processed', 'refused', 'parked']),
   receipt: Schema.NullOr(Receipt),
   settlement: Schema.NullOr(Settlement),
   refusal: Schema.NullOr(BoundedName),
@@ -105,61 +105,61 @@ export const MessageDeliveryRecord = Schema.Struct({
       record.deadlineAtMillis > record.createdAtMillis &&
       record.initialDeadlineAtMillis > record.createdAtMillis &&
       record.predecessor !== record.key.messageId &&
-      (record.status === "processed") === (record.settlement !== null) &&
-      (record.status === "refused") === (record.refusal !== null) &&
-      (record.status === "parked") === (record.parkReason !== null) &&
-      (record.status === "parked") === record.retry.parked &&
-      (record.status === "accepted" || record.status === "processed"
+      (record.status === 'processed') === (record.settlement !== null) &&
+      (record.status === 'refused') === (record.refusal !== null) &&
+      (record.status === 'parked') === (record.parkReason !== null) &&
+      (record.status === 'parked') === record.retry.parked &&
+      (record.status === 'accepted' || record.status === 'processed'
         ? record.receipt !== null
         : true) &&
-      (record.status === "pending" || record.status === "refused"
+      (record.status === 'pending' || record.status === 'refused'
         ? record.receipt === null
         : true) &&
       (record.receipt === null || record.receipt.threadId === record.envelope.threadId) &&
       (record.settlement === null ||
         (record.settlement.receiptId === record.receipt?.receiptId &&
           record.settlement.submissionId === record.receipt.submissionId)) &&
-      (record.status === "processed" || record.status === "refused" || record.status === "parked"
+      (record.status === 'processed' || record.status === 'refused' || record.status === 'parked'
         ? record.leaseUntilMillis === null
         : true),
   ),
-);
+)
 
-export type MessageDeliveryRecord = typeof MessageDeliveryRecord.Type;
+export type MessageDeliveryRecord = typeof MessageDeliveryRecord.Type
 
 export class MessageDeliveryError extends Schema.TaggedError<MessageDeliveryError>()(
-  "MessageDeliveryError",
+  'MessageDeliveryError',
   {
     cause: Schema.optionalKey(FailureDiagnostic.Value),
     stack: Schema.optionalKey(Schema.String),
     reason: Schema.Literals([
-      "validation",
-      "conflict",
-      "capacity",
-      "not-found",
-      "storage",
-      "corrupt",
+      'validation',
+      'conflict',
+      'capacity',
+      'not-found',
+      'storage',
+      'corrupt',
     ]),
     operation: Schema.String,
   },
 ) {}
 
 export class MessageDeliveryFailpointError extends Schema.TaggedError<MessageDeliveryFailpointError>()(
-  "MessageDeliveryFailpointError",
+  'MessageDeliveryFailpointError',
   {
     point: Schema.String,
   },
 ) {}
 
-export type MessageDeliveryFailure = MessageDeliveryError | MessageDeliveryFailpointError;
+export type MessageDeliveryFailure = MessageDeliveryError | MessageDeliveryFailpointError
 
 export const MessageDeliveryFailpoint = Context.Reference<{
-  readonly hit: (point: string) => Effect.Effect<void, MessageDeliveryFailpointError>;
-}>("@effect-agent/thread/MessageDeliveryFailpoint", {
+  readonly hit: (point: string) => Effect.Effect<void, MessageDeliveryFailpointError>
+}>('@effect-agent/thread/MessageDeliveryFailpoint', {
   defaultValue: () => ({ hit: () => Effect.void }),
-});
+})
 
-const fence = { expectedVersion: Positive, nowMillis: ScheduleInstant };
+const fence = { expectedVersion: Positive, nowMillis: ScheduleInstant }
 
 /** Terminal destination evidence, independent of an expiring source transport claim. */
 export const MessageDeliveryCompletion = Schema.Struct({
@@ -167,38 +167,38 @@ export const MessageDeliveryCompletion = Schema.Struct({
   settlement: Settlement,
   admissionKey: IdempotencyKey,
   inputDigest: Digest,
-});
+})
 
 export const MessageDeliveryChange = Schema.Union([
-  Schema.TaggedStruct("Complete", {
+  Schema.TaggedStruct('Complete', {
     nowMillis: ScheduleInstant,
     ...MessageDeliveryCompletion.fields,
   }),
-  Schema.TaggedStruct("Claim", { ...fence }),
-  Schema.TaggedStruct("Accept", { ...fence, receipt: Receipt }),
-  Schema.TaggedStruct("Process", { ...fence, settlement: Settlement }),
-  Schema.TaggedStruct("ObservePending", { ...fence }),
-  Schema.TaggedStruct("Refuse", {
+  Schema.TaggedStruct('Claim', { ...fence }),
+  Schema.TaggedStruct('Accept', { ...fence, receipt: Receipt }),
+  Schema.TaggedStruct('Process', { ...fence, settlement: Settlement }),
+  Schema.TaggedStruct('ObservePending', { ...fence }),
+  Schema.TaggedStruct('Refuse', {
     ...fence,
     code: BoundedName,
     diagnostic: Schema.optionalKey(FailureDiagnostic.Diagnostic),
   }),
-  Schema.TaggedStruct("Retry", {
+  Schema.TaggedStruct('Retry', {
     ...fence,
     reason: PreparedInputRetryReason,
     diagnostic: Schema.optionalKey(FailureDiagnostic.Diagnostic),
   }),
-  Schema.TaggedStruct("Park", {
+  Schema.TaggedStruct('Park', {
     ...fence,
     reason: ParkReason,
     diagnostic: Schema.optionalKey(FailureDiagnostic.Diagnostic),
   }),
-  Schema.TaggedStruct("Recover", { ...fence, deadlineAtMillis: ScheduleInstant }),
+  Schema.TaggedStruct('Recover', { ...fence, deadlineAtMillis: ScheduleInstant }),
   /** Waiting for earlier admission never spends an automatic transport attempt. */
-  Schema.TaggedStruct("Defer", { ...fence, untilMillis: ScheduleInstant }),
-]);
+  Schema.TaggedStruct('Defer', { ...fence, untilMillis: ScheduleInstant }),
+])
 
-export type MessageDeliveryChange = typeof MessageDeliveryChange.Type;
+export type MessageDeliveryChange = typeof MessageDeliveryChange.Type
 
 /** Select one native index per page; index filters cannot be combined. */
 export const MessageDeliveryPageRequest = Schema.Struct({
@@ -217,20 +217,20 @@ export const MessageDeliveryPageRequest = Schema.Struct({
   Schema.makeFilter(
     (request) =>
       Number(request.pendingOnly === true) +
-        Number(request.workerStarts !== undefined) +
-        Number(request.pendingWorker !== undefined) <=
-      1,
+          Number(request.workerStarts !== undefined) +
+          Number(request.pendingWorker !== undefined) <=
+        1,
   ),
-);
+)
 
-export type MessageDeliveryPageRequest = typeof MessageDeliveryPageRequest.Type;
+export type MessageDeliveryPageRequest = typeof MessageDeliveryPageRequest.Type
 
 export const MessageDeliveryPage = Schema.Struct({
   items: Schema.Array(MessageDeliveryRecord),
   next: Schema.NullOr(IdempotencyKey),
-});
+})
 
-export type MessageDeliveryPage = typeof MessageDeliveryPage.Type;
+export type MessageDeliveryPage = typeof MessageDeliveryPage.Type
 
 /**
  * Trusted host port, independent of either Thread's active Submission. List/get require an owner.
@@ -242,32 +242,32 @@ export type MessageDeliveryPage = typeof MessageDeliveryPage.Type;
 export class MessageDeliveryStore extends Context.Service<
   MessageDeliveryStore,
   {
-    readonly lifecyclePublications?: LifecyclePublicationStorage;
-    readonly limits: MessageDeliveryStoreLimits;
-    readonly maxStoredValueBytes: number;
+    readonly lifecyclePublications?: LifecyclePublicationStorage
+    readonly limits: MessageDeliveryStoreLimits
+    readonly maxStoredValueBytes: number
     readonly insert: (
       record: MessageDeliveryRecord,
-    ) => Effect.Effect<MessageDeliveryRecord, MessageDeliveryFailure>;
+    ) => Effect.Effect<MessageDeliveryRecord, MessageDeliveryFailure>
     readonly get: (
       key: MessageDeliveryKey,
-    ) => Effect.Effect<MessageDeliveryRecord | null, MessageDeliveryError>;
+    ) => Effect.Effect<MessageDeliveryRecord | null, MessageDeliveryError>
     readonly list: (
       request: MessageDeliveryPageRequest,
-    ) => Effect.Effect<MessageDeliveryPage, MessageDeliveryError>;
+    ) => Effect.Effect<MessageDeliveryPage, MessageDeliveryError>
     readonly change: (
       key: MessageDeliveryKey,
       change: MessageDeliveryChange,
-    ) => Effect.Effect<MessageDeliveryRecord, MessageDeliveryFailure>;
+    ) => Effect.Effect<MessageDeliveryRecord, MessageDeliveryFailure>
     readonly due: (
       nowMillis: number,
       limit: number,
       ownerThreadId?: ThreadId,
-    ) => Effect.Effect<ReadonlyArray<MessageDeliveryKey>, MessageDeliveryError>;
+    ) => Effect.Effect<ReadonlyArray<MessageDeliveryKey>, MessageDeliveryError>
     readonly nextDeadline: (
       ownerThreadId?: ThreadId,
-    ) => Effect.Effect<number | null, MessageDeliveryError>;
+    ) => Effect.Effect<number | null, MessageDeliveryError>
   }
->()("@effect-agent/thread/MessageDeliveryStore") {}
+>()('@effect-agent/thread/MessageDeliveryStore') {}
 
 /**
  * Read current source-owned obligations without acquiring a runtime or scanning completed history.
@@ -276,10 +276,10 @@ export class MessageDeliveryStore extends Context.Service<
  * therefore leave accepted worker discovery to canonical outstanding inputs; a no-receipt action
  * delivery remains uncertain, including when parked or due in the future.
  */
-export const readPending = Effect.fnUntraced(function* (
-  request: Pick<MessageDeliveryPageRequest, "ownerThreadId" | "limit">,
+export const readPending = Effect.fnUntraced(function*(
+  request: Pick<MessageDeliveryPageRequest, 'ownerThreadId' | 'limit'>,
 ) {
-  const store = yield* MessageDeliveryStore;
+  const store = yield* MessageDeliveryStore
 
   const input = yield* validateMessageDelivery(
     MessageDeliveryPageRequest,
@@ -288,59 +288,60 @@ export const readPending = Effect.fnUntraced(function* (
       limit: request.limit,
       pendingOnly: true,
     },
-    "read-pending",
-  );
+    'read-pending',
+  )
 
   const page = yield* validateMessageDelivery(
     MessageDeliveryPage,
     yield* store.list(input),
-    "read-pending result",
-  );
+    'read-pending result',
+  )
 
-  if (page.next !== null || page.items.length > input.limit)
-    return yield* MessageDeliveryError.make({ reason: "capacity", operation: "read-pending" });
-  const records = page.items;
+  if (page.next !== null || page.items.length > input.limit) {
+    return yield* MessageDeliveryError.make({ reason: 'capacity', operation: 'read-pending' })
+  }
+  const records = page.items
 
   if (
     records.some(
-      (record) =>
-        record.key.ownerThreadId !== input.ownerThreadId || !messageDeliveryUsesCapacity(record),
+      (record) => record.key.ownerThreadId !== input.ownerThreadId || !messageDeliveryUsesCapacity(record),
     ) ||
     new Set(records.map((record) => record.key.messageId)).size !== records.length
-  )
+  ) {
     return yield* MessageDeliveryError.make({
-      reason: "corrupt",
-      operation: "read-pending result",
-    });
+      reason: 'corrupt',
+      operation: 'read-pending result',
+    })
+  }
 
-  return records;
-});
+  return records
+})
 
 export const messageDeliveryKeyString = (key: MessageDeliveryKey): string =>
-  JSON.stringify([key.ownerThreadId, key.messageId]);
+  JSON.stringify([key.ownerThreadId, key.messageId])
 
 export const messageDeliveryUsesCapacity = (record: MessageDeliveryRecord): boolean =>
-  record.status !== "processed" && record.status !== "refused";
+  record.status !== 'processed' && record.status !== 'refused'
 
 /** Terminal peer sends retain capacity through the last granted delivery window, never for life. */
 export const peerMessageRetentionDeadline = (record: MessageDeliveryRecord): number | null =>
   !messageDeliveryUsesCapacity(record) &&
-  record.envelope.messageAdmission !== undefined &&
-  "peerName" in record.envelope.messageAdmission
+    record.envelope.messageAdmission !== undefined &&
+    'peerName' in record.envelope.messageAdmission
     ? record.deadlineAtMillis
-    : null;
+    : null
 
 export const isWorkerUpdateDelivery = (record: MessageDeliveryRecord): boolean =>
-  Schema.is(WorkerUpdate)(record.envelope.messageAdmission);
+  Schema.is(WorkerUpdate)(record.envelope.messageAdmission)
 
 export const messageDeliveryCapacity = (limits: MessageDeliveryStoreLimits, update: boolean) => ({
   pending: update ? (limits.maxPendingUpdatesPerOwner ?? 32) : limits.maxPendingPerOwner,
-});
+})
 
 export const messageDeliveryDeadline = (record: MessageDeliveryRecord): number | null =>
-  record.status === "pending" || record.status === "accepted"
+  record.status === 'pending' || record.status === 'accepted'
     ? Math.min(record.deadlineAtMillis, record.leaseUntilMillis ?? record.retry.nextAttemptAtMillis)
-    : null;
+    : null
 
 /** Creation identity deliberately excludes operational counters and renewed recovery deadlines. */
 export const sameMessageDeliveryIdentity = (
@@ -353,10 +354,10 @@ export const sameMessageDeliveryIdentity = (
   Schema.toEquivalence(PreparedInput)(left.envelope, right.envelope) &&
   Schema.toEquivalence(MessageDeliveryPolicy)(left.policy, right.policy) &&
   left.createdAtMillis === right.createdAtMillis &&
-  left.initialDeadlineAtMillis === right.initialDeadlineAtMillis;
+  left.initialDeadlineAtMillis === right.initialDeadlineAtMillis
 
-const error = (reason: MessageDeliveryError["reason"], operation: string, cause?: unknown) =>
-  MessageDeliveryError.make({ reason, operation, ...(cause === undefined ? {} : { cause }) });
+const error = (reason: MessageDeliveryError['reason'], operation: string, cause?: unknown) =>
+  MessageDeliveryError.make({ reason, operation, ...(cause === undefined ? {} : { cause }) })
 
 export const validateMessageDelivery = <A, I>(
   schema: Schema.Codec<A, I>,
@@ -364,8 +365,8 @@ export const validateMessageDelivery = <A, I>(
   operation: string,
 ) =>
   Schema.decodeUnknownEffect(Schema.toType(schema))(value).pipe(
-    Effect.mapError(() => error("validation", operation)),
-  );
+    Effect.mapError(() => error('validation', operation)),
+  )
 
 const MessageDeliveryPreparation = Schema.Struct({
   key: MessageDeliveryKey,
@@ -374,16 +375,16 @@ const MessageDeliveryPreparation = Schema.Struct({
   deadlineAtMillis: ScheduleInstant,
   policy: MessageDeliveryPolicy,
   predecessor: Schema.optionalKey(IdempotencyKey),
-});
+})
 
 /** Freeze and digest the complete admission envelope before publishing the obligation. */
-export const prepareMessageDelivery = Effect.fnUntraced(function* (options: {
-  readonly key: MessageDeliveryKey;
-  readonly envelope: PreparedInput;
-  readonly createdAtMillis: number;
-  readonly deadlineAtMillis: number;
-  readonly policy?: MessageDeliveryPolicy;
-  readonly predecessor?: IdempotencyKey;
+export const prepareMessageDelivery = Effect.fnUntraced(function*(options: {
+  readonly key: MessageDeliveryKey
+  readonly envelope: PreparedInput
+  readonly createdAtMillis: number
+  readonly deadlineAtMillis: number
+  readonly policy?: MessageDeliveryPolicy
+  readonly predecessor?: IdempotencyKey
 }): Effect.fn.Return<MessageDeliveryRecord, MessageDeliveryError, CryptoDigest.Digest> {
   // JSON detaches every caller-owned value before hashing can suspend preparation.
   const snapshot = yield* Schema.encodeEffect(Schema.fromJsonString(MessageDeliveryPreparation))({
@@ -391,24 +392,24 @@ export const prepareMessageDelivery = Effect.fnUntraced(function* (options: {
     policy: options.policy ?? defaultMessageDeliveryPolicy,
   }).pipe(
     Effect.flatMap(Schema.decodeEffect(Schema.fromJsonString(MessageDeliveryPreparation))),
-    Effect.mapError((cause) => error("validation", "prepare", cause)),
-  );
+    Effect.mapError((cause) => error('validation', 'prepare', cause)),
+  )
 
-  const envelope = snapshot.envelope;
+  const envelope = snapshot.envelope
 
   const encoded = yield* Schema.encodeEffect(PreparedInput)(envelope).pipe(
-    Effect.mapError((cause) => error("validation", "prepare", cause)),
-  );
+    Effect.mapError((cause) => error('validation', 'prepare', cause)),
+  )
 
   const inputDigest = yield* digestJson(encoded.input).pipe(
-    Effect.mapError((cause) => error("storage", "digest", cause)),
-  );
+    Effect.mapError((cause) => error('storage', 'digest', cause)),
+  )
 
-  if (inputDigest !== envelope.inputDigest) return yield* error("corrupt", "input-digest");
+  if (inputDigest !== envelope.inputDigest) return yield* error('corrupt', 'input-digest')
 
   const envelopeDigest = yield* digestJson(encoded).pipe(
-    Effect.mapError((cause) => error("storage", "digest", cause)),
-  );
+    Effect.mapError((cause) => error('storage', 'digest', cause)),
+  )
 
   return yield* validateMessageDelivery(
     MessageDeliveryRecord,
@@ -423,7 +424,7 @@ export const prepareMessageDelivery = Effect.fnUntraced(function* (options: {
       deadlineAtMillis: snapshot.deadlineAtMillis,
       policy: snapshot.policy,
       version: 1,
-      status: "pending",
+      status: 'pending',
       receipt: null,
       settlement: null,
       refusal: null,
@@ -439,16 +440,16 @@ export const prepareMessageDelivery = Effect.fnUntraced(function* (options: {
         lastFailure: null,
       },
     },
-    "prepare",
-  );
-});
+    'prepare',
+  )
+})
 
 /**
  * Derive source-owned outbox rows from privately captured canonical records. Native adapters
  * publish these rows, their due indexes and the source records in one transaction. The v1
  * record contract uses the default delivery policy; replay retains the existing row's progress.
  */
-export const prepareCanonicalMessageDeliveries = Effect.fnUntraced(function* (
+export const prepareCanonicalMessageDeliveries = Effect.fnUntraced(function*(
   threadId: ThreadId,
   records: ReadonlyArray<RecordEnvelope>,
 ): Effect.fn.Return<
@@ -456,35 +457,35 @@ export const prepareCanonicalMessageDeliveries = Effect.fnUntraced(function* (
   MessageDeliveryError,
   CryptoDigest.Digest
 > {
-  const deliveries: Array<MessageDeliveryRecord> = [];
+  const deliveries: Array<MessageDeliveryRecord> = []
 
   for (const record of records) {
-    const payload = record.payload;
+    const payload = record.payload
 
-    const frozen =
-      payload._tag === "PeerMessagePrepared"
-        ? {
-            messageId: payload.messageId,
-            envelope: payload.encodedEnvelope,
-            createdAtMillis: DateTime.toEpochMillis(record.createdAt),
-            deadlineAtMillis: payload.deadlineAtMillis,
-          }
-        : payload._tag === "WorkerReportPrepared"
-          ? payload
-          : payload._tag === "AgentUpdateEmitted"
-            ? payload.delivery
-            : undefined;
+    const frozen = payload._tag === 'PeerMessagePrepared'
+      ? {
+        messageId: payload.messageId,
+        envelope: payload.encodedEnvelope,
+        createdAtMillis: DateTime.toEpochMillis(record.createdAt),
+        deadlineAtMillis: payload.deadlineAtMillis,
+      }
+      : payload._tag === 'WorkerReportPrepared'
+      ? payload
+      : payload._tag === 'AgentUpdateEmitted'
+      ? payload.delivery
+      : undefined
 
-    if (frozen === undefined) continue;
+    if (frozen === undefined) continue
     if (
-      (payload._tag === "PeerMessagePrepared" && payload.source.threadId !== threadId) ||
-      (payload._tag === "AgentUpdateEmitted" && payload.update.threadId !== threadId)
-    )
-      return yield* error("validation", "canonical delivery owner");
+      (payload._tag === 'PeerMessagePrepared' && payload.source.threadId !== threadId) ||
+      (payload._tag === 'AgentUpdateEmitted' && payload.update.threadId !== threadId)
+    ) {
+      return yield* error('validation', 'canonical delivery owner')
+    }
 
     const envelope = yield* Schema.decodeUnknownEffect(PreparedInput)(frozen.envelope).pipe(
-      Effect.mapError((cause) => error("validation", "canonical delivery envelope", cause)),
-    );
+      Effect.mapError((cause) => error('validation', 'canonical delivery envelope', cause)),
+    )
 
     deliveries.push(
       yield* prepareMessageDelivery({
@@ -492,24 +493,24 @@ export const prepareCanonicalMessageDeliveries = Effect.fnUntraced(function* (
         envelope,
         createdAtMillis: frozen.createdAtMillis,
         deadlineAtMillis: frozen.deadlineAtMillis,
-        ...("predecessor" in frozen && frozen.predecessor !== undefined
+        ...('predecessor' in frozen && frozen.predecessor !== undefined
           ? { predecessor: frozen.predecessor }
           : {}),
       }),
-    );
+    )
   }
 
-  return deliveries;
-});
+  return deliveries
+})
 
 /** Pure reducer used under the adapter's atomic compare-and-swap boundary. */
 export const applyMessageDeliveryChange = (
   record: MessageDeliveryRecord,
   change: MessageDeliveryChange,
 ): Result.Result<MessageDeliveryRecord, MessageDeliveryError> => {
-  const conflict = () => Result.fail(error("conflict", change._tag));
+  const conflict = () => Result.fail(error('conflict', change._tag))
 
-  if (change._tag === "Complete") {
+  if (change._tag === 'Complete') {
     if (
       change.admissionKey !== record.envelope.admissionKey ||
       change.inputDigest !== record.envelope.inputDigest ||
@@ -517,54 +518,57 @@ export const applyMessageDeliveryChange = (
       change.settlement.submissionId !== change.receipt.submissionId ||
       change.settlement.receiptId !== change.receipt.receiptId ||
       (record.receipt !== null && !receiptsEqual(record.receipt, change.receipt))
-    )
-      return Result.fail(error("corrupt", "completion-identity"));
-    if (record.status === "refused") return conflict();
-    if (record.status === "processed")
+    ) {
+      return Result.fail(error('corrupt', 'completion-identity'))
+    }
+    if (record.status === 'refused') return conflict()
+    if (record.status === 'processed') {
       return record.settlement !== null && settlementsEqual(record.settlement, change.settlement)
         ? Result.succeed(record)
-        : Result.fail(error("corrupt", "completion-identity"));
+        : Result.fail(error('corrupt', 'completion-identity'))
+    }
 
     return Result.succeed({
       ...record,
       version: record.version + 1,
-      status: "processed",
+      status: 'processed',
       receipt: change.receipt,
       settlement: change.settlement,
       leaseUntilMillis: null,
       parkReason: null,
       retry: { ...record.retry, parked: false },
-    });
+    })
   }
 
-  if (record.version !== change.expectedVersion) return conflict();
-  if (record.status === "processed" || record.status === "refused") return conflict();
-  const now = change.nowMillis;
+  if (record.version !== change.expectedVersion) return conflict()
+  if (record.status === 'processed' || record.status === 'refused') return conflict()
+  const now = change.nowMillis
 
   const base = {
     ...record,
     version: record.version + 1,
-    ...("diagnostic" in change && change.diagnostic !== undefined
+    ...('diagnostic' in change && change.diagnostic !== undefined
       ? { lastFailureDiagnostic: change.diagnostic }
       : {}),
-  };
+  }
 
   const parked = (reason: typeof ParkReason.Type): MessageDeliveryRecord => ({
     ...base,
-    status: "parked",
+    status: 'parked',
     parkReason: reason,
     leaseUntilMillis: null,
     retry: { ...record.retry, parked: true },
-  });
+  })
 
-  if (change._tag === "Defer") {
+  if (change._tag === 'Defer') {
     if (
-      record.status !== "pending" ||
+      record.status !== 'pending' ||
       (record.leaseUntilMillis !== null && record.leaseUntilMillis > now)
-    )
-      return conflict();
-    if (now >= record.deadlineAtMillis) return Result.succeed(parked("deadline"));
-    if (change.untilMillis <= now) return conflict();
+    ) {
+      return conflict()
+    }
+    if (now >= record.deadlineAtMillis) return Result.succeed(parked('deadline'))
+    if (change.untilMillis <= now) return conflict()
 
     return Result.succeed({
       ...base,
@@ -573,16 +577,16 @@ export const applyMessageDeliveryChange = (
         ...record.retry,
         nextAttemptAtMillis: Math.min(change.untilMillis, record.deadlineAtMillis),
       },
-    });
+    })
   }
 
-  if (change._tag === "Recover") {
-    if (record.status !== "parked" || change.deadlineAtMillis <= now) return conflict();
+  if (change._tag === 'Recover') {
+    if (record.status !== 'parked' || change.deadlineAtMillis <= now) return conflict()
 
     return Result.succeed({
       ...base,
       deadlineAtMillis: change.deadlineAtMillis,
-      status: record.receipt === null ? "pending" : "accepted",
+      status: record.receipt === null ? 'pending' : 'accepted',
       parkReason: null,
       retry: {
         ...record.retry,
@@ -591,17 +595,18 @@ export const applyMessageDeliveryChange = (
         parked: false,
         nextAttemptAtMillis: now,
       },
-    });
+    })
   }
-  if (record.status === "parked") return conflict();
-  if (change._tag === "Park") return Result.succeed(parked(change.reason));
-  if (change._tag === "Claim") {
-    const due = messageDeliveryDeadline(record);
+  if (record.status === 'parked') return conflict()
+  if (change._tag === 'Park') return Result.succeed(parked(change.reason))
+  if (change._tag === 'Claim') {
+    const due = messageDeliveryDeadline(record)
 
-    if (due === null || due > now) return conflict();
-    if (now >= record.deadlineAtMillis) return Result.succeed(parked("deadline"));
-    if (record.retry.automaticAttempts >= record.policy.maxAutomaticAttempts)
-      return Result.succeed(parked("exhausted"));
+    if (due === null || due > now) return conflict()
+    if (now >= record.deadlineAtMillis) return Result.succeed(parked('deadline'))
+    if (record.retry.automaticAttempts >= record.policy.maxAutomaticAttempts) {
+      return Result.succeed(parked('exhausted'))
+    }
 
     return Result.succeed({
       ...base,
@@ -612,17 +617,18 @@ export const applyMessageDeliveryChange = (
         automaticAttempts: record.retry.automaticAttempts + 1,
         lastAttemptAtMillis: now,
       },
-    });
+    })
   }
-  if (record.leaseUntilMillis === null || now > record.leaseUntilMillis) return conflict();
-  if (change._tag === "Accept") {
-    if (record.status !== "pending") return conflict();
-    if (change.receipt.threadId !== record.envelope.threadId)
-      return Result.fail(error("corrupt", "receipt-identity"));
+  if (record.leaseUntilMillis === null || now > record.leaseUntilMillis) return conflict()
+  if (change._tag === 'Accept') {
+    if (record.status !== 'pending') return conflict()
+    if (change.receipt.threadId !== record.envelope.threadId) {
+      return Result.fail(error('corrupt', 'receipt-identity'))
+    }
 
     return Result.succeed({
       ...base,
-      status: "accepted",
+      status: 'accepted',
       receipt: change.receipt,
       leaseUntilMillis: null,
       retry: {
@@ -634,46 +640,48 @@ export const applyMessageDeliveryChange = (
         ),
         lastFailure: null,
       },
-    });
+    })
   }
-  if (change._tag === "Process") {
-    if (record.status !== "accepted") return conflict();
+  if (change._tag === 'Process') {
+    if (record.status !== 'accepted') return conflict()
     if (
       change.settlement.submissionId !== record.receipt?.submissionId ||
       change.settlement.receiptId !== record.receipt.receiptId
-    )
-      return Result.fail(error("corrupt", "settlement-identity"));
+    ) {
+      return Result.fail(error('corrupt', 'settlement-identity'))
+    }
 
     return Result.succeed({
       ...base,
-      status: "processed",
+      status: 'processed',
       settlement: change.settlement,
       leaseUntilMillis: null,
-    });
+    })
   }
-  if (change._tag === "ObservePending") {
-    if (record.status !== "accepted") return conflict();
+  if (change._tag === 'ObservePending') {
+    if (record.status !== 'accepted') return conflict()
 
-    return Result.succeed(parked("awaiting-settlement"));
+    return Result.succeed(parked('awaiting-settlement'))
   }
-  if (change._tag === "Refuse") {
-    if (record.status !== "pending") return conflict();
+  if (change._tag === 'Refuse') {
+    if (record.status !== 'pending') return conflict()
 
     return Result.succeed({
       ...base,
-      status: "refused",
+      status: 'refused',
       refusal: change.code,
       leaseUntilMillis: null,
-    });
+    })
   }
-  if (now >= record.deadlineAtMillis) return Result.succeed(parked("deadline"));
-  if (record.retry.automaticAttempts >= record.policy.maxAutomaticAttempts)
-    return Result.succeed(parked("exhausted"));
+  if (now >= record.deadlineAtMillis) return Result.succeed(parked('deadline'))
+  if (record.retry.automaticAttempts >= record.policy.maxAutomaticAttempts) {
+    return Result.succeed(parked('exhausted'))
+  }
 
   const delay = Math.min(
     record.policy.retryBaseMillis * 2 ** Math.min(record.retry.automaticAttempts - 1, 52),
     record.policy.retryMaxMillis,
-  );
+  )
 
   return Result.succeed({
     ...base,
@@ -681,20 +689,20 @@ export const applyMessageDeliveryChange = (
     retry: {
       ...record.retry,
       nextAttemptAtMillis: Math.min(
-        now + (record.status === "accepted" ? record.policy.settlementPollMillis : delay),
+        now + (record.status === 'accepted' ? record.policy.settlementPollMillis : delay),
         record.deadlineAtMillis,
       ),
       lastFailure: change.reason,
     },
-  });
-};
+  })
+}
 
 export const MessageDeliveryDriverLimits = Schema.Struct({
   batchSize: Positive.check(Schema.isLessThanOrEqualTo(100)),
   concurrency: Positive.check(Schema.isLessThanOrEqualTo(32)),
-});
+})
 
-export type MessageDeliveryDriverLimits = typeof MessageDeliveryDriverLimits.Type;
+export type MessageDeliveryDriverLimits = typeof MessageDeliveryDriverLimits.Type
 
 /**
  * Finite, structured host pump. The host owns its Scope and wakes it from nextDeadline even
@@ -707,17 +715,17 @@ export class MessageDeliveryDriver extends Context.Service<
   {
     readonly process: (
       key: MessageDeliveryKey,
-    ) => Effect.Effect<MessageDeliveryRecord, MessageDeliveryFailure>;
+    ) => Effect.Effect<MessageDeliveryRecord, MessageDeliveryFailure>
     readonly runDue: (
       ownerThreadId?: ThreadId,
-    ) => Effect.Effect<ReadonlyArray<MessageDeliveryRecord>, MessageDeliveryFailure>;
+    ) => Effect.Effect<ReadonlyArray<MessageDeliveryRecord>, MessageDeliveryFailure>
     readonly retry: (
       key: MessageDeliveryKey,
       expectedVersion: number,
       deadlineAtMillis: number,
-    ) => Effect.Effect<MessageDeliveryRecord, MessageDeliveryFailure>;
+    ) => Effect.Effect<MessageDeliveryRecord, MessageDeliveryFailure>
   }
->()("@effect-agent/thread/MessageDeliveryDriver") {
+>()('@effect-agent/thread/MessageDeliveryDriver') {
   static layer(
     limits: MessageDeliveryDriverLimits = { batchSize: 100, concurrency: 4 },
   ): Layer.Layer<
@@ -727,83 +735,83 @@ export class MessageDeliveryDriver extends Context.Service<
   > {
     return Layer.effect(
       MessageDeliveryDriver,
-      Effect.gen(function* () {
+      Effect.gen(function*() {
         const config = yield* validateMessageDelivery(
           MessageDeliveryDriverLimits,
           limits,
-          "driver-limits",
-        );
+          'driver-limits',
+        )
 
-        const store = yield* MessageDeliveryStore;
-        const admission = yield* PreparedInputAdmission;
-        const crypto = yield* CryptoDigest.Digest;
-        const failpoint = yield* MessageDeliveryFailpoint;
-        const semaphore = yield* Semaphore.make(config.concurrency);
+        const store = yield* MessageDeliveryStore
+        const admission = yield* PreparedInputAdmission
+        const crypto = yield* CryptoDigest.Digest
+        const failpoint = yield* MessageDeliveryFailpoint
+        const semaphore = yield* Semaphore.make(config.concurrency)
 
         const process = (key: MessageDeliveryKey) =>
           semaphore
             .withPermit(
-              Effect.gen(function* () {
-                const current = yield* store.get(key);
+              Effect.gen(function*() {
+                const current = yield* store.get(key)
 
-                if (current === null) return yield* error("not-found", "process");
-                const nowMillis = yield* Clock.currentTimeMillis;
-                const due = messageDeliveryDeadline(current);
+                if (current === null) return yield* error('not-found', 'process')
+                const nowMillis = yield* Clock.currentTimeMillis
+                const due = messageDeliveryDeadline(current)
 
-                if (due === null || due > nowMillis) return current;
+                if (due === null || due > nowMillis) return current
 
-                if (current.status === "pending" && current.predecessor !== undefined) {
+                if (current.status === 'pending' && current.predecessor !== undefined) {
                   const previous = yield* store.get({
                     ownerThreadId: key.ownerThreadId,
                     messageId: current.predecessor,
-                  });
+                  })
 
                   if (
                     previous === null ||
-                    (previous.receipt === null && previous.status !== "refused")
+                    (previous.receipt === null && previous.status !== 'refused')
                   ) {
                     return yield* store.change(key, {
-                      _tag: "Defer",
+                      _tag: 'Defer',
                       expectedVersion: current.version,
                       nowMillis,
                       untilMillis: nowMillis + current.policy.settlementPollMillis,
-                    });
+                    })
                   }
                 }
 
                 const claimed = yield* store.change(key, {
-                  _tag: "Claim",
+                  _tag: 'Claim',
                   expectedVersion: current.version,
                   nowMillis,
-                });
+                })
 
-                if (claimed.status === "parked") return claimed;
+                if (claimed.status === 'parked') return claimed
 
                 const envelope = yield* Schema.encodeEffect(PreparedInput)(claimed.envelope).pipe(
-                  Effect.mapError((cause) => error("corrupt", "envelope", cause)),
-                );
+                  Effect.mapError((cause) => error('corrupt', 'envelope', cause)),
+                )
 
                 const digest = yield* digestJson(envelope).pipe(
                   Effect.provideService(CryptoDigest.Digest, crypto),
-                  Effect.mapError((cause) => error("storage", "digest", cause)),
-                );
+                  Effect.mapError((cause) => error('storage', 'digest', cause)),
+                )
 
-                if (digest !== claimed.envelopeDigest)
-                  return yield* error("corrupt", "envelope-digest");
+                if (digest !== claimed.envelopeDigest) {
+                  return yield* error('corrupt', 'envelope-digest')
+                }
 
                 const timeout = Math.min(
                   claimed.policy.attemptTimeoutMillis,
                   (claimed.leaseUntilMillis ?? claimed.deadlineAtMillis) -
                     (yield* Clock.currentTimeMillis),
-                );
+                )
 
                 // Digest computation cannot extend this claim's admission authority.
-                if (timeout <= 0) return claimed;
+                if (timeout <= 0) return claimed
 
-                type WithoutFence<T> =
-                  T extends Exclude<MessageDeliveryChange, { _tag: "Complete" }>
-                    ? Omit<T, "expectedVersion" | "nowMillis">
-                    : never;
+                type WithoutFence<T> = T extends Exclude<MessageDeliveryChange, { _tag: 'Complete' }>
+                  ? Omit<T, 'expectedVersion' | 'nowMillis'>
+                  : never
 
                 const commit = (change: WithoutFence<MessageDeliveryChange>) =>
                   Clock.currentTimeMillis.pipe(
@@ -812,127 +820,130 @@ export class MessageDeliveryDriver extends Context.Service<
                         ...change,
                         expectedVersion: claimed.version,
                         nowMillis: time,
-                      }),
+                      })
                     ),
-                  );
+                  )
 
-                if (claimed.status === "pending") {
+                if (claimed.status === 'pending') {
                   const outcome = yield* admitPreparedInput(
                     admission.submit(claimed.envelope),
                     timeout,
-                  ).pipe(Effect.mapError((cause) => error("corrupt", "admission", cause)));
+                  ).pipe(Effect.mapError((cause) => error('corrupt', 'admission', cause)))
 
-                  yield* failpoint.hit("message-delivery:admission:after");
-                  if (outcome._tag === "Receipt") {
-                    const accepted = yield* commit({ _tag: "Accept", receipt: outcome.receipt });
+                  yield* failpoint.hit('message-delivery:admission:after')
+                  if (outcome._tag === 'Receipt') {
+                    const accepted = yield* commit({ _tag: 'Accept', receipt: outcome.receipt })
 
                     return yield* store.change(key, {
-                      _tag: "Park",
-                      reason: "awaiting-settlement",
+                      _tag: 'Park',
+                      reason: 'awaiting-settlement',
                       expectedVersion: accepted.version,
                       nowMillis: yield* Clock.currentTimeMillis,
-                    });
+                    })
                   }
-                  if (outcome._tag === "Refused")
+                  if (outcome._tag === 'Refused') {
                     return yield* commit({
-                      _tag: "Refuse",
+                      _tag: 'Refuse',
                       code: outcome.error.code,
                       diagnostic: FailureDiagnostic.capture(outcome.error),
-                    });
+                    })
+                  }
 
                   return yield* commit({
-                    _tag: "Retry",
+                    _tag: 'Retry',
                     reason: outcome.reason,
                     diagnostic: outcome.diagnostic,
-                  });
+                  })
                 }
-                if (claimed.receipt === null) return yield* error("corrupt", "receipt");
-                if (admission.submissionStatus === undefined)
-                  return yield* commit({ _tag: "Park", reason: "status-unavailable" });
+                if (claimed.receipt === null) return yield* error('corrupt', 'receipt')
+                if (admission.submissionStatus === undefined) {
+                  return yield* commit({ _tag: 'Park', reason: 'status-unavailable' })
+                }
 
                 const status = yield* admission.submissionStatus(claimed.receipt).pipe(
                   Effect.timeout(timeout),
-                  Effect.map((status) => ({ _tag: "Status" as const, status })),
+                  Effect.map((status) => ({ _tag: 'Status' as const, status })),
                   Effect.catchTags({
                     PreparedInputRetryable: (failure) =>
                       Effect.succeed({
-                        _tag: "Retry" as const,
+                        _tag: 'Retry' as const,
                         reason: failure.reason,
                         diagnostic: FailureDiagnostic.capture(failure),
                       }),
                     PreparedInputRefused: (failure) =>
                       Effect.succeed({
-                        _tag: "Unavailable" as const,
+                        _tag: 'Unavailable' as const,
                         diagnostic: FailureDiagnostic.capture(failure),
                       }),
                     TimeoutError: (failure) =>
                       Effect.succeed({
-                        _tag: "Retry" as const,
-                        reason: "timeout" as const,
+                        _tag: 'Retry' as const,
+                        reason: 'timeout' as const,
                         diagnostic: FailureDiagnostic.capture(failure),
                       }),
                     ScheduleStorageError: (failure) =>
-                      failure.reason === "unavailable"
+                      failure.reason === 'unavailable'
                         ? Effect.succeed({
-                            _tag: "Retry" as const,
-                            reason: "storage" as const,
-                            diagnostic: FailureDiagnostic.capture(failure),
-                          })
-                        : Effect.fail(error("corrupt", "status", failure)),
+                          _tag: 'Retry' as const,
+                          reason: 'storage' as const,
+                          diagnostic: FailureDiagnostic.capture(failure),
+                        })
+                        : Effect.fail(error('corrupt', 'status', failure)),
                   }),
-                );
+                )
 
-                if (status._tag === "Unavailable")
+                if (status._tag === 'Unavailable') {
                   return yield* commit({
-                    _tag: "Park",
-                    reason: "status-unavailable",
+                    _tag: 'Park',
+                    reason: 'status-unavailable',
                     diagnostic: status.diagnostic,
-                  });
-                if (status._tag === "Status" && status.status._tag === "settled")
-                  return yield* commit({ _tag: "Process", settlement: status.status.settlement });
-                if (status._tag === "Status") return yield* commit({ _tag: "ObservePending" });
+                  })
+                }
+                if (status._tag === 'Status' && status.status._tag === 'settled') {
+                  return yield* commit({ _tag: 'Process', settlement: status.status.settlement })
+                }
+                if (status._tag === 'Status') return yield* commit({ _tag: 'ObservePending' })
 
                 return yield* commit({
-                  _tag: "Retry",
+                  _tag: 'Retry',
                   reason: status.reason,
                   diagnostic: status.diagnostic,
-                });
+                })
               }),
             )
             .pipe(
-              Effect.catchTag("MessageDeliveryError", (failure) =>
-                failure.reason === "conflict"
+              Effect.catchTag('MessageDeliveryError', (failure) =>
+                failure.reason === 'conflict'
                   ? store.get(key).pipe(
-                      Effect.filterOrFail(
-                        (record) => record !== null,
-                        () => failure,
-                      ),
-                    )
-                  : Effect.fail(failure),
-              ),
-            );
+                    Effect.filterOrFail(
+                      (record) => record !== null,
+                      () => failure,
+                    ),
+                  )
+                  : Effect.fail(failure)),
+            )
 
         return MessageDeliveryDriver.of({
           process,
-          runDue: Effect.fnUntraced(function* (ownerThreadId) {
+          runDue: Effect.fnUntraced(function*(ownerThreadId) {
             const keys = yield* store.due(
               yield* Clock.currentTimeMillis,
               config.batchSize,
               ownerThreadId,
-            );
+            )
 
-            return yield* Effect.forEach(keys, process, { concurrency: config.concurrency });
+            return yield* Effect.forEach(keys, process, { concurrency: config.concurrency })
           }),
-          retry: Effect.fnUntraced(function* (key, expectedVersion, deadlineAtMillis) {
+          retry: Effect.fnUntraced(function*(key, expectedVersion, deadlineAtMillis) {
             return yield* store.change(key, {
-              _tag: "Recover",
+              _tag: 'Recover',
               expectedVersion,
               deadlineAtMillis,
               nowMillis: yield* Clock.currentTimeMillis,
-            });
+            })
           }),
-        });
+        })
       }),
-    );
+    )
   }
 }

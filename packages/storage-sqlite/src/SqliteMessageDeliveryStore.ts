@@ -1,26 +1,23 @@
 import {
   makeSqlMessageDeliveryStore,
   registerCanonicalMessageWriter,
-} from "@yielded/agent-storage-sql/sql-message-delivery-store";
-import {
-  MessageDeliveryStore,
-  type MessageDeliveryStoreLimits,
-} from "@yielded/agent/message-delivery";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
+} from '@yielded/agent-storage-sql/sql-message-delivery-store'
+import { MessageDeliveryStore, type MessageDeliveryStoreLimits } from '@yielded/agent/message-delivery'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
 
-import { initializeSqliteJournal } from "./internal/sqlite-journal.ts";
+import { initializeSqliteJournal } from './internal/sqlite-journal.ts'
 
 /** Source-owned message obligations in the host's existing SQLite database. */
 export const messageDeliveryStoreLayer = (limits?: MessageDeliveryStoreLimits) =>
   Layer.effect(
     MessageDeliveryStore,
-    Effect.gen(function* () {
-      const journal = yield* initializeSqliteJournal;
-      const store = yield* makeSqlMessageDeliveryStore(journal.owner, limits);
+    Effect.gen(function*() {
+      const journal = yield* initializeSqliteJournal
+      const store = yield* makeSqlMessageDeliveryStore(journal.owner, limits)
 
-      yield* registerCanonicalMessageWriter(journal.owner, store);
+      yield* registerCanonicalMessageWriter(journal.owner, store)
 
-      return store;
+      return store
     }),
-  );
+  )

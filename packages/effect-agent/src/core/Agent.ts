@@ -1,50 +1,48 @@
-import type * as AiError from "effect/ai/AiError";
-import type * as LanguageModel from "effect/ai/LanguageModel";
-import type * as Model from "effect/ai/Model";
-import type * as Prompt from "effect/ai/Prompt";
-import * as Tool from "effect/ai/Tool";
-import * as Toolkit from "effect/ai/Toolkit";
-import type * as Effect from "effect/Effect";
-import type * as Layer from "effect/Layer";
-import type * as Schema from "effect/Schema";
-import * as S from "effect/Schema";
+import type * as AiError from 'effect/ai/AiError'
+import type * as LanguageModel from 'effect/ai/LanguageModel'
+import type * as Model from 'effect/ai/Model'
+import type * as Prompt from 'effect/ai/Prompt'
+import * as Tool from 'effect/ai/Tool'
+import * as Toolkit from 'effect/ai/Toolkit'
+import type * as Effect from 'effect/Effect'
+import type * as Layer from 'effect/Layer'
+import type * as Schema from 'effect/Schema'
+import * as S from 'effect/Schema'
 
 import type {
   AgentInputDecodeError,
   AgentInputError,
   AgentOutputError,
   AgentRunDispositionError,
-} from "./AgentError.ts";
-import { AgentPolicy, type AgentPolicyInput } from "./AgentPolicy.ts";
-import { AgentId } from "./Identifiers.ts";
-import { type UpdateToolkit, withUpdateTool } from "./internal/agent-updates.ts";
-import type { Configuration } from "./ToolExposure.ts";
+} from './AgentError.ts'
+import { AgentPolicy, type AgentPolicyInput } from './AgentPolicy.ts'
+import { AgentId } from './Identifiers.ts'
+import { type UpdateToolkit, withUpdateTool } from './internal/agent-updates.ts'
+import type { Configuration } from './ToolExposure.ts'
 
 /** Prompt input produced directly or by an Effect that preserves its failure and requirements. */
 export type InstructionResult<E = never, R = never> =
   | Prompt.RawInput
-  | Effect.Effect<Prompt.RawInput, E, R>;
+  | Effect.Effect<Prompt.RawInput, E, R>
 
 /** Static prompt input or an input-dependent source evaluated once while preparing a run. */
 export type InstructionSource<Input, E = never, R = never> =
   | Prompt.RawInput
-  | ((input: Input) => InstructionResult<E, R>);
+  | ((input: Input) => InstructionResult<E, R>)
 
 /** Definition-owned projection from decoded Agent input to model-visible prompt content. */
 export type InputPromptSource<Input, E = never, R = never> = (
   input: Input,
-) => InstructionResult<E, R>;
+) => InstructionResult<E, R>
 
 /** Native services needed to execute and identify model calls. */
-export type ModelServices = LanguageModel.LanguageModel | Model.ProviderName | Model.ModelName;
+export type ModelServices = LanguageModel.LanguageModel | Model.ProviderName | Model.ModelName
 
 /** Accepts native model Layers that provide generation and model identity. */
-export type NativeModel<ModelValue> =
-  ModelValue extends Layer.Layer<infer Provides, never, infer _Requires>
-    ? ModelServices extends Provides
-      ? ModelValue
-      : never
-    : never;
+export type NativeModel<ModelValue> = ModelValue extends Layer.Layer<infer Provides, never, infer _Requires>
+  ? ModelServices extends Provides ? ModelValue
+  : never
+  : never
 
 /** Definition-owned boundary for selecting and validating an application run disposition. */
 export interface RunDispositionDeclaration<Output, DispositionSchema extends Schema.Top> {
@@ -54,17 +52,17 @@ export interface RunDispositionDeclaration<Output, DispositionSchema extends Sch
    * Failures and exhausted Runs seal as failed; aborting an active Run seals as cancelled.
    * The worker origin retains this choice. Omission preserves reusable workers.
    */
-  readonly workerLifecycle?: "assignment" | undefined;
+  readonly workerLifecycle?: 'assignment' | undefined
   /** Canonical Schema used to validate and encode the selected disposition. */
-  readonly schema: DispositionSchema;
+  readonly schema: DispositionSchema
   /** Pure selection from decoded output. `undefined` declares none, except for assignments. */
-  readonly fromOutput: (output: Output) => unknown;
+  readonly fromOutput: (output: Output) => unknown
 }
 
 /** Values available to a Definition-owned completion Tool projector after canonical decoding. */
 export interface CompletionProjectionInput<Parameters = unknown, Result = unknown> {
-  readonly parameters: Parameters;
-  readonly result: Result;
+  readonly parameters: Parameters
+  readonly result: Result
 }
 
 /**
@@ -81,21 +79,23 @@ export interface CompletionToolDeclaration<
   Result = unknown,
   Output = unknown,
 > {
-  readonly tool: string;
+  readonly tool: string
   /**
    * Pure, deterministic projection: recovery may reevaluate a recorded Tool result before
    * RunCompleted commits. Once committed, that stored output wins across later code changes.
    */
-  readonly project: (input: CompletionProjectionInput<Parameters, Result>) => Output;
+  readonly project: (input: CompletionProjectionInput<Parameters, Result>) => Output
 }
 
 type CompletionToolFor<ToolkitValue extends Toolkit.Any, Output> = {
-  readonly [Name in keyof ToolkitValue["tools"] & string]: CompletionToolDeclaration<
-    Tool.Parameters<ToolkitValue["tools"][Name]>,
-    Tool.Success<ToolkitValue["tools"][Name]>,
-    Output
-  > & { readonly tool: Name };
-}[keyof ToolkitValue["tools"] & string];
+  readonly [Name in keyof ToolkitValue['tools'] & string]:
+    & CompletionToolDeclaration<
+      Tool.Parameters<ToolkitValue['tools'][Name]>,
+      Tool.Success<ToolkitValue['tools'][Name]>,
+      Output
+    >
+    & { readonly tool: Name }
+}[keyof ToolkitValue['tools'] & string]
 
 /** Immutable, model-agnostic schemas, behavior, tools, and bounds for an agent. */
 export interface Definition<
@@ -108,13 +108,13 @@ export interface Definition<
   UpdatesSchema extends Schema.Top | undefined = undefined,
 > {
   /** Stable agent identity; changing it creates a distinct definition identity. */
-  readonly id: AgentId;
+  readonly id: AgentId
   /** Canonical Schema for intermediate updates emitted by this Agent. */
-  readonly updates?: UpdatesSchema;
+  readonly updates?: UpdatesSchema
   /** Canonical schema used to decode and encode run input. */
-  readonly input: InputSchema;
+  readonly input: InputSchema
   /** Canonical schema used to decode the final model output. */
-  readonly output: OutputSchema;
+  readonly output: OutputSchema
   /**
    * Evaluated once while preparing each Run. OpenAI, xAI and native adapters advertising support
    * preserve chronological system messages, omitting exact repeats only when no distinct system
@@ -123,50 +123,49 @@ export interface Definition<
    * Anthropic requires an upstream adapter with mid-conversation system-message support.
    * Stored history is unchanged.
    */
-  readonly instructions: Instructions;
+  readonly instructions: Instructions
   /**
    * Optional projection from decoded input to model-visible native Effect AI prompt content.
    * This controls disclosure only: durable admission retains the complete input and Tool
    * authorization receives it. A projection failure never falls back to sending full input.
    */
-  readonly inputPrompt?: InputPromptValue | undefined;
+  readonly inputPrompt?: InputPromptValue | undefined
   /** Native Effect AI toolkit whose failures and requirements remain visible. */
-  readonly toolkit: ToolkitValue;
-  readonly toolExposure?: Configuration | undefined;
+  readonly toolkit: ToolkitValue
+  readonly toolExposure?: Configuration | undefined
   /** Finite execution bounds enforced by the runtime. */
-  readonly policy: AgentPolicy;
+  readonly policy: AgentPolicy
   /** Explicit policy fields, retained so delegated runs can inherit omitted fields. */
-  readonly policyOverrides?: Partial<AgentPolicyInput> | undefined;
+  readonly policyOverrides?: Partial<AgentPolicyInput> | undefined
   /** When configured, this Tool must succeed to produce final output; ordinary text cannot settle. */
-  readonly completion?: CompletionToolDeclaration | undefined;
-  readonly runDisposition?: RunDispositionValue | undefined;
-  readonly description?: string | undefined;
+  readonly completion?: CompletionToolDeclaration | undefined
+  readonly runDisposition?: RunDispositionValue | undefined
+  readonly description?: string | undefined
 }
 
 /** Options for a model-agnostic agent definition. */
 export interface DefinitionOptions<
   InputSchema extends Schema.Top,
   OutputSchema extends Schema.Top,
-  Instructions extends InstructionSource<InputSchema["Type"], unknown, unknown>,
+  Instructions extends InstructionSource<InputSchema['Type'], unknown, unknown>,
   ToolkitValue extends Toolkit.Any,
   RunDispositionValue extends
-    | RunDispositionDeclaration<OutputSchema["Type"], Schema.Top>
+    | RunDispositionDeclaration<OutputSchema['Type'], Schema.Top>
     | undefined = undefined,
-  InputPromptValue extends InputPromptSource<InputSchema["Type"], unknown, unknown> | undefined =
-    undefined,
+  InputPromptValue extends InputPromptSource<InputSchema['Type'], unknown, unknown> | undefined = undefined,
   UpdatesSchema extends Schema.Top | undefined = undefined,
 > {
-  readonly updates?: UpdatesSchema;
-  readonly input: InputSchema;
-  readonly output: OutputSchema;
-  readonly instructions: Instructions;
-  readonly inputPrompt?: InputPromptValue | undefined;
-  readonly toolkit: ToolkitValue;
-  readonly toolExposure?: Configuration | undefined;
-  readonly policy?: Partial<AgentPolicyInput> | undefined;
-  readonly completion?: CompletionToolFor<ToolkitValue, OutputSchema["Type"]> | undefined;
-  readonly runDisposition?: RunDispositionValue | undefined;
-  readonly description?: string | undefined;
+  readonly updates?: UpdatesSchema
+  readonly input: InputSchema
+  readonly output: OutputSchema
+  readonly instructions: Instructions
+  readonly inputPrompt?: InputPromptValue | undefined
+  readonly toolkit: ToolkitValue
+  readonly toolExposure?: Configuration | undefined
+  readonly policy?: Partial<AgentPolicyInput> | undefined
+  readonly completion?: CompletionToolFor<ToolkitValue, OutputSchema['Type']> | undefined
+  readonly runDisposition?: RunDispositionValue | undefined
+  readonly description?: string | undefined
 }
 
 type AnyDefinitionShape = Definition<
@@ -177,163 +176,145 @@ type AnyDefinitionShape = Definition<
   RunDispositionDeclaration<never, Schema.Top> | undefined,
   unknown,
   Schema.Top | undefined
->;
+>
 
 /** Immutable pairing of an agent definition with a native model Layer. */
 export interface Binding<DefinitionValue extends AnyDefinitionShape, ModelValue> {
-  readonly definition: DefinitionValue;
-  readonly model: NativeModel<ModelValue>;
+  readonly definition: DefinitionValue
+  readonly model: NativeModel<ModelValue>
 }
 
-type InstructionEffect<Instructions, Input> = Instructions extends (input: Input) => infer Result
-  ? Result
-  : Instructions;
+type InstructionEffect<Instructions, Input> = Instructions extends (input: Input) => infer Result ? Result
+  : Instructions
 
-type InputPromptEffect<InputPrompt, Input> = InputPrompt extends (input: Input) => infer Result
-  ? Result
-  : never;
+type InputPromptEffect<InputPrompt, Input> = InputPrompt extends (input: Input) => infer Result ? Result
+  : never
 
-type EffectError<Value> =
-  Value extends Effect.Effect<infer _Success, infer Error, infer _Services> ? Error : never;
+type EffectError<Value> = Value extends Effect.Effect<infer _Success, infer Error, infer _Services> ? Error : never
 
-type EffectServices<Value> =
-  Value extends Effect.Effect<infer _Success, infer _Error, infer Services> ? Services : never;
+type EffectServices<Value> = Value extends Effect.Effect<infer _Success, infer _Error, infer Services> ? Services
+  : never
 
-type ModelRequirements<Value> =
-  Value extends Layer.Layer<infer _Provides, infer _Error, infer Services> ? Services : never;
+type ModelRequirements<Value> = Value extends Layer.Layer<infer _Provides, infer _Error, infer Services> ? Services
+  : never
 
 /** Constructors and type projections for definitions and runnable model bindings. */
 
 /** Type-erased definition used at generic framework boundaries. */
-export type AnyDefinition = AnyDefinitionShape;
+export type AnyDefinition = AnyDefinitionShape
 
 /** Read-only interpreter program or binding used at inspection and projection boundaries. */
 export interface Any {
-  readonly definition: AnyDefinition;
-  readonly model?: unknown;
+  readonly definition: AnyDefinition
+  readonly model?: unknown
 }
 
 type DefinitionOf<AgentValue extends AnyDefinition | Any> = AgentValue extends {
-  readonly definition: infer DefinitionValue extends AnyDefinition;
-}
-  ? DefinitionValue
-  : AgentValue;
+  readonly definition: infer DefinitionValue extends AnyDefinition
+} ? DefinitionValue
+  : AgentValue
 
 type RunDispositionSchemaOf<DefinitionValue extends AnyDefinition> = [
-  Exclude<DefinitionValue["runDisposition"], undefined>,
-] extends [never]
-  ? never
-  : Exclude<DefinitionValue["runDisposition"], undefined> extends RunDispositionDeclaration<
-        never,
-        infer DispositionSchema
-      >
-    ? DispositionSchema
-    : never;
+  Exclude<DefinitionValue['runDisposition'], undefined>,
+] extends [never] ? never
+  : Exclude<DefinitionValue['runDisposition'], undefined> extends RunDispositionDeclaration<
+    never,
+    infer DispositionSchema
+  > ? DispositionSchema
+  : never
 
 /** Literal Agent ID, retained by Agent.make. */
-export type Name<A extends AnyDefinition | Any> = DefinitionOf<A>["id"] extends AgentId &
-  (infer N extends string)
-  ? N
-  : string;
+export type Name<A extends AnyDefinition | Any> = DefinitionOf<A>['id'] extends
+  & AgentId
+  & (infer N extends string) ? N
+  : string
 
 /** Declared update Schema, or never for Agents without updates. */
 export type UpdatesSchema<A extends AnyDefinition | Any> = Exclude<
-  DefinitionOf<A>["updates"],
+  DefinitionOf<A>['updates'],
   undefined
->;
+>
 
 /** Decoded intermediate update value. */
-export type Update<A extends AnyDefinition | Any> = UpdatesSchema<A>["Type"];
+export type Update<A extends AnyDefinition | Any> = UpdatesSchema<A>['Type']
 
 /** Decoded input type of a definition or binding. */
-export type Input<AgentValue extends AnyDefinition | Any> =
-  DefinitionOf<AgentValue>["input"]["Type"];
+export type Input<AgentValue extends AnyDefinition | Any> = DefinitionOf<AgentValue>['input']['Type']
 
 /** Encoded input accepted by the primary execution operations. */
-export type EncodedInput<AgentValue extends AnyDefinition | Any> =
-  DefinitionOf<AgentValue>["input"]["Encoded"];
+export type EncodedInput<AgentValue extends AnyDefinition | Any> = DefinitionOf<AgentValue>['input']['Encoded']
 
 /** Decoded output type of a definition or binding. */
-export type Output<AgentValue extends AnyDefinition | Any> =
-  DefinitionOf<AgentValue>["output"]["Type"];
+export type Output<AgentValue extends AnyDefinition | Any> = DefinitionOf<AgentValue>['output']['Type']
 
 /** Input Schema carried by a definition or binding. */
-export type InputSchema<AgentValue extends AnyDefinition | Any> = DefinitionOf<AgentValue>["input"];
+export type InputSchema<AgentValue extends AnyDefinition | Any> = DefinitionOf<AgentValue>['input']
 
 /** Output Schema carried by a definition or binding. */
-export type OutputSchema<AgentValue extends AnyDefinition | Any> =
-  DefinitionOf<AgentValue>["output"];
+export type OutputSchema<AgentValue extends AnyDefinition | Any> = DefinitionOf<AgentValue>['output']
 
 /** Application run-disposition Schema carried by a definition or binding, or `never`. */
 export type RunDispositionSchema<AgentValue extends AnyDefinition | Any> = RunDispositionSchemaOf<
   DefinitionOf<AgentValue>
->;
+>
 
 /** Decoded application run disposition declared by a definition or binding. */
 export type RunDisposition<AgentValue extends AnyDefinition | Any> = [
   RunDispositionSchema<AgentValue>,
-] extends [never]
-  ? never
-  : RunDispositionSchema<AgentValue>["Type"];
+] extends [never] ? never
+  : RunDispositionSchema<AgentValue>['Type']
 
 /** Validation failure admitted only by definitions that declare a run disposition. */
 export type RunDispositionFailure<AgentValue extends AnyDefinition | Any> = [
   RunDispositionSchemaOf<DefinitionOf<AgentValue>>,
-] extends [never]
-  ? never
-  : AgentRunDispositionError;
+] extends [never] ? never
+  : AgentRunDispositionError
 
 /** Effect AI tool map carried by a definition or binding. */
 export type Tools<AgentValue extends AnyDefinition | Any> = Toolkit.Tools<
-  DefinitionOf<AgentValue>["toolkit"]
->;
+  DefinitionOf<AgentValue>['toolkit']
+>
 
-type ApplicationTools<A extends AnyDefinition> = [UpdatesSchema<A>] extends [never]
-  ? Tools<A>
-  : Omit<Tools<A>, "emit_update">;
+type ApplicationTools<A extends AnyDefinition> = [UpdatesSchema<A>] extends [never] ? Tools<A>
+  : Omit<Tools<A>, 'emit_update'>
 
-type ToolMapValues<ToolMap extends Record<string, Tool.Any>> = ToolMap extends unknown
-  ? ToolMap[keyof ToolMap]
-  : never;
+type ToolMapValues<ToolMap extends Record<string, Tool.Any>> = ToolMap extends unknown ? ToolMap[keyof ToolMap]
+  : never
 
 /** All possible tools, including keys present in only one definition or binding branch. */
-export type ToolUnion<AgentValue extends AnyDefinition | Any> = ToolMapValues<Tools<AgentValue>>;
+export type ToolUnion<AgentValue extends AnyDefinition | Any> = ToolMapValues<Tools<AgentValue>>
 
 /** Instruction, tool-handler, and Schema services required before a Model is bound. */
-export type DefinitionRequirements<DefinitionValue extends AnyDefinition> =
-  DefinitionValue extends unknown
-    ?
-        | EffectServices<InstructionEffect<DefinitionValue["instructions"], Input<DefinitionValue>>>
-        | EffectServices<InputPromptEffect<DefinitionValue["inputPrompt"], Input<DefinitionValue>>>
-        | Tool.HandlersFor<ApplicationTools<DefinitionValue>>
-        | Tool.HandlerServices<ToolMapValues<ApplicationTools<DefinitionValue>>>
-        // The interpreter canonically re-encodes decoded Tool parameters before recording them.
-        | Tool.ParametersSchema<ToolUnion<DefinitionValue>>["EncodingServices"]
-        | Tool.SuccessSchema<ToolUnion<DefinitionValue>>["DecodingServices"]
-        | DefinitionValue["input"]["DecodingServices"]
-        | DefinitionValue["input"]["EncodingServices"]
-        | DefinitionValue["output"]["DecodingServices"]
-        | DefinitionValue["output"]["EncodingServices"]
-        | UpdatesSchema<DefinitionValue>["DecodingServices"]
-        | UpdatesSchema<DefinitionValue>["EncodingServices"]
-        | RunDispositionSchemaOf<DefinitionValue>["DecodingServices"]
-        | RunDispositionSchemaOf<DefinitionValue>["EncodingServices"]
-    : never;
+export type DefinitionRequirements<DefinitionValue extends AnyDefinition> = DefinitionValue extends unknown ?
+    | EffectServices<InstructionEffect<DefinitionValue['instructions'], Input<DefinitionValue>>>
+    | EffectServices<InputPromptEffect<DefinitionValue['inputPrompt'], Input<DefinitionValue>>>
+    | Tool.HandlersFor<ApplicationTools<DefinitionValue>>
+    | Tool.HandlerServices<ToolMapValues<ApplicationTools<DefinitionValue>>>
+    // The interpreter canonically re-encodes decoded Tool parameters before recording them.
+    | Tool.ParametersSchema<ToolUnion<DefinitionValue>>['EncodingServices']
+    | Tool.SuccessSchema<ToolUnion<DefinitionValue>>['DecodingServices']
+    | DefinitionValue['input']['DecodingServices']
+    | DefinitionValue['input']['EncodingServices']
+    | DefinitionValue['output']['DecodingServices']
+    | DefinitionValue['output']['EncodingServices']
+    | UpdatesSchema<DefinitionValue>['DecodingServices']
+    | UpdatesSchema<DefinitionValue>['EncodingServices']
+    | RunDispositionSchemaOf<DefinitionValue>['DecodingServices']
+    | RunDispositionSchemaOf<DefinitionValue>['EncodingServices']
+  : never
 
 /** Definition services plus native model services, or a binding's model Layer requirements. */
 export type Requirements<AgentValue extends AnyDefinition | Any> =
   | DefinitionRequirements<DefinitionOf<AgentValue>>
-  | (AgentValue extends { readonly model: infer ModelValue }
-      ? ModelRequirements<ModelValue>
-      : ModelServices);
+  | (AgentValue extends { readonly model: infer ModelValue } ? ModelRequirements<ModelValue>
+    : ModelServices)
 
 // Distribute after unwrapping bindings too: withModel may itself contain a definition union.
-type DefinitionFailure<DefinitionValue extends AnyDefinition> = DefinitionValue extends unknown
-  ?
-      | EffectError<InstructionEffect<DefinitionValue["instructions"], Input<DefinitionValue>>>
-      | EffectError<InputPromptEffect<DefinitionValue["inputPrompt"], Input<DefinitionValue>>>
-      | Tool.HandlerError<ToolUnion<DefinitionValue>>
-  : never;
+type DefinitionFailure<DefinitionValue extends AnyDefinition> = DefinitionValue extends unknown ?
+    | EffectError<InstructionEffect<DefinitionValue['instructions'], Input<DefinitionValue>>>
+    | EffectError<InputPromptEffect<DefinitionValue['inputPrompt'], Input<DefinitionValue>>>
+    | Tool.HandlerError<ToolUnion<DefinitionValue>>
+  : never
 
 /** Failures from every possible definition, preserving each branch's instruction input type. */
 export type Failure<AgentValue extends AnyDefinition | Any> =
@@ -342,198 +323,211 @@ export type Failure<AgentValue extends AnyDefinition | Any> =
   | AgentInputDecodeError
   | AgentInputError
   | AgentOutputError
-  | RunDispositionFailure<AgentValue>;
+  | RunDispositionFailure<AgentValue>
 
 /** Validate an agent ID and return a shallowly frozen, model-agnostic definition. */
 export function make<
   const Name extends string,
   InputSchema extends Schema.Top,
   OutputSchema extends Schema.Top,
-  Instructions extends InstructionSource<InputSchema["Type"], unknown, unknown>,
+  Instructions extends InstructionSource<InputSchema['Type'], unknown, unknown>,
   ToolkitValue extends Toolkit.Any,
   DispositionSchema extends Schema.Top,
-  InputPromptValue extends InputPromptSource<InputSchema["Type"], unknown, unknown> | undefined,
+  InputPromptValue extends InputPromptSource<InputSchema['Type'], unknown, unknown> | undefined,
   UpdatesSchema extends Schema.Top | undefined = undefined,
 >(
   id: Name,
-  options: DefinitionOptions<
+  options:
+    & DefinitionOptions<
+      InputSchema,
+      OutputSchema,
+      Instructions,
+      ToolkitValue,
+      RunDispositionDeclaration<OutputSchema['Type'], DispositionSchema>,
+      InputPromptValue,
+      UpdatesSchema
+    >
+    & {
+      readonly runDisposition: RunDispositionDeclaration<OutputSchema['Type'], DispositionSchema>
+      readonly inputPrompt: InputPromptValue
+    },
+):
+  & Definition<
     InputSchema,
     OutputSchema,
     Instructions,
-    ToolkitValue,
-    RunDispositionDeclaration<OutputSchema["Type"], DispositionSchema>,
+    UpdateToolkit<ToolkitValue, NoInfer<UpdatesSchema>>,
+    RunDispositionDeclaration<OutputSchema['Type'], DispositionSchema>,
     InputPromptValue,
-    UpdatesSchema
-  > & {
-    readonly runDisposition: RunDispositionDeclaration<OutputSchema["Type"], DispositionSchema>;
-    readonly inputPrompt: InputPromptValue;
-  },
-): Definition<
-  InputSchema,
-  OutputSchema,
-  Instructions,
-  UpdateToolkit<ToolkitValue, NoInfer<UpdatesSchema>>,
-  RunDispositionDeclaration<OutputSchema["Type"], DispositionSchema>,
-  InputPromptValue,
-  NoInfer<UpdatesSchema>
-> & { readonly id: AgentId & Name };
+    NoInfer<UpdatesSchema>
+  >
+  & { readonly id: AgentId & Name }
 
 export function make<
   const Name extends string,
   InputSchema extends Schema.Top,
   OutputSchema extends Schema.Top,
-  Instructions extends InstructionSource<InputSchema["Type"], unknown, unknown>,
+  Instructions extends InstructionSource<InputSchema['Type'], unknown, unknown>,
   ToolkitValue extends Toolkit.Any,
   DispositionSchema extends Schema.Top,
   UpdatesSchema extends Schema.Top | undefined = undefined,
 >(
   id: Name,
-  options: DefinitionOptions<
+  options:
+    & DefinitionOptions<
+      InputSchema,
+      OutputSchema,
+      Instructions,
+      ToolkitValue,
+      RunDispositionDeclaration<OutputSchema['Type'], DispositionSchema>,
+      undefined,
+      UpdatesSchema
+    >
+    & {
+      readonly runDisposition: RunDispositionDeclaration<OutputSchema['Type'], DispositionSchema>
+      readonly inputPrompt?: undefined
+    },
+):
+  & Definition<
     InputSchema,
     OutputSchema,
     Instructions,
-    ToolkitValue,
-    RunDispositionDeclaration<OutputSchema["Type"], DispositionSchema>,
+    UpdateToolkit<ToolkitValue, NoInfer<UpdatesSchema>>,
+    RunDispositionDeclaration<OutputSchema['Type'], DispositionSchema>,
     undefined,
-    UpdatesSchema
-  > & {
-    readonly runDisposition: RunDispositionDeclaration<OutputSchema["Type"], DispositionSchema>;
-    readonly inputPrompt?: undefined;
-  },
-): Definition<
-  InputSchema,
-  OutputSchema,
-  Instructions,
-  UpdateToolkit<ToolkitValue, NoInfer<UpdatesSchema>>,
-  RunDispositionDeclaration<OutputSchema["Type"], DispositionSchema>,
-  undefined,
-  NoInfer<UpdatesSchema>
-> & { readonly id: AgentId & Name };
+    NoInfer<UpdatesSchema>
+  >
+  & { readonly id: AgentId & Name }
 
 export function make<
   const Name extends string,
   InputSchema extends Schema.Top,
   OutputSchema extends Schema.Top,
-  Instructions extends InstructionSource<InputSchema["Type"], unknown, unknown>,
+  Instructions extends InstructionSource<InputSchema['Type'], unknown, unknown>,
   ToolkitValue extends Toolkit.Any,
-  InputPromptValue extends InputPromptSource<InputSchema["Type"], unknown, unknown> | undefined,
+  InputPromptValue extends InputPromptSource<InputSchema['Type'], unknown, unknown> | undefined,
   UpdatesSchema extends Schema.Top | undefined = undefined,
 >(
   id: Name,
-  options: DefinitionOptions<
+  options:
+    & DefinitionOptions<
+      InputSchema,
+      OutputSchema,
+      Instructions,
+      ToolkitValue,
+      undefined,
+      InputPromptValue,
+      UpdatesSchema
+    >
+    & {
+      readonly inputPrompt: InputPromptValue
+      readonly runDisposition?: undefined
+    },
+):
+  & Definition<
     InputSchema,
     OutputSchema,
     Instructions,
-    ToolkitValue,
+    UpdateToolkit<ToolkitValue, NoInfer<UpdatesSchema>>,
     undefined,
     InputPromptValue,
-    UpdatesSchema
-  > & {
-    readonly inputPrompt: InputPromptValue;
-    readonly runDisposition?: undefined;
-  },
-): Definition<
-  InputSchema,
-  OutputSchema,
-  Instructions,
-  UpdateToolkit<ToolkitValue, NoInfer<UpdatesSchema>>,
-  undefined,
-  InputPromptValue,
-  NoInfer<UpdatesSchema>
-> & { readonly id: AgentId & Name };
+    NoInfer<UpdatesSchema>
+  >
+  & { readonly id: AgentId & Name }
 
 export function make<
   const Name extends string,
   InputSchema extends Schema.Top,
   OutputSchema extends Schema.Top,
-  Instructions extends InstructionSource<InputSchema["Type"], unknown, unknown>,
+  Instructions extends InstructionSource<InputSchema['Type'], unknown, unknown>,
   ToolkitValue extends Toolkit.Any,
   UpdatesSchema extends Schema.Top | undefined = undefined,
 >(
   id: Name,
-  options: DefinitionOptions<
+  options:
+    & DefinitionOptions<
+      InputSchema,
+      OutputSchema,
+      Instructions,
+      ToolkitValue,
+      undefined,
+      undefined,
+      UpdatesSchema
+    >
+    & {
+      readonly inputPrompt?: undefined
+      readonly runDisposition?: undefined
+    },
+):
+  & Definition<
     InputSchema,
     OutputSchema,
     Instructions,
-    ToolkitValue,
+    UpdateToolkit<ToolkitValue, NoInfer<UpdatesSchema>>,
     undefined,
     undefined,
-    UpdatesSchema
-  > & {
-    readonly inputPrompt?: undefined;
-    readonly runDisposition?: undefined;
-  },
-): Definition<
-  InputSchema,
-  OutputSchema,
-  Instructions,
-  UpdateToolkit<ToolkitValue, NoInfer<UpdatesSchema>>,
-  undefined,
-  undefined,
-  NoInfer<UpdatesSchema>
-> & { readonly id: AgentId & Name };
+    NoInfer<UpdatesSchema>
+  >
+  & { readonly id: AgentId & Name }
 
 export function make(
   id: string,
   options: {
-    readonly updates?: Schema.Top | undefined;
-    readonly input: Schema.Top;
-    readonly output: Schema.Top;
-    readonly instructions: unknown;
-    readonly inputPrompt?: unknown;
-    readonly toolkit: Toolkit.Any;
-    readonly toolExposure?: Configuration | undefined;
-    readonly policy?: Partial<AgentPolicyInput> | undefined;
-    readonly completion?: CompletionToolDeclaration | undefined;
-    readonly runDisposition?: RunDispositionDeclaration<never, Schema.Top> | undefined;
-    readonly description?: string | undefined;
+    readonly updates?: Schema.Top | undefined
+    readonly input: Schema.Top
+    readonly output: Schema.Top
+    readonly instructions: unknown
+    readonly inputPrompt?: unknown
+    readonly toolkit: Toolkit.Any
+    readonly toolExposure?: Configuration | undefined
+    readonly policy?: Partial<AgentPolicyInput> | undefined
+    readonly completion?: CompletionToolDeclaration | undefined
+    readonly runDisposition?: RunDispositionDeclaration<never, Schema.Top> | undefined
+    readonly description?: string | undefined
   },
 ): AnyDefinition {
-  const tools = Object.values(options.toolkit.tools);
+  const tools = Object.values(options.toolkit.tools)
 
   const readonlyTools = tools.map((tool) =>
     Tool.isProviderDefined(tool) &&
-    !tool.requiresHandler &&
-    ["web_search", "web_search_preview", "file_search"].includes(tool.providerName)
+      !tool.requiresHandler &&
+      ['web_search', 'web_search_preview', 'file_search'].includes(tool.providerName)
       ? tool.annotate(Tool.Readonly, true)
-      : tool,
-  );
+      : tool
+  )
 
   const toolkit = readonlyTools.some((tool, index) => tool !== tools[index])
     ? Toolkit.make(...readonlyTools)
-    : options.toolkit;
+    : options.toolkit
 
   return Object.freeze({
     ...options,
     toolkit: withUpdateTool(toolkit, options.updates),
     policy: AgentPolicy.resolve(options.policy),
     policyOverrides: Object.freeze({ ...options.policy }),
-    toolExposure:
-      options.toolExposure === undefined
-        ? undefined
-        : Object.freeze({
-            ...options.toolExposure,
-            initialToolNames: Object.freeze([...(options.toolExposure.initialToolNames ?? [])]),
-          }),
+    toolExposure: options.toolExposure === undefined
+      ? undefined
+      : Object.freeze({
+        ...options.toolExposure,
+        initialToolNames: Object.freeze([...(options.toolExposure.initialToolNames ?? [])]),
+      }),
     id: S.decodeSync(AgentId)(id),
-    completion:
-      options.completion === undefined ? undefined : Object.freeze({ ...options.completion }),
-    runDisposition:
-      options.runDisposition === undefined
-        ? undefined
-        : Object.freeze({ ...options.runDisposition }),
-  });
+    completion: options.completion === undefined ? undefined : Object.freeze({ ...options.completion }),
+    runDisposition: options.runDisposition === undefined
+      ? undefined
+      : Object.freeze({ ...options.runDisposition }),
+  })
 }
 
 /** Bind a native model Layer without acquiring or hiding its requirements. */
 export function withModel<DefinitionValue extends AnyDefinition, ModelValue>(
   definition: DefinitionValue,
   model: NativeModel<ModelValue>,
-): Binding<DefinitionValue, ModelValue>;
+): Binding<DefinitionValue, ModelValue>
 
 export function withModel<DefinitionValue extends AnyDefinition, ModelValue>(
   definition: DefinitionValue,
   model: ModelValue,
 ) {
-  return Object.freeze({ definition, model });
+  return Object.freeze({ definition, model })
 }

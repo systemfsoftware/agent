@@ -1,31 +1,26 @@
-import type * as Prompt from "effect/ai/Prompt";
-import * as Context from "effect/Context";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Schema from "effect/Schema";
+import type * as Prompt from 'effect/ai/Prompt'
+import * as Context from 'effect/Context'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
+import * as Schema from 'effect/Schema'
 
-import { ThreadId, type RunId } from "../core/Identifiers.ts";
-import { type RunCompleted } from "../core/RunEvent.ts";
-import {
-  Store as ConversationStore,
-  layerMemory,
-  toPrompt,
-  type ThreadError,
-} from "../core/Thread.ts";
+import { type RunId, ThreadId } from '../core/Identifiers.ts'
+import { type RunCompleted } from '../core/RunEvent.ts'
+import { layerMemory, Store as ConversationStore, type ThreadError, toPrompt } from '../core/Thread.ts'
 
 /** A history adapter rejected a read, staged value, or completed Run commit. */
 export class ThreadHistoryError extends Schema.TaggedError<ThreadHistoryError>()(
-  "ThreadHistoryError",
+  'ThreadHistoryError',
   {
     threadId: ThreadId,
     reason: Schema.Literals([
-      "not-found",
-      "conflict",
-      "fenced",
-      "incompatible",
-      "limit",
-      "encoding",
-      "storage",
+      'not-found',
+      'conflict',
+      'fenced',
+      'incompatible',
+      'limit',
+      'encoding',
+      'storage',
     ]),
     message: Schema.String,
     cause: Schema.optionalKey(Schema.Defect()),
@@ -43,15 +38,15 @@ export class ThreadHistoryError extends Schema.TaggedError<ThreadHistoryError>()
  * callers must inspect history before retrying external execution.
  */
 export interface ThreadHistoryRun {
-  readonly prompt: Prompt.Prompt;
-  readonly stageInput: (input: unknown) => Effect.Effect<void, ThreadHistoryError>;
+  readonly prompt: Prompt.Prompt
+  readonly stageInput: (input: unknown) => Effect.Effect<void, ThreadHistoryError>
   readonly stageHistory: (history: {
     /** Exact source messages; compaction changes only the model view. */
-    readonly source: Prompt.Prompt;
+    readonly source: Prompt.Prompt
     /** Retained context after native compaction, excluding transient recall. */
-    readonly modelContext: Prompt.Prompt;
-  }) => Effect.Effect<void, ThreadHistoryError>;
-  readonly commit: (completed: RunCompleted) => Effect.Effect<void, ThreadHistoryError>;
+    readonly modelContext: Prompt.Prompt
+  }) => Effect.Effect<void, ThreadHistoryError>
+  readonly commit: (completed: RunCompleted) => Effect.Effect<void, ThreadHistoryError>
 }
 
 /**
@@ -64,51 +59,48 @@ export interface ThreadHistoryRun {
 export class ThreadHistory extends Context.Service<
   ThreadHistory,
   {
-    readonly retention: "incremental" | "on-success";
+    readonly retention: 'incremental' | 'on-success'
     /** Present only for the in-memory adapter; identifies its exact Store ownership view. */
-    readonly memoryStore?: ConversationStore["Service"];
+    readonly memoryStore?: ConversationStore['Service']
     readonly open: (request: {
-      readonly threadId: ThreadId;
-      readonly runId: RunId;
-    }) => Effect.Effect<ThreadHistoryRun, ThreadHistoryError>;
-    readonly load: (threadId: ThreadId) => Effect.Effect<Prompt.Prompt, ThreadHistoryError>;
+      readonly threadId: ThreadId
+      readonly runId: RunId
+    }) => Effect.Effect<ThreadHistoryRun, ThreadHistoryError>
+    readonly load: (threadId: ThreadId) => Effect.Effect<Prompt.Prompt, ThreadHistoryError>
   }
->()("@effect-agent/engine/ThreadHistory") {
+>()('@effect-agent/engine/ThreadHistory') {
   /** Bind incremental history to the supplied Thread.Store, including scoped ownership views. */
-  static readonly makeFromStore = Effect.gen(function* () {
-    const threads = yield* ConversationStore;
+  static readonly makeFromStore = Effect.gen(function*() {
+    const threads = yield* ConversationStore
 
     const historyError = (cause: ThreadError): ThreadHistoryError =>
       ThreadHistoryError.make({
         threadId: cause.threadId,
-        reason:
-          cause._tag === "ThreadNotFound"
-            ? "not-found"
-            : cause._tag === "ThreadLimitExceeded"
-              ? "limit"
-              : cause._tag === "ThreadHistoryDiverged"
-                ? "conflict"
-                : cause._tag === "ThreadOwnershipError"
-                  ? cause.reason === "closed"
-                    ? "fenced"
-                    : "conflict"
-                  : "encoding",
-        message:
-          cause._tag === "ThreadNotFound"
-            ? "Thread history is not present in this application Scope"
-            : cause._tag === "ThreadLimitExceeded"
-              ? `In-memory history exceeds the ${cause.limit} limit of ${cause.limitValue}`
-              : cause.message,
+        reason: cause._tag === 'ThreadNotFound'
+          ? 'not-found'
+          : cause._tag === 'ThreadLimitExceeded'
+          ? 'limit'
+          : cause._tag === 'ThreadHistoryDiverged'
+          ? 'conflict'
+          : cause._tag === 'ThreadOwnershipError'
+          ? cause.reason === 'closed'
+            ? 'fenced'
+            : 'conflict'
+          : 'encoding',
+        message: cause._tag === 'ThreadNotFound'
+          ? 'Thread history is not present in this application Scope'
+          : cause._tag === 'ThreadLimitExceeded'
+          ? `In-memory history exceeds the ${cause.limit} limit of ${cause.limitValue}`
+          : cause.message,
         cause,
-      });
+      })
 
     return ThreadHistory.of({
-      retention: "incremental",
+      retention: 'incremental',
       memoryStore: threads,
-      load: (threadId) =>
-        threads.snapshot(threadId).pipe(Effect.map(toPrompt), Effect.mapError(historyError)),
-      open: Effect.fnUntraced(function* ({ threadId, runId }) {
-        const snapshot = yield* threads.create(threadId).pipe(Effect.mapError(historyError));
+      load: (threadId) => threads.snapshot(threadId).pipe(Effect.map(toPrompt), Effect.mapError(historyError)),
+      open: Effect.fnUntraced(function*({ threadId, runId }) {
+        const snapshot = yield* threads.create(threadId).pipe(Effect.mapError(historyError))
 
         return {
           prompt: toPrompt(snapshot),
@@ -117,18 +109,17 @@ export class ThreadHistory extends Context.Service<
             threads
               .recordHistory(threadId, runId, source)
               .pipe(Effect.asVoid, Effect.mapError(historyError)),
-          commit: () =>
-            threads.snapshot(threadId).pipe(Effect.asVoid, Effect.mapError(historyError)),
-        };
+          commit: () => threads.snapshot(threadId).pipe(Effect.asVoid, Effect.mapError(historyError)),
+        }
       }),
-    });
-  });
+    })
+  })
 
-  static readonly layerFromStore = Layer.effect(ThreadHistory, ThreadHistory.makeFromStore);
+  static readonly layerFromStore = Layer.effect(ThreadHistory, ThreadHistory.makeFromStore)
 
   /** Retain history for the application Scope, within message and host capacity. Separate Layer builds own separate stores. */
-  static readonly layer = ThreadHistory.layerFromStore.pipe(Layer.provideMerge(layerMemory));
+  static readonly layer = ThreadHistory.layerFromStore.pipe(Layer.provideMerge(layerMemory))
 }
 
 /** Retain in-memory conversation history for the application Scope. */
-export const layer = ThreadHistory.layer;
+export const layer = ThreadHistory.layer

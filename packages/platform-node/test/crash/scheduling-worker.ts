@@ -1,124 +1,124 @@
-import { NodeDurableHost } from "@yielded/agent-platform-node/node-durable-host";
-import { NodeScheduling } from "@yielded/agent-platform-node/node-scheduling";
-import { AgentId } from "@yielded/agent/identifiers";
-import { DefinitionDigests, Digest } from "@yielded/agent/records";
-import { ScheduleAuthorizer, ScheduleFailpoint, ScheduleId } from "@yielded/agent/schedule";
-import { Scheduling } from "@yielded/agent/scheduling";
-import { Principal } from "@yielded/agent/submission-ledger";
-import * as Config from "effect/Config";
-import * as Console from "effect/Console";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Ref from "effect/Ref";
-import * as Schema from "effect/Schema";
+import { NodeDurableHost } from '@yielded/agent-platform-node/node-durable-host'
+import { NodeScheduling } from '@yielded/agent-platform-node/node-scheduling'
+import { AgentId } from '@yielded/agent/identifiers'
+import { DefinitionDigests, Digest } from '@yielded/agent/records'
+import { ScheduleAuthorizer, ScheduleFailpoint, ScheduleId } from '@yielded/agent/schedule'
+import { Scheduling } from '@yielded/agent/scheduling'
+import { Principal } from '@yielded/agent/submission-ledger'
+import * as Config from 'effect/Config'
+import * as Console from 'effect/Console'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
+import * as Ref from 'effect/Ref'
+import * as Schema from 'effect/Schema'
 
 export const SchedulingCrashBoundary = Schema.Literals([
-  "schedule:insert:after",
-  "schedule:prepare:after",
-  "schedule:admission:after",
-  "schedule:complete:after",
-]);
+  'schedule:insert:after',
+  'schedule:prepare:after',
+  'schedule:admission:after',
+  'schedule:complete:after',
+])
 
-export type SchedulingCrashBoundary = typeof SchedulingCrashBoundary.Type;
+export type SchedulingCrashBoundary = typeof SchedulingCrashBoundary.Type
 
-export const SchedulingCrashMarker = Schema.TaggedStruct("SchedulingCrashMarker", {
+export const SchedulingCrashMarker = Schema.TaggedStruct('SchedulingCrashMarker', {
   boundary: SchedulingCrashBoundary,
-});
+})
 
 const WorkerConfig = Schema.Struct({
   database: Schema.NonEmptyString,
   boundary: SchedulingCrashBoundary,
-});
+})
 
 export const schedulingCrashAgent = {
   definition: {
-    id: Schema.decodeSync(AgentId)("node-scheduling-crash-agent"),
+    id: Schema.decodeSync(AgentId)('node-scheduling-crash-agent'),
     input: Schema.Struct({ question: Schema.String }),
   },
-};
+}
 
-export const schedulingCrashDigest = Schema.decodeSync(Digest)("c".repeat(64));
+export const schedulingCrashDigest = Schema.decodeSync(Digest)('c'.repeat(64))
 
 export const schedulingCrashDefinitions = DefinitionDigests.make({
   agent: schedulingCrashDigest,
   model: schedulingCrashDigest,
   tools: schedulingCrashDigest,
-});
+})
 
 export const schedulingCrashPrincipal = Schema.decodeSync(Principal)(
-  "node-scheduling-crash-principal",
-);
+  'node-scheduling-crash-principal',
+)
 
-export const schedulingCrashScheduleId = Schema.decodeSync(ScheduleId)("node-crash-schedule");
+export const schedulingCrashScheduleId = Schema.decodeSync(ScheduleId)('node-crash-schedule')
 
 export const schedulingCrashScope = {
-  owner: { tenantId: "node-crash-tenant", ownerId: "node-crash-owner" },
+  owner: { tenantId: 'node-crash-tenant', ownerId: 'node-crash-owner' },
   principal: schedulingCrashPrincipal,
-};
+}
 
 export const schedulingCrashCreateOptions = {
   scope: schedulingCrashScope,
   scheduleId: schedulingCrashScheduleId,
-  timing: { _tag: "At" as const, atMillis: 0 },
-  destination: { _tag: "FreshThread" as const },
+  timing: { _tag: 'At' as const, atMillis: 0 },
+  destination: { _tag: 'FreshThread' as const },
   deliveryPrincipal: schedulingCrashPrincipal,
   definitions: schedulingCrashDefinitions,
-};
+}
 
 const authorizerLayer = Layer.succeed(ScheduleAuthorizer)({
   manage: () => Effect.void,
-  prepare: () => Effect.succeed({ policyId: "node-crash-policy", decisionId: "allowed" }),
-});
+  prepare: () => Effect.succeed({ policyId: 'node-crash-policy', decisionId: 'allowed' }),
+})
 
-const decodeConfig = Effect.fn("SchedulingCrashWorker.decodeConfig")(function* () {
-  const database = yield* Config.String("EFFECT_AGENT_SCHEDULE_DB");
-  const boundary = yield* Config.String("EFFECT_AGENT_SCHEDULE_BOUNDARY");
+const decodeConfig = Effect.fn('SchedulingCrashWorker.decodeConfig')(function*() {
+  const database = yield* Config.String('EFFECT_AGENT_SCHEDULE_DB')
+  const boundary = yield* Config.String('EFFECT_AGENT_SCHEDULE_BOUNDARY')
 
-  return yield* Schema.decodeUnknownEffect(WorkerConfig)({ database, boundary });
-});
+  return yield* Schema.decodeUnknownEffect(WorkerConfig)({ database, boundary })
+})
 
 /** Fixed child workflow. The entrypoint supplies only NodeRuntime signal and exit handling. */
-export const schedulingCrashWorker = Effect.gen(function* () {
-  const config = yield* decodeConfig();
-  const latched = yield* Ref.make(false);
+export const schedulingCrashWorker = Effect.gen(function*() {
+  const config = yield* decodeConfig()
+  const latched = yield* Ref.make(false)
 
   const encodedMarker = yield* Schema.encodeEffect(Schema.fromJsonString(SchedulingCrashMarker))({
-    _tag: "SchedulingCrashMarker",
+    _tag: 'SchedulingCrashMarker',
     boundary: config.boundary,
-  }).pipe(Effect.orDie);
+  }).pipe(Effect.orDie)
 
   const failpoint = {
-    hit: Effect.fnUntraced(function* (point: string) {
-      if (yield* Ref.get(latched)) return yield* Effect.never;
-      if (point !== config.boundary) return;
-      yield* Ref.set(latched, true);
-      yield* Console.log(encodedMarker);
+    hit: Effect.fnUntraced(function*(point: string) {
+      if (yield* Ref.get(latched)) return yield* Effect.never
+      if (point !== config.boundary) return
+      yield* Ref.set(latched, true)
+      yield* Console.log(encodedMarker)
 
-      return yield* Effect.never;
+      return yield* Effect.never
     }),
-  };
+  }
 
   const host = NodeDurableHost.layerStack({
     filename: config.database,
-    deploymentId: "node-scheduling-crash-deployment",
-    producerId: "node-scheduling-crash-producer",
+    deploymentId: 'node-scheduling-crash-deployment',
+    producerId: 'node-scheduling-crash-producer',
     wakeScanInterval: 1_000,
-  });
+  })
 
   const stack = NodeScheduling.layer().pipe(
     Layer.provideMerge(host),
     Layer.provide(authorizerLayer),
-  );
+  )
 
-  return yield* Effect.gen(function* () {
-    const scheduling = yield* Scheduling;
+  return yield* Effect.gen(function*() {
+    const scheduling = yield* Scheduling
 
     yield* scheduling.create(
       schedulingCrashAgent,
-      { question: "survive SIGKILL" },
+      { question: 'survive SIGKILL' },
       schedulingCrashCreateOptions,
-    );
+    )
 
-    return yield* Effect.never;
-  }).pipe(Effect.provide(stack), Effect.provideService(ScheduleFailpoint, failpoint));
-});
+    return yield* Effect.never
+  }).pipe(Effect.provide(stack), Effect.provideService(ScheduleFailpoint, failpoint))
+})

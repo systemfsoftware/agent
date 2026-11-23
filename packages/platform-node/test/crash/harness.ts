@@ -1,50 +1,50 @@
-import { spawn } from "node:child_process";
-import * as fs from "node:fs";
-import { fileURLToPath } from "node:url";
+import { spawn } from 'node:child_process'
+import * as fs from 'node:fs'
+import { fileURLToPath } from 'node:url'
 
-import { expect } from "@effect/vitest";
+import { expect } from '@effect/vitest'
 import {
   NodeDurableAgentRuntime,
   type NodeDurableAgentRuntimeOptions,
-} from "@yielded/agent-platform-node/node-durable-agent-runtime";
-import { NodeDurableHost } from "@yielded/agent-platform-node/node-durable-host";
-import { type SqliteStorageFailpointLocation } from "@yielded/agent-storage-sqlite/sqlite-storage-error";
-import { type ResolvedBinding } from "@yielded/agent/agent-registration";
-import { type DurableRuntimeFailpointLocation } from "@yielded/agent/durable-failpoint";
-import { type SubmissionId } from "@yielded/agent/identifiers";
-import { type CanonicalRecordEnvelope } from "@yielded/agent/records";
+} from '@yielded/agent-platform-node/node-durable-agent-runtime'
+import { NodeDurableHost } from '@yielded/agent-platform-node/node-durable-host'
+import { type SqliteStorageFailpointLocation } from '@yielded/agent-storage-sqlite/sqlite-storage-error'
+import { type ResolvedBinding } from '@yielded/agent/agent-registration'
+import { type DurableRuntimeFailpointLocation } from '@yielded/agent/durable-failpoint'
+import { type SubmissionId } from '@yielded/agent/identifiers'
+import { type CanonicalRecordEnvelope } from '@yielded/agent/records'
 import {
+  submissionInputRecordId,
   SubmissionLedger,
   SubmissionLookupById,
   SubmissionLookupByKey,
-  submissionInputRecordId,
   submissionSettlementRecordId,
   type SubmissionSnapshot,
-} from "@yielded/agent/submission-ledger";
-import { ThreadRead, ThreadStore } from "@yielded/agent/thread-store";
-import * as Cause from "effect/Cause";
-import * as Duration from "effect/Duration";
-import * as Effect from "effect/Effect";
-import * as Exit from "effect/Exit";
-import * as FileSystem from "effect/FileSystem";
-import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
-import type * as Scope from "effect/Scope";
-import * as Stream from "effect/Stream";
+} from '@yielded/agent/submission-ledger'
+import { ThreadRead, ThreadStore } from '@yielded/agent/thread-store'
+import * as Cause from 'effect/Cause'
+import * as Duration from 'effect/Duration'
+import * as Effect from 'effect/Effect'
+import * as Exit from 'effect/Exit'
+import * as FileSystem from 'effect/FileSystem'
+import * as Option from 'effect/Option'
+import * as Schema from 'effect/Schema'
+import type * as Scope from 'effect/Scope'
+import * as Stream from 'effect/Stream'
 
 import {
+  type ChildMessage,
   CRASH_DEPLOYMENT_ID,
   CrashEnv,
-  HOST_PRODUCER_ID,
-  KILL_EXIT_CODE,
+  type CrashScenario,
   crashSubmitOptions,
   decodeChildMessageOption,
   decodeThreadId,
+  HOST_PRODUCER_ID,
+  KILL_EXIT_CODE,
   supplierCounts,
   supplierValues,
-  type ChildMessage,
-  type CrashScenario,
-} from "./fixtures.ts";
+} from './fixtures.ts'
 
 /**
  * Shared process-kill harness machinery (plan §Crash matrix, §4.4): spawning real worker
@@ -54,21 +54,21 @@ import {
  * same honesty claims through the same machinery.
  */
 
-export const workerEntry = fileURLToPath(new URL("./worker-entry.ts", import.meta.url));
-export const packageRoot = fileURLToPath(new URL("../..", import.meta.url));
+export const workerEntry = fileURLToPath(new URL('./worker-entry.ts', import.meta.url))
+export const packageRoot = fileURLToPath(new URL('../..', import.meta.url))
 
-const POLL_INTERVAL_MS = 25;
+const POLL_INTERVAL_MS = 25
 
 export interface WorkerExit {
-  readonly code: number | null;
-  readonly signal: NodeJS.Signals | null;
+  readonly code: number | null
+  readonly signal: NodeJS.Signals | null
 }
 
 export interface WorkerHandle {
-  readonly stdoutText: () => string;
-  readonly stderrText: () => string;
-  readonly kill: () => void;
-  readonly awaitExit: Effect.Effect<WorkerExit>;
+  readonly stdoutText: () => string
+  readonly stderrText: () => string
+  readonly kill: () => void
+  readonly awaitExit: Effect.Effect<WorkerExit>
 }
 
 /** Bounded real-clock polling; dies with the label (and context) instead of hanging the suite. */
@@ -77,52 +77,52 @@ export const waitUntil = <A>(
   poll: Effect.Effect<Option.Option<A>>,
   timeoutMillis = 15_000,
 ): Effect.Effect<A> =>
-  Effect.gen(function* () {
-    const rounds = Math.ceil(timeoutMillis / POLL_INTERVAL_MS);
+  Effect.gen(function*() {
+    const rounds = Math.ceil(timeoutMillis / POLL_INTERVAL_MS)
 
     for (let round = 0; round < rounds; round++) {
-      const result = yield* poll;
+      const result = yield* poll
 
-      if (Option.isSome(result)) return result.value;
-      yield* Effect.sleep(Duration.millis(POLL_INTERVAL_MS));
+      if (Option.isSome(result)) return result.value
+      yield* Effect.sleep(Duration.millis(POLL_INTERVAL_MS))
     }
 
-    return yield* Effect.die(new Error(`Timed out waiting for ${label()}`));
-  });
+    return yield* Effect.die(new Error(`Timed out waiting for ${label()}`))
+  })
 
 export const waitForFile = (path: string): Effect.Effect<void> =>
   waitUntil(
     () => `file ${path}`,
     Effect.sync(() => (fs.existsSync(path) ? Option.some(undefined) : Option.none())),
-  );
+  )
 
 export const touchFile = (path: string): Effect.Effect<void> =>
   Effect.sync(() => {
-    fs.writeFileSync(path, "1");
-  });
+    fs.writeFileSync(path, '1')
+  })
 
 export interface ChildOptions {
-  readonly db: string;
-  readonly scenario: CrashScenario;
-  readonly thread: string;
-  readonly key: string;
-  readonly killAt?: DurableRuntimeFailpointLocation | undefined;
-  readonly killAtStorage?: SqliteStorageFailpointLocation | undefined;
+  readonly db: string
+  readonly scenario: CrashScenario
+  readonly thread: string
+  readonly key: string
+  readonly killAt?: DurableRuntimeFailpointLocation | undefined
+  readonly killAtStorage?: SqliteStorageFailpointLocation | undefined
   /** Coordinator failpoint where the worker BLOCKS (marker + hang) instead of dying. */
-  readonly blockAt?: DurableRuntimeFailpointLocation | undefined;
-  readonly markerFile?: string | undefined;
-  readonly releaseFile?: string | undefined;
-  readonly supplierDir?: string | undefined;
+  readonly blockAt?: DurableRuntimeFailpointLocation | undefined
+  readonly markerFile?: string | undefined
+  readonly releaseFile?: string | undefined
+  readonly supplierDir?: string | undefined
   /** `{op}:{key}` gate: the armed kill fires only once the supplier store holds this call. */
-  readonly killRequiresSupplier?: string | undefined;
-  readonly decision?: "approved" | "denied" | undefined;
+  readonly killRequiresSupplier?: string | undefined
+  readonly decision?: 'approved' | 'denied' | undefined
   /** S2: the scripted child model writes this marker and blocks mid-stream. */
-  readonly childBlockFile?: string | undefined;
+  readonly childBlockFile?: string | undefined
   /** S2: unblocks the blocked child model, which then emits the STALE child answer. */
-  readonly childReleaseFile?: string | undefined;
+  readonly childReleaseFile?: string | undefined
   /** S2: `projectResult` writes this marker and blocks until the release file exists. */
-  readonly projectMarkerFile?: string | undefined;
-  readonly projectReleaseFile?: string | undefined;
+  readonly projectMarkerFile?: string | undefined
+  readonly projectReleaseFile?: string | undefined
 }
 
 const childEnv = (options: ChildOptions): Record<string, string> => {
@@ -131,31 +131,31 @@ const childEnv = (options: ChildOptions): Record<string, string> => {
     [CrashEnv.scenario]: options.scenario,
     [CrashEnv.thread]: options.thread,
     [CrashEnv.idempotencyKey]: options.key,
-  };
-
-  if (options.killAt !== undefined) env[CrashEnv.killAt] = options.killAt;
-  if (options.killAtStorage !== undefined) env[CrashEnv.killAtStorage] = options.killAtStorage;
-  if (options.blockAt !== undefined) env[CrashEnv.blockAt] = options.blockAt;
-  if (options.markerFile !== undefined) env[CrashEnv.markerFile] = options.markerFile;
-  if (options.releaseFile !== undefined) env[CrashEnv.releaseFile] = options.releaseFile;
-  if (options.supplierDir !== undefined) env[CrashEnv.supplierDir] = options.supplierDir;
-  if (options.killRequiresSupplier !== undefined) {
-    env[CrashEnv.killRequiresSupplier] = options.killRequiresSupplier;
   }
-  if (options.decision !== undefined) env[CrashEnv.decision] = options.decision;
-  if (options.childBlockFile !== undefined) env[CrashEnv.childBlockFile] = options.childBlockFile;
+
+  if (options.killAt !== undefined) env[CrashEnv.killAt] = options.killAt
+  if (options.killAtStorage !== undefined) env[CrashEnv.killAtStorage] = options.killAtStorage
+  if (options.blockAt !== undefined) env[CrashEnv.blockAt] = options.blockAt
+  if (options.markerFile !== undefined) env[CrashEnv.markerFile] = options.markerFile
+  if (options.releaseFile !== undefined) env[CrashEnv.releaseFile] = options.releaseFile
+  if (options.supplierDir !== undefined) env[CrashEnv.supplierDir] = options.supplierDir
+  if (options.killRequiresSupplier !== undefined) {
+    env[CrashEnv.killRequiresSupplier] = options.killRequiresSupplier
+  }
+  if (options.decision !== undefined) env[CrashEnv.decision] = options.decision
+  if (options.childBlockFile !== undefined) env[CrashEnv.childBlockFile] = options.childBlockFile
   if (options.childReleaseFile !== undefined) {
-    env[CrashEnv.childReleaseFile] = options.childReleaseFile;
+    env[CrashEnv.childReleaseFile] = options.childReleaseFile
   }
   if (options.projectMarkerFile !== undefined) {
-    env[CrashEnv.projectMarkerFile] = options.projectMarkerFile;
+    env[CrashEnv.projectMarkerFile] = options.projectMarkerFile
   }
   if (options.projectReleaseFile !== undefined) {
-    env[CrashEnv.projectReleaseFile] = options.projectReleaseFile;
+    env[CrashEnv.projectReleaseFile] = options.projectReleaseFile
   }
 
-  return env;
-};
+  return env
+}
 
 /** Spawn one worker child process; the Scope guarantees no child outlives its test. */
 export const startWorker = (
@@ -166,82 +166,82 @@ export const startWorker = (
       const child = spawn(process.execPath, [workerEntry], {
         cwd: packageRoot,
         env: { ...process.env, ...childEnv(options) },
-        stdio: ["ignore", "pipe", "pipe"],
-      });
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
 
-      let stdout = "";
-      let stderr = "";
-      let exited: WorkerExit | undefined;
+      let stdout = ''
+      let stderr = ''
+      let exited: WorkerExit | undefined
 
-      child.stdout.setEncoding("utf8");
-      child.stderr.setEncoding("utf8");
-      child.stdout.on("data", (chunk: string) => {
-        stdout += chunk;
-      });
-      child.stderr.on("data", (chunk: string) => {
-        stderr += chunk;
-      });
-      child.once("exit", (code, signal) => {
-        exited = { code, signal };
-      });
+      child.stdout.setEncoding('utf8')
+      child.stderr.setEncoding('utf8')
+      child.stdout.on('data', (chunk: string) => {
+        stdout += chunk
+      })
+      child.stderr.on('data', (chunk: string) => {
+        stderr += chunk
+      })
+      child.once('exit', (code, signal) => {
+        exited = { code, signal }
+      })
 
       const handle: WorkerHandle = {
         stdoutText: () => stdout,
         stderrText: () => stderr,
         kill: () => {
-          child.kill("SIGKILL");
+          child.kill('SIGKILL')
         },
         awaitExit: waitUntil(
           () => `worker exit (stderr: ${stderr})`,
           Effect.sync(() => (exited === undefined ? Option.none() : Option.some(exited))),
           20_000,
         ),
-      };
+      }
 
-      return handle;
+      return handle
     }),
     (handle) => Effect.sync(() => handle.kill()),
-  );
+  )
 
 export interface WorkerResult {
-  readonly exit: WorkerExit;
-  readonly stdout: string;
-  readonly stderr: string;
+  readonly exit: WorkerExit
+  readonly stdout: string
+  readonly stderr: string
 }
 
 export const runWorkerToExit = (options: ChildOptions): Effect.Effect<WorkerResult> =>
   Effect.scoped(
-    Effect.gen(function* () {
-      const handle = yield* startWorker(options);
-      const exit = yield* handle.awaitExit;
+    Effect.gen(function*() {
+      const handle = yield* startWorker(options)
+      const exit = yield* handle.awaitExit
 
-      return { exit, stdout: handle.stdoutText(), stderr: handle.stderrText() };
+      return { exit, stdout: handle.stdoutText(), stderr: handle.stderrText() }
     }),
-  );
+  )
 
 export const childMessages = (stdout: string): ReadonlyArray<ChildMessage> =>
   stdout
-    .split("\n")
+    .split('\n')
     .filter((line) => line.trim().length > 0)
     .flatMap((line) => {
       try {
-        const parsed: unknown = JSON.parse(line);
+        const parsed: unknown = JSON.parse(line)
 
         return Option.match(decodeChildMessageOption(parsed), {
           onNone: () => [],
           onSome: (message) => [message],
-        });
+        })
       } catch {
-        return [];
+        return []
       }
-    });
+    })
 
 export const expectKilled = (result: WorkerResult): void => {
   expect(
-    result.exit.code === KILL_EXIT_CODE || result.exit.signal === "SIGKILL",
+    result.exit.code === KILL_EXIT_CODE || result.exit.signal === 'SIGKILL',
     `expected a killed worker, got ${JSON.stringify(result.exit)}; stderr: ${result.stderr}`,
-  ).toBe(true);
-};
+  ).toBe(true)
+}
 
 export const runtimeOptions = (
   filename: string,
@@ -254,7 +254,7 @@ export const runtimeOptions = (
   abortPollInterval: 50,
   wakeScanInterval: 1_000,
   ...overrides,
-});
+})
 
 /** One restarted host "process": startup recovery runs before the effect observes anything. */
 export const withHost = <A, E, R>(
@@ -266,7 +266,7 @@ export const withHost = <A, E, R>(
   Effect.provide(
     effect,
     NodeDurableHost.layerStack({ ...runtimeOptions(db, overrides), bindings }),
-  );
+  )
 
 /** A restarted "client-only" process: the DN stack WITHOUT the host recovery gate. */
 export const withRuntime = <A, E, R>(
@@ -278,50 +278,50 @@ export const withRuntime = <A, E, R>(
   Effect.provide(
     effect,
     NodeDurableAgentRuntime.layerWithBindings(bindings, runtimeOptions(db, overrides)),
-  );
+  )
 
 export interface CrashSite {
-  readonly db: string;
-  readonly marker: string;
-  readonly release: string;
+  readonly db: string
+  readonly marker: string
+  readonly release: string
   /** File-backed external supplier store shared with the child processes (plan §4.3). */
-  readonly supplier: string;
+  readonly supplier: string
 }
 
 export const withCrashSite = <A, E, R>(use: (site: CrashSite) => Effect.Effect<A, E, R>) =>
   Effect.scoped(
-    Effect.gen(function* () {
-      const fileSystem = yield* FileSystem.FileSystem;
+    Effect.gen(function*() {
+      const fileSystem = yield* FileSystem.FileSystem
 
       const directory = yield* fileSystem.makeTempDirectoryScoped({
-        prefix: "effect-agent-crash-",
-      });
+        prefix: 'effect-agent-crash-',
+      })
 
       return yield* use({
         db: `${directory}/crash.sqlite`,
         marker: `${directory}/marker`,
         release: `${directory}/release`,
         supplier: `${directory}/supplier`,
-      });
+      })
     }),
-  );
+  )
 
 export const failureTag = <A, E>(exit: Exit.Exit<A, E>): string => {
-  expect(Exit.isFailure(exit)).toBe(true);
-  if (Exit.isSuccess(exit)) throw new Error("Expected the Effect to fail");
-  const failure = Cause.findErrorOption(exit.cause);
+  expect(Exit.isFailure(exit)).toBe(true)
+  if (Exit.isSuccess(exit)) throw new Error('Expected the Effect to fail')
+  const failure = Cause.findErrorOption(exit.cause)
 
-  expect(Option.isSome(failure)).toBe(true);
-  if (Option.isNone(failure)) throw new Error("Expected a typed failure");
-  const error: unknown = failure.value;
+  expect(Option.isSome(failure)).toBe(true)
+  if (Option.isNone(failure)) throw new Error('Expected a typed failure')
+  const error: unknown = failure.value
 
-  return typeof error === "object" && error !== null && "_tag" in error
+  return typeof error === 'object' && error !== null && '_tag' in error
     ? String(error._tag)
-    : "unknown";
-};
+    : 'unknown'
+}
 
-export const readLog = Effect.fnUntraced(function* (thread: string) {
-  const store = yield* ThreadStore;
+export const readLog = Effect.fnUntraced(function*(thread: string) {
+  const store = yield* ThreadStore
 
   return yield* Stream.runCollect(
     store.read(
@@ -330,20 +330,19 @@ export const readLog = Effect.fnUntraced(function* (thread: string) {
         limit: 1_024,
       }),
     ),
-  );
-});
+  )
+})
 
 export const logTags = (records: ReadonlyArray<CanonicalRecordEnvelope>): ReadonlyArray<string> =>
-  records.map((envelope) => envelope.record.payload._tag);
+  records.map((envelope) => envelope.record.payload._tag)
 
 export const payloadsOf = (
   records: ReadonlyArray<CanonicalRecordEnvelope>,
   tag: string,
-): ReadonlyArray<CanonicalRecordEnvelope> =>
-  records.filter((envelope) => envelope.record.payload._tag === tag);
+): ReadonlyArray<CanonicalRecordEnvelope> => records.filter((envelope) => envelope.record.payload._tag === tag)
 
-export const lookupByKey = Effect.fnUntraced(function* (thread: string, key: string) {
-  const ledger = yield* SubmissionLedger;
+export const lookupByKey = Effect.fnUntraced(function*(thread: string, key: string) {
+  const ledger = yield* SubmissionLedger
 
   const snapshot = yield* ledger.lookup(
     SubmissionLookupByKey.make({
@@ -351,36 +350,36 @@ export const lookupByKey = Effect.fnUntraced(function* (thread: string, key: str
       principal: crashSubmitOptions(thread, key).principal,
       idempotencyKey: crashSubmitOptions(thread, key).idempotencyKey,
     }),
-  );
+  )
 
-  expect(Option.isSome(snapshot)).toBe(true);
-  if (Option.isNone(snapshot)) throw new Error(`Expected an accepted Submission for ${key}`);
+  expect(Option.isSome(snapshot)).toBe(true)
+  if (Option.isNone(snapshot)) throw new Error(`Expected an accepted Submission for ${key}`)
 
-  return snapshot.value;
-});
+  return snapshot.value
+})
 
-export const lookupState = Effect.fnUntraced(function* (submissionId: SubmissionId) {
-  const ledger = yield* SubmissionLedger;
-  const snapshot = yield* ledger.lookup(SubmissionLookupById.make({ submissionId }));
+export const lookupState = Effect.fnUntraced(function*(submissionId: SubmissionId) {
+  const ledger = yield* SubmissionLedger
+  const snapshot = yield* ledger.lookup(SubmissionLookupById.make({ submissionId }))
 
-  expect(Option.isSome(snapshot)).toBe(true);
-  if (Option.isNone(snapshot)) throw new Error("Expected the Submission to exist");
+  expect(Option.isSome(snapshot)).toBe(true)
+  if (Option.isNone(snapshot)) throw new Error('Expected the Submission to exist')
 
-  return snapshot.value.state;
-});
+  return snapshot.value.state
+})
 
 /** The supplier-store honesty claims of one crash row (plan §4.3, durability §10). */
 export interface SupplierExpectation {
-  readonly site: CrashSite;
+  readonly site: CrashSite
   /** EXACT per-call invocation counts (`{op}:{key}` → n); `{}` claims no external call ever. */
-  readonly counts: Record<string, number>;
+  readonly counts: Record<string, number>
 }
 
-const BookResult = Schema.Struct({ confirmation: Schema.String });
-const ItineraryResult = Schema.Struct({ state: Schema.String });
-const decodeBookResult = Schema.decodeUnknownOption(BookResult);
-const decodeItineraryResult = Schema.decodeUnknownOption(ItineraryResult);
-const decodeStepOutput = Schema.decodeUnknownOption(Schema.String);
+const BookResult = Schema.Struct({ confirmation: Schema.String })
+const ItineraryResult = Schema.Struct({ state: Schema.String })
+const decodeBookResult = Schema.decodeUnknownOption(BookResult)
+const decodeItineraryResult = Schema.decodeUnknownOption(ItineraryResult)
+const decodeStepOutput = Schema.decodeUnknownOption(Schema.String)
 
 /**
  * Never-fabricate (durability §10: "the engine must not manufacture a result and continue"):
@@ -392,45 +391,45 @@ const assertSupplierHonesty = (
   records: ReadonlyArray<CanonicalRecordEnvelope>,
   supplier: SupplierExpectation,
 ): void => {
-  const produced = supplierValues(supplier.site.supplier);
+  const produced = supplierValues(supplier.site.supplier)
 
   const requireProduced = (value: string, label: string): void => {
     expect(
       produced.has(value),
       `${label} "${value}" is absent from the supplier store — a fabricated result`,
-    ).toBe(true);
-  };
+    ).toBe(true)
+  }
 
   for (const envelope of records) {
-    const payload = envelope.record.payload;
+    const payload = envelope.record.payload
 
-    if (payload._tag === "ToolCallSettled" && !payload.isFailure) {
-      if (payload.toolName === "book") {
-        const result = decodeBookResult(payload.result);
+    if (payload._tag === 'ToolCallSettled' && !payload.isFailure) {
+      if (payload.toolName === 'book') {
+        const result = decodeBookResult(payload.result)
 
-        expect(Option.isSome(result)).toBe(true);
-        if (Option.isSome(result)) requireProduced(result.value.confirmation, "book result");
+        expect(Option.isSome(result)).toBe(true)
+        if (Option.isSome(result)) requireProduced(result.value.confirmation, 'book result')
       }
-      if (payload.toolName === "itinerary") {
-        const result = decodeItineraryResult(payload.result);
+      if (payload.toolName === 'itinerary') {
+        const result = decodeItineraryResult(payload.result)
 
-        expect(Option.isSome(result)).toBe(true);
+        expect(Option.isSome(result)).toBe(true)
         if (Option.isSome(result)) {
-          for (const part of result.value.state.split("+")) {
-            requireProduced(part, "itinerary step result");
+          for (const part of result.value.state.split('+')) {
+            requireProduced(part, 'itinerary step result')
           }
         }
       }
     }
-    if (payload._tag === "ToolStepSettled") {
-      const output = decodeStepOutput(payload.output);
+    if (payload._tag === 'ToolStepSettled') {
+      const output = decodeStepOutput(payload.output)
 
-      expect(Option.isSome(output)).toBe(true);
-      if (Option.isSome(output)) requireProduced(output.value, "step output");
+      expect(Option.isSome(output)).toBe(true)
+      if (Option.isSome(output)) requireProduced(output.value, 'step output')
     }
   }
-  expect(supplierCounts(supplier.site.supplier)).toEqual(supplier.counts);
-};
+  expect(supplierCounts(supplier.site.supplier)).toEqual(supplier.counts)
+}
 
 /**
  * The convergence property asserted after every kill (plan §Crash matrix): every accepted
@@ -440,49 +439,46 @@ const assertSupplierHonesty = (
  * the row involves the external supplier, no recorded Tool result was fabricated and every
  * invocation count matches the row's honesty claim.
  */
-export const assertConvergence = Effect.fnUntraced(function* (
+export const assertConvergence = Effect.fnUntraced(function*(
   thread: string,
   submissionIds: ReadonlyArray<SubmissionId>,
   supplier?: SupplierExpectation,
 ) {
-  const ledger = yield* SubmissionLedger;
-  const snapshots: Array<SubmissionSnapshot> = [];
+  const ledger = yield* SubmissionLedger
+  const snapshots: Array<SubmissionSnapshot> = []
 
   for (const submissionId of submissionIds) {
-    const snapshot = yield* ledger.lookup(SubmissionLookupById.make({ submissionId }));
+    const snapshot = yield* ledger.lookup(SubmissionLookupById.make({ submissionId }))
 
     // No accepted Submission disappears (Accepted-work Contract).
-    expect(Option.isSome(snapshot)).toBe(true);
-    if (Option.isNone(snapshot)) throw new Error("Expected the Submission to exist");
-    expect(snapshot.value.state).toBe("settled");
-    snapshots.push(snapshot.value);
+    expect(Option.isSome(snapshot)).toBe(true)
+    if (Option.isNone(snapshot)) throw new Error('Expected the Submission to exist')
+    expect(snapshot.value.state).toBe('settled')
+    snapshots.push(snapshot.value)
   }
 
   const ordered = [...snapshots].sort(
     (left, right) => Number(left.queueSequence) - Number(right.queueSequence),
-  );
+  )
 
-  const records = yield* readLog(thread);
-  const recordIds = records.map((envelope) => envelope.record.recordId);
+  const records = yield* readLog(thread)
+  const recordIds = records.map((envelope) => envelope.record.recordId)
 
-  expect(new Set(recordIds).size).toBe(recordIds.length);
+  expect(new Set(recordIds).size).toBe(recordIds.length)
   for (const snapshot of ordered) {
     const settled = records.filter(
-      (envelope) =>
-        envelope.record.recordId === submissionSettlementRecordId(snapshot.submissionId),
-    );
+      (envelope) => envelope.record.recordId === submissionSettlementRecordId(snapshot.submissionId),
+    )
 
-    expect(settled).toHaveLength(1);
-    expect(settled[0]?.record.payload._tag).toBe("SubmissionSettled");
+    expect(settled).toHaveLength(1)
+    expect(settled[0]?.record.payload._tag).toBe('SubmissionSettled')
   }
 
-  const expectedInputs = ordered.map((snapshot) => submissionInputRecordId(snapshot.submissionId));
+  const expectedInputs = ordered.map((snapshot) => submissionInputRecordId(snapshot.submissionId))
 
-  const inputOrder = recordIds.filter((recordId) =>
-    expectedInputs.some((expected) => expected === recordId),
-  );
+  const inputOrder = recordIds.filter((recordId) => expectedInputs.some((expected) => expected === recordId))
 
-  expect(inputOrder).toEqual(expectedInputs.filter((expected) => inputOrder.includes(expected)));
+  expect(inputOrder).toEqual(expectedInputs.filter((expected) => inputOrder.includes(expected)))
 
   // P7 §7(c) exemption: an ABORTED settlement for never-run work (no canonical
   // `input:{sid}` record) settles immediately by design — without waiting for the head —
@@ -493,18 +489,16 @@ export const assertConvergence = Effect.fnUntraced(function* (
     records.some(
       (envelope) =>
         envelope.record.recordId === submissionSettlementRecordId(snapshot.submissionId) &&
-        envelope.record.payload._tag === "SubmissionSettled" &&
-        envelope.record.payload.outcome === "aborted",
-    );
+        envelope.record.payload._tag === 'SubmissionSettled' &&
+        envelope.record.payload.outcome === 'aborted',
+    )
 
   const expectedSettlements = ordered
     .filter((snapshot) => !abortedNeverRan(snapshot))
-    .map((snapshot) => submissionSettlementRecordId(snapshot.submissionId));
+    .map((snapshot) => submissionSettlementRecordId(snapshot.submissionId))
 
-  const settlementOrder = recordIds.filter((recordId) =>
-    expectedSettlements.some((expected) => expected === recordId),
-  );
+  const settlementOrder = recordIds.filter((recordId) => expectedSettlements.some((expected) => expected === recordId))
 
-  expect(settlementOrder).toEqual(expectedSettlements);
-  if (supplier !== undefined) assertSupplierHonesty(records, supplier);
-});
+  expect(settlementOrder).toEqual(expectedSettlements)
+  if (supplier !== undefined) assertSupplierHonesty(records, supplier)
+})

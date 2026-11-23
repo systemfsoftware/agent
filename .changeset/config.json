@@ -7,7 +7,6 @@
     }
   ],
   "commit": false,
-  "format": "oxfmt",
   "fixed": [
     [
       "@yielded/agent-ai-decision",

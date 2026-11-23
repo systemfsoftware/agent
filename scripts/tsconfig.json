@@ -3,13 +3,5 @@
   "compilerOptions": {
     "types": ["node"]
   },
-  "include": [
-    "*.ts",
-    "bundle/*.ts",
-    "../alchemy.run.ts",
-    "../docs/legacy-redirect.ts",
-    "../docs/worker.ts",
-    "../oxlint/*.ts",
-    "internal/comparison-exports.ts"
-  ]
+  "include": ["*.ts"]
 }

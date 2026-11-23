@@ -1,15 +1,15 @@
-import * as Context from "effect/Context";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Ref from "effect/Ref";
-import * as Schema from "effect/Schema";
-import type * as Scope from "effect/Scope";
-import * as Semaphore from "effect/Semaphore";
+import * as Context from 'effect/Context'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
+import * as Ref from 'effect/Ref'
+import * as Schema from 'effect/Schema'
+import type * as Scope from 'effect/Scope'
+import * as Semaphore from 'effect/Semaphore'
 
-import { RunId, ToolCallId } from "../core/Identifiers.ts";
-import { SubagentDelegationCaps, SubagentReservationAmounts } from "../core/SubagentContract.ts";
+import { RunId, ToolCallId } from '../core/Identifiers.ts'
+import { SubagentDelegationCaps, SubagentReservationAmounts } from '../core/SubagentContract.ts'
 
-const Natural = Schema.Natural;
+const Natural = Schema.Natural
 
 /**
  * Stable identity of one parent-owned Subagent budget reservation.
@@ -20,12 +20,12 @@ const Natural = Schema.Natural;
  * `(parentRunId, parentToolCallId)` pair.
  */
 export const BudgetReservationId = Schema.NonEmptyString.pipe(
-  Schema.brand("@effect-agent/capabilities/BudgetReservationId"),
-);
+  Schema.brand('@effect-agent/capabilities/BudgetReservationId'),
+)
 
-export type BudgetReservationId = typeof BudgetReservationId.Type;
+export type BudgetReservationId = typeof BudgetReservationId.Type
 
-const decodeBudgetReservationId = Schema.decodeSync(BudgetReservationId);
+const decodeBudgetReservationId = Schema.decodeSync(BudgetReservationId)
 
 /** Derive the stable reservation identity of one Subagent Invocation. */
 export const makeBudgetReservationId = (
@@ -34,24 +34,24 @@ export const makeBudgetReservationId = (
 ): BudgetReservationId =>
   decodeBudgetReservationId(
     `${encodeURIComponent(parentRunId)}:${encodeURIComponent(parentToolCallId)}`,
-  );
+  )
 
 /** One enforced hierarchical delegation budget dimension. */
 export const SubagentBudgetDimension = Schema.Literals([
-  "total-child-invocations",
-  "concurrent-children",
-  "turns",
-  "tool-calls",
-  "duration",
-  "input-tokens",
-  "output-tokens",
-  "cost",
-  "result-bytes",
-]);
+  'total-child-invocations',
+  'concurrent-children',
+  'turns',
+  'tool-calls',
+  'duration',
+  'input-tokens',
+  'output-tokens',
+  'cost',
+  'result-bytes',
+])
 
-export type SubagentBudgetDimension = typeof SubagentBudgetDimension.Type;
+export type SubagentBudgetDimension = typeof SubagentBudgetDimension.Type
 
-const AmountFields = SubagentReservationAmounts.fields;
+const AmountFields = SubagentReservationAmounts.fields
 
 const OptionalAmountFields = {
   turns: Schema.optionalKey(Natural),
@@ -61,26 +61,26 @@ const OptionalAmountFields = {
   outputTokens: Schema.optionalKey(Natural),
   costMicrousd: Schema.optionalKey(Natural),
   resultBytes: Schema.optionalKey(Natural),
-} as const;
+} as const
 
 /** Observed child usage. An absent dimension was never reported and settles conservatively. */
 export class SubagentObservedUsage extends Schema.Class<SubagentObservedUsage>(
-  "@effect-agent/capabilities/SubagentObservedUsage",
+  '@effect-agent/capabilities/SubagentObservedUsage',
 )(OptionalAmountFields) {}
 
 /** Remaining delegable allocation per configured dimension. Absent means not configured. */
 export class SubagentAvailableAmounts extends Schema.Class<SubagentAvailableAmounts>(
-  "@effect-agent/capabilities/SubagentAvailableAmounts",
+  '@effect-agent/capabilities/SubagentAvailableAmounts',
 )(OptionalAmountFields) {}
 
 /** In-process release freezes accounting and refunds unused allocation atomically. */
-export const SubagentReservationStatus = Schema.Literals(["reserved", "released"]);
+export const SubagentReservationStatus = Schema.Literals(['reserved', 'released'])
 
-export type SubagentReservationStatus = typeof SubagentReservationStatus.Type;
+export type SubagentReservationStatus = typeof SubagentReservationStatus.Type
 
 /** All-or-nothing allocation request for one Subagent Invocation. */
 export class SubagentReservationRequest extends Schema.Class<SubagentReservationRequest>(
-  "@effect-agent/capabilities/SubagentReservationRequest",
+  '@effect-agent/capabilities/SubagentReservationRequest',
 )({
   parentRunId: RunId,
   parentToolCallId: ToolCallId,
@@ -91,7 +91,7 @@ export class SubagentReservationRequest extends Schema.Class<SubagentReservation
 
 /** Accounting snapshot of one reservation: allocated, observed, covered, released, and overrun. */
 export class SubagentReservationView extends Schema.Class<SubagentReservationView>(
-  "@effect-agent/capabilities/SubagentReservationView",
+  '@effect-agent/capabilities/SubagentReservationView',
 )({
   reservationId: BudgetReservationId,
   parentRunId: RunId,
@@ -106,7 +106,7 @@ export class SubagentReservationView extends Schema.Class<SubagentReservationVie
 
 /** Aggregate parent delegation budget snapshot including every reservation it owns. */
 export class SubagentParentBudgetView extends Schema.Class<SubagentParentBudgetView>(
-  "@effect-agent/capabilities/SubagentParentBudgetView",
+  '@effect-agent/capabilities/SubagentParentBudgetView',
 )({
   parentRunId: RunId,
   caps: SubagentDelegationCaps,
@@ -121,7 +121,7 @@ export class SubagentParentBudgetView extends Schema.Class<SubagentParentBudgetV
  * in-process parent's reserved finish window reports zero duration limit and usage.
  */
 export class SubagentBudgetExhausted extends Schema.TaggedError<SubagentBudgetExhausted>()(
-  "SubagentBudgetExhausted",
+  'SubagentBudgetExhausted',
   {
     parentRunId: RunId,
     dimension: SubagentBudgetDimension,
@@ -132,7 +132,7 @@ export class SubagentBudgetExhausted extends Schema.TaggedError<SubagentBudgetEx
 
 /** The stable key is already reserved with a different allocation; neither request may win silently. */
 export class SubagentReservationConflict extends Schema.TaggedError<SubagentReservationConflict>()(
-  "SubagentReservationConflict",
+  'SubagentReservationConflict',
   {
     reservationId: BudgetReservationId,
     existingAllocation: SubagentReservationAmounts,
@@ -142,7 +142,7 @@ export class SubagentReservationConflict extends Schema.TaggedError<SubagentRese
 
 /** No reservation exists for this identity. */
 export class SubagentReservationUnknown extends Schema.TaggedError<SubagentReservationUnknown>()(
-  "SubagentReservationUnknown",
+  'SubagentReservationUnknown',
   {
     reservationId: BudgetReservationId,
   },
@@ -150,7 +150,7 @@ export class SubagentReservationUnknown extends Schema.TaggedError<SubagentReser
 
 /** No delegation budget was registered for this parent Run. */
 export class SubagentParentBudgetUnknown extends Schema.TaggedError<SubagentParentBudgetUnknown>()(
-  "SubagentParentBudgetUnknown",
+  'SubagentParentBudgetUnknown',
   {
     parentRunId: RunId,
   },
@@ -158,7 +158,7 @@ export class SubagentParentBudgetUnknown extends Schema.TaggedError<SubagentPare
 
 /** The parent Run is already registered with different caps; neither set may win silently. */
 export class SubagentParentBudgetConflict extends Schema.TaggedError<SubagentParentBudgetConflict>()(
-  "SubagentParentBudgetConflict",
+  'SubagentParentBudgetConflict',
   {
     parentRunId: RunId,
   },
@@ -166,7 +166,7 @@ export class SubagentParentBudgetConflict extends Schema.TaggedError<SubagentPar
 
 /** A parent budget cannot retire while one of its child reservations is unsettled. */
 export class SubagentParentBudgetActive extends Schema.TaggedError<SubagentParentBudgetActive>()(
-  "SubagentParentBudgetActive",
+  'SubagentParentBudgetActive',
   {
     parentRunId: RunId,
     openReservations: Natural,
@@ -192,7 +192,7 @@ export class SubagentReservations extends Context.Service<
     readonly registerParent: (
       parentRunId: RunId,
       caps: SubagentDelegationCaps,
-    ) => Effect.Effect<SubagentParentBudgetView, SubagentParentBudgetConflict>;
+    ) => Effect.Effect<SubagentParentBudgetView, SubagentParentBudgetConflict>
     /**
      * Atomically reserve an all-or-nothing child allocation from the parent's
      * remaining delegable budget, checking every dimension before committing
@@ -205,7 +205,7 @@ export class SubagentReservations extends Context.Service<
     ) => Effect.Effect<
       SubagentReservationView,
       SubagentBudgetExhausted | SubagentReservationConflict | SubagentParentBudgetUnknown
-    >;
+    >
     /**
      * Record observed child usage against a reservation. Usage above the
      * reserved amount is recorded as overrun and charged to the parent
@@ -215,7 +215,7 @@ export class SubagentReservations extends Context.Service<
     readonly observe: (
       reservationId: BudgetReservationId,
       usage: SubagentObservedUsage,
-    ) => Effect.Effect<SubagentReservationView, SubagentReservationUnknown>;
+    ) => Effect.Effect<SubagentReservationView, SubagentReservationUnknown>
     /**
      * Freeze accounting and return unused allocation to the parent in one
      * atomic update. Unreported dimensions consume their full allocation.
@@ -223,7 +223,7 @@ export class SubagentReservations extends Context.Service<
      */
     readonly release: (
       reservationId: BudgetReservationId,
-    ) => Effect.Effect<SubagentReservationView, SubagentReservationUnknown>;
+    ) => Effect.Effect<SubagentReservationView, SubagentReservationUnknown>
     /**
      * Acquire bounded child execution slots as a Scope-owned resource, so
      * an interrupted child always frees its slot. The Semaphore bounds only
@@ -236,7 +236,7 @@ export class SubagentReservations extends Context.Service<
     readonly acquireChildSlot: (
       parentRunId: RunId,
       slots?: number,
-    ) => Effect.Effect<void, SubagentParentBudgetUnknown | SubagentBudgetExhausted, Scope.Scope>;
+    ) => Effect.Effect<void, SubagentParentBudgetUnknown | SubagentBudgetExhausted, Scope.Scope>
     /**
      * Reclaim one terminal parent registration and all of its released child
      * reservations. Retirement is idempotent; an unknown parent is already
@@ -244,34 +244,34 @@ export class SubagentReservations extends Context.Service<
      * The Run owner must call this after its final accounting snapshot no
      * longer needs to be observable.
      */
-    readonly retireParent: (parentRunId: RunId) => Effect.Effect<void, SubagentParentBudgetActive>;
+    readonly retireParent: (parentRunId: RunId) => Effect.Effect<void, SubagentParentBudgetActive>
     /** Read the aggregate parent view for auditing and conservation checks. */
     readonly parentSnapshot: (
       parentRunId: RunId,
-    ) => Effect.Effect<SubagentParentBudgetView, SubagentParentBudgetUnknown>;
+    ) => Effect.Effect<SubagentParentBudgetView, SubagentParentBudgetUnknown>
   }
->()("@effect-agent/capabilities/SubagentReservations") {}
+>()('@effect-agent/capabilities/SubagentReservations') {}
 
-type ReservableDimensionKey = keyof typeof AmountFields;
+type ReservableDimensionKey = keyof typeof AmountFields
 
-type Amounts = Readonly<Record<ReservableDimensionKey, number>>;
-type PartialAmounts = Readonly<Partial<Record<ReservableDimensionKey, number>>>;
+type Amounts = Readonly<Record<ReservableDimensionKey, number>>
+type PartialAmounts = Readonly<Partial<Record<ReservableDimensionKey, number>>>
 
 interface DimensionSpec {
-  readonly key: ReservableDimensionKey;
-  readonly dimension: SubagentBudgetDimension;
-  readonly cap: (caps: SubagentDelegationCaps) => number | undefined;
+  readonly key: ReservableDimensionKey
+  readonly dimension: SubagentBudgetDimension
+  readonly cap: (caps: SubagentDelegationCaps) => number | undefined
 }
 
 const dimensionSpecs: ReadonlyArray<DimensionSpec> = [
-  { key: "turns", dimension: "turns", cap: (caps) => caps.maxTurns },
-  { key: "toolCalls", dimension: "tool-calls", cap: (caps) => caps.maxToolCalls },
-  { key: "durationMillis", dimension: "duration", cap: (caps) => caps.maxDurationMillis },
-  { key: "inputTokens", dimension: "input-tokens", cap: (caps) => caps.maxInputTokens },
-  { key: "outputTokens", dimension: "output-tokens", cap: (caps) => caps.maxOutputTokens },
-  { key: "costMicrousd", dimension: "cost", cap: (caps) => caps.maxCostMicrousd },
-  { key: "resultBytes", dimension: "result-bytes", cap: (caps) => caps.maxResultBytes },
-];
+  { key: 'turns', dimension: 'turns', cap: (caps) => caps.maxTurns },
+  { key: 'toolCalls', dimension: 'tool-calls', cap: (caps) => caps.maxToolCalls },
+  { key: 'durationMillis', dimension: 'duration', cap: (caps) => caps.maxDurationMillis },
+  { key: 'inputTokens', dimension: 'input-tokens', cap: (caps) => caps.maxInputTokens },
+  { key: 'outputTokens', dimension: 'output-tokens', cap: (caps) => caps.maxOutputTokens },
+  { key: 'costMicrousd', dimension: 'cost', cap: (caps) => caps.maxCostMicrousd },
+  { key: 'resultBytes', dimension: 'result-bytes', cap: (caps) => caps.maxResultBytes },
+]
 
 const zeroAmounts: Amounts = {
   turns: 0,
@@ -281,46 +281,46 @@ const zeroAmounts: Amounts = {
   outputTokens: 0,
   costMicrousd: 0,
   resultBytes: 0,
-};
+}
 
 interface ReservationState {
-  readonly parentRunId: RunId;
-  readonly parentToolCallId: ToolCallId;
-  readonly descendantInvocations: number;
-  readonly status: SubagentReservationStatus;
-  readonly allocated: Amounts;
-  readonly observed: PartialAmounts;
-  readonly covered: Amounts;
-  readonly overrun: Amounts;
+  readonly parentRunId: RunId
+  readonly parentToolCallId: ToolCallId
+  readonly descendantInvocations: number
+  readonly status: SubagentReservationStatus
+  readonly allocated: Amounts
+  readonly observed: PartialAmounts
+  readonly covered: Amounts
+  readonly overrun: Amounts
 }
 
 interface ParentBudgetState {
-  readonly parentRunId: RunId;
-  readonly caps: SubagentDelegationCaps;
-  readonly gate: Semaphore.Semaphore | undefined;
+  readonly parentRunId: RunId
+  readonly caps: SubagentDelegationCaps
+  readonly gate: Semaphore.Semaphore | undefined
   /** Monotonic count of distinct reservations; never refunded by release. */
-  readonly totalChildInvocations: number;
+  readonly totalChildInvocations: number
   /** Remaining delegable allocation for configured dimensions only. */
-  readonly available: PartialAmounts;
-  readonly cumulativeOverrun: Amounts;
+  readonly available: PartialAmounts
+  readonly cumulativeOverrun: Amounts
 }
 
 interface ReservationLedger {
-  readonly parents: ReadonlyMap<RunId, ParentBudgetState>;
-  readonly reservations: ReadonlyMap<BudgetReservationId, ReservationState>;
+  readonly parents: ReadonlyMap<RunId, ParentBudgetState>
+  readonly reservations: ReadonlyMap<BudgetReservationId, ReservationState>
 }
 
 type TransitionResult<A, E> =
-  | { readonly _tag: "ok"; readonly value: A }
-  | { readonly _tag: "error"; readonly error: E }
-  | { readonly _tag: "corrupt"; readonly message: string };
+  | { readonly _tag: 'ok'; readonly value: A }
+  | { readonly _tag: 'error'; readonly error: E }
+  | { readonly _tag: 'corrupt'; readonly message: string }
 
-const ok = <A>(value: A): TransitionResult<A, never> => ({ _tag: "ok", value });
-const fail = <E>(error: E): TransitionResult<never, E> => ({ _tag: "error", error });
+const ok = <A>(value: A): TransitionResult<A, never> => ({ _tag: 'ok', value })
+const fail = <E>(error: E): TransitionResult<never, E> => ({ _tag: 'error', error })
 
 /** Corrupt internal accounting is a defect, never an expected reservation failure. */
 class ReservationLedgerCorrupt extends Schema.TaggedError<ReservationLedgerCorrupt>()(
-  "ReservationLedgerCorrupt",
+  'ReservationLedgerCorrupt',
   {
     message: Schema.String,
   },
@@ -328,14 +328,14 @@ class ReservationLedgerCorrupt extends Schema.TaggedError<ReservationLedgerCorru
 
 const resolve = <A, E>(result: TransitionResult<A, E>): Effect.Effect<A, E> => {
   switch (result._tag) {
-    case "ok":
-      return Effect.succeed(result.value);
-    case "error":
-      return Effect.fail(result.error);
-    case "corrupt":
-      return Effect.die(ReservationLedgerCorrupt.make({ message: result.message }));
+    case 'ok':
+      return Effect.succeed(result.value)
+    case 'error':
+      return Effect.fail(result.error)
+    case 'corrupt':
+      return Effect.die(ReservationLedgerCorrupt.make({ message: result.message }))
   }
-};
+}
 
 const sameCaps = (a: SubagentDelegationCaps, b: SubagentDelegationCaps): boolean =>
   a.maxTotalChildInvocations === b.maxTotalChildInvocations &&
@@ -346,35 +346,34 @@ const sameCaps = (a: SubagentDelegationCaps, b: SubagentDelegationCaps): boolean
   a.maxInputTokens === b.maxInputTokens &&
   a.maxOutputTokens === b.maxOutputTokens &&
   a.maxCostMicrousd === b.maxCostMicrousd &&
-  a.maxResultBytes === b.maxResultBytes;
+  a.maxResultBytes === b.maxResultBytes
 
-const sameAmounts = (a: Amounts, b: Amounts): boolean =>
-  dimensionSpecs.every((spec) => a[spec.key] === b[spec.key]);
+const sameAmounts = (a: Amounts, b: Amounts): boolean => dimensionSpecs.every((spec) => a[spec.key] === b[spec.key])
 
 const optionalAmounts = (partial: PartialAmounts): { [K in ReservableDimensionKey]?: number } => {
-  const out: { [K in ReservableDimensionKey]?: number } = {};
+  const out: { [K in ReservableDimensionKey]?: number } = {}
 
   for (const spec of dimensionSpecs) {
-    const value = partial[spec.key];
+    const value = partial[spec.key]
 
     if (value !== undefined) {
-      out[spec.key] = value;
+      out[spec.key] = value
     }
   }
 
-  return out;
-};
+  return out
+}
 
 /** Covered usage freezes at settlement, so the unused allocation remains stable afterward. */
 const unusedAllocation = (reservation: ReservationState): Amounts => {
-  const unused = { ...zeroAmounts };
+  const unused = { ...zeroAmounts }
 
   for (const spec of dimensionSpecs) {
-    unused[spec.key] = reservation.allocated[spec.key] - reservation.covered[spec.key];
+    unused[spec.key] = reservation.allocated[spec.key] - reservation.covered[spec.key]
   }
 
-  return unused;
-};
+  return unused
+}
 
 const reservationView = (
   reservationId: BudgetReservationId,
@@ -389,20 +388,20 @@ const reservationView = (
     observedConsumed: SubagentObservedUsage.make(optionalAmounts(state.observed)),
     coveredConsumed: SubagentReservationAmounts.make(state.covered),
     released: SubagentReservationAmounts.make(
-      state.status === "released" ? unusedAllocation(state) : zeroAmounts,
+      state.status === 'released' ? unusedAllocation(state) : zeroAmounts,
     ),
     overrun: SubagentReservationAmounts.make(state.overrun),
-  });
+  })
 
 const parentView = (
   ledger: ReservationLedger,
   parent: ParentBudgetState,
 ): SubagentParentBudgetView => {
-  const reservations: Array<SubagentReservationView> = [];
+  const reservations: Array<SubagentReservationView> = []
 
   for (const [reservationId, reservation] of ledger.reservations) {
     if (reservation.parentRunId === parent.parentRunId) {
-      reservations.push(reservationView(reservationId, reservation));
+      reservations.push(reservationView(reservationId, reservation))
     }
   }
 
@@ -413,13 +412,14 @@ const parentView = (
     available: SubagentAvailableAmounts.make(optionalAmounts(parent.available)),
     cumulativeOverrun: SubagentReservationAmounts.make(parent.cumulativeOverrun),
     reservations,
-  });
-};
+  })
+}
 
 const corruptParent = (parentRunId: RunId): TransitionResult<never, never> => ({
-  _tag: "corrupt",
-  message: `SubagentReservations ledger invariant violated: reservation references unregistered parent Run ${parentRunId}`,
-});
+  _tag: 'corrupt',
+  message:
+    `SubagentReservations ledger invariant violated: reservation references unregistered parent Run ${parentRunId}`,
+})
 
 const registerTransition = (
   ledger: ReservationLedger,
@@ -430,20 +430,20 @@ const registerTransition = (
   TransitionResult<SubagentParentBudgetView, SubagentParentBudgetConflict>,
   ReservationLedger,
 ] => {
-  const existing = ledger.parents.get(parentRunId);
+  const existing = ledger.parents.get(parentRunId)
 
   if (existing !== undefined) {
     return sameCaps(existing.caps, caps)
       ? [ok(parentView(ledger, existing)), ledger]
-      : [fail(SubagentParentBudgetConflict.make({ parentRunId })), ledger];
+      : [fail(SubagentParentBudgetConflict.make({ parentRunId })), ledger]
   }
-  const available: { [K in ReservableDimensionKey]?: number } = {};
+  const available: { [K in ReservableDimensionKey]?: number } = {}
 
   for (const spec of dimensionSpecs) {
-    const cap = spec.cap(caps);
+    const cap = spec.cap(caps)
 
     if (cap !== undefined) {
-      available[spec.key] = cap;
+      available[spec.key] = cap
     }
   }
 
@@ -454,15 +454,15 @@ const registerTransition = (
     totalChildInvocations: 0,
     available,
     cumulativeOverrun: zeroAmounts,
-  };
+  }
 
   const next: ReservationLedger = {
     parents: new Map(ledger.parents).set(parentRunId, parent),
     reservations: ledger.reservations,
-  };
+  }
 
-  return [ok(parentView(next, parent)), next];
-};
+  return [ok(parentView(next, parent)), next]
+}
 
 const reserveTransition = (
   ledger: ReservationLedger,
@@ -474,55 +474,55 @@ const reserveTransition = (
   >,
   ReservationLedger,
 ] => {
-  const parent = ledger.parents.get(request.parentRunId);
+  const parent = ledger.parents.get(request.parentRunId)
 
   if (parent === undefined) {
-    return [fail(SubagentParentBudgetUnknown.make({ parentRunId: request.parentRunId })), ledger];
+    return [fail(SubagentParentBudgetUnknown.make({ parentRunId: request.parentRunId })), ledger]
   }
-  const reservationId = makeBudgetReservationId(request.parentRunId, request.parentToolCallId);
-  const existing = ledger.reservations.get(reservationId);
+  const reservationId = makeBudgetReservationId(request.parentRunId, request.parentToolCallId)
+  const existing = ledger.reservations.get(reservationId)
 
   if (existing !== undefined) {
     return sameAmounts(existing.allocated, request.allocation) &&
-      existing.descendantInvocations === (request.descendantInvocations ?? 0)
+        existing.descendantInvocations === (request.descendantInvocations ?? 0)
       ? [ok(reservationView(reservationId, existing)), ledger]
       : [
-          fail(
-            SubagentReservationConflict.make({
-              reservationId,
-              existingAllocation: SubagentReservationAmounts.make(existing.allocated),
-              requestedAllocation: request.allocation,
-            }),
-          ),
-          ledger,
-        ];
+        fail(
+          SubagentReservationConflict.make({
+            reservationId,
+            existingAllocation: SubagentReservationAmounts.make(existing.allocated),
+            requestedAllocation: request.allocation,
+          }),
+        ),
+        ledger,
+      ]
   }
-  const maxInvocations = parent.caps.maxTotalChildInvocations;
-  const slots = 1 + (request.descendantInvocations ?? 0);
+  const maxInvocations = parent.caps.maxTotalChildInvocations
+  const slots = 1 + (request.descendantInvocations ?? 0)
 
   if (maxInvocations !== undefined && parent.totalChildInvocations + slots > maxInvocations) {
     return [
       fail(
         SubagentBudgetExhausted.make({
           parentRunId: request.parentRunId,
-          dimension: "total-child-invocations",
+          dimension: 'total-child-invocations',
           limitValue: maxInvocations,
           observedValue: parent.totalChildInvocations + slots,
         }),
       ),
       ledger,
-    ];
+    ]
   }
   for (const spec of dimensionSpecs) {
-    const cap = spec.cap(parent.caps);
+    const cap = spec.cap(parent.caps)
 
     if (cap === undefined) {
-      continue;
+      continue
     }
     // Overrun already charged to the parent aggregate reduces delegable
     // headroom without mutating `available`.
-    const headroom = (parent.available[spec.key] ?? 0) - parent.cumulativeOverrun[spec.key];
-    const requested = request.allocation[spec.key];
+    const headroom = (parent.available[spec.key] ?? 0) - parent.cumulativeOverrun[spec.key]
+    const requested = request.allocation[spec.key]
 
     if (requested > headroom) {
       return [
@@ -535,19 +535,19 @@ const reserveTransition = (
           }),
         ),
         ledger,
-      ];
+      ]
     }
   }
 
   const nextAvailable: { [K in ReservableDimensionKey]?: number } = {
     ...parent.available,
-  };
+  }
 
   for (const spec of dimensionSpecs) {
-    const available = parent.available[spec.key];
+    const available = parent.available[spec.key]
 
     if (available !== undefined) {
-      nextAvailable[spec.key] = available - request.allocation[spec.key];
+      nextAvailable[spec.key] = available - request.allocation[spec.key]
     }
   }
 
@@ -555,12 +555,12 @@ const reserveTransition = (
     parentRunId: request.parentRunId,
     parentToolCallId: request.parentToolCallId,
     descendantInvocations: request.descendantInvocations ?? 0,
-    status: "reserved",
+    status: 'reserved',
     allocated: request.allocation,
     observed: {},
     covered: zeroAmounts,
     overrun: zeroAmounts,
-  };
+  }
 
   const next: ReservationLedger = {
     parents: new Map(ledger.parents).set(request.parentRunId, {
@@ -569,10 +569,10 @@ const reserveTransition = (
       available: nextAvailable,
     }),
     reservations: new Map(ledger.reservations).set(reservationId, reservation),
-  };
+  }
 
-  return [ok(reservationView(reservationId, reservation)), next];
-};
+  return [ok(reservationView(reservationId, reservation)), next]
+}
 
 const observeTransition = (
   ledger: ReservationLedger,
@@ -582,72 +582,71 @@ const observeTransition = (
   TransitionResult<SubagentReservationView, SubagentReservationUnknown>,
   ReservationLedger,
 ] => {
-  const reservation = ledger.reservations.get(reservationId);
+  const reservation = ledger.reservations.get(reservationId)
 
   if (reservation === undefined) {
-    return [fail(SubagentReservationUnknown.make({ reservationId })), ledger];
+    return [fail(SubagentReservationUnknown.make({ reservationId })), ledger]
   }
-  const parent = ledger.parents.get(reservation.parentRunId);
+  const parent = ledger.parents.get(reservation.parentRunId)
 
   if (parent === undefined) {
-    return [corruptParent(reservation.parentRunId), ledger];
+    return [corruptParent(reservation.parentRunId), ledger]
   }
-  const observed: { [K in ReservableDimensionKey]?: number } = { ...reservation.observed };
-  const covered: Record<ReservableDimensionKey, number> = { ...reservation.covered };
-  const overrun: Record<ReservableDimensionKey, number> = { ...reservation.overrun };
+  const observed: { [K in ReservableDimensionKey]?: number } = { ...reservation.observed }
+  const covered: Record<ReservableDimensionKey, number> = { ...reservation.covered }
+  const overrun: Record<ReservableDimensionKey, number> = { ...reservation.overrun }
 
   const cumulativeOverrun: Record<ReservableDimensionKey, number> = {
     ...parent.cumulativeOverrun,
-  };
+  }
 
   for (const spec of dimensionSpecs) {
-    const delta = usage[spec.key];
+    const delta = usage[spec.key]
 
     if (delta === undefined) {
-      continue;
+      continue
     }
-    observed[spec.key] = (observed[spec.key] ?? 0) + delta;
+    observed[spec.key] = (observed[spec.key] ?? 0) + delta
 
     // Once settlement began the accounting decision is frozen, so late or
     // corrected usage is pure overrun and cannot silently create budget.
-    const coverable =
-      reservation.status === "reserved"
-        ? Math.min(delta, reservation.allocated[spec.key] - covered[spec.key])
-        : 0;
+    const coverable = reservation.status === 'reserved'
+      ? Math.min(delta, reservation.allocated[spec.key] - covered[spec.key])
+      : 0
 
-    covered[spec.key] += coverable;
-    const overrunDelta = delta - coverable;
+    covered[spec.key] += coverable
+    const overrunDelta = delta - coverable
 
-    overrun[spec.key] += overrunDelta;
-    cumulativeOverrun[spec.key] += overrunDelta;
+    overrun[spec.key] += overrunDelta
+    cumulativeOverrun[spec.key] += overrunDelta
   }
-  const nextReservation: ReservationState = { ...reservation, observed, covered, overrun };
+  const nextReservation: ReservationState = { ...reservation, observed, covered, overrun }
 
   const next: ReservationLedger = {
     parents: new Map(ledger.parents).set(parent.parentRunId, { ...parent, cumulativeOverrun }),
     reservations: new Map(ledger.reservations).set(reservationId, nextReservation),
-  };
+  }
 
-  return [ok(reservationView(reservationId, nextReservation)), next];
-};
+  return [ok(reservationView(reservationId, nextReservation)), next]
+}
 
 /**
  * Freeze the settlement decision. A dimension that was never observed
  * conservatively consumes its full reserved amount.
  */
 const settleReservation = (reservation: ReservationState): ReservationState => {
-  const observed: { [K in ReservableDimensionKey]?: number } = { ...reservation.observed };
-  const covered: Record<ReservableDimensionKey, number> = { ...reservation.covered };
+  const observed: { [K in ReservableDimensionKey]?: number } = { ...reservation.observed }
+  const covered: Record<ReservableDimensionKey, number> = { ...reservation.covered }
 
   for (const spec of dimensionSpecs) {
     if (observed[spec.key] === undefined) {
-      observed[spec.key] = reservation.allocated[spec.key];
-      covered[spec.key] = reservation.allocated[spec.key];
+      observed[spec.key] = reservation.allocated[spec.key]
+      covered[spec.key] = reservation.allocated[spec.key]
     }
   }
 
-  return { ...reservation, status: "released", observed, covered };
-};
+  return { ...reservation, status: 'released', observed, covered }
+}
 
 const releaseTransition = (
   ledger: ReservationLedger,
@@ -656,28 +655,28 @@ const releaseTransition = (
   TransitionResult<SubagentReservationView, SubagentReservationUnknown>,
   ReservationLedger,
 ] => {
-  const reservation = ledger.reservations.get(reservationId);
+  const reservation = ledger.reservations.get(reservationId)
 
   if (reservation === undefined) {
-    return [fail(SubagentReservationUnknown.make({ reservationId })), ledger];
+    return [fail(SubagentReservationUnknown.make({ reservationId })), ledger]
   }
-  if (reservation.status === "released") {
-    return [ok(reservationView(reservationId, reservation)), ledger];
+  if (reservation.status === 'released') {
+    return [ok(reservationView(reservationId, reservation)), ledger]
   }
-  const parent = ledger.parents.get(reservation.parentRunId);
+  const parent = ledger.parents.get(reservation.parentRunId)
 
   if (parent === undefined) {
-    return [corruptParent(reservation.parentRunId), ledger];
+    return [corruptParent(reservation.parentRunId), ledger]
   }
-  const settled = settleReservation(reservation);
-  const unused = unusedAllocation(settled);
-  const nextAvailable: { [K in ReservableDimensionKey]?: number } = { ...parent.available };
+  const settled = settleReservation(reservation)
+  const unused = unusedAllocation(settled)
+  const nextAvailable: { [K in ReservableDimensionKey]?: number } = { ...parent.available }
 
   for (const spec of dimensionSpecs) {
-    const available = parent.available[spec.key];
+    const available = parent.available[spec.key]
 
     if (available !== undefined) {
-      nextAvailable[spec.key] = available + unused[spec.key];
+      nextAvailable[spec.key] = available + unused[spec.key]
     }
   }
 
@@ -687,41 +686,41 @@ const releaseTransition = (
       available: nextAvailable,
     }),
     reservations: new Map(ledger.reservations).set(reservationId, settled),
-  };
+  }
 
-  return [ok(reservationView(reservationId, settled)), next];
-};
+  return [ok(reservationView(reservationId, settled)), next]
+}
 
 const retireParentTransition = (
   ledger: ReservationLedger,
   parentRunId: RunId,
 ): readonly [TransitionResult<void, SubagentParentBudgetActive>, ReservationLedger] => {
   if (!ledger.parents.has(parentRunId)) {
-    return [ok(undefined), ledger];
+    return [ok(undefined), ledger]
   }
-  let openReservations = 0;
+  let openReservations = 0
 
   for (const reservation of ledger.reservations.values()) {
-    if (reservation.parentRunId === parentRunId && reservation.status !== "released") {
-      openReservations += 1;
+    if (reservation.parentRunId === parentRunId && reservation.status !== 'released') {
+      openReservations += 1
     }
   }
   if (openReservations > 0) {
-    return [fail(SubagentParentBudgetActive.make({ parentRunId, openReservations })), ledger];
+    return [fail(SubagentParentBudgetActive.make({ parentRunId, openReservations })), ledger]
   }
-  const parents = new Map(ledger.parents);
+  const parents = new Map(ledger.parents)
 
-  parents.delete(parentRunId);
-  const reservations = new Map(ledger.reservations);
+  parents.delete(parentRunId)
+  const reservations = new Map(ledger.reservations)
 
   for (const [reservationId, reservation] of reservations) {
     if (reservation.parentRunId === parentRunId) {
-      reservations.delete(reservationId);
+      reservations.delete(reservationId)
     }
   }
 
-  return [ok(undefined), { parents, reservations }];
-};
+  return [ok(undefined), { parents, reservations }]
+}
 
 /**
  * In-memory reservation ledger. All state lives in one `Ref` owned by the
@@ -729,89 +728,80 @@ const retireParentTransition = (
  */
 export const SubagentReservationsMemoryLive: Layer.Layer<SubagentReservations> = Layer.effect(
   SubagentReservations,
-  Effect.gen(function* () {
+  Effect.gen(function*() {
     const state = yield* Ref.make<ReservationLedger>({
       parents: new Map(),
       reservations: new Map(),
-    });
+    })
 
     return SubagentReservations.of({
-      registerParent: Effect.fnUntraced(function* (parentRunId, caps) {
-        const gate =
-          caps.maxConcurrentChildren !== undefined && caps.maxConcurrentChildren > 0
-            ? yield* Semaphore.make(caps.maxConcurrentChildren)
-            : undefined;
+      registerParent: Effect.fnUntraced(function*(parentRunId, caps) {
+        const gate = caps.maxConcurrentChildren !== undefined && caps.maxConcurrentChildren > 0
+          ? yield* Semaphore.make(caps.maxConcurrentChildren)
+          : undefined
 
-        const result = yield* Ref.modify(state, (ledger) =>
-          registerTransition(ledger, parentRunId, caps, gate),
-        );
+        const result = yield* Ref.modify(state, (ledger) => registerTransition(ledger, parentRunId, caps, gate))
 
-        return yield* resolve(result);
+        return yield* resolve(result)
       }),
-      reserve: Effect.fnUntraced(function* (request) {
-        const result = yield* Ref.modify(state, (ledger) => reserveTransition(ledger, request));
+      reserve: Effect.fnUntraced(function*(request) {
+        const result = yield* Ref.modify(state, (ledger) => reserveTransition(ledger, request))
 
-        return yield* resolve(result);
+        return yield* resolve(result)
       }),
-      observe: Effect.fnUntraced(function* (reservationId, usage) {
-        const result = yield* Ref.modify(state, (ledger) =>
-          observeTransition(ledger, reservationId, usage),
-        );
+      observe: Effect.fnUntraced(function*(reservationId, usage) {
+        const result = yield* Ref.modify(state, (ledger) => observeTransition(ledger, reservationId, usage))
 
-        return yield* resolve(result);
+        return yield* resolve(result)
       }),
-      release: Effect.fnUntraced(function* (reservationId) {
-        const result = yield* Ref.modify(state, (ledger) =>
-          releaseTransition(ledger, reservationId),
-        );
+      release: Effect.fnUntraced(function*(reservationId) {
+        const result = yield* Ref.modify(state, (ledger) => releaseTransition(ledger, reservationId))
 
-        return yield* resolve(result);
+        return yield* resolve(result)
       }),
-      acquireChildSlot: Effect.fnUntraced(function* (parentRunId, slots = 1) {
-        const ledger = yield* Ref.get(state);
-        const parent = ledger.parents.get(parentRunId);
+      acquireChildSlot: Effect.fnUntraced(function*(parentRunId, slots = 1) {
+        const ledger = yield* Ref.get(state)
+        const parent = ledger.parents.get(parentRunId)
 
         if (parent === undefined) {
-          return yield* SubagentParentBudgetUnknown.make({ parentRunId });
+          return yield* SubagentParentBudgetUnknown.make({ parentRunId })
         }
-        const cap = parent.caps.maxConcurrentChildren;
+        const cap = parent.caps.maxConcurrentChildren
 
         if (cap === undefined) {
-          return;
+          return
         }
         if (!Number.isSafeInteger(slots) || slots < 1 || slots > cap || parent.gate === undefined) {
           return yield* SubagentBudgetExhausted.make({
             parentRunId,
-            dimension: "concurrent-children",
+            dimension: 'concurrent-children',
             limitValue: cap,
             observedValue: Number.isSafeInteger(slots) && slots > 0 ? slots : 0,
-          });
+          })
         }
-        const gate = parent.gate;
+        const gate = parent.gate
 
         yield* Effect.acquireRelease(
           gate.take(slots),
           (permits) => gate.release(permits).pipe(Effect.asVoid),
           { interruptible: true },
-        );
+        )
       }),
-      retireParent: Effect.fnUntraced(function* (parentRunId) {
-        const result = yield* Ref.modify(state, (ledger) =>
-          retireParentTransition(ledger, parentRunId),
-        );
+      retireParent: Effect.fnUntraced(function*(parentRunId) {
+        const result = yield* Ref.modify(state, (ledger) => retireParentTransition(ledger, parentRunId))
 
-        return yield* resolve(result);
+        return yield* resolve(result)
       }),
-      parentSnapshot: Effect.fnUntraced(function* (parentRunId) {
-        const ledger = yield* Ref.get(state);
-        const parent = ledger.parents.get(parentRunId);
+      parentSnapshot: Effect.fnUntraced(function*(parentRunId) {
+        const ledger = yield* Ref.get(state)
+        const parent = ledger.parents.get(parentRunId)
 
         if (parent === undefined) {
-          return yield* SubagentParentBudgetUnknown.make({ parentRunId });
+          return yield* SubagentParentBudgetUnknown.make({ parentRunId })
         }
 
-        return parentView(ledger, parent);
+        return parentView(ledger, parent)
       }),
-    });
+    })
   }),
-);
+)

@@ -23,11 +23,39 @@
     "./node-wake-scheduler": "./src/NodeWakeScheduler.ts"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "./node-durable-agent-runtime": {
+        "types": "./dist/NodeDurableAgentRuntime.d.mts",
+        "default": "./dist/NodeDurableAgentRuntime.mjs"
+      },
+      "./node-durable-host": {
+        "types": "./dist/NodeDurableHost.d.mts",
+        "default": "./dist/NodeDurableHost.mjs"
+      },
+      "./node-scheduling": {
+        "types": "./dist/NodeScheduling.d.mts",
+        "default": "./dist/NodeScheduling.mjs"
+      },
+      "./node-subscriptions": {
+        "types": "./dist/NodeSubscriptions.d.mts",
+        "default": "./dist/NodeSubscriptions.mjs"
+      },
+      "./node-wake-scheduler": {
+        "types": "./dist/NodeWakeScheduler.d.mts",
+        "default": "./dist/NodeWakeScheduler.mjs"
+      }
+    }
   },
   "scripts": {
-    "build": "vp pack",
-    "check": "effect-tsgo tsrs --noEmit -p tsconfig.json"
+    "build": "tsdown",
+    "typecheck": "effect-tsgo tsrs --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "check:pack": "pnpm pack --pack-destination .pack && attw .pack/*.tgz --profile esm-only; s=$?; rm -rf .pack; exit $s"
   },
   "dependencies": {
     "@effect/platform-node": "catalog:",
@@ -36,14 +64,14 @@
     "@yielded/agent-storage-sqlite": "workspace:*"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "catalog:",
     "@effect/vitest": "catalog:",
     "effect": "catalog:",
+    "tsdown": "catalog:",
     "typescript": "catalog:",
-    "vite": "catalog:",
-    "vite-plus": "catalog:",
     "vitest": "catalog:"
   },
   "peerDependencies": {
-    "effect": "^4.1.0"
+    "effect": "^4.1.4"
   }
 }

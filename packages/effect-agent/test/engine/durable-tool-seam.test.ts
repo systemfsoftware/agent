@@ -1,41 +1,41 @@
-import { expect, layer } from "@effect/vitest";
-import * as Agent from "@yielded/agent/agent";
-import { AgentPolicyError } from "@yielded/agent/agent-error";
-import { AgentPolicy } from "@yielded/agent/agent-policy";
-import { IdGenerator } from "@yielded/agent/id-generator";
-import { ThreadId, RunId, TurnId } from "@yielded/agent/identifiers";
-import { type RunEvent } from "@yielded/agent/run-event";
-import { RunContextPreparationPassthrough } from "@yielded/agent/run-options";
-import * as LanguageModel from "effect/ai/LanguageModel";
-import * as Model from "effect/ai/Model";
-import type * as Response from "effect/ai/Response";
-import * as Tool from "effect/ai/Tool";
-import * as Toolkit from "effect/ai/Toolkit";
-import * as Cause from "effect/Cause";
-import * as Clock from "effect/Clock";
-import * as DateTime from "effect/DateTime";
-import * as Deferred from "effect/Deferred";
-import * as Effect from "effect/Effect";
-import * as Exit from "effect/Exit";
-import * as Fiber from "effect/Fiber";
-import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
-import * as Ref from "effect/Ref";
-import * as Schema from "effect/Schema";
-import * as SchemaGetter from "effect/SchemaGetter";
-import * as Stream from "effect/Stream";
-import * as TestClock from "effect/testing/TestClock";
+import { expect, layer } from '@effect/vitest'
+import * as Agent from '@yielded/agent/agent'
+import { AgentPolicyError } from '@yielded/agent/agent-error'
+import { AgentPolicy } from '@yielded/agent/agent-policy'
+import { IdGenerator } from '@yielded/agent/id-generator'
+import { RunId, ThreadId, TurnId } from '@yielded/agent/identifiers'
+import { type RunEvent } from '@yielded/agent/run-event'
+import { RunContextPreparationPassthrough } from '@yielded/agent/run-options'
+import * as LanguageModel from 'effect/ai/LanguageModel'
+import * as Model from 'effect/ai/Model'
+import type * as Response from 'effect/ai/Response'
+import * as Tool from 'effect/ai/Tool'
+import * as Toolkit from 'effect/ai/Toolkit'
+import * as Cause from 'effect/Cause'
+import * as Clock from 'effect/Clock'
+import * as DateTime from 'effect/DateTime'
+import * as Deferred from 'effect/Deferred'
+import * as Effect from 'effect/Effect'
+import * as Exit from 'effect/Exit'
+import * as Fiber from 'effect/Fiber'
+import * as Layer from 'effect/Layer'
+import * as Option from 'effect/Option'
+import * as Ref from 'effect/Ref'
+import * as Schema from 'effect/Schema'
+import * as SchemaGetter from 'effect/SchemaGetter'
+import * as Stream from 'effect/Stream'
+import * as TestClock from 'effect/testing/TestClock'
 
-import * as AgentRuntime from "../../src/engine/internal/agent-runtime.ts";
-import { type RunTurnResume } from "../../src/engine/internal/interpreter-options.ts";
-import { ThreadHistory } from "../../src/engine/ThreadHistory.ts";
+import * as AgentRuntime from '../../src/engine/internal/agent-runtime.ts'
+import { type RunTurnResume } from '../../src/engine/internal/interpreter-options.ts'
+import { ThreadHistory } from '../../src/engine/ThreadHistory.ts'
 
-let threadSequence = 0;
+let threadSequence = 0
 
 const usage = {
   inputTokens: {},
   outputTokens: {},
-};
+}
 
 const oneCallResumeUsage = {
   committedTurns: 1,
@@ -49,146 +49,143 @@ const oneCallResumeUsage = {
   lastInputTokens: 0,
   lastOutputTokens: 0,
   costMicrousd: 0,
-};
+}
 
 const identifiers = Layer.succeed(IdGenerator, {
-  nextThreadId: Effect.suspend(() =>
-    Schema.decodeEffect(ThreadId)(`thread-1-${++threadSequence}`).pipe(Effect.orDie),
-  ),
-  nextRunId: Effect.succeed(Schema.decodeSync(RunId)("run-1")),
-  nextTurnId: Effect.succeed(Schema.decodeSync(TurnId)("turn-1")),
-});
+  nextThreadId: Effect.suspend(() => Schema.decodeEffect(ThreadId)(`thread-1-${++threadSequence}`).pipe(Effect.orDie)),
+  nextRunId: Effect.succeed(Schema.decodeSync(RunId)('run-1')),
+  nextTurnId: Effect.succeed(Schema.decodeSync(TurnId)('turn-1')),
+})
 
 const finalParts = (text: string): ReadonlyArray<Response.StreamPartEncoded> => [
-  { type: "text-start", id: "answer" },
-  { type: "text-delta", id: "answer", delta: text },
-  { type: "text-end", id: "answer" },
-  { type: "finish", reason: "stop", usage },
-];
+  { type: 'text-start', id: 'answer' },
+  { type: 'text-delta', id: 'answer', delta: text },
+  { type: 'text-end', id: 'answer' },
+  { type: 'finish', reason: 'stop', usage },
+]
 
 const failureFrom = <E>(exit: Exit.Exit<unknown, E>): E => {
-  expect(Exit.isFailure(exit)).toBe(true);
+  expect(Exit.isFailure(exit)).toBe(true)
   if (Exit.isSuccess(exit)) {
-    throw new Error("Expected the Effect to fail");
+    throw new Error('Expected the Effect to fail')
   }
-  const failure = Cause.findErrorOption(exit.cause);
+  const failure = Cause.findErrorOption(exit.cause)
 
-  expect(Option.isSome(failure)).toBe(true);
+  expect(Option.isSome(failure)).toBe(true)
   if (Option.isNone(failure)) {
-    throw new Error("Expected a typed failure in the Cause");
+    throw new Error('Expected a typed failure in the Cause')
   }
 
-  return failure.value;
-};
+  return failure.value
+}
 
-const resumeTurnId = Schema.decodeSync(TurnId)("turn-resume");
+const resumeTurnId = Schema.decodeSync(TurnId)('turn-resume')
 
 const policy = (overrides?: Partial<Parameters<typeof AgentPolicy.make>[0]>) =>
   AgentPolicy.make({
     maxTurns: 2,
     maxToolCalls: 2,
-    maxDuration: "30 seconds",
+    maxDuration: '30 seconds',
     toolConcurrency: 2,
     ...overrides,
-  });
+  })
 
 const testLayer = Layer.mergeAll(
   identifiers,
   ThreadHistory.layer,
   RunContextPreparationPassthrough,
-);
+)
 
-layer(testLayer)("P5 WP1 durable Tool seams", (it) => {
+layer(testLayer)('P5 WP1 durable Tool seams', (it) => {
   // Regression in 1cefc3d7: a later parameter decoder can suspend after the same
   // provider chunk's text was accepted. Real providers cannot reliably force this
   // deadline window; control it at the public stream boundary.
-  it.effect("publishes accepted text before a later part is interrupted", () =>
-    Effect.gen(function* () {
-      const decoding = yield* Deferred.make<void>();
-      const events: Array<RunEvent> = [];
+  it.effect('publishes accepted text before a later part is interrupted', () =>
+    Effect.gen(function*() {
+      const decoding = yield* Deferred.make<void>()
+      const events: Array<RunEvent> = []
 
-      const Wait = Tool.make("wait", {
+      const Wait = Tool.make('wait', {
         parameters: Schema.String.pipe(
           Schema.decodeTo(Schema.String, {
             decode: SchemaGetter.transformEffect(() =>
-              Deferred.succeed(decoding, undefined).pipe(Effect.andThen(Effect.never)),
+              Deferred.succeed(decoding, undefined).pipe(Effect.andThen(Effect.never))
             ),
             encode: SchemaGetter.passthrough(),
           }),
         ),
         success: Schema.String,
-      });
+      })
 
-      const toolkit = Toolkit.make(Wait);
+      const toolkit = Toolkit.make(Wait)
 
       const model = Model.make(
-        "scripted",
-        "chunk-deadline",
+        'scripted',
+        'chunk-deadline',
         Layer.effect(
           LanguageModel.LanguageModel,
           LanguageModel.make({
             generateText: () => Effect.succeed([]),
             streamText: () =>
               Stream.fromIterable<Response.StreamPartEncoded>([
-                { type: "text-start", id: "answer" },
-                { type: "text-delta", id: "answer", delta: "accepted" },
-                { type: "text-end", id: "answer" },
-                { type: "tool-call", id: "wait-1", name: "wait", params: "wait" },
+                { type: 'text-start', id: 'answer' },
+                { type: 'text-delta', id: 'answer', delta: 'accepted' },
+                { type: 'text-end', id: 'answer' },
+                { type: 'tool-call', id: 'wait-1', name: 'wait', params: 'wait' },
               ]),
           }),
         ),
-      );
+      )
 
       const agent = Agent.withModel(
-        Agent.make("chunk-deadline", {
+        Agent.make('chunk-deadline', {
           input: Schema.String,
           output: Schema.String,
-          instructions: "Answer.",
+          instructions: 'Answer.',
           toolkit,
-          policy: policy({ maxDuration: "5 seconds" }),
+          policy: policy({ maxDuration: '5 seconds' }),
         }),
         model,
-      );
+      )
 
-      const fiber = yield* AgentRuntime.stream(agent, "begin").pipe(
+      const fiber = yield* AgentRuntime.stream(agent, 'begin').pipe(
         Stream.tap((event) => Effect.sync(() => events.push(event))),
         Stream.runDrain,
-        Effect.provide(toolkit.toLayer({ wait: () => Effect.succeed("unexpected") })),
+        Effect.provide(toolkit.toLayer({ wait: () => Effect.succeed('unexpected') })),
         Effect.forkChild,
-      );
+      )
 
-      yield* Deferred.await(decoding);
-      yield* TestClock.adjust("5 seconds");
+      yield* Deferred.await(decoding)
+      yield* TestClock.adjust('5 seconds')
       expect(failureFrom(yield* Fiber.await(fiber))).toMatchObject({
-        _tag: "AgentPolicyError",
-        limit: "duration",
-      });
+        _tag: 'AgentPolicyError',
+        limit: 'duration',
+      })
       expect(
-        events.filter((event) => event._tag === "TextDelta").map((event) => event.text),
-      ).toEqual(["accepted"]);
-    }),
-  );
+        events.filter((event) => event._tag === 'TextDelta').map((event) => event.text),
+      ).toEqual(['accepted'])
+    }))
 
-  it.effect("keeps one absolute deadline while the model emits text", () =>
-    Effect.gen(function* () {
-      const started = yield* Deferred.make<void>();
-      const firstDelta = yield* Deferred.make<void>();
-      const secondDelta = yield* Deferred.make<void>();
-      let deltas = 0;
-      let finalized = false;
+  it.effect('keeps one absolute deadline while the model emits text', () =>
+    Effect.gen(function*() {
+      const started = yield* Deferred.make<void>()
+      const firstDelta = yield* Deferred.make<void>()
+      const secondDelta = yield* Deferred.make<void>()
+      let deltas = 0
+      let finalized = false
 
       const parts: ReadonlyArray<Response.StreamPartEncoded> = [
-        { type: "text-start", id: "answer" },
-        { type: "text-delta", id: "answer", delta: '{"answer":' },
-        { type: "text-delta", id: "answer", delta: '"ok"' },
-        { type: "text-delta", id: "answer", delta: "}" },
-        { type: "text-end", id: "answer" },
-        { type: "finish", reason: "stop", usage },
-      ];
+        { type: 'text-start', id: 'answer' },
+        { type: 'text-delta', id: 'answer', delta: '{"answer":' },
+        { type: 'text-delta', id: 'answer', delta: '"ok"' },
+        { type: 'text-delta', id: 'answer', delta: '}' },
+        { type: 'text-end', id: 'answer' },
+        { type: 'finish', reason: 'stop', usage },
+      ]
 
       const model = Model.make(
-        "scripted",
-        "streaming-deadline",
+        'scripted',
+        'streaming-deadline',
         Layer.effect(
           LanguageModel.LanguageModel,
           LanguageModel.make({
@@ -196,91 +193,88 @@ layer(testLayer)("P5 WP1 durable Tool seams", (it) => {
             streamText: () =>
               Stream.fromEffect(Deferred.succeed(started, undefined)).pipe(
                 Stream.flatMap(() => Stream.fromIterable(parts)),
-                Stream.tap((part) =>
-                  part.type === "text-delta" ? Effect.sleep("2 seconds") : Effect.void,
-                ),
+                Stream.tap((part) => part.type === 'text-delta' ? Effect.sleep('2 seconds') : Effect.void),
                 Stream.ensuring(
                   Effect.sync(() => {
-                    finalized = true;
+                    finalized = true
                   }),
                 ),
               ),
           }),
         ),
-      );
+      )
 
-      const definition = Agent.make("streaming-deadline", {
+      const definition = Agent.make('streaming-deadline', {
         input: Schema.String,
         output: Schema.Struct({ answer: Schema.String }),
-        instructions: "Answer.",
+        instructions: 'Answer.',
         toolkit: Toolkit.empty,
-        policy: policy({ maxDuration: "5 seconds" }),
-      });
+        policy: policy({ maxDuration: '5 seconds' }),
+      })
 
-      const fiber = yield* AgentRuntime.stream(Agent.withModel(definition, model), "begin").pipe(
+      const fiber = yield* AgentRuntime.stream(Agent.withModel(definition, model), 'begin').pipe(
         Stream.tap((event) => {
-          if (event._tag !== "TextDelta") return Effect.void;
-          deltas++;
+          if (event._tag !== 'TextDelta') return Effect.void
+          deltas++
 
-          return Deferred.succeed(deltas === 1 ? firstDelta : secondDelta, undefined);
+          return Deferred.succeed(deltas === 1 ? firstDelta : secondDelta, undefined)
         }),
         Stream.runDrain,
         Effect.forkChild,
-      );
+      )
 
-      yield* Deferred.await(started);
-      yield* TestClock.adjust("2 seconds");
-      yield* Deferred.await(firstDelta);
-      yield* TestClock.adjust("2 seconds");
-      yield* Deferred.await(secondDelta);
-      yield* TestClock.adjust("1 second");
+      yield* Deferred.await(started)
+      yield* TestClock.adjust('2 seconds')
+      yield* Deferred.await(firstDelta)
+      yield* TestClock.adjust('2 seconds')
+      yield* Deferred.await(secondDelta)
+      yield* TestClock.adjust('1 second')
 
       expect(failureFrom(yield* Fiber.await(fiber))).toMatchObject({
-        _tag: "AgentPolicyError",
-        limit: "duration",
-      });
-      expect(deltas).toBe(2);
-      expect(finalized).toBe(true);
-    }),
-  );
+        _tag: 'AgentPolicyError',
+        limit: 'duration',
+      })
+      expect(deltas).toBe(2)
+      expect(finalized).toBe(true)
+    }))
 
-  it.effect("future expiry interrupts a forged resumed Tool and runs its finalizer", () =>
-    Effect.gen(function* () {
-      const handlerStarted = yield* Deferred.make<void>();
-      const handlerFinalized = yield* Deferred.make<void>();
-      const events = yield* Ref.make<ReadonlyArray<RunEvent>>([]);
-      let modelCalls = 0;
+  it.effect('future expiry interrupts a forged resumed Tool and runs its finalizer', () =>
+    Effect.gen(function*() {
+      const handlerStarted = yield* Deferred.make<void>()
+      const handlerFinalized = yield* Deferred.make<void>()
+      const events = yield* Ref.make<ReadonlyArray<RunEvent>>([])
+      let modelCalls = 0
 
-      const DelegateLookup = Tool.make("delegate_lookup", {
+      const DelegateLookup = Tool.make('delegate_lookup', {
         parameters: Schema.Struct({ key: Schema.String }),
         success: Schema.String,
-      });
+      })
 
-      const tools = Toolkit.make(DelegateLookup);
+      const tools = Toolkit.make(DelegateLookup)
 
-      const definition = Agent.make("cleanup-deadline", {
+      const definition = Agent.make('cleanup-deadline', {
         input: Schema.Struct({ question: Schema.String }),
         output: Schema.Struct({ answer: Schema.String }),
-        instructions: "Join, then answer.",
+        instructions: 'Join, then answer.',
         toolkit: tools,
-        policy: policy({ maxDuration: "5 seconds" }),
-      });
+        policy: policy({ maxDuration: '5 seconds' }),
+      })
 
       const model = Model.make(
-        "scripted",
-        "cleanup-deadline",
+        'scripted',
+        'cleanup-deadline',
         Layer.effect(
           LanguageModel.LanguageModel,
           LanguageModel.make({
             generateText: () => Effect.succeed([]),
             streamText: () => {
-              modelCalls += 1;
+              modelCalls += 1
 
-              return Stream.fromIterable(finalParts('{"answer":"too late"}'));
+              return Stream.fromIterable(finalParts('{"answer":"too late"}'))
             },
           }),
         ),
-      );
+      )
 
       const toolLayer = tools.toLayer({
         delegate_lookup: () =>
@@ -288,49 +282,48 @@ layer(testLayer)("P5 WP1 durable Tool seams", (it) => {
             Effect.andThen(Effect.never),
             Effect.ensuring(Deferred.succeed(handlerFinalized, undefined)),
           ),
-      });
+      })
 
       const resume: RunTurnResume & {
-        readonly settledChildJoinCallIdsPastDeadline: ReadonlyArray<string>;
+        readonly settledChildJoinCallIdsPastDeadline: ReadonlyArray<string>
       } = {
         turn: 1,
         turnId: resumeTurnId,
-        calls: [{ id: "call-child", name: "delegate_lookup", params: { key: "a" } }],
+        calls: [{ id: 'call-child', name: 'delegate_lookup', params: { key: 'a' } }],
         settled: [],
-        settledChildJoinCallIdsPastDeadline: ["call-child"],
-      };
+        settledChildJoinCallIdsPastDeadline: ['call-child'],
+      }
 
-      const now = yield* Clock.currentTimeMillis;
+      const now = yield* Clock.currentTimeMillis
 
       const durationDeadline = DateTime.addDuration(
         DateTime.toUtc(DateTime.makeUnsafe(now)),
-        "5 seconds",
-      );
+        '5 seconds',
+      )
 
       const fiber = yield* AgentRuntime.stream(
         Agent.withModel(definition, model),
-        { question: "resume" },
+        { question: 'resume' },
         { durationDeadline, resume, resumeUsage: oneCallResumeUsage },
       ).pipe(
         Stream.tap((event) => Ref.update(events, (all) => [...all, event])),
         Stream.runDrain,
         Effect.provide(toolLayer),
         Effect.forkChild,
-      );
+      )
 
-      yield* Deferred.await(handlerStarted);
-      yield* TestClock.adjust("5 seconds");
-      const exit = yield* Fiber.await(fiber);
-      const failure = failureFrom(exit);
-      const observed = yield* Ref.get(events);
+      yield* Deferred.await(handlerStarted)
+      yield* TestClock.adjust('5 seconds')
+      const exit = yield* Fiber.await(fiber)
+      const failure = failureFrom(exit)
+      const observed = yield* Ref.get(events)
 
-      expect(failure).toBeInstanceOf(AgentPolicyError);
-      expect(failure).toMatchObject({ limit: "duration" });
-      expect(yield* Deferred.isDone(handlerFinalized)).toBe(true);
-      expect(modelCalls).toBe(0);
-      expect(observed.filter((event) => event._tag === "ToolCallStarted")).toHaveLength(1);
-      expect(observed.filter((event) => event._tag === "RunFailed")).toHaveLength(1);
-      expect(observed.filter((event) => event._tag === "RunCompleted")).toHaveLength(0);
-    }),
-  );
-});
+      expect(failure).toBeInstanceOf(AgentPolicyError)
+      expect(failure).toMatchObject({ limit: 'duration' })
+      expect(yield* Deferred.isDone(handlerFinalized)).toBe(true)
+      expect(modelCalls).toBe(0)
+      expect(observed.filter((event) => event._tag === 'ToolCallStarted')).toHaveLength(1)
+      expect(observed.filter((event) => event._tag === 'RunFailed')).toHaveLength(1)
+      expect(observed.filter((event) => event._tag === 'RunCompleted')).toHaveLength(0)
+    }))
+})

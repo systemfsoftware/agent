@@ -1,76 +1,72 @@
-import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
-import { expect, it } from "@effect/vitest";
-import * as NodeHost from "@yielded/agent-platform-node/node-durable-host";
-import * as Agent from "@yielded/agent/agent";
-import { DurableAgentRuntime } from "@yielded/agent/durable-agent-runtime";
-import { DurableRuntimeFailpointError } from "@yielded/agent/durable-failpoint";
-import { ThreadId, ToolCallId } from "@yielded/agent/identifiers";
-import { MessageDeliveryFailpoint, MessageDeliveryStore } from "@yielded/agent/message-delivery";
-import type { Receipt } from "@yielded/agent/receipt";
-import { DefinitionDigestInput } from "@yielded/agent/records";
-import { canonicalRecordBytes, runEvidence } from "@yielded/agent/run-continuation";
-import { runIdForSubmission } from "@yielded/agent/run-journal";
-import { RunToolAuthorization } from "@yielded/agent/run-options";
-import * as Subagent from "@yielded/agent/subagent";
-import { SubagentHost } from "@yielded/agent/subagent-host";
-import {
-  ApprovalDecisionCommand,
-  IdempotencyKey,
-  Principal,
-} from "@yielded/agent/submission-ledger";
-import { readTestThread } from "@yielded/agent/testing/thread-store-conformance";
+import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
+import { expect, it } from '@effect/vitest'
+import * as NodeHost from '@yielded/agent-platform-node/node-durable-host'
+import * as Agent from '@yielded/agent/agent'
+import { DurableAgentRuntime } from '@yielded/agent/durable-agent-runtime'
+import { DurableRuntimeFailpointError } from '@yielded/agent/durable-failpoint'
+import { ThreadId, ToolCallId } from '@yielded/agent/identifiers'
+import { MessageDeliveryFailpoint, MessageDeliveryStore } from '@yielded/agent/message-delivery'
+import type { Receipt } from '@yielded/agent/receipt'
+import { DefinitionDigestInput } from '@yielded/agent/records'
+import { canonicalRecordBytes, runEvidence } from '@yielded/agent/run-continuation'
+import { runIdForSubmission } from '@yielded/agent/run-journal'
+import { RunToolAuthorization } from '@yielded/agent/run-options'
+import * as Subagent from '@yielded/agent/subagent'
+import { SubagentHost } from '@yielded/agent/subagent-host'
+import { ApprovalDecisionCommand, IdempotencyKey, Principal } from '@yielded/agent/submission-ledger'
+import { readTestThread } from '@yielded/agent/testing/thread-store-conformance'
 import {
   readWorkerState,
-  ThreadReader,
   ThreadExportRequest,
   ThreadIdentityRequest,
+  ThreadReader,
   ThreadStore,
-} from "@yielded/agent/thread-store";
-import { AssignmentDisposition, WorkerError, type WorkerSummary } from "@yielded/agent/worker";
-import { WorkerBudgetAuthorizer, WorkerHostAuthorizer } from "@yielded/agent/worker-host";
-import * as LanguageModel from "effect/ai/LanguageModel";
-import * as Model from "effect/ai/Model";
-import type * as Response from "effect/ai/Response";
-import * as Tool from "effect/ai/Tool";
-import * as Toolkit from "effect/ai/Toolkit";
-import * as Clock from "effect/Clock";
-import * as Context from "effect/Context";
-import * as Deferred from "effect/Deferred";
-import * as Effect from "effect/Effect";
-import * as Exit from "effect/Exit";
-import * as Fiber from "effect/Fiber";
-import * as FileSystem from "effect/FileSystem";
-import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
-import * as Scope from "effect/Scope";
-import * as Stream from "effect/Stream";
-import * as TestClock from "effect/testing/TestClock";
+} from '@yielded/agent/thread-store'
+import { AssignmentDisposition, WorkerError, type WorkerSummary } from '@yielded/agent/worker'
+import { WorkerBudgetAuthorizer, WorkerHostAuthorizer } from '@yielded/agent/worker-host'
+import * as LanguageModel from 'effect/ai/LanguageModel'
+import * as Model from 'effect/ai/Model'
+import type * as Response from 'effect/ai/Response'
+import * as Tool from 'effect/ai/Tool'
+import * as Toolkit from 'effect/ai/Toolkit'
+import * as Clock from 'effect/Clock'
+import * as Context from 'effect/Context'
+import * as Deferred from 'effect/Deferred'
+import * as Effect from 'effect/Effect'
+import * as Exit from 'effect/Exit'
+import * as Fiber from 'effect/Fiber'
+import * as FileSystem from 'effect/FileSystem'
+import * as Layer from 'effect/Layer'
+import * as Option from 'effect/Option'
+import * as Schema from 'effect/Schema'
+import * as Scope from 'effect/Scope'
+import * as Stream from 'effect/Stream'
+import * as TestClock from 'effect/testing/TestClock'
 
-const principal = Schema.decodeSync(Principal)("worker-owner");
-const sourceThreadId = Schema.decodeSync(ThreadId)("background-source");
-const key = Schema.decodeSync(IdempotencyKey);
-const definitions = DefinitionDigestInput.make({ agent: "background-v1", model: "v1", tools: [] });
+const principal = Schema.decodeSync(Principal)('worker-owner')
+const sourceThreadId = Schema.decodeSync(ThreadId)('background-source')
+const key = Schema.decodeSync(IdempotencyKey)
+const definitions = DefinitionDigestInput.make({ agent: 'background-v1', model: 'v1', tools: [] })
 
 const parts: ReadonlyArray<Response.StreamPartEncoded> = [
-  { type: "text-start", id: "reply" },
-  { type: "text-delta", id: "reply", delta: '{"answer":"done"}' },
-  { type: "text-end", id: "reply" },
-  { type: "finish", reason: "stop", usage: { inputTokens: {}, outputTokens: {} } },
-];
+  { type: 'text-start', id: 'reply' },
+  { type: 'text-delta', id: 'reply', delta: '{"answer":"done"}' },
+  { type: 'text-end', id: 'reply' },
+  { type: 'finish', reason: 'stop', usage: { inputTokens: {}, outputTokens: {} } },
+]
 
 const agent = (id: string, beforeReply: Effect.Effect<void> = Effect.void, disposition?: string) =>
   Agent.withModel(
     Agent.make(id, {
       input: Schema.Struct({ question: Schema.String }),
       output: Schema.Struct({ answer: Schema.String }),
-      instructions: "Answer as JSON.",
+      instructions: 'Answer as JSON.',
       runDisposition: { schema: Schema.String, fromOutput: () => disposition },
       toolkit: Toolkit.empty,
-      policy: { maxTurns: 20, maxToolCalls: 20, maxDuration: "1 minute", toolConcurrency: 2 },
+      policy: { maxTurns: 20, maxToolCalls: 20, maxDuration: '1 minute', toolConcurrency: 2 },
     }),
     Model.make(
-      "scripted",
+      'scripted',
       id,
       Layer.effect(
         LanguageModel.LanguageModel,
@@ -80,12 +76,12 @@ const agent = (id: string, beforeReply: Effect.Effect<void> = Effect.void, dispo
         }),
       ),
     ),
-  );
+  )
 
-const source = agent("background-source-agent");
-const target = agent("background-target-agent");
+const source = agent('background-source-agent')
+const target = agent('background-target-agent')
 
-const declaration = Subagent.make("research", {
+const declaration = Subagent.make('research', {
   target: target.definition,
   success: target.definition.output,
   projectResult: (output) => Effect.succeed(output),
@@ -94,11 +90,11 @@ const declaration = Subagent.make("research", {
     maxConcurrency: 2,
     maxTurns: 1,
     maxToolCalls: 1,
-    maxDuration: "1 second",
+    maxDuration: '1 second',
   }),
-});
+})
 
-const budgetAuthority = Layer.succeed(WorkerBudgetAuthorizer)({ authorize: () => Effect.void });
+const budgetAuthority = Layer.succeed(WorkerBudgetAuthorizer)({ authorize: () => Effect.void })
 
 const authority = Layer.merge(
   budgetAuthority,
@@ -106,72 +102,72 @@ const authority = Layer.merge(
     authorize: (request) =>
       request.principal === principal && request.sourceThreadId === sourceThreadId
         ? Effect.succeed(principal)
-        : WorkerError.make({ operation: request.operation, reason: "denied" }),
+        : WorkerError.make({ operation: request.operation, reason: 'denied' }),
   }),
-);
+)
 
 const withFacet = <A, E>(
-  facet: SubagentHost["Service"],
+  facet: SubagentHost['Service'],
   effect: Effect.Effect<A, E, SubagentHost>,
-) => effect.pipe(Effect.provideService(SubagentHost, facet));
+) => effect.pipe(Effect.provideService(SubagentHost, facet))
 
 // Human-requested regression: unowned uncertain work must not be advertised as active.
-it.effect("reports an unknown worker without replaying its uncertain operation", () =>
+it.effect('reports an unknown worker without replaying its uncertain operation', () =>
   Effect.scoped(
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "worker-unknown-" });
-      let dispatches = 0;
+    Effect.gen(function*() {
+      const fs = yield* FileSystem.FileSystem
+      const directory = yield* fs.makeTempDirectoryScoped({ prefix: 'worker-unknown-' })
+      let dispatches = 0
 
       const toolkit = Toolkit.make(
-        Tool.make("external_action", {
+        Tool.make('external_action', {
           parameters: Schema.Struct({}),
           success: Schema.String,
         }),
-      );
+      )
 
       const child = Agent.withModel(
-        Agent.make("unknown-worker", {
+        Agent.make('unknown-worker', {
           input: target.definition.input,
           output: Schema.String,
-          instructions: "Perform the synthetic action",
+          instructions: 'Perform the synthetic action',
           toolkit,
-          policy: { maxTurns: 2, maxToolCalls: 2, maxDuration: "1 minute" },
+          policy: { maxTurns: 2, maxToolCalls: 2, maxDuration: '1 minute' },
         }),
         Model.make(
-          "scripted",
-          "unknown-worker",
+          'scripted',
+          'unknown-worker',
           Layer.effect(
             LanguageModel.LanguageModel,
             LanguageModel.make({
               generateText: () => Effect.succeed([]),
               streamText: () =>
                 Stream.fromIterable<Response.StreamPartEncoded>([
-                  { type: "tool-call", id: "original-action", name: "external_action", params: {} },
+                  { type: 'tool-call', id: 'original-action', name: 'external_action', params: {} },
                   {
-                    type: "finish",
-                    reason: "tool-calls",
+                    type: 'finish',
+                    reason: 'tool-calls',
                     usage: { inputTokens: {}, outputTokens: {} },
                   },
                 ]),
             }),
           ),
         ),
-      );
+      )
 
       const handlers = toolkit.toLayer({
         external_action: () =>
           Effect.suspend(() => {
-            dispatches++;
+            dispatches++
 
-            return Effect.die("Synthetic lost acknowledgement");
+            return Effect.die('Synthetic lost acknowledgement')
           }),
-      });
+      })
 
-      const research = Subagent.make("unknown", {
+      const research = Subagent.make('unknown', {
         target: child.definition,
         policy: declaration.policy,
-      });
+      })
 
       const context = yield* Layer.build(
         NodeHost.NodeDurableHost.layerRegistered(
@@ -181,87 +177,83 @@ it.effect("reports an unknown worker without replaying its uncertain operation",
           ],
           {
             filename: `${directory}/runtime.sqlite`,
-            deploymentId: "unknown",
-            producerId: "node",
+            deploymentId: 'unknown',
+            producerId: 'node',
           },
         ).pipe(Layer.provide([authority, handlers])),
-      );
+      )
 
-      const runtime = Context.get(context, DurableAgentRuntime);
+      const runtime = Context.get(context, DurableAgentRuntime)
 
       yield* runtime.submitRegistered(
         source,
-        { question: "synthetic work" },
+        { question: 'synthetic work' },
         {
           threadId: sourceThreadId,
           principal,
-          idempotencyKey: key("source"),
+          idempotencyKey: key('source'),
         },
-      );
-      const owner = yield* runtime.workerHost({ sourceThreadId, principal });
+      )
+      const owner = yield* runtime.workerHost({ sourceThreadId, principal })
 
       const started = yield* withFacet(
         owner,
         Subagent.start(
           research,
-          { question: "synthetic" },
+          { question: 'synthetic' },
           {
-            idempotencyKey: key("unknown"),
+            idempotencyKey: key('unknown'),
           },
         ),
-      );
+      )
 
       expect(
         Exit.isFailure(
           yield* runtime.processThreadResolved(started.worker.threadId).pipe(Effect.exit),
         ),
-      ).toBe(true);
-      yield* runtime.runRecovery({ threadId: started.worker.threadId });
-      const summary = yield* withFacet(owner, Subagent.inspect(research, started.worker));
+      ).toBe(true)
+      yield* runtime.runRecovery({ threadId: started.worker.threadId })
+      const summary = yield* withFacet(owner, Subagent.inspect(research, started.worker))
 
-      expect.soft(summary.state).toBe("unknown");
+      expect.soft(summary.state).toBe('unknown')
       expect
         .soft((yield* withFacet(owner, Subagent.list(research))).items[0]?.state)
-        .toBe("unknown");
-      expect(summary.run?.outcome).toBeNull();
-      expect(summary.run?.hostReceipt).toEqual(started.delivery.receipt);
-      yield* runtime.processThreadResolved(started.worker.threadId);
-      expect(dispatches).toBe(1);
+        .toBe('unknown')
+      expect(summary.run?.outcome).toBeNull()
+      expect(summary.run?.hostReceipt).toEqual(started.delivery.receipt)
+      yield* runtime.processThreadResolved(started.worker.threadId)
+      expect(dispatches).toBe(1)
 
       const log = yield* readTestThread(
         Context.get(context, ThreadReader),
         ThreadExportRequest.make({ threadId: started.worker.threadId }),
-      );
+      )
 
       expect(
-        log.records.flatMap(({ record }) =>
-          record.payload._tag === "ToolCallUnknown" ? [record.payload] : [],
-        ),
-      ).toMatchObject([{ toolCallId: "original-action", toolName: "external_action" }]);
+        log.records.flatMap(({ record }) => record.payload._tag === 'ToolCallUnknown' ? [record.payload] : []),
+      ).toMatchObject([{ toolCallId: 'original-action', toolName: 'external_action' }])
     }),
-  ).pipe(Effect.provide(NodeFileSystem.layer)),
-);
+  ).pipe(Effect.provide(NodeFileSystem.layer)))
 
 // Regression: https://github.com/yielded-dev/agent/commit/6ceda1d221d990d4959f21596eedad84e742c95f
 it.effect(
-  "keeps launching Run evidence unchanged across independently funded worker follow-ups",
+  'keeps launching Run evidence unchanged across independently funded worker follow-ups',
   () =>
     Effect.scoped(
-      Effect.gen(function* () {
-        const fs = yield* FileSystem.FileSystem;
-        const directory = yield* fs.makeTempDirectoryScoped({ prefix: "worker-ownership-" });
+      Effect.gen(function*() {
+        const fs = yield* FileSystem.FileSystem
+        const directory = yield* fs.makeTempDirectoryScoped({ prefix: 'worker-ownership-' })
 
-        const research = Subagent.make("ownership", {
+        const research = Subagent.make('ownership', {
           target: target.definition,
           parameters: Schema.Struct({ note: Schema.String }),
-          prepareInput: ({ note }) =>
-            Effect.succeed({ question: `Correction length: ${note.length}` }),
+          prepareInput: ({ note }) => Effect.succeed({ question: `Correction length: ${note.length}` }),
           policy: declaration.policy,
-        });
+        })
 
         const toolkit = Toolkit.make(
-          Tool.make("coordinate", {
-            parameters: Schema.Struct({ action: Schema.Literals(["launch", "followUp"]) }),
+          Tool.make('coordinate', {
+            parameters: Schema.Struct({ action: Schema.Literals(['launch', 'followUp']) }),
             success: Schema.String,
             failure: Schema.Union([
               Subagent.SubagentPrestartDenied,
@@ -270,188 +262,190 @@ it.effect(
             ]),
             dependencies: [SubagentHost],
           }),
-        );
+        )
 
-        let independent: Subagent.Worker<"ownership"> | undefined;
-        let conserved: Subagent.Worker<"ownership"> | undefined;
-        let sourceCalls = 0;
-        let checkAccounting: Effect.Effect<void> = Effect.void;
-        let accountingChecks = 0;
+        let independent: Subagent.Worker<'ownership'> | undefined
+        let conserved: Subagent.Worker<'ownership'> | undefined
+        let sourceCalls = 0
+        let checkAccounting: Effect.Effect<void> = Effect.void
+        let accountingChecks = 0
 
         const handlers = toolkit.toLayer({
-          coordinate: Effect.fnUntraced(function* ({ action }) {
-            if (action === "launch") {
+          coordinate: Effect.fnUntraced(function*({ action }) {
+            if (action === 'launch') {
               independent = (yield* Subagent.start(
                 research,
-                { note: "initial" },
+                { note: 'initial' },
                 {
-                  idempotencyKey: key("independent"),
-                  budgetScope: "worker-run",
+                  idempotencyKey: key('independent'),
+                  budgetScope: 'worker-run',
                 },
-              )).worker;
+              )).worker
               conserved = (yield* Subagent.start(
                 research,
-                { note: "initial" },
+                { note: 'initial' },
                 {
-                  idempotencyKey: key("conserved"),
+                  idempotencyKey: key('conserved'),
                 },
-              )).worker;
+              )).worker
             } else {
-              if (independent === undefined) return yield* Effect.die("Worker not launched");
+              if (independent === undefined) return yield* Effect.die('Worker not launched')
 
               const delivery = yield* Subagent.followUp(
                 research,
                 independent,
-                { note: "Run B" },
+                { note: 'Run B' },
                 {
-                  idempotencyKey: key("run-b"),
+                  idempotencyKey: key('run-b'),
                 },
-              );
+              )
 
-              expect(delivery.receipt).not.toBeNull();
+              expect(delivery.receipt).not.toBeNull()
             }
 
-            return "accepted";
+            return 'accepted'
           }),
-        });
+        })
 
         const parent = Agent.withModel(
-          Agent.make("ownership-parent", {
+          Agent.make('ownership-parent', {
             input: source.definition.input,
             output: source.definition.output,
-            instructions: "Coordinate the workers.",
+            instructions: 'Coordinate the workers.',
             toolkit,
             policy: source.definition.policy,
           }),
           Model.make(
-            "scripted",
-            "ownership-parent",
+            'scripted',
+            'ownership-parent',
             Layer.effect(
               LanguageModel.LanguageModel,
               LanguageModel.make({
                 generateText: () => Effect.succeed([]),
                 streamText: () => {
-                  const call = sourceCalls++;
+                  const call = sourceCalls++
 
                   return Stream.fromIterable<Response.StreamPartEncoded>(
                     call % 2 === 0
                       ? [
-                          {
-                            type: "tool-call",
-                            id: `coordinate-${call}`,
-                            name: "coordinate",
-                            params: { action: call === 0 ? "launch" : "followUp" },
-                          },
-                          {
-                            type: "finish",
-                            reason: "tool-calls",
-                            usage: { inputTokens: {}, outputTokens: {} },
-                          },
-                        ]
+                        {
+                          type: 'tool-call',
+                          id: `coordinate-${call}`,
+                          name: 'coordinate',
+                          params: { action: call === 0 ? 'launch' : 'followUp' },
+                        },
+                        {
+                          type: 'finish',
+                          reason: 'tool-calls',
+                          usage: { inputTokens: {}, outputTokens: {} },
+                        },
+                      ]
                       : parts,
-                  );
+                  )
                 },
               }),
             ),
           ),
-        );
+        )
 
         const hostLayer = NodeHost.NodeDurableHost.layerRegistered(
           [
             {
               agent: parent,
-              definitions: { ...definitions, tools: [{ name: "coordinate", version: "1" }] },
+              definitions: { ...definitions, tools: [{ name: 'coordinate', version: '1' }] },
             },
             { agent: target, definitions },
           ],
           {
             filename: `${directory}/runtime.sqlite`,
-            deploymentId: "ownership",
-            producerId: "node",
+            deploymentId: 'ownership',
+            producerId: 'node',
             runtimeFailpoint: (location) =>
-              location === "terminalize:before-publication" ? checkAccounting : Effect.void,
+              location === 'terminalize:before-publication' ? checkAccounting : Effect.void,
           },
-        ).pipe(Layer.provide([authority, handlers]));
+        ).pipe(Layer.provide([authority, handlers]))
 
-        const firstScope = yield* Scope.make();
+        const firstScope = yield* Scope.make()
 
-        yield* Effect.addFinalizer(() => Scope.close(firstScope, Exit.void));
-        const first = yield* Layer.build(hostLayer).pipe(Scope.provide(firstScope));
-        const runtime = Context.get(first, DurableAgentRuntime);
-        const reader = Context.get(first, ThreadReader);
+        yield* Effect.addFinalizer(() => Scope.close(firstScope, Exit.void))
+        const first = yield* Layer.build(hostLayer).pipe(Scope.provide(firstScope))
+        const runtime = Context.get(first, DurableAgentRuntime)
+        const reader = Context.get(first, ThreadReader)
 
         const launch = yield* runtime.submitRegistered(
           parent,
-          { question: "launch" },
+          { question: 'launch' },
           {
             threadId: sourceThreadId,
             principal,
-            idempotencyKey: key("launch"),
+            idempotencyKey: key('launch'),
           },
-        );
+        )
 
-        yield* runtime.processThreadResolved(sourceThreadId);
-        expect((yield* runtime.awaitSettlement(launch)).outcome).toBe("completed");
-        if (independent === undefined || conserved === undefined)
-          return yield* Effect.die("Both workers must be launched by Run A");
-        yield* runtime.processThreadResolved(independent.threadId);
-        yield* runtime.processThreadResolved(conserved.threadId);
+        yield* runtime.processThreadResolved(sourceThreadId)
+        expect((yield* runtime.awaitSettlement(launch)).outcome).toBe('completed')
+        if (independent === undefined || conserved === undefined) {
+          return yield* Effect.die('Both workers must be launched by Run A')
+        }
+        yield* runtime.processThreadResolved(independent.threadId)
+        yield* runtime.processThreadResolved(conserved.threadId)
 
-        const snapshot = Effect.fnUntraced(function* (receipt: Receipt) {
-          const reader = yield* ThreadReader;
+        const snapshot = Effect.fnUntraced(function*(receipt: Receipt) {
+          const reader = yield* ThreadReader
 
           const tail = yield* reader.readIdentity(
             ThreadIdentityRequest.make({ threadId: sourceThreadId }),
-          );
+          )
 
           expect(
             yield* reader.readExecution({
               threadId: sourceThreadId,
               runId: runIdForSubmission(receipt.submissionId),
             }),
-          ).toEqual(Option.none());
+          ).toEqual(Option.none())
 
           const evidence = yield* Stream.runCollect(
             runEvidence(sourceThreadId, receipt.submissionId, tail.tailSequence),
-          );
+          )
 
           const terminal = evidence.find(
             ({ record: { payload } }) =>
-              payload._tag === "SubmissionSettled" && payload.submissionId === receipt.submissionId,
-          );
+              payload._tag === 'SubmissionSettled' && payload.submissionId === receipt.submissionId,
+          )
 
-          if (terminal?.record.payload._tag !== "SubmissionSettled")
-            return yield* Effect.die("Expected the settled Run's canonical outcome");
+          if (terminal?.record.payload._tag !== 'SubmissionSettled') {
+            return yield* Effect.die("Expected the settled Run's canonical outcome")
+          }
 
           expect(terminal.record.payload.historyRecordCount).toBe(
             evidence.filter((entry) => entry.sequence <= terminal.sequence).length,
-          );
+          )
 
-          return { terminal, evidence };
-        });
+          return { terminal, evidence }
+        })
 
-        const before = yield* snapshot(launch).pipe(Effect.provideService(ThreadReader, reader));
+        const before = yield* snapshot(launch).pipe(Effect.provideService(ThreadReader, reader))
 
         const owner = yield* runtime.workerHost({
           sourceThreadId,
           principal,
           sourceSubmissionId: launch.submissionId,
-        });
+        })
 
         const correction = yield* withFacet(
           owner,
           Subagent.followUp(
             research,
             conserved,
-            { note: "host correction" },
+            { note: 'host correction' },
             {
-              idempotencyKey: key("host-conserved"),
+              idempotencyKey: key('host-conserved'),
             },
           ),
-        );
+        )
 
-        expect(correction.receipt).not.toBeNull();
-        yield* runtime.processThreadResolved(conserved.threadId);
+        expect(correction.receipt).not.toBeNull()
+        yield* runtime.processThreadResolved(conserved.threadId)
         // Each envelope fits the default 256 KiB limit; together they exceed A's 4 MiB Turn limit.
         for (let index = 0; index < 18; index++) {
           const delivery = yield* withFacet(
@@ -459,42 +453,42 @@ it.effect(
             Subagent.followUp(
               research,
               independent,
-              { note: "x".repeat(240 * 1024) },
+              { note: 'x'.repeat(240 * 1024) },
               {
                 idempotencyKey: key(`large-${index}`),
               },
             ),
-          );
+          )
 
-          expect.soft(delivery.receipt, `large follow-up ${index} must be admitted`).not.toBeNull();
-          if (delivery.receipt !== null) yield* runtime.processThreadResolved(independent.threadId);
+          expect.soft(delivery.receipt, `large follow-up ${index} must be admitted`).not.toBeNull()
+          if (delivery.receipt !== null) yield* runtime.processThreadResolved(independent.threadId)
         }
 
         const next = yield* runtime.submitRegistered(
           parent,
-          { question: "follow up" },
+          { question: 'follow up' },
           {
             threadId: sourceThreadId,
             principal,
-            idempotencyKey: key("source-b"),
+            idempotencyKey: key('source-b'),
           },
-        );
+        )
 
-        checkAccounting = Effect.gen(function* () {
+        checkAccounting = Effect.gen(function*() {
           const tail = yield* reader.readIdentity(
             ThreadIdentityRequest.make({ threadId: sourceThreadId }),
-          );
+          )
 
           const execution = yield* reader.readExecution({
             threadId: sourceThreadId,
             runId: runIdForSubmission(next.submissionId),
-          });
+          })
 
-          if (Option.isNone(execution)) return yield* Effect.die("Missing active Run B accounting");
+          if (Option.isNone(execution)) return yield* Effect.die('Missing active Run B accounting')
 
           const evidence = yield* Stream.runCollect(
             runEvidence(sourceThreadId, next.submissionId, tail.tailSequence),
-          ).pipe(Effect.provideService(ThreadReader, reader));
+          ).pipe(Effect.provideService(ThreadReader, reader))
 
           expect(execution.value.progress.recordBytes).toBe(
             evidence.reduce((sum, entry) => sum + canonicalRecordBytes(entry.record), 0) +
@@ -502,91 +496,91 @@ it.effect(
                 (sum, record) => sum + canonicalRecordBytes(record),
                 0,
               ),
-          );
-          accountingChecks++;
-        }).pipe(Effect.orDie);
-        yield* runtime.processThreadResolved(sourceThreadId);
-        expect((yield* runtime.awaitSettlement(next)).outcome).toBe("completed");
-        expect(accountingChecks).toBe(1);
-        checkAccounting = Effect.void;
-        yield* Scope.close(firstScope, Exit.void);
-        const second = yield* Layer.build(hostLayer);
-        const reopened = Context.get(second, ThreadReader);
-        const after = yield* snapshot(launch).pipe(Effect.provideService(ThreadReader, reopened));
+          )
+          accountingChecks++
+        }).pipe(Effect.orDie)
+        yield* runtime.processThreadResolved(sourceThreadId)
+        expect((yield* runtime.awaitSettlement(next)).outcome).toBe('completed')
+        expect(accountingChecks).toBe(1)
+        checkAccounting = Effect.void
+        yield* Scope.close(firstScope, Exit.void)
+        const second = yield* Layer.build(hostLayer)
+        const reopened = Context.get(second, ThreadReader)
+        const after = yield* snapshot(launch).pipe(Effect.provideService(ThreadReader, reopened))
 
-        expect.soft(after.evidence).toEqual(before.evidence);
+        expect.soft(after.evidence).toEqual(before.evidence)
         expect
           .soft(after.evidence.map((entry) => entry.record.recordId))
-          .toEqual(before.evidence.map((entry) => entry.record.recordId));
-        const current = yield* snapshot(next).pipe(Effect.provideService(ThreadReader, reopened));
+          .toEqual(before.evidence.map((entry) => entry.record.recordId))
+        const current = yield* snapshot(next).pipe(Effect.provideService(ThreadReader, reopened))
 
         const handoff = current.evidence.find(
-          ({ record }) => record.payload._tag === "WorkerInputRequested",
-        );
+          ({ record }) => record.payload._tag === 'WorkerInputRequested',
+        )
 
         expect(handoff?.record.payload).toMatchObject({
-          admission: { parameters: { note: "Run B" } },
-        });
+          admission: { parameters: { note: 'Run B' } },
+        })
 
         const workerState = yield* readWorkerState({
           threadId: sourceThreadId,
           sourceSubmissionId: launch.submissionId,
           limit: 64,
-        }).pipe(Effect.provideService(ThreadReader, reopened));
+        }).pipe(Effect.provideService(ThreadReader, reopened))
 
         const handoffs = yield* reopened
           .read({
             threadId: sourceThreadId,
-            selection: { _tag: "WorkHandoffs", throughSequence: workerState.tailSequence },
+            selection: { _tag: 'WorkHandoffs', throughSequence: workerState.tailSequence },
             page: { limit: 64 },
           })
-          .pipe(Stream.runCollect);
+          .pipe(Stream.runCollect)
 
         expect(
           workerState.records.filter(
-            ({ record }) => record.payload._tag === "WorkerInputRequested",
+            ({ record }) => record.payload._tag === 'WorkerInputRequested',
           ),
-        ).toHaveLength(21);
+        ).toHaveLength(21)
         expect(
-          handoffs.filter(({ record }) => record.payload._tag === "WorkerInputRequested"),
-        ).toHaveLength(22);
+          handoffs.filter(({ record }) => record.payload._tag === 'WorkerInputRequested'),
+        ).toHaveLength(22)
         expect(
-          handoffs.filter(({ record }) => record.payload._tag === "SubtreeBudgetReserved"),
-        ).toHaveLength(2);
+          handoffs.filter(({ record }) => record.payload._tag === 'SubtreeBudgetReserved'),
+        ).toHaveLength(2)
       }),
     ).pipe(Effect.provide(NodeFileSystem.layer)),
   15_000,
-);
+)
 
 // Regression: https://github.com/yielded-dev/agent/blob/4c417d98e8cc790c42ab4200a54a0548fe32e6e3/packages/effect-agent/src/durable/internal/worker-host.ts#L1645-L1691
-for (const completion of ["interrupted"] as const) {
+for (const completion of ['interrupted'] as const) {
   it.effect(
     `tracks one retained delivery through acceptance and completion after its ${completion} claim`,
     () =>
       Effect.scoped(
-        Effect.gen(function* () {
-          const fs = yield* FileSystem.FileSystem;
-          const directory = yield* fs.makeTempDirectoryScoped({ prefix: "worker-admission-" });
-          const claimed = yield* Deferred.make<void>();
-          const release = yield* Deferred.make<void>();
-          const accepted = yield* Deferred.make<void>();
-          const processed = yield* Deferred.make<void>();
-          let claims = 0;
-          let admissions = 0;
-          let modelCalls = 0;
-          let finalized = 0;
+        Effect.gen(function*() {
+          const fs = yield* FileSystem.FileSystem
+          const directory = yield* fs.makeTempDirectoryScoped({ prefix: 'worker-admission-' })
+          const claimed = yield* Deferred.make<void>()
+          const release = yield* Deferred.make<void>()
+          const accepted = yield* Deferred.make<void>()
+          const processed = yield* Deferred.make<void>()
+          let claims = 0
+          let admissions = 0
+          let modelCalls = 0
+          let finalized = 0
 
           const child = agent(
-            "admission-target",
+            'admission-target',
             Effect.sync(() => {
-              modelCalls++;
+              modelCalls++
             }),
-          );
+          )
 
-          const research = Subagent.make("research", {
+          const research = Subagent.make('research', {
             target: child.definition,
             policy: declaration.policy,
-          });
+          })
 
           const context = yield* Layer.build(
             NodeHost.NodeDurableHost.layerRegistered(
@@ -596,671 +590,673 @@ for (const completion of ["interrupted"] as const) {
               ],
               {
                 filename: `${directory}/runtime.sqlite`,
-                deploymentId: "admission-v1",
-                producerId: "admission-node",
+                deploymentId: 'admission-v1',
+                producerId: 'admission-node',
                 workerConcurrency: 1,
                 runtimeFailpoint: (location) =>
                   Effect.sync(() => {
-                    if (location === "submit:after-admit") admissions++;
+                    if (location === 'submit:after-admit') admissions++
                   }),
               },
             ).pipe(
               Layer.provide(authority),
               Layer.provide(
                 Layer.succeed(MessageDeliveryFailpoint, {
-                  hit: Effect.fnUntraced(function* (point) {
+                  hit: Effect.fnUntraced(function*(point) {
                     // The parked commit owns acceptance without a periodic status retry.
-                    if (point === "message-delivery:park:after")
-                      yield* Deferred.succeed(accepted, undefined);
+                    if (point === 'message-delivery:park:after') {
+                      yield* Deferred.succeed(accepted, undefined)
+                    }
                     if (
-                      point === "message-delivery:process:after" ||
-                      point === "message-delivery:complete:after"
-                    )
-                      yield* Deferred.succeed(processed, undefined);
-                    if (point !== "message-delivery:claim:after") return;
-                    claims++;
-                    if (claims !== 1) return;
+                      point === 'message-delivery:process:after' ||
+                      point === 'message-delivery:complete:after'
+                    ) {
+                      yield* Deferred.succeed(processed, undefined)
+                    }
+                    if (point !== 'message-delivery:claim:after') return
+                    claims++
+                    if (claims !== 1) return
                     yield* Deferred.succeed(claimed, undefined).pipe(
                       Effect.andThen(Deferred.await(release)),
                       Effect.ensuring(
                         Effect.sync(() => {
-                          finalized++;
+                          finalized++
                         }),
                       ),
-                    );
+                    )
                   }),
                 }),
               ),
             ),
-          );
+          )
 
-          const runtime = Context.get(context, DurableAgentRuntime);
-          const host = Context.get(context, NodeHost.NodeDurableHost);
-          const store = Context.get(context, MessageDeliveryStore);
-          const history = Context.get(context, ThreadStore);
+          const runtime = Context.get(context, DurableAgentRuntime)
+          const host = Context.get(context, NodeHost.NodeDurableHost)
+          const store = Context.get(context, MessageDeliveryStore)
+          const history = Context.get(context, ThreadStore)
 
           const sourceReceipt = yield* runtime.submitRegistered(
             source,
-            { question: "prepare" },
-            { threadId: sourceThreadId, principal, idempotencyKey: key("source") },
-          );
+            { question: 'prepare' },
+            { threadId: sourceThreadId, principal, idempotencyKey: key('source') },
+          )
 
-          yield* runtime.processThreadResolved(sourceThreadId);
-          expect((yield* runtime.awaitSettlement(sourceReceipt)).outcome).toBe("completed");
-          admissions = 0;
-          const facet = yield* runtime.workerHost({ sourceThreadId, principal });
+          yield* runtime.processThreadResolved(sourceThreadId)
+          expect((yield* runtime.awaitSettlement(sourceReceipt)).outcome).toBe('completed')
+          admissions = 0
+          const facet = yield* runtime.workerHost({ sourceThreadId, principal })
 
           const start = withFacet(
             facet,
-            Subagent.start(research, { question: "once" }, { idempotencyKey: key("held-claim") }),
-          );
+            Subagent.start(research, { question: 'once' }, { idempotencyKey: key('held-claim') }),
+          )
 
-          const first = yield* start.pipe(Effect.forkChild);
+          const first = yield* start.pipe(Effect.forkChild)
 
-          yield* Deferred.await(claimed);
-          const clockStart = yield* Clock.currentTimeMillis;
-          const competing = yield* Effect.all([start, start, start], { concurrency: 3 });
-          const retained = competing[0]!;
+          yield* Deferred.await(claimed)
+          const clockStart = yield* Clock.currentTimeMillis
+          const competing = yield* Effect.all([start, start, start], { concurrency: 3 })
+          const retained = competing[0]!
 
-          expect(competing).toEqual([retained, retained, retained]);
+          expect(competing).toEqual([retained, retained, retained])
           expect(retained.delivery).toEqual({
             message: { ownerThreadId: sourceThreadId, messageId: expect.any(String) },
-            status: "pending",
+            status: 'pending',
             receipt: null,
             settlement: null,
             reason: null,
-          });
+          })
 
           const inspect = withFacet(
             facet,
             Subagent.inspect(research, retained.worker, retained.delivery.message),
-          );
+          )
 
-          expect(yield* inspect).toEqual(retained.delivery);
-          expect(yield* Clock.currentTimeMillis).toBe(clockStart);
-          expect(claims).toBe(1);
-          expect(admissions).toBe(0);
-          expect(modelCalls).toBe(0);
+          expect(yield* inspect).toEqual(retained.delivery)
+          expect(yield* Clock.currentTimeMillis).toBe(clockStart)
+          expect(claims).toBe(1)
+          expect(admissions).toBe(0)
+          expect(modelCalls).toBe(0)
           expect(
             (yield* store.list({ ownerThreadId: sourceThreadId, limit: 10 })).items,
-          ).toHaveLength(1);
-          yield* Fiber.interrupt(first);
-          expect(Exit.hasInterrupts(yield* Fiber.await(first))).toBe(true);
-          yield* TestClock.adjust("31 seconds");
+          ).toHaveLength(1)
+          yield* Fiber.interrupt(first)
+          expect(Exit.hasInterrupts(yield* Fiber.await(first))).toBe(true)
+          yield* TestClock.adjust('31 seconds')
 
           // The normal host pump recovers the retained operation; no business command is resent.
-          const pump = yield* host.runWorkers(Effect.never).pipe(Effect.forkChild);
+          const pump = yield* host.runWorkers(Effect.never).pipe(Effect.forkChild)
 
-          yield* Deferred.await(accepted);
-          const admitted = yield* inspect;
+          yield* Deferred.await(accepted)
+          const admitted = yield* inspect
 
           expect(admitted).toMatchObject({
             message: retained.delivery.message,
-            status: "parked",
+            status: 'parked',
             settlement: null,
-            reason: "awaiting-settlement",
-          });
-          if (admitted.status !== "parked" || admitted.receipt === null)
-            return yield* Effect.die("Expected acceptance with retained receipt");
-          expect((yield* start).delivery).toEqual(admitted);
-          expect(admissions).toBe(1);
-          expect(modelCalls).toBe(0);
-          expect(finalized).toBe(1);
-          yield* runtime.processThreadResolved(retained.worker.threadId);
+            reason: 'awaiting-settlement',
+          })
+          if (admitted.status !== 'parked' || admitted.receipt === null) {
+            return yield* Effect.die('Expected acceptance with retained receipt')
+          }
+          expect((yield* start).delivery).toEqual(admitted)
+          expect(admissions).toBe(1)
+          expect(modelCalls).toBe(0)
+          expect(finalized).toBe(1)
+          yield* runtime.processThreadResolved(retained.worker.threadId)
 
           const settled = yield* withFacet(
             facet,
             Subagent.await(research, retained.worker, admitted.receipt),
-          );
+          )
 
-          expect(settled).toMatchObject({ _tag: "Settled", outcome: "completed" });
-          if (settled._tag !== "Settled") return yield* Effect.die("Expected settlement");
-          yield* TestClock.adjust("5 seconds");
-          yield* Deferred.await(processed);
+          expect(settled).toMatchObject({ _tag: 'Settled', outcome: 'completed' })
+          if (settled._tag !== 'Settled') return yield* Effect.die('Expected settlement')
+          yield* TestClock.adjust('5 seconds')
+          yield* Deferred.await(processed)
           expect(yield* inspect).toEqual({
             message: retained.delivery.message,
-            status: "processed",
+            status: 'processed',
             receipt: admitted.receipt,
-            settlement: { settlementId: settled.settlementId, outcome: "completed" },
+            settlement: { settlementId: settled.settlementId, outcome: 'completed' },
             reason: null,
-          });
-          expect(modelCalls).toBe(1);
-          yield* Fiber.interrupt(pump);
+          })
+          expect(modelCalls).toBe(1)
+          yield* Fiber.interrupt(pump)
 
           const sourceLog = yield* readTestThread(
             history,
             ThreadExportRequest.make({ threadId: sourceThreadId }),
-          );
+          )
 
           const childLog = yield* readTestThread(
             history,
             ThreadExportRequest.make({ threadId: retained.worker.threadId }),
-          );
+          )
 
           expect(
             sourceLog.records.filter(
-              ({ record }) => record.payload._tag === "WorkerInputRequested",
+              ({ record }) => record.payload._tag === 'WorkerInputRequested',
             ),
-          ).toHaveLength(1);
+          ).toHaveLength(1)
           expect(
-            childLog.records.filter(({ record }) => record.payload._tag === "UserInputRecorded"),
-          ).toHaveLength(1);
+            childLog.records.filter(({ record }) => record.payload._tag === 'UserInputRecorded'),
+          ).toHaveLength(1)
         }),
       ).pipe(Effect.provide(NodeFileSystem.layer)),
     15_000,
-  );
+  )
 }
 
 it.effect(
-  "stops an active worker and queued steering, preserves external-action evidence and replays after a real SQLite owner restart",
+  'stops an active worker and queued steering, preserves external-action evidence and replays after a real SQLite owner restart',
   () =>
     Effect.scoped(
-      Effect.gen(function* () {
-        const fs = yield* FileSystem.FileSystem;
-        const directory = yield* fs.makeTempDirectoryScoped({ prefix: "worker-stop-" });
-        const entered = yield* Deferred.make<void>();
-        const pay = yield* Deferred.make<void>();
-        let payments = 0;
-        let finalized = 0;
-        let loseAck = false;
-        const output = Schema.Struct({ answer: Schema.String });
+      Effect.gen(function*() {
+        const fs = yield* FileSystem.FileSystem
+        const directory = yield* fs.makeTempDirectoryScoped({ prefix: 'worker-stop-' })
+        const entered = yield* Deferred.make<void>()
+        const pay = yield* Deferred.make<void>()
+        let payments = 0
+        let finalized = 0
+        let loseAck = false
+        const output = Schema.Struct({ answer: Schema.String })
 
         const toolkit = Toolkit.make(
-          Tool.make("pay", { parameters: Schema.Struct({}), success: output }),
-        );
+          Tool.make('pay', { parameters: Schema.Struct({}), success: output }),
+        )
 
         const child = Agent.withModel(
-          Agent.make("payment-worker", {
+          Agent.make('payment-worker', {
             input: target.definition.input,
             output,
-            instructions: "Complete the purchase",
+            instructions: 'Complete the purchase',
             runDisposition: {
-              workerLifecycle: "assignment",
+              workerLifecycle: 'assignment',
               schema: AssignmentDisposition,
-              fromOutput: () => "completed",
+              fromOutput: () => 'completed',
             },
             toolkit,
-            completion: { tool: "pay", project: ({ result }) => result },
-            policy: { maxTurns: 4, maxToolCalls: 4, maxDuration: "1 minute" },
+            completion: { tool: 'pay', project: ({ result }) => result },
+            policy: { maxTurns: 4, maxToolCalls: 4, maxDuration: '1 minute' },
           }),
           Model.make(
-            "scripted",
-            "payment",
+            'scripted',
+            'payment',
             Layer.effect(
               LanguageModel.LanguageModel,
               LanguageModel.make({
                 generateText: () => Effect.succeed([]),
                 streamText: () =>
                   Stream.fromIterable([
-                    { type: "tool-call", id: "payment", name: "pay", params: {} },
+                    { type: 'tool-call', id: 'payment', name: 'pay', params: {} },
                     {
-                      type: "finish",
-                      reason: "tool-calls",
+                      type: 'finish',
+                      reason: 'tool-calls',
                       usage: { inputTokens: {}, outputTokens: {} },
                     },
                   ]),
               }),
             ),
           ),
-        );
+        )
 
         const handlers = toolkit.toLayer({
           pay: Effect.fnUntraced(
-            function* () {
-              yield* Deferred.succeed(entered, undefined);
-              yield* Deferred.await(pay);
-              payments++;
+            function*() {
+              yield* Deferred.succeed(entered, undefined)
+              yield* Deferred.await(pay)
+              payments++
 
-              return { answer: "paid" };
+              return { answer: 'paid' }
             },
             (effect) =>
               effect.pipe(
                 Effect.ensuring(
                   Effect.sync(() => {
-                    finalized++;
+                    finalized++
                   }),
                 ),
               ),
           ),
-        });
+        })
 
-        const research = Subagent.make("research", {
+        const research = Subagent.make('research', {
           target: child.definition,
           policy: declaration.policy,
-        });
+        })
 
         const registrations = [
           { agent: source, definitions },
-          { agent: child, definitions: { ...definitions, tools: [{ name: "pay", version: "1" }] } },
-        ];
+          { agent: child, definitions: { ...definitions, tools: [{ name: 'pay', version: '1' }] } },
+        ]
 
         const options = {
           filename: `${directory}/runtime.sqlite`,
-          deploymentId: "stop-v1",
-          producerId: "stop-node",
+          deploymentId: 'stop-v1',
+          producerId: 'stop-node',
           settlementPollInterval: 1,
           abortPollInterval: 1,
-        };
+        }
 
-        const firstScope = yield* Scope.make();
+        const firstScope = yield* Scope.make()
 
-        yield* Effect.addFinalizer(() => Scope.close(firstScope, Exit.void));
+        yield* Effect.addFinalizer(() => Scope.close(firstScope, Exit.void))
 
         const first = yield* Layer.build(
           NodeHost.NodeDurableHost.layerRegistered(registrations, {
             ...options,
             runtimeFailpoint: (location) =>
-              loseAck && location === "worker:after-stop-seal"
+              loseAck && location === 'worker:after-stop-seal'
                 ? DurableRuntimeFailpointError.make({ location })
                 : Effect.void,
           }).pipe(Layer.provide([authority, handlers])),
-        ).pipe(Scope.provide(firstScope));
+        ).pipe(Scope.provide(firstScope))
 
-        const runtime = Context.get(first, DurableAgentRuntime);
+        const runtime = Context.get(first, DurableAgentRuntime)
 
         yield* runtime.submitRegistered(
           source,
-          { question: "buy coffee" },
-          { threadId: sourceThreadId, principal, idempotencyKey: key("source") },
-        );
-        const owner = yield* runtime.workerHost({ sourceThreadId, principal });
+          { question: 'buy coffee' },
+          { threadId: sourceThreadId, principal, idempotencyKey: key('source') },
+        )
+        const owner = yield* runtime.workerHost({ sourceThreadId, principal })
 
         const start = yield* withFacet(
           owner,
-          Subagent.start(research, { question: "coffee" }, { idempotencyKey: key("purchase") }),
-        );
+          Subagent.start(research, { question: 'coffee' }, { idempotencyKey: key('purchase') }),
+        )
 
         const running = yield* runtime
           .processThreadResolved(start.worker.threadId)
-          .pipe(Effect.forkChild);
+          .pipe(Effect.forkChild)
 
-        yield* Deferred.await(entered);
+        yield* Deferred.await(entered)
 
         const steering = yield* withFacet(
           owner,
           Subagent.followUp(
             research,
             start.worker,
-            { question: "latest email" },
-            { idempotencyKey: key("email") },
+            { question: 'latest email' },
+            { idempotencyKey: key('email') },
           ),
-        );
+        )
 
-        const before = yield* withFacet(owner, Subagent.inspect(research, start.worker));
+        const before = yield* withFacet(owner, Subagent.inspect(research, start.worker))
 
-        expect(before.acceptedInput?.messageId).toBe(steering.message.messageId);
-        expect(before.appliedInput?.messageId).toBe(start.delivery.message.messageId);
-        expect(before.run?.hostReceipt).toEqual(start.delivery.receipt);
-        expect(before.run?.outcome).toBeNull();
-        loseAck = true;
+        expect(before.acceptedInput?.messageId).toBe(steering.message.messageId)
+        expect(before.appliedInput?.messageId).toBe(start.delivery.message.messageId)
+        expect(before.run?.hostReceipt).toEqual(start.delivery.receipt)
+        expect(before.run?.outcome).toBeNull()
+        loseAck = true
         expect(
           yield* withFacet(
             owner,
-            Subagent.stop(research, start.worker, { idempotencyKey: key("stop") }),
+            Subagent.stop(research, start.worker, { idempotencyKey: key('stop') }),
           ).pipe(Effect.flip),
-        ).toMatchObject({ reason: "storage" });
-        loseAck = false;
-        yield* TestClock.adjust(10);
-        yield* Fiber.join(running);
+        ).toMatchObject({ reason: 'storage' })
+        loseAck = false
+        yield* TestClock.adjust(10)
+        yield* Fiber.join(running)
 
         const stopped = yield* withFacet(
           owner,
-          Subagent.stop(research, start.worker, { idempotencyKey: key("stop") }),
-        );
+          Subagent.stop(research, start.worker, { idempotencyKey: key('stop') }),
+        )
 
-        expect(stopped).toEqual({ worker: start.worker, idempotencyKey: key("stop") });
-        expect(finalized).toBe(1);
-        yield* Deferred.succeed(pay, undefined);
-        expect(payments).toBe(0);
+        expect(stopped).toEqual({ worker: start.worker, idempotencyKey: key('stop') })
+        expect(finalized).toBe(1)
+        yield* Deferred.succeed(pay, undefined)
+        expect(payments).toBe(0)
 
         const interruptedLog = yield* readTestThread(
           Context.get(first, ThreadReader),
           ThreadExportRequest.make({ threadId: start.worker.threadId }),
-        );
+        )
 
         expect(
           interruptedLog.records.flatMap(({ record }) =>
-            record.payload._tag === "ModelResponseRecorded" ? record.payload.toolOperations : [],
+            record.payload._tag === 'ModelResponseRecorded' ? record.payload.toolOperations : []
           ),
-        ).toHaveLength(1);
+        ).toHaveLength(1)
         expect(
-          interruptedLog.records.some(({ record }) => record.payload._tag === "ToolCallSettled"),
-        ).toBe(false);
-        yield* Scope.close(firstScope, Exit.void);
+          interruptedLog.records.some(({ record }) => record.payload._tag === 'ToolCallSettled'),
+        ).toBe(false)
+        yield* Scope.close(firstScope, Exit.void)
 
         const second = yield* Layer.build(
           NodeHost.NodeDurableHost.layerRegistered(registrations, options).pipe(
             Layer.provide([authority, handlers]),
           ),
-        );
+        )
 
-        const reopened = Context.get(second, DurableAgentRuntime);
-        const nextOwner = yield* reopened.workerHost({ sourceThreadId, principal });
+        const reopened = Context.get(second, DurableAgentRuntime)
+        const nextOwner = yield* reopened.workerHost({ sourceThreadId, principal })
 
         expect(
           yield* withFacet(
             nextOwner,
-            Subagent.stop(research, start.worker, { idempotencyKey: key("stop") }),
+            Subagent.stop(research, start.worker, { idempotencyKey: key('stop') }),
           ),
-        ).toEqual(stopped);
-        yield* reopened.runRecovery({ threadId: start.worker.threadId });
-        yield* reopened.processThreadResolved(start.worker.threadId);
-        const after = yield* withFacet(nextOwner, Subagent.inspect(research, start.worker));
+        ).toEqual(stopped)
+        yield* reopened.runRecovery({ threadId: start.worker.threadId })
+        yield* reopened.processThreadResolved(start.worker.threadId)
+        const after = yield* withFacet(nextOwner, Subagent.inspect(research, start.worker))
 
-        expect(after.state).toBe("stopped");
-        expect(after.run?.outcome).toBe("aborted");
-        expect(after.appliedInput?.messageId).toBe(start.delivery.message.messageId);
+        expect(after.state).toBe('stopped')
+        expect(after.run?.outcome).toBe('aborted')
+        expect(after.appliedInput?.messageId).toBe(start.delivery.message.messageId)
         expect(
           yield* withFacet(
             nextOwner,
             Subagent.followUp(
               research,
               start.worker,
-              { question: "automatic continuation" },
-              { idempotencyKey: key("continue") },
+              { question: 'automatic continuation' },
+              { idempotencyKey: key('continue') },
             ),
           ),
-        ).toMatchObject({ status: "refused", reason: "worker-stopped" });
-        expect(payments).toBe(0);
+        ).toMatchObject({ status: 'refused', reason: 'worker-stopped' })
+        expect(payments).toBe(0)
 
         const recoveredLog = yield* readTestThread(
           Context.get(second, ThreadReader),
           ThreadExportRequest.make({ threadId: start.worker.threadId }),
-        );
+        )
 
         expect(
-          recoveredLog.records.some(({ record }) => record.payload._tag === "ToolCallSettled"),
-        ).toBe(false);
+          recoveredLog.records.some(({ record }) => record.payload._tag === 'ToolCallSettled'),
+        ).toBe(false)
         expect(
           recoveredLog.records.some(
             ({ record }) =>
-              record.payload._tag === "WorkerInputCompleted" &&
+              record.payload._tag === 'WorkerInputCompleted' &&
               record.payload.messageId === start.delivery.message.messageId &&
               record.payload.effectsResolved === true,
           ),
-        ).toBe(false);
+        ).toBe(false)
 
         // The Main lane remains independently usable.
         const main = yield* reopened.submitRegistered(
           source,
-          { question: "hello" },
-          { threadId: sourceThreadId, principal, idempotencyKey: key("main-next") },
-        );
+          { question: 'hello' },
+          { threadId: sourceThreadId, principal, idempotencyKey: key('main-next') },
+        )
 
-        yield* reopened.processThreadResolved(sourceThreadId);
-        expect((yield* reopened.awaitSettlement(main)).outcome).toBe("completed");
+        yield* reopened.processThreadResolved(sourceThreadId)
+        expect((yield* reopened.awaitSettlement(main)).outcome).toBe('completed')
       }),
     ).pipe(Effect.provide(NodeFileSystem.layer)),
   15_000,
-);
+)
 
-for (const stopPoint of ["worker:after-stop-append", "worker:after-stop-seal"] as const)
+for (const stopPoint of ['worker:after-stop-append', 'worker:after-stop-seal'] as const) {
   it.effect(
     `stops a retained start racing admission and replays after ${stopPoint} and restart`,
     () =>
       Effect.scoped(
-        Effect.gen(function* () {
-          const fs = yield* FileSystem.FileSystem;
+        Effect.gen(function*() {
+          const fs = yield* FileSystem.FileSystem
 
           const directory = yield* fs.makeTempDirectoryScoped({
-            prefix: "unadmitted-worker-stop-",
-          });
+            prefix: 'unadmitted-worker-stop-',
+          })
 
-          const retained = yield* Deferred.make<void>();
-          const admit = yield* Deferred.make<void>();
-          let hold = true;
-          let fault = true;
-          let calls = 0;
+          const retained = yield* Deferred.make<void>()
+          const admit = yield* Deferred.make<void>()
+          let hold = true
+          let fault = true
+          let calls = 0
 
           const child = agent(
-            "unadmitted-worker",
+            'unadmitted-worker',
             Effect.sync(() => {
-              calls++;
+              calls++
             }),
-          );
+          )
 
-          const research = Subagent.make("research", {
+          const research = Subagent.make('research', {
             target: child.definition,
             policy: declaration.policy,
-          });
+          })
 
           const registrations = [
             { agent: source, definitions },
             { agent: child, definitions },
-          ];
+          ]
 
           const options = {
             filename: `${directory}/runtime.sqlite`,
-            deploymentId: "stop-v1",
-            producerId: "stop-node",
+            deploymentId: 'stop-v1',
+            producerId: 'stop-node',
             settlementPollInterval: 1,
-          };
+          }
 
-          const scope = yield* Scope.make();
+          const scope = yield* Scope.make()
 
-          yield* Effect.addFinalizer(() => Scope.close(scope, Exit.void));
+          yield* Effect.addFinalizer(() => Scope.close(scope, Exit.void))
 
           const first = yield* Layer.build(
             NodeHost.NodeDurableHost.layerRegistered(registrations, {
               ...options,
               runtimeFailpoint: (location) =>
-                hold && location === "worker:before-source-append"
+                hold && location === 'worker:before-source-append'
                   ? Deferred.succeed(retained, undefined).pipe(
-                      Effect.andThen(Deferred.await(admit)),
-                    )
+                    Effect.andThen(Deferred.await(admit)),
+                  )
                   : fault && location === stopPoint
-                    ? DurableRuntimeFailpointError.make({ location })
-                    : Effect.void,
+                  ? DurableRuntimeFailpointError.make({ location })
+                  : Effect.void,
             }).pipe(Layer.provide(authority)),
-          ).pipe(Scope.provide(scope));
+          ).pipe(Scope.provide(scope))
 
-          const runtime = Context.get(first, DurableAgentRuntime);
+          const runtime = Context.get(first, DurableAgentRuntime)
 
           yield* runtime.submitRegistered(
             source,
-            { question: "launch" },
-            { threadId: sourceThreadId, principal, idempotencyKey: key("source") },
-          );
-          const owner = yield* runtime.workerHost({ sourceThreadId, principal });
+            { question: 'launch' },
+            { threadId: sourceThreadId, principal, idempotencyKey: key('source') },
+          )
+          const owner = yield* runtime.workerHost({ sourceThreadId, principal })
 
           const launching = yield* withFacet(
             owner,
             Subagent.start(
               research,
-              { question: "never execute" },
-              { idempotencyKey: key("pending") },
+              { question: 'never execute' },
+              { idempotencyKey: key('pending') },
             ),
-          ).pipe(Effect.forkChild);
+          ).pipe(Effect.forkChild)
 
-          yield* Deferred.await(retained);
-          const inventory = yield* withFacet(owner, Subagent.list(research, { limit: 1 }));
+          yield* Deferred.await(retained)
+          const inventory = yield* withFacet(owner, Subagent.list(research, { limit: 1 }))
 
-          expect(inventory.items).toHaveLength(1);
-          const pending = inventory.items[0]!;
+          expect(inventory.items).toHaveLength(1)
+          const pending = inventory.items[0]!
 
-          expect(pending.acceptedInput).toBeNull();
-          expect(pending.appliedInput).toBeNull();
-          expect(pending.pendingDelivery).toMatchObject({ status: "pending", receipt: null });
+          expect(pending.acceptedInput).toBeNull()
+          expect(pending.appliedInput).toBeNull()
+          expect(pending.pendingDelivery).toMatchObject({ status: 'pending', receipt: null })
 
           expect(
             yield* withFacet(
               owner,
-              Subagent.stop(research, pending.worker, { idempotencyKey: key("stop") }),
+              Subagent.stop(research, pending.worker, { idempotencyKey: key('stop') }),
             ).pipe(Effect.flip),
-          ).toMatchObject({ reason: "storage" });
-          fault = false;
+          ).toMatchObject({ reason: 'storage' })
+          fault = false
 
           const stopped = yield* withFacet(
             owner,
-            Subagent.stop(research, pending.worker, { idempotencyKey: key("stop") }),
-          );
+            Subagent.stop(research, pending.worker, { idempotencyKey: key('stop') }),
+          )
 
-          hold = false;
-          yield* Deferred.succeed(admit, undefined);
+          hold = false
+          yield* Deferred.succeed(admit, undefined)
           expect((yield* Fiber.join(launching)).delivery).toMatchObject({
-            status: "refused",
-            reason: "worker-stopped",
-          });
+            status: 'refused',
+            reason: 'worker-stopped',
+          })
 
           const other = yield* withFacet(
             owner,
             Subagent.start(
               research,
-              { question: "other assignment" },
-              { idempotencyKey: key("other") },
+              { question: 'other assignment' },
+              { idempotencyKey: key('other') },
             ),
-          );
+          )
 
           expect(
             yield* withFacet(
               owner,
-              Subagent.stop(research, other.worker, { idempotencyKey: key("stop") }),
+              Subagent.stop(research, other.worker, { idempotencyKey: key('stop') }),
             ).pipe(Effect.flip),
-          ).toMatchObject({ reason: "idempotency-conflict" });
-          yield* Scope.close(scope, Exit.void);
+          ).toMatchObject({ reason: 'idempotency-conflict' })
+          yield* Scope.close(scope, Exit.void)
 
           const second = yield* Layer.build(
             NodeHost.NodeDurableHost.layerRegistered(registrations, options).pipe(
               Layer.provide(authority),
             ),
-          );
+          )
 
-          const reopened = Context.get(second, DurableAgentRuntime);
-          const next = yield* reopened.workerHost({ sourceThreadId, principal });
+          const reopened = Context.get(second, DurableAgentRuntime)
+          const next = yield* reopened.workerHost({ sourceThreadId, principal })
 
           expect(
             yield* withFacet(
               next,
-              Subagent.stop(research, pending.worker, { idempotencyKey: key("stop") }),
+              Subagent.stop(research, pending.worker, { idempotencyKey: key('stop') }),
             ),
-          ).toEqual(stopped);
+          ).toEqual(stopped)
           expect(
             (yield* withFacet(
               next,
               Subagent.start(
                 research,
-                { question: "never execute" },
-                { idempotencyKey: key("pending") },
+                { question: 'never execute' },
+                { idempotencyKey: key('pending') },
               ),
             )).delivery.status,
-          ).toBe("refused");
-          yield* reopened.processThreadResolved(pending.worker.threadId);
-          expect(calls).toBe(0);
+          ).toBe('refused')
+          yield* reopened.processThreadResolved(pending.worker.threadId)
+          expect(calls).toBe(0)
         }),
       ).pipe(Effect.provide(NodeFileSystem.layer)),
     15_000,
-  );
+  )
+}
 
 it.effect(
-  "drains approval-held worker corrections before the next model request and fences newer input",
+  'drains approval-held worker corrections before the next model request and fences newer input',
   () =>
     Effect.scoped(
-      Effect.gen(function* () {
-        const fs = yield* FileSystem.FileSystem;
-        const directory = yield* fs.makeTempDirectoryScoped({ prefix: "worker-approval-input-" });
-        const nextModel = yield* Deferred.make<void>();
-        const releaseModel = yield* Deferred.make<void>();
-        const prompts: Array<ReadonlyArray<string>> = [];
-        const consentCalls: Array<string> = [];
-        let dispatches = 0;
-        let latest: Effect.Effect<WorkerSummary> = Effect.die("Worker not started");
-        const corrections = ["clarification", "first email", "corrected email"];
-        const consentId = yield* Schema.decodeEffect(ToolCallId)("consent-1").pipe(Effect.orDie);
+      Effect.gen(function*() {
+        const fs = yield* FileSystem.FileSystem
+        const directory = yield* fs.makeTempDirectoryScoped({ prefix: 'worker-approval-input-' })
+        const nextModel = yield* Deferred.make<void>()
+        const releaseModel = yield* Deferred.make<void>()
+        const prompts: Array<ReadonlyArray<string>> = []
+        const consentCalls: Array<string> = []
+        let dispatches = 0
+        let latest: Effect.Effect<WorkerSummary> = Effect.die('Worker not started')
+        const corrections = ['clarification', 'first email', 'corrected email']
+        const consentId = yield* Schema.decodeEffect(ToolCallId)('consent-1').pipe(Effect.orDie)
 
         const toolkit = Toolkit.make(
-          Tool.make("consent", {
+          Tool.make('consent', {
             parameters: Schema.Struct({ purpose: Schema.String }),
             success: Schema.String,
             needsApproval: true,
           }),
-          Tool.make("navigate", { parameters: Schema.Struct({}), success: Schema.String }),
-        );
+          Tool.make('navigate', { parameters: Schema.Struct({}), success: Schema.String }),
+        )
 
         const child = Agent.withModel(
-          Agent.make("approval-input-worker", {
+          Agent.make('approval-input-worker', {
             input: target.definition.input,
             inputPrompt: ({ question }) => Effect.succeed(question),
             output: target.definition.output,
-            instructions: "Request consent, then navigate using the latest instructions.",
+            instructions: 'Request consent, then navigate using the latest instructions.',
             toolkit,
-            policy: { maxTurns: 5, maxToolCalls: 3, maxDuration: "1 minute", toolConcurrency: 1 },
+            policy: { maxTurns: 5, maxToolCalls: 3, maxDuration: '1 minute', toolConcurrency: 1 },
           }),
           Model.make(
-            "scripted",
-            "approval-input",
+            'scripted',
+            'approval-input',
             Layer.effect(
               LanguageModel.LanguageModel,
               LanguageModel.make({
                 generateText: () => Effect.succeed([]),
                 streamText: ({ prompt }) =>
                   Stream.unwrap(
-                    Effect.gen(function* () {
-                      const turn = prompts.length;
+                    Effect.gen(function*() {
+                      const turn = prompts.length
 
                       prompts.push(
                         prompt.content.flatMap((message) =>
-                          message.role === "user"
-                            ? message.content.flatMap((part) =>
-                                part.type === "text" ? [part.text] : [],
-                              )
-                            : [],
+                          message.role === 'user'
+                            ? message.content.flatMap((part) => part.type === 'text' ? [part.text] : [])
+                            : []
                         ),
-                      );
+                      )
                       if (turn === 1) {
-                        yield* Deferred.succeed(nextModel, undefined);
-                        yield* Deferred.await(releaseModel);
+                        yield* Deferred.succeed(nextModel, undefined)
+                        yield* Deferred.await(releaseModel)
                       }
 
                       return Stream.fromIterable<Response.StreamPartEncoded>(
                         turn < 2
                           ? [
-                              {
-                                type: "tool-call",
-                                id: turn === 0 ? consentId : "navigate-1",
-                                name: turn === 0 ? "consent" : "navigate",
-                                params: turn === 0 ? { purpose: "original request" } : {},
-                                providerExecuted: false,
-                              },
-                              {
-                                type: "finish",
-                                reason: "tool-calls",
-                                usage: { inputTokens: {}, outputTokens: {} },
-                              },
-                            ]
+                            {
+                              type: 'tool-call',
+                              id: turn === 0 ? consentId : 'navigate-1',
+                              name: turn === 0 ? 'consent' : 'navigate',
+                              params: turn === 0 ? { purpose: 'original request' } : {},
+                              providerExecuted: false,
+                            },
+                            {
+                              type: 'finish',
+                              reason: 'tool-calls',
+                              usage: { inputTokens: {}, outputTokens: {} },
+                            },
+                          ]
                           : parts,
-                      );
+                      )
                     }),
                   ),
               }),
             ),
           ),
-        );
+        )
 
         const handlers = toolkit.toLayer({
           consent: ({ purpose }) =>
             Effect.sync(() => {
-              consentCalls.push(purpose);
+              consentCalls.push(purpose)
 
-              return "approved";
+              return 'approved'
             }),
           navigate: () =>
             Effect.sync(() => {
-              dispatches++;
+              dispatches++
 
-              return "navigated";
+              return 'navigated'
             }),
-        });
+        })
 
-        const research = Subagent.make("research", {
+        const research = Subagent.make('research', {
           target: child.definition,
           policy: Subagent.SubagentPolicy.make({
             maxChildren: 5,
             maxConcurrency: 2,
             maxTurns: 3,
             maxToolCalls: 3,
-            maxDuration: "10 seconds",
+            maxDuration: '10 seconds',
           }),
-        });
+        })
 
         const context = yield* Layer.build(
           NodeHost.NodeDurableHost.layerRegistered(
@@ -1270,57 +1266,57 @@ it.effect(
             ],
             {
               filename: `${directory}/runtime.sqlite`,
-              deploymentId: "approval-input-v1",
-              producerId: "approval-input-node",
+              deploymentId: 'approval-input-v1',
+              producerId: 'approval-input-node',
               toolAuthorization: Layer.succeed(RunToolAuthorization, {
-                authorize: Effect.fnUntraced(function* ({ call }) {
-                  if (call.toolName === "consent") return { _tag: "allowed" as const };
-                  const snapshot = yield* latest;
+                authorize: Effect.fnUntraced(function*({ call }) {
+                  if (call.toolName === 'consent') return { _tag: 'allowed' as const }
+                  const snapshot = yield* latest
 
                   return snapshot.acceptedInput?.messageId === snapshot.appliedInput?.messageId
-                    ? { _tag: "allowed" as const }
-                    : { _tag: "denied" as const, reason: "Newer worker input is pending" };
+                    ? { _tag: 'allowed' as const }
+                    : { _tag: 'denied' as const, reason: 'Newer worker input is pending' }
                 }),
               }),
             },
           ).pipe(Layer.provide([authority, handlers])),
-        );
+        )
 
-        const runtime = Context.get(context, DurableAgentRuntime);
-        const history = Context.get(context, ThreadStore);
+        const runtime = Context.get(context, DurableAgentRuntime)
+        const history = Context.get(context, ThreadStore)
 
         yield* runtime.submitRegistered(
           source,
-          { question: "launch" },
-          { threadId: sourceThreadId, principal, idempotencyKey: key("source") },
-        );
-        yield* runtime.processThreadResolved(sourceThreadId);
-        const owner = yield* runtime.workerHost({ sourceThreadId, principal });
+          { question: 'launch' },
+          { threadId: sourceThreadId, principal, idempotencyKey: key('source') },
+        )
+        yield* runtime.processThreadResolved(sourceThreadId)
+        const owner = yield* runtime.workerHost({ sourceThreadId, principal })
 
         const start = yield* withFacet(
           owner,
-          Subagent.start(research, { question: "original" }, { idempotencyKey: key("first") }),
-        );
+          Subagent.start(research, { question: 'original' }, { idempotencyKey: key('first') }),
+        )
 
-        latest = withFacet(owner, Subagent.inspect(research, start.worker)).pipe(Effect.orDie);
-        const receipt = start.delivery.receipt;
+        latest = withFacet(owner, Subagent.inspect(research, start.worker)).pipe(Effect.orDie)
+        const receipt = start.delivery.receipt
 
-        if (receipt === null) return yield* Effect.die("Expected an admitted worker");
-        yield* runtime.processThreadResolved(start.worker.threadId);
-        expect(prompts).toEqual([["original"]]);
-        expect(consentCalls).toEqual([]);
+        if (receipt === null) return yield* Effect.die('Expected an admitted worker')
+        yield* runtime.processThreadResolved(start.worker.threadId)
+        expect(prompts).toEqual([['original']])
+        expect(consentCalls).toEqual([])
 
         const heldExecution = yield* history.readExecution({
           threadId: start.worker.threadId,
           runId: runIdForSubmission(receipt.submissionId),
-        });
+        })
 
-        expect(Option.isSome(heldExecution)).toBe(true);
+        expect(Option.isSome(heldExecution)).toBe(true)
         expect(
           Option.getOrThrow(heldExecution).operational.filter(
-            ({ payload }) => payload._tag === "RunStarted",
+            ({ payload }) => payload._tag === 'RunStarted',
           ),
-        ).toHaveLength(1);
+        ).toHaveLength(1)
 
         const followUp = (question: string) =>
           withFacet(
@@ -1331,96 +1327,96 @@ it.effect(
               { question },
               { idempotencyKey: key(question) },
             ),
-          );
+          )
 
-        const updates = yield* Effect.forEach(corrections, followUp);
-        const held = yield* latest;
+        const updates = yield* Effect.forEach(corrections, followUp)
+        const held = yield* latest
 
-        expect(updates.every((update) => update.receipt !== null)).toBe(true);
-        expect(held.acceptedInput?.messageId).toBe(updates[2]?.message.messageId);
-        expect(held.appliedInput?.messageId).toBe(start.delivery.message.messageId);
+        expect(updates.every((update) => update.receipt !== null)).toBe(true)
+        expect(held.acceptedInput?.messageId).toBe(updates[2]?.message.messageId)
+        expect(held.appliedInput?.messageId).toBe(start.delivery.message.messageId)
         yield* runtime.resolveApproval(
           ApprovalDecisionCommand.make({
             submissionId: receipt.submissionId,
             toolCallId: consentId,
-            decision: "approved",
-            resolver: "operator",
-            reason: "Approve the original consent request",
+            decision: 'approved',
+            resolver: 'operator',
+            reason: 'Approve the original consent request',
           }),
-        );
+        )
 
         const resumed = yield* runtime
           .processThreadResolved(start.worker.threadId)
-          .pipe(Effect.forkChild);
+          .pipe(Effect.forkChild)
 
-        yield* Deferred.await(nextModel);
-        expect(prompts).toEqual([["original"], ["original", ...corrections]]);
-        expect(consentCalls).toEqual(["original request"]);
-        const drained = yield* latest;
+        yield* Deferred.await(nextModel)
+        expect(prompts).toEqual([['original'], ['original', ...corrections]])
+        expect(consentCalls).toEqual(['original request'])
+        const drained = yield* latest
 
-        expect(drained.appliedInput?.messageId).toBe(updates[2]?.message.messageId);
-        expect(drained.run?.runId).toBe(held.run?.runId);
-        const newer = yield* followUp("arrived after drain");
-        const pending = yield* latest;
+        expect(drained.appliedInput?.messageId).toBe(updates[2]?.message.messageId)
+        expect(drained.run?.runId).toBe(held.run?.runId)
+        const newer = yield* followUp('arrived after drain')
+        const pending = yield* latest
 
-        expect(pending.acceptedInput?.messageId).toBe(newer.message.messageId);
-        expect(pending.appliedInput).toEqual(drained.appliedInput);
-        yield* Deferred.succeed(releaseModel, undefined);
-        yield* Fiber.join(resumed);
-        expect(dispatches).toBe(0);
-        expect(consentCalls).toEqual(["original request"]);
+        expect(pending.acceptedInput?.messageId).toBe(newer.message.messageId)
+        expect(pending.appliedInput).toEqual(drained.appliedInput)
+        yield* Deferred.succeed(releaseModel, undefined)
+        yield* Fiber.join(resumed)
+        expect(dispatches).toBe(0)
+        expect(consentCalls).toEqual(['original request'])
 
         const log = yield* readTestThread(
           history,
           ThreadExportRequest.make({ threadId: start.worker.threadId }),
-        );
+        )
 
-        const payloads = log.records.map(({ record }) => record.payload);
-        const inputs = payloads.filter((payload) => payload._tag === "UserInputRecorded");
+        const payloads = log.records.map(({ record }) => record.payload)
+        const inputs = payloads.filter((payload) => payload._tag === 'UserInputRecorded')
 
-        expect(inputs).toHaveLength(5);
+        expect(inputs).toHaveLength(5)
         expect(inputs.slice(0, 4).map((input) => input.submissionId)).toEqual([
           receipt.submissionId,
           ...updates.map((update) => update.receipt?.submissionId),
-        ]);
-        expect(inputs.slice(0, 4).every((input) => input.runId === held.run?.runId)).toBe(true);
-        expect(payloads.filter((payload) => payload._tag === "ToolApprovalRequested")).toHaveLength(
+        ])
+        expect(inputs.slice(0, 4).every((input) => input.runId === held.run?.runId)).toBe(true)
+        expect(payloads.filter((payload) => payload._tag === 'ToolApprovalRequested')).toHaveLength(
           1,
-        );
-        expect(payloads.filter((payload) => payload._tag === "ToolApprovalDecided")).toMatchObject([
-          { toolCallId: consentId, decision: "approved" },
-        ]);
+        )
+        expect(payloads.filter((payload) => payload._tag === 'ToolApprovalDecided')).toMatchObject([
+          { toolCallId: consentId, decision: 'approved' },
+        ])
         expect(
-          payloads.findIndex((payload) => payload._tag === "ToolApprovalDecided"),
+          payloads.findIndex((payload) => payload._tag === 'ToolApprovalDecided'),
         ).toBeLessThan(
           payloads.findIndex(
             (payload) =>
-              payload._tag === "UserInputRecorded" &&
+              payload._tag === 'UserInputRecorded' &&
               payload.submissionId === updates[0]?.receipt?.submissionId,
           ),
-        );
+        )
         expect(
           payloads.flatMap((payload) =>
-            payload._tag === "ModelResponseRecorded"
+            payload._tag === 'ModelResponseRecorded'
               ? payload.toolOperations.filter((operation) => operation.toolCallId === consentId)
-              : [],
+              : []
           ),
-        ).toHaveLength(1);
+        ).toHaveLength(1)
 
         const settledRuns = payloads
-          .filter((payload) => payload._tag === "SubmissionSettled")
-          .filter((payload) => payload.runId === runIdForSubmission(payload.submissionId));
+          .filter((payload) => payload._tag === 'SubmissionSettled')
+          .filter((payload) => payload.runId === runIdForSubmission(payload.submissionId))
 
-        expect(settledRuns).toHaveLength(2);
-        if (newer.receipt === null) return yield* Effect.die("Expected an admitted newer input");
+        expect(settledRuns).toHaveLength(2)
+        if (newer.receipt === null) return yield* Effect.die('Expected an admitted newer input')
         expect(settledRuns.map((settlement) => settlement.runId)).toEqual([
           runIdForSubmission(receipt.submissionId),
           runIdForSubmission(newer.receipt.submissionId),
-        ]);
+        ])
         expect(settledRuns).toMatchObject([
-          { outcome: "failed", result: { errorTag: "AgentToolAuthorizationDenied" } },
-          { outcome: "completed" },
-        ]);
+          { outcome: 'failed', result: { errorTag: 'AgentToolAuthorizationDenied' } },
+          { outcome: 'completed' },
+        ])
 
         // The operation retains its own unresolved obligation; settled interpreter state retires.
         expect(
@@ -1428,62 +1424,62 @@ it.effect(
             threadId: start.worker.threadId,
             runId: runIdForSubmission(receipt.submissionId),
           }),
-        ).toEqual(Option.none());
+        ).toEqual(Option.none())
         expect(
           yield* history.readExecution({
             threadId: start.worker.threadId,
             runId: runIdForSubmission(newer.receipt.submissionId),
           }),
-        ).toEqual(Option.none());
+        ).toEqual(Option.none())
 
         const sourceLog = yield* readTestThread(
           history,
           ThreadExportRequest.make({ threadId: sourceThreadId }),
-        );
+        )
 
         expect(
           sourceLog.records.flatMap(({ record }) =>
-            record.payload._tag === "UserInputRecorded" ? [record.payload.input] : [],
+            record.payload._tag === 'UserInputRecorded' ? [record.payload.input] : []
           ),
-        ).toEqual([{ question: "launch" }]);
+        ).toEqual([{ question: 'launch' }])
       }),
     ).pipe(Effect.provide(NodeFileSystem.layer)),
   15_000,
-);
+)
 
-it.effect.each(["same", "revoked"] as const)(
-  "retains the first public start capture when preparation races (%s)",
+it.effect.each(['same', 'revoked'] as const)(
+  'retains the first public start capture when preparation races (%s)',
   (replay) =>
     Effect.scoped(
-      Effect.gen(function* () {
-        const fs = yield* FileSystem.FileSystem;
-        const directory = yield* fs.makeTempDirectoryScoped({ prefix: "worker-capture-race-" });
-        const preparing = yield* Deferred.make<void>();
-        const release = yield* Deferred.make<void>();
-        let preparations = 0;
-        let denied = false;
+      Effect.gen(function*() {
+        const fs = yield* FileSystem.FileSystem
+        const directory = yield* fs.makeTempDirectoryScoped({ prefix: 'worker-capture-race-' })
+        const preparing = yield* Deferred.make<void>()
+        const release = yield* Deferred.make<void>()
+        let preparations = 0
+        let denied = false
 
         const currentAuthority = Layer.succeed(WorkerHostAuthorizer)({
           authorize: (request) =>
             !denied && request.principal === principal && request.sourceThreadId === sourceThreadId
               ? Effect.succeed(principal)
-              : WorkerError.make({ operation: request.operation, reason: "denied" }),
-        });
+              : WorkerError.make({ operation: request.operation, reason: 'denied' }),
+        })
 
-        const research = Subagent.make("research", {
+        const research = Subagent.make('research', {
           target: target.definition,
           policy: declaration.policy,
-          prepareInput: Effect.fnUntraced(function* ({ question }) {
-            const capture = ++preparations;
+          prepareInput: Effect.fnUntraced(function*({ question }) {
+            const capture = ++preparations
 
             if (capture === 1) {
-              yield* Deferred.succeed(preparing, undefined);
-              yield* Deferred.await(release);
+              yield* Deferred.succeed(preparing, undefined)
+              yield* Deferred.await(release)
             }
 
-            return { question: `${question}:${capture}` };
+            return { question: `${question}:${capture}` }
           }),
-        });
+        })
 
         const context = yield* Layer.build(
           NodeHost.NodeDurableHost.layerRegistered(
@@ -1493,436 +1489,434 @@ it.effect.each(["same", "revoked"] as const)(
             ],
             {
               filename: `${directory}/runtime.sqlite`,
-              deploymentId: "capture-v1",
-              producerId: "capture-node",
+              deploymentId: 'capture-v1',
+              producerId: 'capture-node',
             },
           ).pipe(Layer.provide([currentAuthority, budgetAuthority])),
-        );
+        )
 
-        const runtime = Context.get(context, DurableAgentRuntime);
+        const runtime = Context.get(context, DurableAgentRuntime)
 
         yield* runtime.submitRegistered(
           source,
-          { question: "launch" },
+          { question: 'launch' },
           {
             threadId: sourceThreadId,
             principal,
-            idempotencyKey: key("source"),
+            idempotencyKey: key('source'),
           },
-        );
-        const owner = yield* runtime.workerHost({ sourceThreadId, principal });
+        )
+        const owner = yield* runtime.workerHost({ sourceThreadId, principal })
 
         const start = (question: string) =>
           withFacet(
             owner,
-            Subagent.start(research, { question }, { idempotencyKey: key("same-command") }),
-          );
+            Subagent.start(research, { question }, { idempotencyKey: key('same-command') }),
+          )
 
-        const first = yield* start("brief").pipe(Effect.result, Effect.forkChild);
+        const first = yield* start('brief').pipe(Effect.result, Effect.forkChild)
 
-        yield* Deferred.await(preparing);
-        const winner = yield* start("brief");
+        yield* Deferred.await(preparing)
+        const winner = yield* start('brief')
 
-        denied = replay === "revoked";
-        yield* Deferred.succeed(release, undefined);
-        const loser = yield* Fiber.join(first);
+        denied = replay === 'revoked'
+        yield* Deferred.succeed(release, undefined)
+        const loser = yield* Fiber.join(first)
 
         expect(loser).toMatchObject(
-          replay !== "same"
+          replay !== 'same'
             ? {
-                _tag: "Failure",
-                failure: { reason: "denied" },
-              }
-            : { _tag: "Success", success: winner },
-        );
-        denied = false;
-        expect(yield* start("brief")).toEqual(winner);
-        expect(preparations).toBe(2);
+              _tag: 'Failure',
+              failure: { reason: 'denied' },
+            }
+            : { _tag: 'Success', success: winner },
+        )
+        denied = false
+        expect(yield* start('brief')).toEqual(winner)
+        expect(preparations).toBe(2)
 
         const retained = yield* Context.get(context, MessageDeliveryStore).list({
           ownerThreadId: sourceThreadId,
           limit: 10,
-        });
+        })
 
-        expect(retained.items).toHaveLength(1);
-        expect(retained.items[0]?.envelope.input).toEqual({ question: "brief:2" });
+        expect(retained.items).toHaveLength(1)
+        expect(retained.items[0]?.envelope.input).toEqual({ question: 'brief:2' })
         expect(retained.items[0]?.envelope.workerAdmission?.parameters).toEqual({
-          question: "brief",
-        });
+          question: 'brief',
+        })
       }),
     ).pipe(Effect.provide(NodeFileSystem.layer)),
   15_000,
-);
+)
 
 const assignment = (reply: () => Stream.Stream<Response.StreamPartEncoded>) =>
   Agent.withModel(
-    Agent.make("assignment-worker", {
+    Agent.make('assignment-worker', {
       input: target.definition.input,
       output: target.definition.output,
-      instructions: "Answer as JSON.",
+      instructions: 'Answer as JSON.',
       toolkit: Toolkit.empty,
       runDisposition: {
-        workerLifecycle: "assignment",
+        workerLifecycle: 'assignment',
         schema: AssignmentDisposition,
-        fromOutput: (output) => (output.answer === "question" ? "waiting" : "completed"),
+        fromOutput: (output) => (output.answer === 'question' ? 'waiting' : 'completed'),
       },
-      policy: { maxTurns: 8, maxToolCalls: 8, maxDuration: "1 minute" },
+      policy: { maxTurns: 8, maxToolCalls: 8, maxDuration: '1 minute' },
     }),
     Model.make(
-      "scripted",
-      "assignment",
+      'scripted',
+      'assignment',
       Layer.effect(
         LanguageModel.LanguageModel,
         LanguageModel.make({ generateText: () => Effect.succeed([]), streamText: reply }),
       ),
     ),
-  );
+  )
 
-for (const point of ["terminalize:after-canonical-append", "failed-with-queue"] as const) {
+for (const point of ['terminalize:after-canonical-append', 'failed-with-queue'] as const) {
   it.effect(
     `retains assignment settlement after ${point} and SQLite restart`,
     () =>
       Effect.scoped(
-        Effect.gen(function* () {
-          const fs = yield* FileSystem.FileSystem;
-          const directory = yield* fs.makeTempDirectoryScoped({ prefix: "assignment-restart-" });
-          let calls = 0;
+        Effect.gen(function*() {
+          const fs = yield* FileSystem.FileSystem
+          const directory = yield* fs.makeTempDirectoryScoped({ prefix: 'assignment-restart-' })
+          let calls = 0
 
           const child = assignment(() => {
-            calls++;
+            calls++
 
             return Stream.fromIterable(
-              point === "failed-with-queue"
-                ? parts.map((part) =>
-                    part.type === "text-delta" ? { ...part, delta: '{"answer":123}' } : part,
-                  )
+              point === 'failed-with-queue'
+                ? parts.map((part) => part.type === 'text-delta' ? { ...part, delta: '{"answer":123}' } : part)
                 : parts,
-            );
-          });
+            )
+          })
 
-          const research = Subagent.make("assignment", {
+          const research = Subagent.make('assignment', {
             target: child.definition,
             policy: declaration.policy,
-          });
+          })
 
           const registrations = [
             { agent: source, definitions },
             { agent: child, definitions },
-          ];
+          ]
 
           const options = {
             filename: `${directory}/runtime.sqlite`,
-            deploymentId: "assignment-v1",
-            producerId: "assignment-node",
-          };
+            deploymentId: 'assignment-v1',
+            producerId: 'assignment-node',
+          }
 
-          let armed = false;
-          const firstScope = yield* Scope.make();
+          let armed = false
+          const firstScope = yield* Scope.make()
 
-          yield* Effect.addFinalizer(() => Scope.close(firstScope, Exit.void));
+          yield* Effect.addFinalizer(() => Scope.close(firstScope, Exit.void))
 
           const first = yield* Layer.build(
             NodeHost.NodeDurableHost.layerRegistered(registrations, {
               ...options,
               runtimeFailpoint: (location) =>
                 armed &&
-                (location === point ||
-                  (point === "failed-with-queue" &&
-                    location === "terminalize:after-canonical-append"))
+                  (location === point ||
+                    (point === 'failed-with-queue' &&
+                      location === 'terminalize:after-canonical-append'))
                   ? DurableRuntimeFailpointError.make({ location })
                   : Effect.void,
             }).pipe(Layer.provide(authority)),
-          ).pipe(Scope.provide(firstScope));
+          ).pipe(Scope.provide(firstScope))
 
-          const runtime = Context.get(first, DurableAgentRuntime);
+          const runtime = Context.get(first, DurableAgentRuntime)
 
           yield* runtime.submitRegistered(
             source,
-            { question: "launch" },
-            { threadId: sourceThreadId, principal, idempotencyKey: key("source") },
-          );
-          const owner = yield* runtime.workerHost({ sourceThreadId, principal });
+            { question: 'launch' },
+            { threadId: sourceThreadId, principal, idempotencyKey: key('source') },
+          )
+          const owner = yield* runtime.workerHost({ sourceThreadId, principal })
 
           const startCommand = Subagent.start(
             research,
-            { question: "task" },
-            { idempotencyKey: key("task") },
-          );
+            { question: 'task' },
+            { idempotencyKey: key('task') },
+          )
 
-          const start = yield* withFacet(owner, startCommand);
+          const start = yield* withFacet(owner, startCommand)
 
-          armed = true;
+          armed = true
           expect(
             Exit.isFailure(
               yield* runtime.processThreadResolved(start.worker.threadId).pipe(Effect.exit),
             ),
-          ).toBe(true);
-          let queued: Receipt | undefined;
+          ).toBe(true)
+          let queued: Receipt | undefined
 
-          if (point === "failed-with-queue") {
-            queued =
-              (yield* withFacet(
-                owner,
-                Subagent.followUp(
-                  research,
-                  start.worker,
-                  { question: "queued" },
-                  { idempotencyKey: key("queued") },
-                ),
-              )).receipt ?? undefined;
-            expect(queued).toBeDefined();
+          if (point === 'failed-with-queue') {
+            queued = (yield* withFacet(
+              owner,
+              Subagent.followUp(
+                research,
+                start.worker,
+                { question: 'queued' },
+                { idempotencyKey: key('queued') },
+              ),
+            )).receipt ?? undefined
+            expect(queued).toBeDefined()
           }
-          yield* Scope.close(firstScope, Exit.void);
+          yield* Scope.close(firstScope, Exit.void)
 
           const second = yield* Layer.build(
             NodeHost.NodeDurableHost.layerRegistered(registrations, options).pipe(
               Layer.provide(authority),
             ),
-          );
+          )
 
-          const reopened = Context.get(second, DurableAgentRuntime);
-          const nextOwner = yield* reopened.workerHost({ sourceThreadId, principal });
+          const reopened = Context.get(second, DurableAgentRuntime)
+          const nextOwner = yield* reopened.workerHost({ sourceThreadId, principal })
 
-          yield* reopened.runRecovery({ threadId: start.worker.threadId });
-          yield* reopened.processThreadResolved(start.worker.threadId);
-          const summary = yield* withFacet(nextOwner, Subagent.inspect(research, start.worker));
+          yield* reopened.runRecovery({ threadId: start.worker.threadId })
+          yield* reopened.processThreadResolved(start.worker.threadId)
+          const summary = yield* withFacet(nextOwner, Subagent.inspect(research, start.worker))
 
-          expect(summary.state).toBe(point === "failed-with-queue" ? "failed" : "completed");
-          expect(summary.run?.outcome).toBe(point === "failed-with-queue" ? "failed" : "completed");
-          expect(calls).toBe(1);
+          expect(summary.state).toBe(point === 'failed-with-queue' ? 'failed' : 'completed')
+          expect(summary.run?.outcome).toBe(point === 'failed-with-queue' ? 'failed' : 'completed')
+          expect(calls).toBe(1)
           expect(yield* withFacet(nextOwner, startCommand)).toEqual({
             ...start,
             delivery: {
               ...start.delivery,
-              status: "processed",
+              status: 'processed',
               reason: null,
               settlement: {
                 settlementId: expect.any(String),
-                outcome: point === "failed-with-queue" ? "failed" : "completed",
+                outcome: point === 'failed-with-queue' ? 'failed' : 'completed',
               },
             },
-          });
+          })
           expect(
             yield* withFacet(
               nextOwner,
               Subagent.followUp(
                 research,
                 start.worker,
-                { question: "reopen" },
-                { idempotencyKey: key("new") },
+                { question: 'reopen' },
+                { idempotencyKey: key('new') },
               ),
             ),
-          ).toMatchObject({ status: "refused", reason: "worker-stopped" });
+          ).toMatchObject({ status: 'refused', reason: 'worker-stopped' })
           // Direct destination admission cannot bypass the seal either.
           expect(
             yield* reopened
               .submitRegistered(
                 child,
-                { question: "new start" },
-                { threadId: start.worker.threadId, principal, idempotencyKey: key("direct") },
+                { question: 'new start' },
+                { threadId: start.worker.threadId, principal, idempotencyKey: key('direct') },
               )
               .pipe(Effect.flip),
-          ).toMatchObject({ _tag: "AdmissionPolicyError", code: "worker-stopped" });
-          if (queued !== undefined)
+          ).toMatchObject({ _tag: 'AdmissionPolicyError', code: 'worker-stopped' })
+          if (queued !== undefined) {
             expect(yield* reopened.submissionStatus(queued)).toMatchObject({
-              _tag: "settled",
-              settlement: { outcome: "aborted" },
-            });
+              _tag: 'settled',
+              settlement: { outcome: 'aborted' },
+            })
+          }
 
           const original = yield* withFacet(
             nextOwner,
             Subagent.inspect(research, start.worker, start.delivery.receipt!),
-          );
+          )
 
           expect(original).toMatchObject({
-            outcome: point === "failed-with-queue" ? "failed" : "completed",
-          });
+            outcome: point === 'failed-with-queue' ? 'failed' : 'completed',
+          })
         }),
       ).pipe(Effect.provide(NodeFileSystem.layer)),
     15_000,
-  );
+  )
 }
 
 it.effect(
-  "keeps waiting assignments steerable and vetoes a completion when newer input is accepted before finalization",
+  'keeps waiting assignments steerable and vetoes a completion when newer input is accepted before finalization',
   () =>
     Effect.scoped(
-      Effect.gen(function* () {
-        const fs = yield* FileSystem.FileSystem;
-        const directory = yield* fs.makeTempDirectoryScoped({ prefix: "assignment-correction-" });
-        let calls = 0;
-        let finalized = 0;
+      Effect.gen(function*() {
+        const fs = yield* FileSystem.FileSystem
+        const directory = yield* fs.makeTempDirectoryScoped({ prefix: 'assignment-correction-' })
+        let calls = 0
+        let finalized = 0
 
         const child = assignment(() =>
           Stream.fromIterable(
             parts.map((part) =>
-              part.type === "text-delta" && calls === 0
+              part.type === 'text-delta' && calls === 0
                 ? { ...part, delta: '{"answer":"question"}' }
-                : part,
+                : part
             ),
           ).pipe(
             Stream.ensuring(
               Effect.sync(() => {
-                calls++;
-                finalized++;
+                calls++
+                finalized++
               }),
             ),
-          ),
-        );
+          )
+        )
 
-        const research = Subagent.make("assignment", {
+        const research = Subagent.make('assignment', {
           target: child.definition,
           policy: declaration.policy,
-        });
+        })
 
         const registrations = [
           { agent: source, definitions },
           { agent: child, definitions },
-        ];
+        ]
 
         const options = {
           filename: `${directory}/runtime.sqlite`,
-          deploymentId: "assignment-v1",
-          producerId: "assignment-node",
-        };
+          deploymentId: 'assignment-v1',
+          producerId: 'assignment-node',
+        }
 
-        let armed = false;
-        const firstScope = yield* Scope.make();
+        let armed = false
+        const firstScope = yield* Scope.make()
 
-        yield* Effect.addFinalizer(() => Scope.close(firstScope, Exit.void));
+        yield* Effect.addFinalizer(() => Scope.close(firstScope, Exit.void))
 
         const first = yield* Layer.build(
           NodeHost.NodeDurableHost.layerRegistered(registrations, {
             ...options,
             runtimeFailpoint: (location) =>
-              armed && location === "terminalize:before-publication"
+              armed && location === 'terminalize:before-publication'
                 ? DurableRuntimeFailpointError.make({ location })
                 : Effect.void,
           }).pipe(Layer.provide(authority)),
-        ).pipe(Scope.provide(firstScope));
+        ).pipe(Scope.provide(firstScope))
 
-        const runtime = Context.get(first, DurableAgentRuntime);
+        const runtime = Context.get(first, DurableAgentRuntime)
 
         yield* runtime.submitRegistered(
           source,
-          { question: "launch" },
-          { threadId: sourceThreadId, principal, idempotencyKey: key("source") },
-        );
-        const owner = yield* runtime.workerHost({ sourceThreadId, principal });
+          { question: 'launch' },
+          { threadId: sourceThreadId, principal, idempotencyKey: key('source') },
+        )
+        const owner = yield* runtime.workerHost({ sourceThreadId, principal })
 
         const start = yield* withFacet(
           owner,
-          Subagent.start(research, { question: "task" }, { idempotencyKey: key("task") }),
-        );
+          Subagent.start(research, { question: 'task' }, { idempotencyKey: key('task') }),
+        )
 
-        yield* runtime.processThreadResolved(start.worker.threadId);
+        yield* runtime.processThreadResolved(start.worker.threadId)
         expect(yield* withFacet(owner, Subagent.inspect(research, start.worker))).toMatchObject({
-          state: "idle",
-          run: { disposition: "waiting" },
-        });
+          state: 'idle',
+          run: { disposition: 'waiting' },
+        })
         yield* withFacet(
           owner,
           Subagent.followUp(
             research,
             start.worker,
-            { question: "answer" },
-            { idempotencyKey: key("answer") },
+            { question: 'answer' },
+            { idempotencyKey: key('answer') },
           ),
-        );
-        armed = true;
+        )
+        armed = true
         expect(
           Exit.isFailure(
             yield* runtime.processThreadResolved(start.worker.threadId).pipe(Effect.exit),
           ),
-        ).toBe(true);
+        ).toBe(true)
 
         const correction = yield* withFacet(
           owner,
           Subagent.followUp(
             research,
             start.worker,
-            { question: "correction" },
-            { idempotencyKey: key("correction") },
+            { question: 'correction' },
+            { idempotencyKey: key('correction') },
           ),
-        );
+        )
 
-        expect(correction.receipt).not.toBeNull();
-        yield* Scope.close(firstScope, Exit.void);
+        expect(correction.receipt).not.toBeNull()
+        yield* Scope.close(firstScope, Exit.void)
 
         const second = yield* Layer.build(
           NodeHost.NodeDurableHost.layerRegistered(registrations, options).pipe(
             Layer.provide(authority),
           ),
-        );
+        )
 
-        const reopened = Context.get(second, DurableAgentRuntime);
-        const nextOwner = yield* reopened.workerHost({ sourceThreadId, principal });
+        const reopened = Context.get(second, DurableAgentRuntime)
+        const nextOwner = yield* reopened.workerHost({ sourceThreadId, principal })
 
-        yield* reopened.runRecovery({ threadId: start.worker.threadId });
-        const pending = yield* withFacet(nextOwner, Subagent.inspect(research, start.worker));
+        yield* reopened.runRecovery({ threadId: start.worker.threadId })
+        const pending = yield* withFacet(nextOwner, Subagent.inspect(research, start.worker))
 
-        expect(pending.state).toBe("active");
-        expect(pending.acceptedInput?.messageId).toBe(correction.message.messageId);
-        expect(pending.appliedInput?.messageId).not.toBe(correction.message.messageId);
-        yield* reopened.processThreadResolved(start.worker.threadId);
+        expect(pending.state).toBe('active')
+        expect(pending.acceptedInput?.messageId).toBe(correction.message.messageId)
+        expect(pending.appliedInput?.messageId).not.toBe(correction.message.messageId)
+        yield* reopened.processThreadResolved(start.worker.threadId)
         expect(yield* withFacet(nextOwner, Subagent.inspect(research, start.worker))).toMatchObject(
-          { state: "completed", appliedInput: { messageId: correction.message.messageId } },
-        );
-        expect(calls).toBe(3);
-        expect(finalized).toBe(3);
+          { state: 'completed', appliedInput: { messageId: correction.message.messageId } },
+        )
+        expect(calls).toBe(3)
+        expect(finalized).toBe(3)
       }),
     ).pipe(Effect.provide(NodeFileSystem.layer)),
   15_000,
-);
+)
 
 // Regression: https://github.com/yielded-dev/agent/blob/c721a292205e06185f0136c3ed05dcf53e29ca66/packages/effect-agent/src/durable/internal/worker-host.ts#L2189-L2210
-for (const point of ["worker:after-source-append", "worker:after-origin-append"] as const) {
+for (const point of ['worker:after-source-append', 'worker:after-origin-append'] as const) {
   it.effect(
     `recovers a successor after interruption at ${point}`,
     () =>
       Effect.scoped(
-        Effect.gen(function* () {
-          const fs = yield* FileSystem.FileSystem;
-          const directory = yield* fs.makeTempDirectoryScoped({ prefix: "successor-restart-" });
-          let calls = 0;
+        Effect.gen(function*() {
+          const fs = yield* FileSystem.FileSystem
+          const directory = yield* fs.makeTempDirectoryScoped({ prefix: 'successor-restart-' })
+          let calls = 0
 
           const child = assignment(() => {
-            calls++;
+            calls++
 
-            return Stream.fromIterable(parts);
-          });
+            return Stream.fromIterable(parts)
+          })
 
-          const research = Subagent.make("assignment", {
+          const research = Subagent.make('assignment', {
             target: child.definition,
             policy: declaration.policy,
-          });
+          })
 
           const registrations = [
             { agent: source, definitions },
             { agent: child, definitions },
-          ];
+          ]
 
           const options = {
             filename: `${directory}/runtime.sqlite`,
-            deploymentId: "successor-restart",
-            producerId: "successor-node",
-          };
+            deploymentId: 'successor-restart',
+            producerId: 'successor-node',
+          }
 
-          const entered = yield* Deferred.make<void>();
-          let armed = false;
-          let finalized = 0;
-          let revoked = false;
+          const entered = yield* Deferred.make<void>()
+          let armed = false
+          let finalized = 0
+          let revoked = false
 
           const guarded = Layer.succeed(WorkerHostAuthorizer)({
             authorize: (request) =>
-              revoked && request.operation === "start"
-                ? WorkerError.make({ operation: request.operation, reason: "denied" })
+              revoked && request.operation === 'start'
+                ? WorkerError.make({ operation: request.operation, reason: 'denied' })
                 : Effect.succeed(principal),
-          });
+          })
 
-          const firstScope = yield* Scope.make();
+          const firstScope = yield* Scope.make()
 
-          yield* Effect.addFinalizer(() => Scope.close(firstScope, Exit.void));
+          yield* Effect.addFinalizer(() => Scope.close(firstScope, Exit.void))
 
           const first = yield* Layer.build(
             NodeHost.NodeDurableHost.layerRegistered(registrations, {
@@ -1930,102 +1924,102 @@ for (const point of ["worker:after-source-append", "worker:after-origin-append"]
               runtimeFailpoint: (location) =>
                 armed && location === point
                   ? Deferred.succeed(entered, undefined).pipe(
-                      Effect.andThen(Effect.never),
-                      Effect.ensuring(
-                        Effect.sync(() => {
-                          finalized++;
-                        }),
-                      ),
-                    )
+                    Effect.andThen(Effect.never),
+                    Effect.ensuring(
+                      Effect.sync(() => {
+                        finalized++
+                      }),
+                    ),
+                  )
                   : Effect.void,
             }).pipe(Layer.provide([guarded, budgetAuthority])),
-          ).pipe(Scope.provide(firstScope));
+          ).pipe(Scope.provide(firstScope))
 
-          const runtime = Context.get(first, DurableAgentRuntime);
+          const runtime = Context.get(first, DurableAgentRuntime)
 
           yield* runtime.submitRegistered(
             source,
-            { question: "launch" },
-            { threadId: sourceThreadId, principal, idempotencyKey: key("source") },
-          );
-          const owner = yield* runtime.workerHost({ sourceThreadId, principal });
+            { question: 'launch' },
+            { threadId: sourceThreadId, principal, idempotencyKey: key('source') },
+          )
+          const owner = yield* runtime.workerHost({ sourceThreadId, principal })
 
           const original = yield* withFacet(
             owner,
-            Subagent.start(research, { question: "original" }, { idempotencyKey: key("original") }),
-          );
+            Subagent.start(research, { question: 'original' }, { idempotencyKey: key('original') }),
+          )
 
-          yield* runtime.processThreadResolved(original.worker.threadId);
-          const sealed = yield* withFacet(owner, Subagent.inspect(research, original.worker));
+          yield* runtime.processThreadResolved(original.worker.threadId)
+          const sealed = yield* withFacet(owner, Subagent.inspect(research, original.worker))
 
-          expect(sealed.state).toBe("completed");
+          expect(sealed.state).toBe('completed')
 
           const command = Subagent.start(
             research,
-            { question: "correction" },
-            { idempotencyKey: key("successor"), continuationOf: original.worker },
-          );
+            { question: 'correction' },
+            { idempotencyKey: key('successor'), continuationOf: original.worker },
+          )
 
-          armed = true;
-          const interrupted = yield* withFacet(owner, command).pipe(Effect.forkChild);
+          armed = true
+          const interrupted = yield* withFacet(owner, command).pipe(Effect.forkChild)
 
-          yield* Deferred.await(entered);
-          yield* Fiber.interrupt(interrupted);
-          expect(Exit.hasInterrupts(yield* Fiber.await(interrupted))).toBe(true);
-          expect(finalized).toBe(1);
-          expect(calls).toBe(1);
+          yield* Deferred.await(entered)
+          yield* Fiber.interrupt(interrupted)
+          expect(Exit.hasInterrupts(yield* Fiber.await(interrupted))).toBe(true)
+          expect(finalized).toBe(1)
+          expect(calls).toBe(1)
 
           const retained = yield* Context.get(first, MessageDeliveryStore).list({
             ownerThreadId: sourceThreadId,
             limit: 10,
-          });
+          })
 
-          expect(retained.items).toHaveLength(2);
+          expect(retained.items).toHaveLength(2)
 
           const saved = retained.items.find(
             (row) => row.envelope.workerAdmission?.origin.continuationOf !== undefined,
-          );
+          )
 
           expect(saved?.envelope.workerAdmission?.origin.continuationOf?.receipt).toEqual(
             sealed.run?.hostReceipt,
-          );
-          yield* Scope.close(firstScope, Exit.void);
+          )
+          yield* Scope.close(firstScope, Exit.void)
 
           const second = yield* Layer.build(
             NodeHost.NodeDurableHost.layerRegistered(registrations, options).pipe(
               Layer.provide([guarded, budgetAuthority]),
             ),
-          );
+          )
 
-          const reopened = Context.get(second, DurableAgentRuntime);
-          const next = yield* reopened.workerHost({ sourceThreadId, principal });
+          const reopened = Context.get(second, DurableAgentRuntime)
+          const next = yield* reopened.workerHost({ sourceThreadId, principal })
 
-          yield* TestClock.adjust("31 seconds");
-          revoked = true;
+          yield* TestClock.adjust('31 seconds')
+          revoked = true
           expect(yield* withFacet(next, command).pipe(Effect.flip)).toMatchObject({
-            reason: "denied",
-          });
-          revoked = false;
-          const successor = yield* withFacet(next, command);
+            reason: 'denied',
+          })
+          revoked = false
+          const successor = yield* withFacet(next, command)
 
-          expect(successor.worker).toEqual(saved?.envelope.workerAdmission?.origin.worker);
-          expect(successor.delivery.status).toBe("parked");
+          expect(successor.worker).toEqual(saved?.envelope.workerAdmission?.origin.worker)
+          expect(successor.delivery.status).toBe('parked')
           expect(
             (yield* Context.get(second, MessageDeliveryStore).list({
               ownerThreadId: sourceThreadId,
               limit: 10,
             })).items,
-          ).toHaveLength(2);
-          yield* reopened.processThreadResolved(successor.worker.threadId);
-          expect(calls).toBe(2);
+          ).toHaveLength(2)
+          yield* reopened.processThreadResolved(successor.worker.threadId)
+          expect(calls).toBe(2)
           expect((yield* withFacet(next, Subagent.inspect(research, successor.worker))).state).toBe(
-            "completed",
-          );
+            'completed',
+          )
           expect(yield* withFacet(next, Subagent.inspect(research, original.worker))).toEqual(
             sealed,
-          );
+          )
         }),
       ).pipe(Effect.provide(NodeFileSystem.layer)),
     15_000,
-  );
+  )
 }

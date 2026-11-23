@@ -3,9 +3,9 @@ export {
   CLEARED_TOOL_RESULT,
   COMPACTION_SUMMARY_PREFIX,
   CONTEXT_ROLLOVER_PREFIX,
+  type ContextCompactionState,
   contextWindowId,
   contextWindowMessage,
   estimateMessageTokens,
   estimatePromptTokens,
-  type ContextCompactionState,
-} from "./internal/compaction.ts";
+} from './internal/compaction.ts'

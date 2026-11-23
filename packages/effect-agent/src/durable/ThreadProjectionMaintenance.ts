@@ -1,15 +1,15 @@
-import * as Clock from "effect/Clock";
-import * as Context from "effect/Context";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
+import * as Clock from 'effect/Clock'
+import * as Context from 'effect/Context'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
+import * as Option from 'effect/Option'
+import * as Schema from 'effect/Schema'
 
-import type { AppendResult, AppendRequest } from "./ThreadStore.ts";
+import type { AppendRequest, AppendResult } from './ThreadStore.ts'
 
 /** A derived projection failed; the canonical source remains authoritative. */
 export class ThreadProjectionError extends Schema.TaggedError<ThreadProjectionError>()(
-  "ThreadProjectionError",
+  'ThreadProjectionError',
   {
     operation: Schema.String,
     message: Schema.String,
@@ -38,35 +38,35 @@ export interface ThreadProjectionMaintenanceService {
   readonly applyCommitted: (
     request: AppendRequest,
     result: AppendResult,
-  ) => Effect.Effect<void, ThreadProjectionError>;
+  ) => Effect.Effect<void, ThreadProjectionError>
   /** One bounded, restartable backfill batch. Never drain until caught up in a loop. */
-  readonly drain: Effect.Effect<void, ThreadProjectionError>;
+  readonly drain: Effect.Effect<void, ThreadProjectionError>
   /**
    * Bounded local inspection. None means caught up; a pending epoch-millisecond deadline
    * survives reconstruction and repeated reads must not postpone it. Projection backlog
    * does not gate canonical execution or host approval publication.
    */
-  readonly pendingDeadline: Effect.Effect<Option.Option<number>, ThreadProjectionError>;
+  readonly pendingDeadline: Effect.Effect<Option.Option<number>, ThreadProjectionError>
 }
 
 export class ThreadProjectionMaintenance extends Context.Service<
   ThreadProjectionMaintenance,
   ThreadProjectionMaintenanceService
->()("@effect-agent/thread/ThreadProjectionMaintenance") {
+>()('@effect-agent/thread/ThreadProjectionMaintenance') {
   static readonly layer = Layer.succeed(this)({
     applyCommitted: () => Effect.void,
     drain: Effect.void,
     pendingDeadline: Effect.succeedNone,
-  });
+  })
 }
 
 /** Run at most one due backfill batch, preserving typed failures, defects and interruption. */
-export const drainDue = Effect.gen(function* () {
-  const projection = yield* ThreadProjectionMaintenance;
-  const deadline = yield* projection.pendingDeadline;
+export const drainDue = Effect.gen(function*() {
+  const projection = yield* ThreadProjectionMaintenance
+  const deadline = yield* projection.pendingDeadline
 
-  if (Option.isNone(deadline) || deadline.value > (yield* Clock.currentTimeMillis)) return false;
-  yield* projection.drain;
+  if (Option.isNone(deadline) || deadline.value > (yield* Clock.currentTimeMillis)) return false
+  yield* projection.drain
 
-  return true;
-});
+  return true
+})

@@ -4,7 +4,7 @@ Use these terms consistently in code, telemetry, and user documentation.
 
 ## Product concepts
 
-**Agent Definition**  
+**Agent Definition**\
 An immutable, schema-defined description of an agent: identity, input, optional update, and output schemas,
 instructions, optional model-visible input projection, toolkit, and execution policy. It contains no mutable thread state, owns no
 live resources. Execution requires native model services supplied through Effect Layers.
@@ -25,11 +25,11 @@ own replay contracts. Admission, lineage, and delivery digests remain immutable 
 An optional `attemptLayer` builds invocation-specific services for one fenced Attempt, rather than
 capturing caller authority or live resources in the runtime's long-lived Scope.
 
-**Agent Runtime**  
+**Agent Runtime**\
 The Effect module that interprets an Agent Definition or Binding. The ephemeral runtime executes immediately;
 the durable runtime admits a Submission and coordinates Attempts until Settlement.
 
-**Run**  
+**Run**\
 One logical request to execute an Agent Binding against a Thread. In ephemeral mode the Run
 lives for one Scope. In durable mode the logical Run may span multiple process Attempts.
 
@@ -38,11 +38,11 @@ An optional application-defined value selected from decoded Agent output and val
 Definition-owned Effect Schema. It is durable only for an ordinary completed Run and is never
 inferred from prose, Tool output, or successful side effects.
 
-**Attempt**  
+**Attempt**\
 One ownership period in which a worker tries to advance a durable Submission. An interruption,
 lost ownership, eviction, or redeploy may end an Attempt without ending the Run.
 
-**Turn**  
+**Turn**\
 One model request and its assistant response, optionally followed by one tool-call batch. A Turn
 begins only after the preceding canonical state is committed.
 
@@ -54,11 +54,11 @@ adds an append-only journal from which the canonical transcript is projected.
 A Thread's lifetime is unbounded; execution slices, live work, and host storage capacity have
 separate bounds.
 
-**Submission**  
+**Submission**\
 An immutable input accepted for durable processing in one Thread lane. Acknowledged
 Submissions create an accepted-work obligation.
 
-**Receipt**  
+**Receipt**\
 The durable identity returned after ledger admission, Thread materialization, durable
 attachment storage, and readiness are committed. It is an identifier, not an authorization
 capability.
@@ -100,7 +100,7 @@ routing work are durably retained. Its acknowledgement is not a Submission Recei
 A durable obligation for one Subscription and Accepted Event. Selection pins the registration,
 event, source version, destination, and admission identity before fallible input preparation.
 
-**Settlement**  
+**Settlement**\
 The single durable terminal outcome owed to an accepted Submission: `completed`, `failed`, or
 `aborted`. A failed Settlement always carries a bounded failure summary and may retain private
 structured causal diagnostics and execution correlation;
@@ -111,12 +111,12 @@ aggregate model-usage and estimated-cost summary; joined Submissions do not dupl
 
 ## Agent capabilities
 
-**Tool**  
+**Tool**\
 An Effect AI model-visible operation defined by Effect Schemas for parameters, success, and typed
 failure. A Tool definition is pure. Application Handlers are provided through an Effect AI Toolkit
 Layer; provider-executed Tools run remotely and their outcomes belong to the model response.
 
-**Toolkit**  
+**Toolkit**\
 An Effect AI collection of Tools plus the handler requirements needed to execute them.
 
 **Tool visibility**
@@ -137,11 +137,11 @@ A readonly Tool that searches the currently visible catalogue and returns bounde
 Successful native selections are recorded separately from result text and restored through
 durable recovery. Discovery does not grant new authority.
 
-**Tool Call**  
+**Tool Call**\
 A model-declared request to execute one Tool. Its stable Tool Call ID scopes results, progress,
 durable steps, approvals, and reconciliation.
 
-**Tool Batch**  
+**Tool Batch**\
 All Tool Calls declared by one assistant message. The default scheduler executes the batch with a
 finite Effect Semaphore. Canonical results commit in declaration order and the batch becomes
 model-visible atomically.
@@ -151,15 +151,15 @@ model-visible atomically.
 How an application Tool is called: `model` for a model-declared call, or `programmatic` for an
 inner broker invocation. This is independent of execution class and of whether its Handler started.
 
-**Steering**  
+**Steering**\
 Input delivered to an active Run after a complete assistant response and Tool Batch, before the
 next model request. Steering never mutates in-flight work. An Agent may opt into cancelling a
 disposable model call on joined input, then consume that input before its replacement call.
 
-**Follow-up**  
+**Follow-up**\
 Input delivered only when the Agent would otherwise stop.
 
-**Joining / Joined**  
+**Joining / Joined**\
 Durable states for queued input claimed by an active Run. `joining` precedes canonical input
 append; `joined` follows it and settles with the host Run.
 
@@ -186,11 +186,11 @@ later compaction. Another Run cannot replace them.
 A retained canonical preparation whose destination acceptance or acknowledgement is still owed.
 Its identity remains discoverable before the first Run continuation and after Run settlement.
 
-**Ordinary Tool**  
+**Ordinary Tool**\
 A Tool without durable replay semantics. If ownership is lost after its effect may have happened
 but before an outcome is recorded, recovery records an unknown outcome and does not replay it.
 
-**Durable Tool**  
+**Durable Tool**\
 An Effect AI Tool whose handler requires the framework's Durable Step service and divides external
 effects into named Steps. The handler may be re-entered after interruption.
 
@@ -203,11 +203,11 @@ in its batch. Provider-executed calls may accompany it only with recorded termin
 still count toward Run budgets. Ordinary authorization and durability rules apply; the designation
 does not guarantee exactly-once effects.
 
-**Step**  
+**Step**\
 A deterministically named sub-operation within one Durable Tool Call. Its result is
 exactly-once-recorded but its external side effect is at-least-once-executed.
 
-**Subagent**  
+**Subagent**\
 An Agent Definition invoked by another agent through a declared delegation capability. A durable
 Subagent owns a child Thread with explicit provenance and either attached or background lifetime.
 
@@ -266,7 +266,7 @@ An external Model Context Protocol server reached through Effect's native MCP cl
 Applications select remote calls and expose them through ordinary Effect AI Tools, with the
 same approval, authorization, and uncertainty rules as local Tools.
 
-**Sandbox**  
+**Sandbox**\
 A scoped capability set for filesystem, process, and optional network operations. It is not a
 generic bag of provider SDK methods.
 
@@ -300,13 +300,13 @@ Attempts borrow scoped local attachments with current authority; disconnecting a
 preserves the remote session. The owner closes it at completion or expiry. Provider state remains
 ephemeral: a retained reference does not recreate an expired browser or make actions replayable.
 
-**Approval**  
+**Approval**\
 A policy decision that suspends or denies a proposed Tool Call before its Handler starts. Approval
 is not inferred from model prose.
 
 ## Model concepts
 
-**Language Model**  
+**Language Model**\
 Effect AI's `LanguageModel` service. It accepts Effect AI Prompts and produces typed Effects or
 Response streams.
 
@@ -324,18 +324,18 @@ A reusable collection of independent Decisions with an input Schema, created by 
 is the shared model-visible state. A Definition selects no provider and owns no routing policy or
 execution state; the Decision Model evaluates it.
 
-**Model**  
+**Model**\
 Effect AI's Model value: a Layer that provides a Language Model plus provider and model identity.
 
-**Response Part**  
+**Response Part**\
 An Effect AI streaming Response value such as text, returned reasoning, Tool Call parameters,
 usage, or completion. Provider SDK chunks remain inside the Effect AI provider implementation.
 
-**Stop Policy**  
+**Stop Policy**\
 The bounded rules governing maximum turns, tool calls, duration, usage, cost, repeated failures,
 and acceptable final output.
 
-**Compaction**  
+**Compaction**\
 A reduction of the model-visible prompt by pruning, summarizing, or starting a fresh context window without erasing
 canonical evidence. Physical record deletion is a separate retention operation. The engine
 compacts natively at the pre-Turn seam when the estimated next context exceeds the Context Token
@@ -358,7 +358,7 @@ view. Its canonical boundary survives recovery. It does not reset the Run or its
 `ContextTools` exposes model-directed rollover, estimated capacity, and retained history lookup;
 `MemoryNotes` binds optional working notes to an application-owned Memory document.
 
-**Context Token Limit**  
+**Context Token Limit**\
 The optional `AgentPolicy.contextTokenLimit` bound on one model call's live context, supplied by
 the host from its model choice. Distinct from `tokenBudget` (the cumulative runaway stop) and
 `costBudgetMicrousd` (spend).
@@ -368,18 +368,18 @@ the host from its model choice. Distinct from `tokenBudget` (the cumulative runa
 The `AgentPolicy.completionReserveTokens` capacity withheld from research when a cumulative token
 budget is configured, so the Run can enter finalization before delivery becomes unaffordable.
 
-**Tool Result Bounds**  
+**Tool Result Bounds**\
 The `AgentPolicy.toolResultBounds` byte bound (default 50 KiB) applied once to every application
 Tool result's encoded form at the settle seam. An oversized result becomes the canonical
 `TruncatedToolResult` envelope preserving head, tail, and original size, so records and prompts
 carry the same bounded value.
 
-**Run Status Message**  
+**Run Status Message**\
 A derived message appended to each outgoing model request (policy `runStatus: "appended"`)
 showing Turns, Tool Calls, tokens against budget, last-call context, and elapsed time. It is
 projection-time output, never persisted as canonical history.
 
-**Token Soft Landing**  
+**Token Soft Landing**\
 With `onExhaustion: "final-answer"`, token exhaustion allows at most one constrained finalization
 opportunity. A completed result carries `finishReason: "budget-exhausted"` and the `exhausted`
 dimension marker. A designated Completion Tool remains required.
@@ -430,7 +430,7 @@ carry source revisions and byte ranges; authoritative sources supply current acc
 Index contents are separate from committed-activity extraction progress and make no global corpus
 freshness claim.
 
-**Canonical Record**  
+**Canonical Record**\
 An immutable, schema-versioned fact in the Thread Log. Canonical Records are the only
 recovery truth.
 
@@ -443,11 +443,11 @@ submission ownership. The application owns extraction, destination idempotency, 
 **Thread Log**
 The ordered, append-only sequence of Canonical Records for one Thread.
 
-**Submission Ledger**  
+**Submission Ledger**\
 Operational durable state for admission, FIFO readiness, abort intent and settlement obligations.
 A process-local generation owns execution; no claims, leases or Attempt history are persisted.
 
-**Canonical Batch**  
+**Canonical Batch**\
 An atomic append of one or more Canonical Records. Readers never observe part of a batch.
 
 **Archive Range**
@@ -456,7 +456,7 @@ A bounded sequence of complete Canonical Batches with verified sequence boundari
 storage locator. Ranges share one Thread order and local owner. Archiving changes physical placement,
 not model context, grants, Run budgets, or unresolved obligations.
 
-**Projection**  
+**Projection**\
 A rebuildable read model derived from Canonical Records, such as a transcript or client messages.
 Applications own their query projections.
 
@@ -464,30 +464,30 @@ Applications own their query projections.
 A process-local capability for one scoped Attempt. Closing it permanently rejects its late
 results. The host must route a Thread to one owner process; authority is never exported or restored.
 
-**Unknown Outcome**  
+**Unknown Outcome**\
 A durable record that an external Tool effect may have occurred but was not confirmed
 canonically. It is neither success nor ordinary failure. Its Submission remains parked with an
 open settlement obligation while later input can run. Uncertain effects can also outlive an aborted
 or otherwise terminal Submission; only canonical factual closure retires that uncertainty.
 
-**Accepted-work Contract**  
+**Accepted-work Contract**\
 Once a Submission is durably acknowledged, the runtime owes it exactly one durable Settlement.
 
 ## Architectural vocabulary
 
-**Module**  
+**Module**\
 Anything with an interface and an implementation: package, class, function, Layer, or aggregate.
 
-**Interface**  
+**Interface**\
 Everything a caller must know: types, invariants, ordering, failure modes, resource ownership, and
 performance characteristics.
 
-**Seam**  
+**Seam**\
 A location where behavior can be changed without editing the caller.
 
-**Adapter**  
+**Adapter**\
 A concrete implementation at a Seam.
 
-**Core**  
+**Core**\
 The inward domain, authoring, and engine modules that contain no provider, database, transport, or
 platform implementation.

@@ -1,29 +1,29 @@
-import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
-import { expect, layer } from "@effect/vitest";
-import { NodeDurableHost } from "@yielded/agent-platform-node/node-durable-host";
-import * as Agent from "@yielded/agent/agent";
-import { DurableAgentRuntime } from "@yielded/agent/durable-agent-runtime";
-import { runIdForSubmission } from "@yielded/agent/run-journal";
-import { ThreadStore } from "@yielded/agent/thread-store";
-import * as LanguageModel from "effect/ai/LanguageModel";
-import * as Model from "effect/ai/Model";
-import type * as Prompt from "effect/ai/Prompt";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
-import * as Stream from "effect/Stream";
+import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
+import { expect, layer } from '@effect/vitest'
+import { NodeDurableHost } from '@yielded/agent-platform-node/node-durable-host'
+import * as Agent from '@yielded/agent/agent'
+import { DurableAgentRuntime } from '@yielded/agent/durable-agent-runtime'
+import { runIdForSubmission } from '@yielded/agent/run-journal'
+import { ThreadStore } from '@yielded/agent/thread-store'
+import * as LanguageModel from 'effect/ai/LanguageModel'
+import * as Model from 'effect/ai/Model'
+import type * as Prompt from 'effect/ai/Prompt'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
+import * as Option from 'effect/Option'
+import * as Stream from 'effect/Stream'
 
 import {
   CHECKPOINT_HANDOFF,
   CHECKPOINT_INSTRUCTIONS,
-  CRASH_QUESTION,
   checkpointContextLayer,
   checkpointDefinition,
   checkpointParts,
+  CRASH_QUESTION,
   decodeThreadId,
   makeCheckpointToolLayer,
   supplierCounts,
-} from "./fixtures.ts";
+} from './fixtures.ts'
 import {
   assertConvergence,
   expectKilled,
@@ -33,116 +33,117 @@ import {
   withCrashSite,
   withHost,
   withRuntime,
-} from "./harness.ts";
+} from './harness.ts'
 
 const crashPoints = [
   {
-    name: "before canonical compaction",
-    killAt: "compaction:before-canonical-append",
+    name: 'before canonical compaction',
+    killAt: 'compaction:before-canonical-append',
     present: false,
   },
   {
-    name: "after canonical compaction",
-    killAt: "compaction:after-canonical-append",
+    name: 'after canonical compaction',
+    killAt: 'compaction:after-canonical-append',
     present: true,
   },
-] as const;
+] as const
 
 // Each child exits without finalizers after committing the native compaction. Reopening the
 // same SQLite file must use the exact checkpoint, canonical input, and saved context at either boundary.
 layer(NodeFileSystem.layer, { excludeTestServices: true })(
-  "Run continuation process loss",
+  'Run continuation process loss',
   (it) => {
     it.effect.each(crashPoints)(
-      "recovers after $name",
+      'recovers after $name',
       (point) =>
         withCrashSite((site) =>
-          Effect.gen(function* () {
-            const thread = "checkpoint-crash";
-            const key = "checkpoint-crash";
-            const threadId = decodeThreadId(thread);
+          Effect.gen(function*() {
+            const thread = 'checkpoint-crash'
+            const key = 'checkpoint-crash'
+            const threadId = decodeThreadId(thread)
 
             const child = yield* runWorkerToExit({
               db: site.db,
-              scenario: "run-checkpoint",
+              scenario: 'run-checkpoint',
               thread,
               key,
               supplierDir: site.supplier,
               ...point,
-            });
+            })
 
-            expectKilled(child);
+            expectKilled(child)
             expect(supplierCounts(site.supplier)).toEqual({
-              "checkpoint-read:checkpoint-read-1": 1,
-              "checkpoint-read:checkpoint-read-2": 1,
-            });
+              'checkpoint-read:checkpoint-read-1': 1,
+              'checkpoint-read:checkpoint-read-2': 1,
+            })
 
             const before = yield* withRuntime(
               site.db,
-              Effect.gen(function* () {
-                const store = yield* ThreadStore;
-                const records = yield* readLog(thread);
-                const snapshot = yield* lookupByKey(thread, key);
+              Effect.gen(function*() {
+                const store = yield* ThreadStore
+                const records = yield* readLog(thread)
+                const snapshot = yield* lookupByKey(thread, key)
 
                 const compactions = records.filter(
-                  ({ record }) => record.payload._tag === "CompactionCreated",
-                );
+                  ({ record }) => record.payload._tag === 'CompactionCreated',
+                )
 
-                expect(compactions).toHaveLength(point.present ? 1 : 0);
-                if (point.present)
-                  expect(JSON.stringify(compactions)).toContain(CHECKPOINT_HANDOFF);
+                expect(compactions).toHaveLength(point.present ? 1 : 0)
+                if (point.present) {
+                  expect(JSON.stringify(compactions)).toContain(CHECKPOINT_HANDOFF)
+                }
 
                 const execution = Option.getOrThrow(
                   yield* store.readExecution({
                     threadId,
                     runId: runIdForSubmission(snapshot.submissionId),
                   }),
-                );
+                )
 
                 expect(execution.progress).toMatchObject({
                   version: 1,
                   accounting: { committedTurns: 2, modelCalls: 2 },
-                });
+                })
 
                 const starts = execution.operational.filter(
-                  ({ payload }) => payload._tag === "RunStarted",
-                );
+                  ({ payload }) => payload._tag === 'RunStarted',
+                )
 
-                expect(starts).toHaveLength(1);
+                expect(starts).toHaveLength(1)
                 expect(
                   execution.operational.filter(
-                    ({ payload }) => payload._tag === "RunContextRecorded",
+                    ({ payload }) => payload._tag === 'RunContextRecorded',
                   ),
-                ).toHaveLength(1);
+                ).toHaveLength(1)
                 expect(
-                  records.filter(({ record }) => record.payload._tag === "ModelResponseRecorded"),
-                ).toHaveLength(2);
+                  records.filter(({ record }) => record.payload._tag === 'ModelResponseRecorded'),
+                ).toHaveLength(2)
                 expect(
-                  records.filter(({ record }) => record.payload._tag === "ToolCallSettled"),
-                ).toHaveLength(2);
+                  records.filter(({ record }) => record.payload._tag === 'ToolCallSettled'),
+                ).toHaveLength(2)
 
-                return { records, starts, submissionId: snapshot.submissionId };
+                return { records, starts, submissionId: snapshot.submissionId }
               }),
-            );
+            )
 
             yield* withHost(
               site.db,
-              Effect.gen(function* () {
-                const host = yield* NodeDurableHost;
-                const runtime = yield* DurableAgentRuntime;
-                const store = yield* ThreadStore;
+              Effect.gen(function*() {
+                const host = yield* NodeDurableHost
+                const runtime = yield* DurableAgentRuntime
+                const store = yield* ThreadStore
 
                 const report = host.startupRecovery.find(
                   (entry) => entry.submissionId === before.submissionId,
-                );
+                )
 
-                expect(report?.decision._tag).toBe("ResumeFromTurnBoundary");
-                expect(report?.disposition).toBe("deferred");
-                const requests: Array<Prompt.Prompt> = [];
+                expect(report?.decision._tag).toBe('ResumeFromTurnBoundary')
+                expect(report?.disposition).toBe('deferred')
+                const requests: Array<Prompt.Prompt> = []
 
                 const model = Model.make(
-                  "scripted",
-                  "crash-harness",
+                  'scripted',
+                  'crash-harness',
                   Layer.effect(
                     LanguageModel.LanguageModel,
                     LanguageModel.make({
@@ -157,74 +158,74 @@ layer(NodeFileSystem.layer, { excludeTestServices: true })(
                             .pipe(
                               Effect.map((execution) => {
                                 const starts = Option.getOrThrow(execution).operational.filter(
-                                  ({ payload }) => payload._tag === "RunStarted",
-                                );
+                                  ({ payload }) => payload._tag === 'RunStarted',
+                                )
 
-                                expect(starts).toHaveLength(1);
-                                expect(starts).toEqual(before.starts);
-                                requests.push(request.prompt);
+                                expect(starts).toHaveLength(1)
+                                expect(starts).toEqual(before.starts)
+                                requests.push(request.prompt)
 
-                                return Stream.fromIterable(checkpointParts(requests.length + 2));
+                                return Stream.fromIterable(checkpointParts(requests.length + 2))
                               }),
                               Effect.orDie,
                             ),
                         ),
                     }),
                   ),
-                );
+                )
 
                 const settlements = yield* runtime
                   .processThread(Agent.withModel(checkpointDefinition, model), threadId)
-                  .pipe(Effect.provide(makeCheckpointToolLayer(site.supplier)));
+                  .pipe(Effect.provide(makeCheckpointToolLayer(site.supplier)))
 
-                expect(settlements).toHaveLength(1);
-                expect(settlements[0]?.outcome).toBe("completed");
-                expect(settlements[0]?.usageSummary?.modelCalls).toBe(4);
-                expect(settlements[0]?.usageSummary?.inputTokens.total).toBe(400);
-                expect(settlements[0]?.usageSummary?.outputTokens.total).toBe(40);
-                expect(requests).toHaveLength(2);
+                expect(settlements).toHaveLength(1)
+                expect(settlements[0]?.outcome).toBe('completed')
+                expect(settlements[0]?.usageSummary?.modelCalls).toBe(4)
+                expect(settlements[0]?.usageSummary?.inputTokens.total).toBe(400)
+                expect(settlements[0]?.usageSummary?.outputTokens.total).toBe(40)
+                expect(requests).toHaveLength(2)
                 for (const request of requests) {
-                  const prompt = JSON.stringify(request);
+                  const prompt = JSON.stringify(request)
 
-                  expect(prompt).toContain(CRASH_QUESTION);
-                  expect(prompt).toContain(CHECKPOINT_INSTRUCTIONS);
-                  expect(prompt).toContain(CHECKPOINT_HANDOFF);
-                  expect(prompt).not.toContain('"id":"checkpoint-call-1"');
-                  expect(prompt).not.toContain('"id":"checkpoint-call-2"');
+                  expect(prompt).toContain(CRASH_QUESTION)
+                  expect(prompt).toContain(CHECKPOINT_INSTRUCTIONS)
+                  expect(prompt).toContain(CHECKPOINT_HANDOFF)
+                  expect(prompt).not.toContain('"id":"checkpoint-call-1"')
+                  expect(prompt).not.toContain('"id":"checkpoint-call-2"')
                 }
 
-                const records = yield* readLog(thread);
+                const records = yield* readLog(thread)
 
-                expect(records.slice(0, before.records.length)).toEqual(before.records);
+                expect(records.slice(0, before.records.length)).toEqual(before.records)
                 expect(
                   yield* store.readExecution({
                     threadId,
                     runId: runIdForSubmission(before.submissionId),
                   }),
-                ).toEqual(Option.none());
+                ).toEqual(Option.none())
                 expect(
-                  records.filter(({ record }) => record.payload._tag === "CompactionCreated"),
-                ).toHaveLength(1);
+                  records.filter(({ record }) => record.payload._tag === 'CompactionCreated'),
+                ).toHaveLength(1)
                 expect(
-                  records.filter(({ record }) => record.payload._tag === "ModelResponseRecorded"),
-                ).toHaveLength(4);
+                  records.filter(({ record }) => record.payload._tag === 'ModelResponseRecorded'),
+                ).toHaveLength(4)
                 expect(
-                  records.filter(({ record }) => record.payload._tag === "ToolCallSettled"),
-                ).toHaveLength(3);
+                  records.filter(({ record }) => record.payload._tag === 'ToolCallSettled'),
+                ).toHaveLength(3)
                 yield* assertConvergence(thread, [before.submissionId], {
                   site,
                   counts: {
-                    "checkpoint-read:checkpoint-read-1": 1,
-                    "checkpoint-read:checkpoint-read-2": 1,
-                    "checkpoint-read:checkpoint-read-3": 1,
+                    'checkpoint-read:checkpoint-read-1': 1,
+                    'checkpoint-read:checkpoint-read-2': 1,
+                    'checkpoint-read:checkpoint-read-3': 1,
                   },
-                });
+                })
               }),
               { runContext: checkpointContextLayer },
-            );
-          }),
+            )
+          })
         ),
       30_000,
-    );
+    )
   },
-);
+)

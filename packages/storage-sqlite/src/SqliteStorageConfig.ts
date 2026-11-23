@@ -1,8 +1,8 @@
-import * as Context from "effect/Context";
-import * as Schema from "effect/Schema";
+import * as Context from 'effect/Context'
+import * as Schema from 'effect/Schema'
 
-const ObservationPollInterval = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0));
-const BusyTimeoutMillis = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0));
+const ObservationPollInterval = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))
+const BusyTimeoutMillis = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))
 
 /**
  * Validated construction configuration consumed by the SQLite storage Layer. The database
@@ -10,13 +10,13 @@ const BusyTimeoutMillis = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0));
  * from the connection actually in use.
  */
 export class SqliteStorageConfigValue extends Schema.Class<SqliteStorageConfigValue>(
-  "@effect-agent/storage-sqlite/SqliteStorageConfigValue",
+  '@effect-agent/storage-sqlite/SqliteStorageConfigValue',
 )({
   observationPollInterval: ObservationPollInterval,
   /** Bounded SQLITE_BUSY retry window for write-lock acquisition, in milliseconds. */
   busyTimeout: BusyTimeoutMillis,
   /** Connection synchronization selected at construction; FULL is the convenience default. */
-  synchronous: Schema.Literals(["FULL", "NORMAL"]),
+  synchronous: Schema.Literals(['FULL', 'NORMAL']),
   /**
    * Audit stored payload schemas, identities, and batch coverage while opening the store.
    * Per-operation Schema decoding remains enabled; this complete scan is an explicit opt-in.
@@ -28,4 +28,4 @@ export class SqliteStorageConfigValue extends Schema.Class<SqliteStorageConfigVa
 export class SqliteStorageConfig extends Context.Service<
   SqliteStorageConfig,
   SqliteStorageConfigValue
->()("@effect-agent/storage-sqlite/SqliteStorageConfig") {}
+>()('@effect-agent/storage-sqlite/SqliteStorageConfig') {}

@@ -1,28 +1,28 @@
-import * as Context from "effect/Context";
-import * as Effect from "effect/Effect";
-import * as Schema from "effect/Schema";
+import * as Context from 'effect/Context'
+import * as Effect from 'effect/Effect'
+import * as Schema from 'effect/Schema'
 
-import * as FailureDiagnostic from "../core/FailureDiagnostic.ts";
-import { AgentId, ThreadId } from "../core/Identifiers.ts";
-import { InputMessage } from "../core/Messaging.ts";
-import type { Receipt } from "../core/Receipt.ts";
-import { DefinitionDigests, Digest, PersistedJson, WorkerAdmission } from "./Records.ts";
-import type { ScheduleStorageError } from "./Schedule.ts";
-import { AdmissionFence, AdmissionGroup, IdempotencyKey, Principal } from "./SubmissionLedger.ts";
-import type { SubmissionStatus } from "./SubmissionStatus.ts";
+import * as FailureDiagnostic from '../core/FailureDiagnostic.ts'
+import { AgentId, ThreadId } from '../core/Identifiers.ts'
+import { InputMessage } from '../core/Messaging.ts'
+import type { Receipt } from '../core/Receipt.ts'
+import { DefinitionDigests, Digest, PersistedJson, WorkerAdmission } from './Records.ts'
+import type { ScheduleStorageError } from './Schedule.ts'
+import { AdmissionFence, AdmissionGroup, IdempotencyKey, Principal } from './SubmissionLedger.ts'
+import type { SubmissionStatus } from './SubmissionStatus.ts'
 
 const Name = Schema.NonEmptyString.check(
   Schema.isMaxLength(128),
   Schema.isPattern(/^[^\p{Surrogate}]*$/u),
-);
+)
 
 /** Bounded policy identifiers, never credentials or arbitrary diagnostics. */
 export const PreparedInputAuthorizationDecision = Schema.Struct({
   policyId: Name,
   decisionId: Name,
-});
+})
 
-export type PreparedInputAuthorizationDecision = typeof PreparedInputAuthorizationDecision.Type;
+export type PreparedInputAuthorizationDecision = typeof PreparedInputAuthorizationDecision.Type
 
 /** Common admission data; each producer retains its own cursor and delivery lifecycle. */
 export const PreparedInput = Schema.Struct({
@@ -39,24 +39,24 @@ export const PreparedInput = Schema.Struct({
   authorization: PreparedInputAuthorizationDecision,
   workerAdmission: Schema.optionalKey(WorkerAdmission),
   messageAdmission: Schema.optionalKey(InputMessage),
-});
+})
 
-export type PreparedInput = typeof PreparedInput.Type;
+export type PreparedInput = typeof PreparedInput.Type
 
 export const PreparedInputRetryReason = Schema.Literals([
-  "transport",
-  "capacity",
-  "storage",
-  "host-closed",
-  "timeout",
-  "ambiguous",
-]);
+  'transport',
+  'capacity',
+  'storage',
+  'host-closed',
+  'timeout',
+  'ambiguous',
+])
 
-export type PreparedInputRetryReason = typeof PreparedInputRetryReason.Type;
+export type PreparedInputRetryReason = typeof PreparedInputRetryReason.Type
 
 /** Only when the unchanged envelope was not admitted and cannot succeed, including on replay. */
 export class PreparedInputRefused extends Schema.TaggedError<PreparedInputRefused>()(
-  "PreparedInputRefused",
+  'PreparedInputRefused',
   {
     code: Name,
     cause: Schema.optionalKey(FailureDiagnostic.Value),
@@ -66,7 +66,7 @@ export class PreparedInputRefused extends Schema.TaggedError<PreparedInputRefuse
 
 /** Includes lost replies: admission may already have committed. */
 export class PreparedInputRetryable extends Schema.TaggedError<PreparedInputRetryable>()(
-  "PreparedInputRetryable",
+  'PreparedInputRetryable',
   {
     reason: PreparedInputRetryReason,
     cause: Schema.optionalKey(FailureDiagnostic.Value),
@@ -77,7 +77,7 @@ export class PreparedInputRetryable extends Schema.TaggedError<PreparedInputRetr
 export type PreparedInputFailure =
   | PreparedInputRefused
   | PreparedInputRetryable
-  | ScheduleStorageError;
+  | ScheduleStorageError
 
 /** Host admission shared by event deliveries and scheduling adapters. */
 export class PreparedInputAdmission extends Context.Service<
@@ -86,10 +86,10 @@ export class PreparedInputAdmission extends Context.Service<
     /** Required when retention is configured; reports canonical settlement without releasing group ownership itself. */
     readonly submissionStatus?: (
       receipt: Receipt,
-    ) => Effect.Effect<SubmissionStatus, PreparedInputFailure>;
-    readonly submit: (envelope: PreparedInput) => Effect.Effect<Receipt, PreparedInputFailure>;
+    ) => Effect.Effect<SubmissionStatus, PreparedInputFailure>
+    readonly submit: (envelope: PreparedInput) => Effect.Effect<Receipt, PreparedInputFailure>
   }
->()("@effect-agent/thread/PreparedInputAdmission") {}
+>()('@effect-agent/thread/PreparedInputAdmission') {}
 
 /**
  * Reduce one bounded admission attempt. The caller owns concurrency, durable retry state,
@@ -101,28 +101,28 @@ export const admitPreparedInput = <R>(
 ) =>
   submit.pipe(
     Effect.timeout(timeoutMillis),
-    Effect.map((receipt) => ({ _tag: "Receipt" as const, receipt })),
+    Effect.map((receipt) => ({ _tag: 'Receipt' as const, receipt })),
     Effect.catchTags({
-      PreparedInputRefused: (error) => Effect.succeed({ _tag: "Refused" as const, error }),
+      PreparedInputRefused: (error) => Effect.succeed({ _tag: 'Refused' as const, error }),
       PreparedInputRetryable: (error) =>
         Effect.succeed({
-          _tag: "Retry" as const,
+          _tag: 'Retry' as const,
           reason: error.reason,
           diagnostic: FailureDiagnostic.capture(error),
         }),
       TimeoutError: (error) =>
         Effect.succeed({
-          _tag: "Retry" as const,
-          reason: "timeout" as const,
+          _tag: 'Retry' as const,
+          reason: 'timeout' as const,
           diagnostic: FailureDiagnostic.capture(error),
         }),
       ScheduleStorageError: (error) =>
-        error.reason === "unavailable"
+        error.reason === 'unavailable'
           ? Effect.succeed({
-              _tag: "Retry" as const,
-              reason: "storage" as const,
-              diagnostic: FailureDiagnostic.capture(error),
-            })
+            _tag: 'Retry' as const,
+            reason: 'storage' as const,
+            diagnostic: FailureDiagnostic.capture(error),
+          })
           : Effect.fail(error),
     }),
-  );
+  )

@@ -1,35 +1,27 @@
-import * as Duration from "effect/Duration";
+import * as Duration from 'effect/Duration'
 
-import type { AnyDefinition } from "../../core/Agent.ts";
-import { AgentPolicy } from "../../core/AgentPolicy.ts";
-import {
-  SubagentDelegationCaps,
-  type SubagentBudgetReservation,
-} from "../../core/SubagentContract.ts";
-import {
-  SubagentPolicy,
-  delegationCapsFromPolicy,
-  delegationAllocationFromPolicy,
-} from "./subagent-contract.ts";
+import type { AnyDefinition } from '../../core/Agent.ts'
+import { AgentPolicy } from '../../core/AgentPolicy.ts'
+import { type SubagentBudgetReservation, SubagentDelegationCaps } from '../../core/SubagentContract.ts'
+import { delegationAllocationFromPolicy, delegationCapsFromPolicy, SubagentPolicy } from './subagent-contract.ts'
 
 export const resolveSubagentPolicy = (
   delegation: {
-    readonly target: Pick<AnyDefinition, "policy" | "policyOverrides">;
-    readonly policy?: SubagentPolicy | undefined;
+    readonly target: Pick<AnyDefinition, 'policy' | 'policyOverrides'>
+    readonly policy?: SubagentPolicy | undefined
   },
   parent: AgentPolicy,
   parentCaps?: SubagentDelegationCaps,
-  mode: "root-attached" | "conserved" = "conserved",
+  mode: 'root-attached' | 'conserved' = 'conserved',
   resolvedTarget?: AgentPolicy,
 ) => {
   // A root attached declaration has its own explicit pool. Child overrides retain
   // that established behavior; background and inherited subtree launches also obey
   // the source's own ceilings, before their shared reservation checks the residual.
-  const parentCeiling = mode === "conserved" ? parent : undefined;
+  const parentCeiling = mode === 'conserved' ? parent : undefined
 
-  const inherited =
-    resolvedTarget ??
-    AgentPolicy.resolve(delegation.target.policyOverrides ?? delegation.target.policy, parent);
+  const inherited = resolvedTarget ??
+    AgentPolicy.resolve(delegation.target.policyOverrides ?? delegation.target.policy, parent)
 
   // An unbounded Run cannot imply a finite reservation pool. Require the caller's
   // explicit delegation policy instead of inventing another count ceiling.
@@ -37,11 +29,11 @@ export const resolveSubagentPolicy = (
     delegation.policy === undefined &&
     (!Number.isFinite(parent.maxToolCalls) ||
       !Number.isFinite(Math.min(inherited.maxTurns, parent.maxTurns)))
-  )
-    return undefined;
+  ) {
+    return undefined
+  }
 
-  const policy =
-    delegation.policy ??
+  const policy = delegation.policy ??
     SubagentPolicy.make({
       maxChildren: parent.maxToolCalls,
       maxConcurrency: parent.toolConcurrency,
@@ -55,16 +47,15 @@ export const resolveSubagentPolicy = (
         ? {}
         : { maxCostMicrousd: parent.costBudgetMicrousd }),
       maxResultBytes: parent.toolResultBounds.maxBytes,
-    });
+    })
 
-  const tokenCeiling =
-    policy.maxInputTokens === undefined || policy.maxOutputTokens === undefined
-      ? Math.min(inherited.tokenBudget ?? Infinity, parentCeiling?.tokenBudget ?? Infinity)
-      : Math.min(
-          inherited.tokenBudget ?? Infinity,
-          parentCeiling?.tokenBudget ?? Infinity,
-          policy.maxInputTokens + policy.maxOutputTokens,
-        );
+  const tokenCeiling = policy.maxInputTokens === undefined || policy.maxOutputTokens === undefined
+    ? Math.min(inherited.tokenBudget ?? Infinity, parentCeiling?.tokenBudget ?? Infinity)
+    : Math.min(
+      inherited.tokenBudget ?? Infinity,
+      parentCeiling?.tokenBudget ?? Infinity,
+      policy.maxInputTokens + policy.maxOutputTokens,
+    )
 
   const childPolicy = AgentPolicy.make({
     ...inherited,
@@ -85,55 +76,54 @@ export const resolveSubagentPolicy = (
     ...(parentCeiling === undefined
       ? {}
       : {
-          toolResultBounds: {
-            maxBytes: Math.min(
-              inherited.toolResultBounds.maxBytes,
-              parentCeiling.toolResultBounds.maxBytes,
-              Math.max(256, policy.maxResultBytes ?? Infinity),
-            ),
-          },
-        }),
+        toolResultBounds: {
+          maxBytes: Math.min(
+            inherited.toolResultBounds.maxBytes,
+            parentCeiling.toolResultBounds.maxBytes,
+            Math.max(256, policy.maxResultBytes ?? Infinity),
+          ),
+        },
+      }),
     ...(tokenCeiling === Infinity
       ? {}
       : {
-          tokenBudget: tokenCeiling,
-          completionReserveTokens: Math.min(inherited.completionReserveTokens, tokenCeiling),
-        }),
+        tokenBudget: tokenCeiling,
+        completionReserveTokens: Math.min(inherited.completionReserveTokens, tokenCeiling),
+      }),
     ...(Math.min(
-      inherited.costBudgetMicrousd ?? Infinity,
-      parentCeiling?.costBudgetMicrousd ?? Infinity,
-      policy.maxCostMicrousd ?? Infinity,
-    ) === Infinity
+        inherited.costBudgetMicrousd ?? Infinity,
+        parentCeiling?.costBudgetMicrousd ?? Infinity,
+        policy.maxCostMicrousd ?? Infinity,
+      ) === Infinity
       ? {}
       : {
-          costBudgetMicrousd: Math.min(
-            inherited.costBudgetMicrousd ?? Infinity,
-            parentCeiling?.costBudgetMicrousd ?? Infinity,
-            policy.maxCostMicrousd ?? Infinity,
-          ),
-        }),
-  });
+        costBudgetMicrousd: Math.min(
+          inherited.costBudgetMicrousd ?? Infinity,
+          parentCeiling?.costBudgetMicrousd ?? Infinity,
+          policy.maxCostMicrousd ?? Infinity,
+        ),
+      }),
+  })
 
-  const caps =
-    parentCaps ??
+  const caps = parentCaps ??
     (delegation.policy === undefined
       ? SubagentDelegationCaps.make({
-          maxTotalChildInvocations: parent.maxToolCalls,
-          maxConcurrentChildren: parent.toolConcurrency,
-          ...(Number.isFinite(parent.maxTurns) ? { maxTurns: parent.maxTurns } : {}),
-          maxToolCalls: parent.maxToolCalls,
-          maxDurationMillis: Math.ceil(Duration.toMillis(parent.maxDuration)),
-          ...(parent.tokenBudget === undefined
-            ? {}
-            : { maxInputTokens: parent.tokenBudget, maxOutputTokens: parent.tokenBudget }),
-          ...(parent.costBudgetMicrousd === undefined
-            ? {}
-            : { maxCostMicrousd: parent.costBudgetMicrousd }),
-        })
-      : delegationCapsFromPolicy(policy));
+        maxTotalChildInvocations: parent.maxToolCalls,
+        maxConcurrentChildren: parent.toolConcurrency,
+        ...(Number.isFinite(parent.maxTurns) ? { maxTurns: parent.maxTurns } : {}),
+        maxToolCalls: parent.maxToolCalls,
+        maxDurationMillis: Math.ceil(Duration.toMillis(parent.maxDuration)),
+        ...(parent.tokenBudget === undefined
+          ? {}
+          : { maxInputTokens: parent.tokenBudget, maxOutputTokens: parent.tokenBudget }),
+        ...(parent.costBudgetMicrousd === undefined
+          ? {}
+          : { maxCostMicrousd: parent.costBudgetMicrousd }),
+      })
+      : delegationCapsFromPolicy(policy))
 
-  return { policy, childPolicy, allocation: delegationAllocationFromPolicy(policy), caps };
-};
+  return { policy, childPolicy, allocation: delegationAllocationFromPolicy(policy), caps }
+}
 
 /** Conservative subtree remainder after reserving this Run's own full execution ceiling. */
 export const residualSubagentCaps = (
@@ -142,10 +132,10 @@ export const residualSubagentCaps = (
   inherited: SubagentBudgetReservation,
   independentRun = false,
 ): SubagentDelegationCaps => {
-  const allocation = inherited.allocation;
+  const allocation = inherited.allocation
 
   const remaining = (allocated: number, own: number, cap: number | undefined) =>
-    Math.min(cap ?? Infinity, Math.max(0, allocated - own));
+    Math.min(cap ?? Infinity, Math.max(0, allocated - own))
 
   return SubagentDelegationCaps.make({
     maxTotalChildInvocations: Math.min(
@@ -165,51 +155,51 @@ export const residualSubagentCaps = (
       declared.maxDurationMillis,
     ),
     ...(independentRun &&
-    inherited.caps.maxInputTokens === undefined &&
-    allocation.inputTokens === 0 &&
-    parent.tokenBudget === undefined
+        inherited.caps.maxInputTokens === undefined &&
+        allocation.inputTokens === 0 &&
+        parent.tokenBudget === undefined
       ? declared.maxInputTokens === undefined
         ? {}
         : { maxInputTokens: declared.maxInputTokens }
       : {
-          maxInputTokens: remaining(
-            allocation.inputTokens,
-            parent.tokenBudget ?? allocation.inputTokens,
-            declared.maxInputTokens,
-          ),
-        }),
+        maxInputTokens: remaining(
+          allocation.inputTokens,
+          parent.tokenBudget ?? allocation.inputTokens,
+          declared.maxInputTokens,
+        ),
+      }),
     ...(independentRun &&
-    inherited.caps.maxOutputTokens === undefined &&
-    allocation.outputTokens === 0 &&
-    parent.tokenBudget === undefined
+        inherited.caps.maxOutputTokens === undefined &&
+        allocation.outputTokens === 0 &&
+        parent.tokenBudget === undefined
       ? declared.maxOutputTokens === undefined
         ? {}
         : { maxOutputTokens: declared.maxOutputTokens }
       : {
-          maxOutputTokens: remaining(
-            allocation.outputTokens,
-            parent.tokenBudget ?? allocation.outputTokens,
-            declared.maxOutputTokens,
-          ),
-        }),
+        maxOutputTokens: remaining(
+          allocation.outputTokens,
+          parent.tokenBudget ?? allocation.outputTokens,
+          declared.maxOutputTokens,
+        ),
+      }),
     ...(independentRun &&
-    inherited.caps.maxCostMicrousd === undefined &&
-    allocation.costMicrousd === 0 &&
-    parent.costBudgetMicrousd === undefined
+        inherited.caps.maxCostMicrousd === undefined &&
+        allocation.costMicrousd === 0 &&
+        parent.costBudgetMicrousd === undefined
       ? declared.maxCostMicrousd === undefined
         ? {}
         : { maxCostMicrousd: declared.maxCostMicrousd }
       : {
-          maxCostMicrousd: remaining(
-            allocation.costMicrousd,
-            parent.costBudgetMicrousd ?? allocation.costMicrousd,
-            declared.maxCostMicrousd,
-          ),
-        }),
+        maxCostMicrousd: remaining(
+          allocation.costMicrousd,
+          parent.costBudgetMicrousd ?? allocation.costMicrousd,
+          declared.maxCostMicrousd,
+        ),
+      }),
     maxResultBytes: remaining(
       allocation.resultBytes,
       parent.toolResultBounds.maxBytes,
       declared.maxResultBytes,
     ),
-  });
-};
+  })
+}

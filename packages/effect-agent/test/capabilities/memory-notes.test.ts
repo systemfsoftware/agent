@@ -1,9 +1,8 @@
-import { describe, expect, it } from "@effect/vitest";
-import { DurableStep, DurableStepError } from "@yielded/agent/durable-step";
-import * as MemoryNamespace from "@yielded/agent/memory-namespace";
-import { MemoryAttribution } from "@yielded/agent/memory-reference";
+import { describe, expect, it } from '@effect/vitest'
+import { DurableStep, DurableStepError } from '@yielded/agent/durable-step'
+import * as MemoryNamespace from '@yielded/agent/memory-namespace'
+import { MemoryAttribution } from '@yielded/agent/memory-reference'
 import {
-  type MemoryWrite,
   applyMemoryWrite,
   type MemoryDocument,
   MemoryKey,
@@ -11,187 +10,188 @@ import {
   MemoryReader,
   MemoryScope,
   MemoryStorageError,
+  type MemoryWrite,
   MemoryWriter,
-} from "@yielded/agent/memory-store";
-import * as IdGenerator from "effect/ai/IdGenerator";
-import * as Clock from "effect/Clock";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Ref from "effect/Ref";
-import * as Schema from "effect/Schema";
-import * as Stream from "effect/Stream";
-import * as TestClock from "effect/testing/TestClock";
+} from '@yielded/agent/memory-store'
+import * as IdGenerator from 'effect/ai/IdGenerator'
+import * as Clock from 'effect/Clock'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
+import * as Ref from 'effect/Ref'
+import * as Schema from 'effect/Schema'
+import * as Stream from 'effect/Stream'
+import * as TestClock from 'effect/testing/TestClock'
 
-import * as MemoryNotes from "../../src/capabilities/MemoryNotes.ts";
+import * as MemoryNotes from '../../src/capabilities/MemoryNotes.ts'
 
 const NotesNamespace = MemoryNamespace.define({
-  name: "test/notes",
+  name: 'test/notes',
   version: 1,
   identity: Schema.String,
-});
+})
 
-const key = MemoryKey.make({ namespace: NotesNamespace.make("host-owned"), id: "working-notes" });
+const key = MemoryKey.make({ namespace: NotesNamespace.make('host-owned'), id: 'working-notes' })
 
 const options: MemoryNotes.Options = {
   key,
-  locator: "notes://host-owned/working-notes",
+  locator: 'notes://host-owned/working-notes',
   attributions: [
     MemoryAttribution.make({
-      originId: "agent-working-notes",
-      speaker: "agent",
+      originId: 'agent-working-notes',
+      speaker: 'agent',
       observers: [],
-      locator: "notes://host-owned/working-notes",
+      locator: 'notes://host-owned/working-notes',
       activityAt: null,
-      interpretation: "model-authored working notes",
+      interpretation: 'model-authored working notes',
     }),
   ],
-  scopes: [MemoryScope.make("host-owned")],
-};
+  scopes: [MemoryScope.make('host-owned')],
+}
 
 /** Local step journal for replaying this one Tool Call through its public DurableStep seam. */
-const steps = (saved = new Map<string, unknown>()): DurableStep["Service"] => ({
-  do: Effect.fnUntraced(function* (name, output, execute) {
+const steps = (saved = new Map<string, unknown>()): DurableStep['Service'] => ({
+  do: Effect.fnUntraced(function*(name, output, execute) {
     if (saved.has(name)) {
       return yield* Schema.decodeUnknownEffect(output)(saved.get(name)).pipe(
         Effect.mapError(() =>
           DurableStepError.make({
             stepName: name,
-            reason: "recorded-result-invalid",
-            message: "Invalid saved step",
-          }),
+            reason: 'recorded-result-invalid',
+            message: 'Invalid saved step',
+          })
         ),
-      );
+      )
     }
-    const result = yield* execute;
+    const result = yield* execute
 
     const encoded = yield* Schema.encodeEffect(output)(result).pipe(
       Effect.mapError(() =>
         DurableStepError.make({
           stepName: name,
-          reason: "output-encoding-failed",
-          message: "Could not encode step",
-        }),
+          reason: 'output-encoding-failed',
+          message: 'Could not encode step',
+        })
       ),
-    );
+    )
 
-    saved.set(name, encoded);
+    saved.set(name, encoded)
 
-    return result;
+    return result
   }),
-});
+})
 
 /** The scenario uses the core transition and receipt-first reconciliation, then loses one ack. */
-const makeMemory = Effect.fn("test.makeNotesMemory")(function* () {
-  const current = yield* Ref.make<MemoryDocument | null>(null);
-  const commits = yield* Ref.make(0);
-  const commands: Array<MemoryWrite> = [];
+const makeMemory = Effect.fn('test.makeNotesMemory')(function*() {
+  const current = yield* Ref.make<MemoryDocument | null>(null)
+  const commits = yield* Ref.make(0)
+  const commands: Array<MemoryWrite> = []
 
   const receipts = new Map<
     string,
     { readonly command: string; readonly document: MemoryDocument }
-  >();
+  >()
 
-  let loseAck = true;
-  const reader = MemoryReader.fromAdapter({ get: () => Ref.get(current) });
+  let loseAck = true
+  const reader = MemoryReader.fromAdapter({ get: () => Ref.get(current) })
 
   const writer = MemoryWriter.fromAdapter({
-    change: Effect.fn("test.changeNotes")(function* (write) {
-      commands.push(write);
+    change: Effect.fn('test.changeNotes')(function*(write) {
+      commands.push(write)
 
       const receiptKey = JSON.stringify([
         write.key.namespace.address,
         write.key.id,
         write.operationId,
-      ]);
+      ])
 
-      const receipt = receipts.get(receiptKey);
-      const command = JSON.stringify(write);
+      const receipt = receipts.get(receiptKey)
+      const command = JSON.stringify(write)
 
       if (receipt !== undefined) {
         if (receipt.command !== command) {
           return yield* MemoryOperationConflict.make({
             key: write.key,
             operationId: write.operationId,
-          });
+          })
         }
 
-        return receipt.document;
+        return receipt.document
       }
 
       const document = yield* applyMemoryWrite(
         yield* Ref.get(current),
         write,
         yield* Clock.currentTimeMillis,
-      );
+      )
 
-      yield* Ref.set(current, document);
-      receipts.set(receiptKey, { command, document });
-      yield* Ref.update(commits, (count) => count + 1);
+      yield* Ref.set(current, document)
+      receipts.set(receiptKey, { command, document })
+      yield* Ref.update(commits, (count) => count + 1)
       if (loseAck) {
-        loseAck = false;
+        loseAck = false
 
         return yield* MemoryStorageError.make({
-          operation: "acknowledge write",
-          reason: "unavailable",
-        });
+          operation: 'acknowledge write',
+          reason: 'unavailable',
+        })
       }
 
-      return document;
+      return document
     }),
-  });
+  })
 
-  return { current, commands, commits, reader, writer };
-});
+  return { current, commands, commits, reader, writer }
+})
 
-describe("durable working notes", () => {
+describe('durable working notes', () => {
   it.effect(
-    "replays the exact prepared write after a committed write loses its acknowledgement",
+    'replays the exact prepared write after a committed write loses its acknowledgement',
     () =>
-      Effect.gen(function* () {
-        const memory = yield* makeMemory();
-        const savedSteps = new Map<string, unknown>();
-        const generatedIds = yield* Ref.make(0);
+      Effect.gen(function*() {
+        const memory = yield* makeMemory()
+        const savedSteps = new Map<string, unknown>()
+        const generatedIds = yield* Ref.make(0)
 
-        const exercise = Effect.gen(function* () {
-          const tools = yield* MemoryNotes.toolkit;
+        const exercise = Effect.gen(function*() {
+          const tools = yield* MemoryNotes.toolkit
 
           const request = {
-            text: "Keep the original operation and timestamp.",
+            text: 'Keep the original operation and timestamp.',
             expectedRevision: null,
-          };
+          }
 
           const first = yield* tools
-            .handle("write_notes", request, "save")
+            .handle('write_notes', request, 'save')
             .pipe(
               Effect.flatMap(Stream.runCollect),
               Effect.provideService(DurableStep, steps(savedSteps)),
-            );
+            )
 
           expect(first).toMatchObject([
-            { isFailure: true, result: { _tag: "MemoryStorageError", reason: "unavailable" } },
-          ]);
-          yield* TestClock.adjust(5_000);
+            { isFailure: true, result: { _tag: 'MemoryStorageError', reason: 'unavailable' } },
+          ])
+          yield* TestClock.adjust(5_000)
 
           const recovered = yield* tools
-            .handle("write_notes", request, "save")
+            .handle('write_notes', request, 'save')
             .pipe(
               Effect.flatMap(Stream.runCollect),
               Effect.provideService(DurableStep, steps(savedSteps)),
-            );
+            )
 
           expect(recovered).toMatchObject([
-            { isFailure: false, result: { revision: "1", text: request.text } },
-          ]);
+            { isFailure: false, result: { revision: '1', text: request.text } },
+          ])
 
           const repeated = yield* tools
-            .handle("write_notes", request, "save")
+            .handle('write_notes', request, 'save')
             .pipe(
               Effect.flatMap(Stream.runCollect),
               Effect.provideService(DurableStep, steps(savedSteps)),
-            );
+            )
 
-          expect(repeated).toEqual(recovered);
-        });
+          expect(repeated).toEqual(recovered)
+        })
 
         yield* exercise.pipe(
           Effect.provide(
@@ -210,12 +210,12 @@ describe("durable working notes", () => {
               ),
             ),
           ),
-        );
-        expect(memory.commands).toHaveLength(2);
-        expect(memory.commands[0]?.operationId).toBe("notes-operation:1");
-        expect(memory.commands[1]).toEqual(memory.commands[0]);
-        expect(yield* Ref.get(generatedIds)).toBe(1);
-        expect(yield* Ref.get(memory.commits)).toBe(1);
+        )
+        expect(memory.commands).toHaveLength(2)
+        expect(memory.commands[0]?.operationId).toBe('notes-operation:1')
+        expect(memory.commands[1]).toEqual(memory.commands[0])
+        expect(yield* Ref.get(generatedIds)).toBe(1)
+        expect(yield* Ref.get(memory.commits)).toBe(1)
       }),
-  );
-});
+  )
+})

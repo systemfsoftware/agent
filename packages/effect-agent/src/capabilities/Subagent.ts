@@ -1,16 +1,16 @@
-import * as Tool from "effect/ai/Tool";
-import * as Toolkit from "effect/ai/Toolkit";
-import * as Cause from "effect/Cause";
-import * as Clock from "effect/Clock";
-import * as DateTime from "effect/DateTime";
-import * as Duration from "effect/Duration";
-import * as Effect from "effect/Effect";
-import * as Exit from "effect/Exit";
-import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
-import * as Ref from "effect/Ref";
-import * as Schema from "effect/Schema";
-import * as Scope from "effect/Scope";
+import * as Tool from 'effect/ai/Tool'
+import * as Toolkit from 'effect/ai/Toolkit'
+import * as Cause from 'effect/Cause'
+import * as Clock from 'effect/Clock'
+import * as DateTime from 'effect/DateTime'
+import * as Duration from 'effect/Duration'
+import * as Effect from 'effect/Effect'
+import * as Exit from 'effect/Exit'
+import * as Layer from 'effect/Layer'
+import * as Option from 'effect/Option'
+import * as Ref from 'effect/Ref'
+import * as Schema from 'effect/Schema'
+import * as Scope from 'effect/Scope'
 
 import {
   type Definition,
@@ -18,20 +18,20 @@ import {
   type InstructionSource,
   type ModelServices,
   type RunDispositionDeclaration,
-} from "../core/Agent.ts";
-import { AgentPolicyError } from "../core/AgentError.ts";
-import { DelegationId, ToolCallId } from "../core/Identifiers.ts";
-import { IdGenerator } from "../core/IdGenerator.ts";
-import { utf8ByteLength } from "../core/internal/utf8.ts";
-import type { SubagentDelegationCaps } from "../core/SubagentContract.ts";
+} from '../core/Agent.ts'
+import { AgentPolicyError } from '../core/AgentError.ts'
+import { DelegationId, ToolCallId } from '../core/Identifiers.ts'
+import { IdGenerator } from '../core/IdGenerator.ts'
+import { utf8ByteLength } from '../core/internal/utf8.ts'
+import type { SubagentDelegationCaps } from '../core/SubagentContract.ts'
 import {
   DelegationTool,
   narrowSubagentGrant,
   SubagentBudgetReservation,
   SubagentGrant,
   SubagentReservationAmounts,
-} from "../core/SubagentContract.ts";
-import { type RunTotals, RunUsageReport, unknownRunTotals } from "../core/Usage.ts";
+} from '../core/SubagentContract.ts'
+import { type RunTotals, RunUsageReport, unknownRunTotals } from '../core/Usage.ts'
 import {
   type AgentRuntimeFailure,
   type AgentRuntimeRequirements,
@@ -44,31 +44,20 @@ import {
   type SubagentDurabilityDurable,
   SubagentDurabilityError,
   ToolCallWaiting,
-} from "../engine/AgentRuntime.ts";
-import type { SpawnInterpreterOptions } from "../engine/internal/agent-runtime.ts";
-import type { RunSubagentChildIdentity } from "../engine/internal/interpreter-options.ts";
+} from '../engine/AgentRuntime.ts'
+import type { SpawnInterpreterOptions } from '../engine/internal/agent-runtime.ts'
+import type { RunSubagentChildIdentity } from '../engine/internal/interpreter-options.ts'
+import { RunEventSink, type SubagentEventBasePayload, type SubagentEventPayload } from '../engine/RunEventSink.ts'
+import { type RunBudgetHook, type RunContextPreparation, type RunUsageDelta } from '../engine/RunOptions.ts'
+import { type ThreadHistory } from '../engine/ThreadHistory.ts'
+import type { SubagentExecutionFailureClassification, SubagentPolicy } from './internal/subagent-contract.ts'
 import {
-  RunEventSink,
-  type SubagentEventBasePayload,
-  type SubagentEventPayload,
-} from "../engine/RunEventSink.ts";
-import {
-  type RunContextPreparation,
-  type RunBudgetHook,
-  type RunUsageDelta,
-} from "../engine/RunOptions.ts";
-import { type ThreadHistory } from "../engine/ThreadHistory.ts";
-import type {
-  SubagentPolicy,
-  SubagentExecutionFailureClassification,
-} from "./internal/subagent-contract.ts";
-import {
+  maxErrorTagLength,
+  SubagentExecutionFailure,
   SubagentPrestartDenied,
   SubagentProjectionFailure,
-  SubagentExecutionFailure,
-  maxErrorTagLength,
-} from "./internal/subagent-contract.ts";
-import { resolveSubagentPolicy, residualSubagentCaps } from "./internal/subagent-policy.ts";
+} from './internal/subagent-contract.ts'
+import { residualSubagentCaps, resolveSubagentPolicy } from './internal/subagent-policy.ts'
 import {
   type BudgetReservationId,
   makeBudgetReservationId,
@@ -76,42 +65,44 @@ import {
   SubagentObservedUsage,
   SubagentReservationRequest,
   SubagentReservations,
-} from "./SubagentReservations.ts";
+} from './SubagentReservations.ts'
 
-export { WorkerCompletion } from "../core/Worker.ts";
+export { WorkerCompletion } from '../core/Worker.ts'
 
-export { SubagentGrant } from "../core/SubagentContract.ts";
+export { SubagentGrant } from '../core/SubagentContract.ts'
 
 export {
+  delegationAllocationFromPolicy,
+  delegationCapsFromPolicy,
+  SubagentExecutionFailure,
+  SubagentExecutionFailureClassification,
   SubagentPolicy,
   type SubagentPolicyInput,
   SubagentPrestartDenied,
   SubagentProjectionFailure,
-  SubagentExecutionFailureClassification,
-  SubagentExecutionFailure,
-  delegationCapsFromPolicy,
-  delegationAllocationFromPolicy,
-} from "./internal/subagent-contract.ts";
+} from './internal/subagent-contract.ts'
 
-const decodeDelegationId = Schema.decodeSync(DelegationId);
+const decodeDelegationId = Schema.decodeSync(DelegationId)
 
 /**
  * Bounded parent metadata visible to `prepareInput`.
  * It never contains the parent transcript, prompt, or a root runtime Context.
  */
-export type SubagentPrepareContext = {
-  readonly delegationId: DelegationId;
-} & (
-  | {
-      readonly source: "tool";
-      readonly toolCallId: ToolCallId;
-      readonly parent: AgentSpawnerParent;
+export type SubagentPrepareContext =
+  & {
+    readonly delegationId: DelegationId
+  }
+  & (
+    | {
+      readonly source: 'tool'
+      readonly toolCallId: ToolCallId
+      readonly parent: AgentSpawnerParent
     }
-  | {
-      readonly source: "programmatic";
-      readonly parent: Pick<AgentSpawnerParent, "agentId" | "threadId">;
+    | {
+      readonly source: 'programmatic'
+      readonly parent: Pick<AgentSpawnerParent, 'agentId' | 'threadId'>
     }
-);
+  )
 
 /**
  * Bounded framework context handed to `projectResult` (SUB-034).
@@ -122,17 +113,17 @@ export type SubagentPrepareContext = {
  * budget-truncated partial to the orchestrator.
  */
 export interface SubagentResultContext {
-  readonly budgetExhausted: boolean;
+  readonly budgetExhausted: boolean
   /** Own and disjoint attached-descendant usage; absent only for legacy/custom hosts. */
-  readonly usage?: RunTotals;
-  readonly delegatedUsage?: RunTotals;
+  readonly usage?: RunTotals
+  readonly delegatedUsage?: RunTotals
 }
 
 /** Default delegation result, preserving partial-output information. */
 export const SubagentResult = <Output extends Schema.Top>(output: Output) =>
-  Schema.Struct({ output, budgetExhausted: Schema.Boolean });
+  Schema.Struct({ output, budgetExhausted: Schema.Boolean })
 
-export type SubagentResult<Output extends Schema.Top> = ReturnType<typeof SubagentResult<Output>>;
+export type SubagentResult<Output extends Schema.Top> = ReturnType<typeof SubagentResult<Output>>
 
 /**
  * The delegation Tool failure Schema: the author's declared failure plus the
@@ -157,7 +148,7 @@ export type SubagentToolFailure<Failure extends Schema.Top> = Schema.Union<
     typeof ToolCallWaiting,
     typeof SubagentDurabilityError,
   ]
->;
+>
 
 /**
  * Resolution for expected delegation failures (SUB-033, ADR-0019 S2).
@@ -177,7 +168,7 @@ export type SubagentToolFailure<Failure extends Schema.Top> = Schema.Union<
  * `ToolCallWaiting` and `SubagentDurabilityError` stay in the error channel,
  * preserving durable suspension semantics by construction.
  */
-export type SubagentFailureMode = "error" | "return";
+export type SubagentFailureMode = 'error' | 'return'
 
 /**
  * The failure family that becomes model-visible result data under
@@ -193,7 +184,7 @@ export type SubagentContainedFailure<Failure extends Schema.Top> = Schema.Union<
     typeof SubagentProjectionFailure,
     typeof SubagentExecutionFailure,
   ]
->;
+>
 
 /**
  * The only failures a `"return"`-mode delegation Tool can raise: the
@@ -203,7 +194,7 @@ export type SubagentContainedFailure<Failure extends Schema.Top> = Schema.Union<
  */
 export type SubagentReturnModeFailure = Schema.Union<
   readonly [typeof ToolCallWaiting, typeof SubagentDurabilityError]
->;
+>
 
 /**
  * The native Effect AI Tool created by `Subagent.make` (SUB-001, SUB-003).
@@ -218,28 +209,27 @@ export type SubagentTool<
   Parameters extends Schema.Top,
   Success extends Schema.Top,
   Failure extends Schema.Top,
-  Mode extends SubagentFailureMode = "error",
-> = Mode extends "return"
-  ? Tool.Tool<
-      Name,
-      {
-        readonly parameters: Parameters;
-        readonly success: Schema.Union<readonly [Success, SubagentContainedFailure<Failure>]>;
-        readonly failure: SubagentReturnModeFailure;
-        readonly failureMode: "error";
-      },
-      AgentSpawner | RunEventSink | SubagentDurability
-    >
+  Mode extends SubagentFailureMode = 'error',
+> = Mode extends 'return' ? Tool.Tool<
+    Name,
+    {
+      readonly parameters: Parameters
+      readonly success: Schema.Union<readonly [Success, SubagentContainedFailure<Failure>]>
+      readonly failure: SubagentReturnModeFailure
+      readonly failureMode: 'error'
+    },
+    AgentSpawner | RunEventSink | SubagentDurability
+  >
   : Tool.Tool<
-      Name,
-      {
-        readonly parameters: Parameters;
-        readonly success: Success;
-        readonly failure: SubagentToolFailure<Failure>;
-        readonly failureMode: "error";
-      },
-      AgentSpawner | RunEventSink | SubagentDurability
-    >;
+    Name,
+    {
+      readonly parameters: Parameters
+      readonly success: Success
+      readonly failure: SubagentToolFailure<Failure>
+      readonly failureMode: 'error'
+    },
+    AgentSpawner | RunEventSink | SubagentDurability
+  >
 
 /** Singleton Tool record provided by one `Subagent.layer`. */
 export type SubagentTools<
@@ -247,10 +237,10 @@ export type SubagentTools<
   Parameters extends Schema.Top,
   Success extends Schema.Top,
   Failure extends Schema.Top,
-  Mode extends SubagentFailureMode = "error",
+  Mode extends SubagentFailureMode = 'error',
 > = {
-  readonly [Key in Name]: SubagentTool<Name, Parameters, Success, Failure, Mode>;
-};
+  readonly [Key in Name]: SubagentTool<Name, Parameters, Success, Failure, Mode>
+}
 
 /** Explicit options accepted by `Subagent.make`. */
 export interface SubagentDefineOptions<
@@ -263,7 +253,7 @@ export interface SubagentDefineOptions<
   Failure extends Schema.Top,
   PrepareRequirements = never,
   ProjectRequirements = never,
-  Mode extends SubagentFailureMode = "error",
+  Mode extends SubagentFailureMode = 'error',
 > {
   /**
    * Expected-failure resolution (SUB-033): `"error"` (default) fails the
@@ -271,25 +261,25 @@ export interface SubagentDefineOptions<
    * framework failure family as model-visible result data while
    * `ToolCallWaiting`/`SubagentDurabilityError` stay in the error channel.
    */
-  readonly failureMode?: Mode;
+  readonly failureMode?: Mode
   /** Model-visible description of the delegated capability. */
-  readonly description?: string | undefined;
+  readonly description?: string | undefined
   /** The model-agnostic child Agent Definition this delegation targets (SUB-002). */
   readonly target: Definition<
     TargetInput,
     TargetOutput,
     TargetInstructions,
     Toolkit.Toolkit<TargetTools>,
-    RunDispositionDeclaration<TargetOutput["Type"], Schema.Top> | undefined,
+    RunDispositionDeclaration<TargetOutput['Type'], Schema.Top> | undefined,
     unknown,
     Schema.Top | undefined
-  >;
+  >
   /** Schema for the model-decoded delegation parameters. */
-  readonly parameters: Parameters;
+  readonly parameters: Parameters
   /** Schema for the bounded parent Tool result. */
-  readonly success: Success;
+  readonly success: Success
   /** Schema for the author-declared delegation failure data. */
-  readonly failure: Failure;
+  readonly failure: Failure
   /**
    * Effectful, typed projection from decoded parameters and bounded parent
    * metadata to the child Agent input. It never
@@ -297,13 +287,13 @@ export interface SubagentDefineOptions<
    * are already the declared Tool failure.
    */
   readonly prepareInput: (
-    parameters: Parameters["Type"],
+    parameters: Parameters['Type'],
     context: SubagentPrepareContext,
   ) => Effect.Effect<
-    TargetInput["Type"],
-    Failure["Type"] | SubagentProjectionFailure,
+    TargetInput['Type'],
+    Failure['Type'] | SubagentProjectionFailure,
     PrepareRequirements
-  >;
+  >
   /**
    * Bounded result projection from the Schema-decoded child output, result
    * context, and original Schema-decoded Tool parameters to the declared Tool
@@ -318,27 +308,27 @@ export interface SubagentDefineOptions<
    * task budget.
    */
   readonly projectResult: (
-    output: TargetOutput["Type"],
+    output: TargetOutput['Type'],
     context: SubagentResultContext,
-    parameters: Parameters["Type"],
+    parameters: Parameters['Type'],
   ) => Effect.Effect<
-    Success["Type"],
-    Failure["Type"] | SubagentProjectionFailure,
+    Success['Type'],
+    Failure['Type'] | SubagentProjectionFailure,
     ProjectRequirements
-  >;
+  >
   /** Per-child ceilings. When omitted, reserve from the parent policy's shared delegation pool. */
-  readonly policy?: SubagentPolicy | undefined;
+  readonly policy?: SubagentPolicy | undefined
   /**
    * Authority ceiling for the child. Defaults to
    * exactly the target's declared Tool names at depth ceiling one. The engine
    * exposes only permitted Tools; nested launches also require depth and lifetime authority.
    */
-  readonly grant?: SubagentGrant | undefined;
+  readonly grant?: SubagentGrant | undefined
   /**
    * Native Effect AI approval metadata for establishment only (SUB-026):
    * parent approval never authorizes child actions, siblings, or retries.
    */
-  readonly needsApproval?: Tool.NeedsApproval<Parameters> | undefined;
+  readonly needsApproval?: Tool.NeedsApproval<Parameters> | undefined
 }
 
 /**
@@ -358,25 +348,27 @@ export interface SubagentDelegation<
   Failure extends Schema.Top,
   PrepareRequirements = never,
   ProjectRequirements = never,
-  Mode extends SubagentFailureMode = "error",
-> extends SubagentDefineOptions<
-  TargetInput,
-  TargetOutput,
-  TargetInstructions,
-  TargetTools,
-  Parameters,
-  Success,
-  Failure,
-  PrepareRequirements,
-  ProjectRequirements,
-  Mode
-> {
-  readonly name: Name;
+  Mode extends SubagentFailureMode = 'error',
+> extends
+  SubagentDefineOptions<
+    TargetInput,
+    TargetOutput,
+    TargetInstructions,
+    TargetTools,
+    Parameters,
+    Success,
+    Failure,
+    PrepareRequirements,
+    ProjectRequirements,
+    Mode
+  >
+{
+  readonly name: Name
   /** Stable delegation identity; S1 derives it from the unique Tool name. */
-  readonly delegationId: DelegationId;
-  readonly grant: SubagentGrant;
+  readonly delegationId: DelegationId
+  readonly grant: SubagentGrant
   /** The resolved expected-failure resolution (SUB-033); never absent after `make`. */
-  readonly failureMode: Mode;
+  readonly failureMode: Mode
   /**
    * The canonical contained-failure family for this delegation (SUB-033):
    * the declared failure plus the framework members. Consumers that classify
@@ -384,9 +376,9 @@ export interface SubagentDelegation<
    * this value rather than reconstructing the union, so a framework change
    * to the contained family can never diverge from their decoder.
    */
-  readonly containedFailure: SubagentContainedFailure<Failure>;
+  readonly containedFailure: SubagentContainedFailure<Failure>
   /** The real Effect AI Tool to include in the parent Toolkit (SUB-001). */
-  readonly tool: SubagentTool<Name, Parameters, Success, Failure, Mode>;
+  readonly tool: SubagentTool<Name, Parameters, Success, Failure, Mode>
 }
 
 /**
@@ -410,7 +402,7 @@ const makeExplicit = <
   Failure extends Schema.Top,
   PrepareRequirements = never,
   ProjectRequirements = never,
-  Mode extends SubagentFailureMode = "error",
+  Mode extends SubagentFailureMode = 'error',
 >(
   name: Name,
   options: SubagentDefineOptions<
@@ -438,19 +430,18 @@ const makeExplicit = <
   ProjectRequirements,
   Mode
 > => {
-  const delegationId = decodeDelegationId(name);
+  const delegationId = decodeDelegationId(name)
 
-  const grant =
-    options.grant ??
+  const grant = options.grant ??
     SubagentGrant.make({
       allowedToolNames: Object.keys(options.target.toolkit.tools),
       maxDepth: 1,
-    });
+    })
 
   // `Mode` defaults to `"error"` exactly when `failureMode` is absent, so the
   // resolved literal always inhabits `Mode`; the assertion bridges only that
   // inference gap and crosses no schema boundary.
-  const failureMode = (options.failureMode ?? "error") as Mode;
+  const failureMode = (options.failureMode ?? 'error') as Mode
 
   const containedFailure = Schema.Union([
     options.failure,
@@ -458,7 +449,7 @@ const makeExplicit = <
     SubagentBudgetExhausted,
     SubagentProjectionFailure,
     SubagentExecutionFailure,
-  ]);
+  ])
 
   const returnModeTool = Tool.make(name, {
     description: options.description,
@@ -470,7 +461,7 @@ const makeExplicit = <
     success: Schema.Union([options.success, containedFailure]),
     failure: Schema.Union([ToolCallWaiting, SubagentDurabilityError]),
     needsApproval: options.needsApproval,
-  });
+  })
 
   const errorModeTool = Tool.make(name, {
     description: options.description,
@@ -486,24 +477,24 @@ const makeExplicit = <
       SubagentDurabilityError,
     ]),
     needsApproval: options.needsApproval,
-  });
+  })
 
   // Each branch is exactly `SubagentTool<..., Mode>` at its concrete `Mode`;
   // TypeScript cannot relate a runtime branch to the conditional generic, so
   // this assertion bridges only that limitation and crosses no schema
   // boundary (the schemas above are constructed per mode, never reinterpreted).
-  const tool = (failureMode === "return" ? returnModeTool : errorModeTool)
+  const tool = (failureMode === 'return' ? returnModeTool : errorModeTool)
     .annotate(DelegationTool, true)
     .addDependency(AgentSpawner)
     .addDependency(RunEventSink)
     .addDependency(SubagentDurability)
     .addDependency(IdGenerator) as unknown as SubagentTool<
-    Name,
-    Parameters,
-    Success,
-    Failure,
-    Mode
-  >;
+      Name,
+      Parameters,
+      Success,
+      Failure,
+      Mode
+    >
 
   return Object.freeze({
     ...options,
@@ -513,8 +504,8 @@ const makeExplicit = <
     failureMode,
     containedFailure,
     tool,
-  });
-};
+  })
+}
 
 /** Pure Subagent authoring surface. */
 /** Optional authoring fields; schemas default to the child's input and result envelope. */
@@ -529,49 +520,51 @@ export type SubagentDeclarationOptions<
   Prepare,
   Project,
   Mode extends SubagentFailureMode,
-> = Omit<
-  SubagentDefineOptions<
-    Input,
-    Output,
-    Instructions,
-    Tools,
-    Parameters,
-    Success,
-    Failure,
-    Prepare,
-    Project,
-    Mode
-  >,
-  "parameters" | "success" | "failure" | "prepareInput" | "projectResult"
-> & {
-  readonly parameters?: Parameters;
-  readonly success?: Success;
-  readonly failure?: Failure;
-  readonly prepareInput?: SubagentDefineOptions<
-    Input,
-    Output,
-    Instructions,
-    Tools,
-    Parameters,
-    Success,
-    Failure,
-    Prepare,
-    Project,
-    Mode
-  >["prepareInput"];
-  readonly projectResult?: SubagentDefineOptions<
-    Input,
-    Output,
-    Instructions,
-    Tools,
-    Parameters,
-    Success,
-    Failure,
-    Prepare,
-    Project,
-    Mode
-  >["projectResult"];
-};
+> =
+  & Omit<
+    SubagentDefineOptions<
+      Input,
+      Output,
+      Instructions,
+      Tools,
+      Parameters,
+      Success,
+      Failure,
+      Prepare,
+      Project,
+      Mode
+    >,
+    'parameters' | 'success' | 'failure' | 'prepareInput' | 'projectResult'
+  >
+  & {
+    readonly parameters?: Parameters
+    readonly success?: Success
+    readonly failure?: Failure
+    readonly prepareInput?: SubagentDefineOptions<
+      Input,
+      Output,
+      Instructions,
+      Tools,
+      Parameters,
+      Success,
+      Failure,
+      Prepare,
+      Project,
+      Mode
+    >['prepareInput']
+    readonly projectResult?: SubagentDefineOptions<
+      Input,
+      Output,
+      Instructions,
+      Tools,
+      Parameters,
+      Success,
+      Failure,
+      Prepare,
+      Project,
+      Mode
+    >['projectResult']
+  }
 
 /**
  * Expose one child Agent as an attached Effect AI Tool. The nonempty application
@@ -595,7 +588,7 @@ function make<
     Output,
     Instructions,
     Toolkit.Toolkit<Tools>,
-    RunDispositionDeclaration<Output["Type"], Schema.Top> | undefined,
+    RunDispositionDeclaration<Output['Type'], Schema.Top> | undefined,
     unknown,
     Schema.Top | undefined
   > = Definition<
@@ -603,13 +596,29 @@ function make<
     Output,
     Instructions,
     Toolkit.Toolkit<Tools>,
-    RunDispositionDeclaration<Output["Type"], Schema.Top> | undefined,
+    RunDispositionDeclaration<Output['Type'], Schema.Top> | undefined,
     unknown,
     Schema.Top | undefined
   >,
 >(
   name: Name,
-  options: SubagentDeclarationOptions<
+  options:
+    & SubagentDeclarationOptions<
+      Input,
+      Output,
+      Instructions,
+      Tools,
+      Parameters,
+      Success,
+      Failure,
+      Prepare,
+      Project,
+      'return'
+    >
+    & { readonly failureMode: 'return'; readonly target: Target },
+):
+  & SubagentDelegation<
+    Name,
     Input,
     Output,
     Instructions,
@@ -619,21 +628,9 @@ function make<
     Failure,
     Prepare,
     Project,
-    "return"
-  > & { readonly failureMode: "return"; readonly target: Target },
-): SubagentDelegation<
-  Name,
-  Input,
-  Output,
-  Instructions,
-  Tools,
-  Parameters,
-  Success,
-  Failure,
-  Prepare,
-  Project,
-  "return"
-> & { readonly target: Target };
+    'return'
+  >
+  & { readonly target: Target }
 function make<
   const Name extends string,
   Input extends Schema.Top,
@@ -650,7 +647,7 @@ function make<
     Output,
     Instructions,
     Toolkit.Toolkit<Tools>,
-    RunDispositionDeclaration<Output["Type"], Schema.Top> | undefined,
+    RunDispositionDeclaration<Output['Type'], Schema.Top> | undefined,
     unknown,
     Schema.Top | undefined
   > = Definition<
@@ -658,13 +655,29 @@ function make<
     Output,
     Instructions,
     Toolkit.Toolkit<Tools>,
-    RunDispositionDeclaration<Output["Type"], Schema.Top> | undefined,
+    RunDispositionDeclaration<Output['Type'], Schema.Top> | undefined,
     unknown,
     Schema.Top | undefined
   >,
 >(
   name: Name,
-  options: SubagentDeclarationOptions<
+  options:
+    & SubagentDeclarationOptions<
+      Input,
+      Output,
+      Instructions,
+      Tools,
+      Parameters,
+      Success,
+      Failure,
+      Prepare,
+      Project,
+      'error'
+    >
+    & { readonly target: Target },
+):
+  & SubagentDelegation<
+    Name,
     Input,
     Output,
     Instructions,
@@ -673,21 +686,9 @@ function make<
     Success,
     Failure,
     Prepare,
-    Project,
-    "error"
-  > & { readonly target: Target },
-): SubagentDelegation<
-  Name,
-  Input,
-  Output,
-  Instructions,
-  Tools,
-  Parameters,
-  Success,
-  Failure,
-  Prepare,
-  Project
-> & { readonly target: Target };
+    Project
+  >
+  & { readonly target: Target }
 function make<
   const Name extends string,
   Input extends Schema.Top,
@@ -715,115 +716,107 @@ function make<
   >,
 ): unknown {
   const success: Schema.Codec<
-    Success["Type"] | SubagentResult<Output>["Type"],
-    Success["Encoded"] | SubagentResult<Output>["Encoded"],
-    Success["DecodingServices"] | Output["DecodingServices"],
-    Success["EncodingServices"] | Output["EncodingServices"]
-  > = options.success ?? SubagentResult(options.target.output);
+    Success['Type'] | SubagentResult<Output>['Type'],
+    Success['Encoded'] | SubagentResult<Output>['Encoded'],
+    Success['DecodingServices'] | Output['DecodingServices'],
+    Success['EncodingServices'] | Output['EncodingServices']
+  > = options.success ?? SubagentResult(options.target.output)
 
-  const parameters = options.parameters ?? options.target.input;
+  const parameters = options.parameters ?? options.target.input
 
   const failure: Schema.Codec<
-    Failure["Type"],
-    Failure["Encoded"],
-    Failure["DecodingServices"],
-    Failure["EncodingServices"]
-  > = options.failure ?? Schema.Never;
+    Failure['Type'],
+    Failure['Encoded'],
+    Failure['DecodingServices'],
+    Failure['EncodingServices']
+  > = options.failure ?? Schema.Never
 
-  const inputValue = Schema.decodeUnknownEffect(Schema.toType(options.target.input));
-  const resultValue = Schema.decodeUnknownEffect(Schema.toType(success));
-  const needsApproval = options.needsApproval;
-  const prepareInput = options.prepareInput;
-  const projectResult = options.projectResult;
+  const inputValue = Schema.decodeUnknownEffect(Schema.toType(options.target.input))
+  const resultValue = Schema.decodeUnknownEffect(Schema.toType(success))
+  const needsApproval = options.needsApproval
+  const prepareInput = options.prepareInput
+  const projectResult = options.projectResult
 
-  const projectionFailure = (stage: "input" | "result") =>
+  const projectionFailure = (stage: 'input' | 'result') =>
     SubagentProjectionFailure.make({
       delegationId: decodeDelegationId(name),
       stage,
-      message:
-        stage === "input"
-          ? "Delegation parameters did not satisfy the child input Schema"
-          : "Child output did not satisfy the delegation success Schema",
-    });
+      message: stage === 'input'
+        ? 'Delegation parameters did not satisfy the child input Schema'
+        : 'Child output did not satisfy the delegation success Schema',
+    })
 
   const resolved = {
     ...options,
-    needsApproval:
-      typeof needsApproval === "function"
-        ? (input: Parameters["Type"], context: Tool.NeedsApprovalContext) =>
-            needsApproval(input, context)
-        : needsApproval,
+    needsApproval: typeof needsApproval === 'function'
+      ? (input: Parameters['Type'], context: Tool.NeedsApprovalContext) => needsApproval(input, context)
+      : needsApproval,
     description: options.description ?? options.target.description,
     parameters,
     success,
     failure,
-    prepareInput: (input: Parameters["Type"], context: SubagentPrepareContext) =>
+    prepareInput: (input: Parameters['Type'], context: SubagentPrepareContext) =>
       prepareInput === undefined
-        ? inputValue(input).pipe(Effect.mapError(() => projectionFailure("input")))
+        ? inputValue(input).pipe(Effect.mapError(() => projectionFailure('input')))
         : prepareInput(input, context),
     projectResult: (
-      output: Output["Type"],
+      output: Output['Type'],
       context: SubagentResultContext,
-      input: Parameters["Type"],
+      input: Parameters['Type'],
     ) =>
       projectResult === undefined
         ? resultValue({ output, budgetExhausted: context.budgetExhausted }).pipe(
-            Effect.mapError(() => projectionFailure("result")),
-          )
+          Effect.mapError(() => projectionFailure('result')),
+        )
         : projectResult(output, context, input),
-  };
+  }
 
-  return options.failureMode === "return"
+  return options.failureMode === 'return'
     ? makeExplicit<
-        Name,
-        Input,
-        Output,
-        Instructions,
-        Tools,
-        Input | Parameters,
-        typeof success,
-        typeof failure,
-        Prepare,
-        Project,
-        "return"
-      >(name, { ...resolved, failureMode: "return" })
+      Name,
+      Input,
+      Output,
+      Instructions,
+      Tools,
+      Input | Parameters,
+      typeof success,
+      typeof failure,
+      Prepare,
+      Project,
+      'return'
+    >(name, { ...resolved, failureMode: 'return' })
     : makeExplicit<
-        Name,
-        Input,
-        Output,
-        Instructions,
-        Tools,
-        Input | Parameters,
-        typeof success,
-        typeof failure,
-        Prepare,
-        Project
-      >(name, { ...resolved, failureMode: "error" });
+      Name,
+      Input,
+      Output,
+      Instructions,
+      Tools,
+      Input | Parameters,
+      typeof success,
+      typeof failure,
+      Prepare,
+      Project
+    >(name, { ...resolved, failureMode: 'error' })
 }
 
-export { make };
+export { make }
 
-type InstructionResultOf<Instructions, Input> = Instructions extends (input: Input) => infer Result
-  ? Result
-  : Instructions;
+type InstructionResultOf<Instructions, Input> = Instructions extends (input: Input) => infer Result ? Result
+  : Instructions
 
-type InstructionErrorOf<Instructions, Input> =
-  InstructionResultOf<Instructions, Input> extends Effect.Effect<
-    infer _Success,
-    infer Error,
-    infer _Requirements
-  >
-    ? Error
-    : never;
+type InstructionErrorOf<Instructions, Input> = InstructionResultOf<Instructions, Input> extends Effect.Effect<
+  infer _Success,
+  infer Error,
+  infer _Requirements
+> ? Error
+  : never
 
-type InstructionRequirementsOf<Instructions, Input> =
-  InstructionResultOf<Instructions, Input> extends Effect.Effect<
-    infer _Success,
-    infer _Error,
-    infer Requirements
-  >
-    ? Requirements
-    : never;
+type InstructionRequirementsOf<Instructions, Input> = InstructionResultOf<Instructions, Input> extends Effect.Effect<
+  infer _Success,
+  infer _Error,
+  infer Requirements
+> ? Requirements
+  : never
 
 /**
  * Every expected child Run failure the delegation's total mapping must cover:
@@ -838,13 +831,12 @@ export type SubagentChildRunFailure<
   TargetTools extends Record<string, Tool.Any>,
   ModelProvides,
   ModelRequires,
-  InstructionError = InstructionErrorOf<TargetInstructions, TargetInput["Type"]>,
-  InstructionRequirements = InstructionRequirementsOf<TargetInstructions, TargetInput["Type"]>,
-  InputPromptValue extends InputPromptSource<TargetInput["Type"], unknown, unknown> | undefined =
-    undefined,
+  InstructionError = InstructionErrorOf<TargetInstructions, TargetInput['Type']>,
+  InstructionRequirements = InstructionRequirementsOf<TargetInstructions, TargetInput['Type']>,
+  InputPromptValue extends InputPromptSource<TargetInput['Type'], unknown, unknown> | undefined = undefined,
   UpdatesSchema extends Schema.Top | undefined = undefined,
   RunDispositionValue extends
-    | RunDispositionDeclaration<TargetOutput["Type"], Schema.Top>
+    | RunDispositionDeclaration<TargetOutput['Type'], Schema.Top>
     | undefined = undefined,
 > = AgentRuntimeFailure<
   RuntimeBinding<
@@ -862,7 +854,7 @@ export type SubagentChildRunFailure<
   >,
   never,
   InstructionError
->;
+>
 
 /**
  * Construction requirements of one `Subagent.layer`: the child
@@ -882,39 +874,38 @@ export type SubagentLayerRequirements<
   PrepareRequirements,
   ProjectRequirements,
   HookRequirements = never,
-  InstructionError = InstructionErrorOf<TargetInstructions, TargetInput["Type"]>,
-  InstructionRequirements = InstructionRequirementsOf<TargetInstructions, TargetInput["Type"]>,
-  InputPromptValue extends InputPromptSource<TargetInput["Type"], unknown, unknown> | undefined =
-    undefined,
+  InstructionError = InstructionErrorOf<TargetInstructions, TargetInput['Type']>,
+  InstructionRequirements = InstructionRequirementsOf<TargetInstructions, TargetInput['Type']>,
+  InputPromptValue extends InputPromptSource<TargetInput['Type'], unknown, unknown> | undefined = undefined,
   UpdatesSchema extends Schema.Top | undefined = undefined,
   RunDispositionValue extends
-    | RunDispositionDeclaration<TargetOutput["Type"], Schema.Top>
+    | RunDispositionDeclaration<TargetOutput['Type'], Schema.Top>
     | undefined = undefined,
 > =
   | Exclude<
-      AgentRuntimeRequirements<
-        RuntimeBinding<
-          TargetInput,
-          TargetOutput,
-          TargetInstructions,
-          TargetTools,
-          ModelProvides,
-          ModelRequires,
-          InstructionError,
-          InstructionRequirements,
-          RunDispositionValue,
-          InputPromptValue,
-          UpdatesSchema
-        >,
-        HookRequirements,
-        InstructionRequirements
+    AgentRuntimeRequirements<
+      RuntimeBinding<
+        TargetInput,
+        TargetOutput,
+        TargetInstructions,
+        TargetTools,
+        ModelProvides,
+        ModelRequires,
+        InstructionError,
+        InstructionRequirements,
+        RunDispositionValue,
+        InputPromptValue,
+        UpdatesSchema
       >,
-      ThreadHistory | RunContextPreparation
-    >
-  | TargetInput["EncodingServices"]
+      HookRequirements,
+      InstructionRequirements
+    >,
+    ThreadHistory | RunContextPreparation
+  >
+  | TargetInput['EncodingServices']
   | PrepareRequirements
   | ProjectRequirements
-  | SubagentReservations;
+  | SubagentReservations
 
 /**
  * The conservative final accounting summary the durable delegation handler
@@ -926,7 +917,7 @@ export type SubagentLayerRequirements<
  * encoded policy math to the engine and to storage adapters (D8).
  */
 export class SubagentDurableAccounting extends Schema.Class<SubagentDurableAccounting>(
-  "@effect-agent/capabilities/SubagentDurableAccounting",
+  '@effect-agent/capabilities/SubagentDurableAccounting',
 )({
   /** The per-invocation allocation reserved at establishment. */
   allocation: SubagentReservationAmounts,
@@ -935,7 +926,7 @@ export class SubagentDurableAccounting extends Schema.Class<SubagentDurableAccou
   /** Amounts returned to the parent: `allocation - consumed` per dimension. */
   released: SubagentReservationAmounts,
   /** How the decision was computed; the handler only ever reports conservatively. */
-  basis: Schema.Literals(["reserved-conservative"]),
+  basis: Schema.Literals(['reserved-conservative']),
 }) {}
 
 /** Options accepted by `Subagent.layer`. */
@@ -952,7 +943,7 @@ export interface SubagentRuntimeOptions<
    * neither reaches this mapping.
    * When omitted, failures become bounded `SubagentExecutionFailure` values.
    */
-  readonly mapChildFailure?: ((failure: ChildFailure) => Failure["Type"]) | undefined;
+  readonly mapChildFailure?: ((failure: ChildFailure) => Failure['Type']) | undefined
   /**
    * Override the parent-Run delegation caps registered with
    * `SubagentReservations`. An explicit policy uses `delegationCapsFromPolicy(policy)`;
@@ -960,44 +951,44 @@ export interface SubagentRuntimeOptions<
    * Supply shared caps explicitly when one parent Run uses several delegation
    * Tools, because re-registering different caps denies start fail-closed.
    */
-  readonly parentCaps?: SubagentDelegationCaps | undefined;
+  readonly parentCaps?: SubagentDelegationCaps | undefined
   /**
    * Seed child Run options (approval, context, input hooks) so child actions
    * follow their own ordinary approval and policy (SUB-026). Hook failures
    * must be handled inside the hook (`never` in `E`); a supplied budget hook
    * is composed after the reservation's own usage observation.
    */
-  readonly child?: SpawnRunOptions<never, HookRequirements> | undefined;
+  readonly child?: SpawnRunOptions<never, HookRequirements> | undefined
 }
 
-const maxEventTextLength = 4 * 1024;
+const maxEventTextLength = 4 * 1024
 
 const boundedEventText = (text: string): string =>
-  text.length <= maxEventTextLength ? text : `${text.slice(0, maxEventTextLength - 1)}…`;
+  text.length <= maxEventTextLength ? text : `${text.slice(0, maxEventTextLength - 1)}…`
 
-const ErrorMessage = Schema.Struct({ message: Schema.String });
-const ErrorTag = Schema.Struct({ _tag: Schema.NonEmptyString });
+const ErrorMessage = Schema.Struct({ message: Schema.String })
+const ErrorTag = Schema.Struct({ _tag: Schema.NonEmptyString })
 
 const isDurationPolicyError = (error: unknown): boolean =>
-  Schema.is(AgentPolicyError)(error) && error.limit === "duration";
+  Schema.is(AgentPolicyError)(error) && error.limit === 'duration'
 
 const errorMessageOf = (error: unknown): string =>
   Option.match(Schema.decodeUnknownOption(ErrorMessage)(error), {
     onNone: () => String(error),
     onSome: ({ message }) => message,
-  });
+  })
 
 const errorTagOf = (error: unknown): string =>
   Option.match(Schema.decodeUnknownOption(ErrorTag)(error), {
-    onNone: () => "UnknownError",
+    onNone: () => 'UnknownError',
     onSome: ({ _tag }) => _tag,
-  });
+  })
 
 const boundedErrorTag = (tag: string): string => {
-  const nonEmpty = tag.length === 0 ? "UnknownError" : tag;
+  const nonEmpty = tag.length === 0 ? 'UnknownError' : tag
 
-  return nonEmpty.length <= maxErrorTagLength ? nonEmpty : nonEmpty.slice(0, maxErrorTagLength);
-};
+  return nonEmpty.length <= maxErrorTagLength ? nonEmpty : nonEmpty.slice(0, maxErrorTagLength)
+}
 
 /**
  * The coordinator's bounded projection of a failed/aborted child Settlement
@@ -1008,7 +999,7 @@ const boundedErrorTag = (tag: string): string => {
 const ChildFailureProjection = Schema.Struct({
   errorTag: Schema.NonEmptyString,
   message: Schema.String,
-});
+})
 
 const childFailureProjectionOf = (
   encodedResult: unknown,
@@ -1019,7 +1010,7 @@ const childFailureProjectionOf = (
       message: errorMessageOf(encodedResult),
     }),
     onSome: (projection) => projection,
-  });
+  })
 
 const zeroReservationAmounts = SubagentReservationAmounts.make({
   turns: 0,
@@ -1029,17 +1020,16 @@ const zeroReservationAmounts = SubagentReservationAmounts.make({
   outputTokens: 0,
   costMicrousd: 0,
   resultBytes: 0,
-});
+})
 
-const encodeDurableAccounting = Schema.encodeEffect(SubagentDurableAccounting);
-const encodeProjectionFailure = Schema.encodeEffect(SubagentProjectionFailure);
-const encodeBudgetFailure = Schema.encodeEffect(SubagentBudgetExhausted);
-const encodeExecutionFailure = Schema.encodeEffect(SubagentExecutionFailure);
-const encodeGrant = Schema.encodeEffect(SubagentGrant);
-const encodeAllocationAmounts = Schema.encodeEffect(SubagentReservationAmounts);
+const encodeDurableAccounting = Schema.encodeEffect(SubagentDurableAccounting)
+const encodeProjectionFailure = Schema.encodeEffect(SubagentProjectionFailure)
+const encodeBudgetFailure = Schema.encodeEffect(SubagentBudgetExhausted)
+const encodeExecutionFailure = Schema.encodeEffect(SubagentExecutionFailure)
+const encodeGrant = Schema.encodeEffect(SubagentGrant)
+const encodeAllocationAmounts = Schema.encodeEffect(SubagentReservationAmounts)
 
-const toNatural = (value: number): number =>
-  Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+const toNatural = (value: number): number => Number.isFinite(value) && value > 0 ? Math.floor(value) : 0
 
 const observedUsageFromDelta = (delta: RunUsageDelta): SubagentObservedUsage =>
   SubagentObservedUsage.make({
@@ -1048,7 +1038,7 @@ const observedUsageFromDelta = (delta: RunUsageDelta): SubagentObservedUsage =>
     inputTokens: toNatural(delta.inputTokens),
     outputTokens: toNatural(delta.outputTokens),
     costMicrousd: toNatural(delta.costMicrousd),
-  });
+  })
 
 /** A child that never started consumed nothing; observing zeros releases everything. */
 const neverStartedUsage = SubagentObservedUsage.make({
@@ -1059,7 +1049,7 @@ const neverStartedUsage = SubagentObservedUsage.make({
   outputTokens: 0,
   costMicrousd: 0,
   resultBytes: 0,
-});
+})
 
 /**
  * Finalizer-driven settlement: observe honest final usage, then release the
@@ -1069,52 +1059,53 @@ const neverStartedUsage = SubagentObservedUsage.make({
  * is a ledger invariant violation and therefore a defect.
  */
 const settleReservation = (
-  reservations: SubagentReservations["Service"],
+  reservations: SubagentReservations['Service'],
   reservationId: BudgetReservationId,
   startedAt: Ref.Ref<number | undefined>,
   conservative?: {
-    readonly parentRunId: AgentSpawnerParent["runId"];
-    readonly allocation: SubagentReservationAmounts;
+    readonly parentRunId: AgentSpawnerParent['runId']
+    readonly allocation: SubagentReservationAmounts
   },
 ): Effect.Effect<void> =>
-  Effect.gen(function* () {
-    const started = yield* Ref.get(startedAt);
+  Effect.gen(function*() {
+    const started = yield* Ref.get(startedAt)
 
     if (started === undefined) {
-      yield* reservations.observe(reservationId, neverStartedUsage);
+      yield* reservations.observe(reservationId, neverStartedUsage)
     } else {
-      const now = yield* Clock.currentTimeMillis;
+      const now = yield* Clock.currentTimeMillis
 
       yield* reservations.observe(
         reservationId,
         SubagentObservedUsage.make({ durationMillis: Math.max(0, Math.floor(now - started)) }),
-      );
+      )
     }
     if (started !== undefined && conservative !== undefined) {
-      const snapshot = yield* reservations.parentSnapshot(conservative.parentRunId);
-      const own = snapshot.reservations.find((entry) => entry.reservationId === reservationId);
+      const snapshot = yield* reservations.parentSnapshot(conservative.parentRunId)
+      const own = snapshot.reservations.find((entry) => entry.reservationId === reservationId)
 
-      if (own === undefined)
-        return yield* Effect.die("Missing subtree reservation during finalization");
+      if (own === undefined) {
+        return yield* Effect.die('Missing subtree reservation during finalization')
+      }
 
       const additional = (key: keyof typeof conservative.allocation) =>
-        Math.max(0, conservative.allocation[key] - (own.observedConsumed[key] ?? 0));
+        Math.max(0, conservative.allocation[key] - (own.observedConsumed[key] ?? 0))
 
       yield* reservations.observe(
         reservationId,
         SubagentObservedUsage.make({
-          turns: additional("turns"),
-          toolCalls: additional("toolCalls"),
-          durationMillis: additional("durationMillis"),
-          inputTokens: additional("inputTokens"),
-          outputTokens: additional("outputTokens"),
-          costMicrousd: additional("costMicrousd"),
-          resultBytes: additional("resultBytes"),
+          turns: additional('turns'),
+          toolCalls: additional('toolCalls'),
+          durationMillis: additional('durationMillis'),
+          inputTokens: additional('inputTokens'),
+          outputTokens: additional('outputTokens'),
+          costMicrousd: additional('costMicrousd'),
+          resultBytes: additional('resultBytes'),
         }),
-      );
+      )
     }
-    yield* reservations.release(reservationId);
-  }).pipe(Effect.orDie);
+    yield* reservations.release(reservationId)
+  }).pipe(Effect.orDie)
 
 /**
  * Module-private provenance wrapper (SUB-033 hardening): ONLY the operations
@@ -1125,33 +1116,31 @@ const settleReservation = (
  * suspension signal.
  */
 class GenuineEngineSignal {
-  readonly _tag = "GenuineEngineSignal";
-  readonly signal: ToolCallWaiting | SubagentDurabilityError;
+  readonly _tag = 'GenuineEngineSignal'
+  readonly signal: ToolCallWaiting | SubagentDurabilityError
 
   constructor(signal: ToolCallWaiting | SubagentDurabilityError) {
-    this.signal = signal;
+    this.signal = signal
   }
 }
 
-const wrapEngineSignal = (signal: ToolCallWaiting | SubagentDurabilityError) =>
-  new GenuineEngineSignal(signal);
+const wrapEngineSignal = (signal: ToolCallWaiting | SubagentDurabilityError) => new GenuineEngineSignal(signal)
 
 type SubagentHandler<
   Name extends string,
   Parameters extends Schema.Top,
   Success extends Schema.Top,
   Failure extends Schema.Top,
-  Mode extends SubagentFailureMode = "error",
+  Mode extends SubagentFailureMode = 'error',
 > = (
-  parameters: Parameters["Type"],
+  parameters: Parameters['Type'],
   context: Toolkit.HandlerContext<SubagentTool<Name, Parameters, Success, Failure, Mode>>,
 ) => Effect.Effect<
-  Mode extends "return"
-    ? Success["Type"] | SubagentContainedFailure<Failure>["Type"]
-    : Success["Type"],
-  Mode extends "return" ? SubagentReturnModeFailure["Type"] : SubagentToolFailure<Failure>["Type"],
+  Mode extends 'return' ? Success['Type'] | SubagentContainedFailure<Failure>['Type']
+    : Success['Type'],
+  Mode extends 'return' ? SubagentReturnModeFailure['Type'] : SubagentToolFailure<Failure>['Type'],
   Tool.HandlerServices<SubagentTool<Name, Parameters, Success, Failure, Mode>>
->;
+>
 
 /**
  * Build the Toolkit handler Layer using the provided model requirement, or pass
@@ -1190,40 +1179,41 @@ export function layer<
   PrepareRequirements,
   ProjectRequirements,
   HookRequirements = never,
-  Mode extends SubagentFailureMode = "error",
-  InstructionError = InstructionErrorOf<TargetInstructions, TargetInput["Type"]>,
-  InstructionRequirements = InstructionRequirementsOf<TargetInstructions, TargetInput["Type"]>,
-  InputPromptValue extends InputPromptSource<TargetInput["Type"], unknown, unknown> | undefined =
-    undefined,
+  Mode extends SubagentFailureMode = 'error',
+  InstructionError = InstructionErrorOf<TargetInstructions, TargetInput['Type']>,
+  InstructionRequirements = InstructionRequirementsOf<TargetInstructions, TargetInput['Type']>,
+  InputPromptValue extends InputPromptSource<TargetInput['Type'], unknown, unknown> | undefined = undefined,
   UpdatesSchema extends Schema.Top | undefined = undefined,
   RunDispositionValue extends
-    | RunDispositionDeclaration<TargetOutput["Type"], Schema.Top>
+    | RunDispositionDeclaration<TargetOutput['Type'], Schema.Top>
     | undefined = undefined,
 >(
-  delegation: SubagentDelegation<
-    Name,
-    TargetInput,
-    TargetOutput,
-    TargetInstructions,
-    TargetTools,
-    Parameters,
-    Success,
-    Failure,
-    PrepareRequirements,
-    ProjectRequirements,
-    Mode
-  > & {
-    readonly target: {
-      readonly instructions: InstructionSource<
-        TargetInput["Type"],
-        NoInfer<InstructionError>,
-        NoInfer<InstructionRequirements>
-      >;
-      readonly inputPrompt?: InputPromptValue | undefined;
-      readonly updates?: UpdatesSchema | undefined;
-      readonly runDisposition?: RunDispositionValue | undefined;
-    };
-  },
+  delegation:
+    & SubagentDelegation<
+      Name,
+      TargetInput,
+      TargetOutput,
+      TargetInstructions,
+      TargetTools,
+      Parameters,
+      Success,
+      Failure,
+      PrepareRequirements,
+      ProjectRequirements,
+      Mode
+    >
+    & {
+      readonly target: {
+        readonly instructions: InstructionSource<
+          TargetInput['Type'],
+          NoInfer<InstructionError>,
+          NoInfer<InstructionRequirements>
+        >
+        readonly inputPrompt?: InputPromptValue | undefined
+        readonly updates?: UpdatesSchema | undefined
+        readonly runDisposition?: RunDispositionValue | undefined
+      }
+    },
   modelOrBinding?: undefined,
   options?: SubagentRuntimeOptions<
     Failure,
@@ -1261,7 +1251,7 @@ export function layer<
     UpdatesSchema,
     RunDispositionValue
   >
->;
+>
 
 export function layer<
   Name extends string,
@@ -1277,67 +1267,68 @@ export function layer<
   ModelProvides,
   ModelRequires,
   HookRequirements = never,
-  Mode extends SubagentFailureMode = "error",
-  InstructionError = InstructionErrorOf<TargetInstructions, TargetInput["Type"]>,
-  InstructionRequirements = InstructionRequirementsOf<TargetInstructions, TargetInput["Type"]>,
-  InputPromptValue extends InputPromptSource<TargetInput["Type"], unknown, unknown> | undefined =
-    undefined,
+  Mode extends SubagentFailureMode = 'error',
+  InstructionError = InstructionErrorOf<TargetInstructions, TargetInput['Type']>,
+  InstructionRequirements = InstructionRequirementsOf<TargetInstructions, TargetInput['Type']>,
+  InputPromptValue extends InputPromptSource<TargetInput['Type'], unknown, unknown> | undefined = undefined,
   UpdatesSchema extends Schema.Top | undefined = undefined,
   RunDispositionValue extends
-    | RunDispositionDeclaration<TargetOutput["Type"], Schema.Top>
+    | RunDispositionDeclaration<TargetOutput['Type'], Schema.Top>
     | undefined = undefined,
 >(
-  delegation: SubagentDelegation<
-    Name,
-    TargetInput,
-    TargetOutput,
-    TargetInstructions,
-    TargetTools,
-    Parameters,
-    Success,
-    Failure,
-    PrepareRequirements,
-    ProjectRequirements,
-    Mode
-  > & {
-    readonly target: {
-      readonly instructions: InstructionSource<
-        TargetInput["Type"],
-        NoInfer<InstructionError>,
-        NoInfer<InstructionRequirements>
-      >;
-      readonly inputPrompt?: InputPromptValue | undefined;
-      readonly updates?: UpdatesSchema | undefined;
-      readonly runDisposition?: RunDispositionValue | undefined;
-    };
-  },
+  delegation:
+    & SubagentDelegation<
+      Name,
+      TargetInput,
+      TargetOutput,
+      TargetInstructions,
+      TargetTools,
+      Parameters,
+      Success,
+      Failure,
+      PrepareRequirements,
+      ProjectRequirements,
+      Mode
+    >
+    & {
+      readonly target: {
+        readonly instructions: InstructionSource<
+          TargetInput['Type'],
+          NoInfer<InstructionError>,
+          NoInfer<InstructionRequirements>
+        >
+        readonly inputPrompt?: InputPromptValue | undefined
+        readonly updates?: UpdatesSchema | undefined
+        readonly runDisposition?: RunDispositionValue | undefined
+      }
+    },
   modelOrBinding:
     | RuntimeBinding<
-        TargetInput,
-        TargetOutput,
-        TargetInstructions,
-        TargetTools,
-        ModelProvides,
-        ModelRequires,
-        InstructionError,
-        InstructionRequirements,
-        RunDispositionValue,
-        InputPromptValue,
-        UpdatesSchema
-      >
+      TargetInput,
+      TargetOutput,
+      TargetInstructions,
+      TargetTools,
+      ModelProvides,
+      ModelRequires,
+      InstructionError,
+      InstructionRequirements,
+      RunDispositionValue,
+      InputPromptValue,
+      UpdatesSchema
+    >
     | RuntimeBinding<
-        TargetInput,
-        TargetOutput,
-        TargetInstructions,
-        TargetTools,
-        ModelProvides,
-        ModelRequires,
-        InstructionError,
-        InstructionRequirements,
-        RunDispositionValue,
-        InputPromptValue,
-        UpdatesSchema
-      >["model"],
+      TargetInput,
+      TargetOutput,
+      TargetInstructions,
+      TargetTools,
+      ModelProvides,
+      ModelRequires,
+      InstructionError,
+      InstructionRequirements,
+      RunDispositionValue,
+      InputPromptValue,
+      UpdatesSchema
+    >['model'],
   options?: SubagentRuntimeOptions<
     Failure,
     SubagentChildRunFailure<
@@ -1374,7 +1365,7 @@ export function layer<
     UpdatesSchema,
     RunDispositionValue
   >
->;
+>
 
 export function layer<
   Name extends string,
@@ -1390,67 +1381,68 @@ export function layer<
   ModelProvides,
   ModelRequires,
   HookRequirements = never,
-  Mode extends SubagentFailureMode = "error",
-  InstructionError = InstructionErrorOf<TargetInstructions, TargetInput["Type"]>,
-  InstructionRequirements = InstructionRequirementsOf<TargetInstructions, TargetInput["Type"]>,
-  InputPromptValue extends InputPromptSource<TargetInput["Type"], unknown, unknown> | undefined =
-    undefined,
+  Mode extends SubagentFailureMode = 'error',
+  InstructionError = InstructionErrorOf<TargetInstructions, TargetInput['Type']>,
+  InstructionRequirements = InstructionRequirementsOf<TargetInstructions, TargetInput['Type']>,
+  InputPromptValue extends InputPromptSource<TargetInput['Type'], unknown, unknown> | undefined = undefined,
   UpdatesSchema extends Schema.Top | undefined = undefined,
   RunDispositionValue extends
-    | RunDispositionDeclaration<TargetOutput["Type"], Schema.Top>
+    | RunDispositionDeclaration<TargetOutput['Type'], Schema.Top>
     | undefined = undefined,
 >(
-  delegation: SubagentDelegation<
-    Name,
-    TargetInput,
-    TargetOutput,
-    TargetInstructions,
-    TargetTools,
-    Parameters,
-    Success,
-    Failure,
-    PrepareRequirements,
-    ProjectRequirements,
-    Mode
-  > & {
-    readonly target: {
-      readonly instructions: InstructionSource<
-        TargetInput["Type"],
-        NoInfer<InstructionError>,
-        NoInfer<InstructionRequirements>
-      >;
-      readonly inputPrompt?: InputPromptValue | undefined;
-      readonly updates?: UpdatesSchema | undefined;
-      readonly runDisposition?: RunDispositionValue | undefined;
-    };
-  },
+  delegation:
+    & SubagentDelegation<
+      Name,
+      TargetInput,
+      TargetOutput,
+      TargetInstructions,
+      TargetTools,
+      Parameters,
+      Success,
+      Failure,
+      PrepareRequirements,
+      ProjectRequirements,
+      Mode
+    >
+    & {
+      readonly target: {
+        readonly instructions: InstructionSource<
+          TargetInput['Type'],
+          NoInfer<InstructionError>,
+          NoInfer<InstructionRequirements>
+        >
+        readonly inputPrompt?: InputPromptValue | undefined
+        readonly updates?: UpdatesSchema | undefined
+        readonly runDisposition?: RunDispositionValue | undefined
+      }
+    },
   modelOrBinding?:
     | RuntimeBinding<
-        TargetInput,
-        TargetOutput,
-        TargetInstructions,
-        TargetTools,
-        ModelProvides,
-        ModelRequires,
-        InstructionError,
-        InstructionRequirements,
-        RunDispositionValue,
-        InputPromptValue,
-        UpdatesSchema
-      >
+      TargetInput,
+      TargetOutput,
+      TargetInstructions,
+      TargetTools,
+      ModelProvides,
+      ModelRequires,
+      InstructionError,
+      InstructionRequirements,
+      RunDispositionValue,
+      InputPromptValue,
+      UpdatesSchema
+    >
     | RuntimeBinding<
-        TargetInput,
-        TargetOutput,
-        TargetInstructions,
-        TargetTools,
-        ModelProvides,
-        ModelRequires,
-        InstructionError,
-        InstructionRequirements,
-        RunDispositionValue,
-        InputPromptValue,
-        UpdatesSchema
-      >["model"],
+      TargetInput,
+      TargetOutput,
+      TargetInstructions,
+      TargetTools,
+      ModelProvides,
+      ModelRequires,
+      InstructionError,
+      InstructionRequirements,
+      RunDispositionValue,
+      InputPromptValue,
+      UpdatesSchema
+    >['model'],
   options: SubagentRuntimeOptions<
     Failure,
     SubagentChildRunFailure<
@@ -1488,17 +1480,16 @@ export function layer<
     RunDispositionValue
   >
 > {
-  const childBinding =
-    modelOrBinding !== undefined && "definition" in modelOrBinding
-      ? modelOrBinding
-      : {
-          definition: delegation.target,
-          model: modelOrBinding ?? Layer.effectContext(Effect.context<ModelServices>()),
-        };
+  const childBinding = modelOrBinding !== undefined && 'definition' in modelOrBinding
+    ? modelOrBinding
+    : {
+      definition: delegation.target,
+      model: modelOrBinding ?? Layer.effectContext(Effect.context<ModelServices>()),
+    }
 
   if (childBinding.definition !== delegation.target) {
     // oxlint-disable-next-line effect/no-untyped-throw, effect/no-native-error -- Subagent.layer synchronously requires the exact declared target before constructing its Layer.
-    throw new Error("Subagent.layer requires the delegation's exact target Definition");
+    throw new Error("Subagent.layer requires the delegation's exact target Definition")
   }
 
   const resolvePolicy = (spawner: AgentSpawnerService) =>
@@ -1506,8 +1497,8 @@ export function layer<
       delegation,
       spawner.policy,
       options.parentCaps,
-      spawner.depth === 0 && spawner.budget === undefined ? "root-attached" : "conserved",
-    );
+      spawner.depth === 0 && spawner.budget === undefined ? 'root-attached' : 'conserved',
+    )
 
   // `Toolkit.ToolsByName` cannot reduce its mapped-as key while `Name` is
   // generic (it degrades to a string index signature); at every concrete
@@ -1515,21 +1506,21 @@ export function layer<
   // compiler limitation and crosses no schema boundary.
   const toolkit = Toolkit.make(delegation.tool as Tool.Any) as unknown as Toolkit.Toolkit<
     SubagentTools<Name, Parameters, Success, Failure, Mode>
-  >;
+  >
 
   // Containment (SUB-033): under `failureMode: "return"` every expected
   // delegation failure becomes the handler's SUCCESS value (the Tool success
   // Schema is the union of the declared success and the contained family);
   // exactly the engine signals stay raisable, so the durable waiting
   // suspension and coordinator-seam errors keep their semantics.
-  const contained = delegation.failureMode === "return";
-  const encodeChildInput = Schema.encodeEffect(delegation.target.input);
-  const encodeSuccess = Schema.encodeEffect(delegation.success);
-  const decodeChildOutput = Schema.decodeUnknownEffect(delegation.target.output);
+  const contained = delegation.failureMode === 'return'
+  const encodeChildInput = Schema.encodeEffect(delegation.target.input)
+  const encodeSuccess = Schema.encodeEffect(delegation.success)
+  const decodeChildOutput = Schema.decodeUnknownEffect(delegation.target.output)
 
   const encodeResultProjectionFailure = Schema.encodeEffect(
     Schema.Union([delegation.failure, SubagentProjectionFailure]),
-  );
+  )
 
   const executionFailure = (
     classification: SubagentExecutionFailureClassification,
@@ -1546,14 +1537,14 @@ export function layer<
       ...(child === undefined
         ? {}
         : {
-            childThreadId: child.childThreadId,
-            childSubmissionId: child.childSubmissionId,
-            childRunId: child.childRunId,
-          }),
-    });
+          childThreadId: child.childThreadId,
+          childSubmissionId: child.childSubmissionId,
+          childRunId: child.childRunId,
+        }),
+    })
 
   const prestartDenied = (
-    reason: SubagentPrestartDenied["reason"],
+    reason: SubagentPrestartDenied['reason'],
     message: string,
   ): SubagentPrestartDenied =>
     SubagentPrestartDenied.make({
@@ -1561,136 +1552,134 @@ export function layer<
       targetAgentId: delegation.target.id,
       reason,
       message: boundedEventText(message),
-    });
+    })
 
-  const validateAttachedCall = Effect.fnUntraced(function* (callId: string | undefined) {
-    const spawner = yield* AgentSpawner;
+  const validateAttachedCall = Effect.fnUntraced(function*(callId: string | undefined) {
+    const spawner = yield* AgentSpawner
 
     // The interpreter supplies the Tool Call identity; absence is an engine defect.
-    const toolCallId = yield* Schema.decodeUnknownEffect(ToolCallId)(callId).pipe(Effect.orDie);
-    const grant = narrowSubagentGrant(delegation.grant, spawner.grant);
-    const depth = spawner.depth + 1;
+    const toolCallId = yield* Schema.decodeUnknownEffect(ToolCallId)(callId).pipe(Effect.orDie)
+    const grant = narrowSubagentGrant(delegation.grant, spawner.grant)
+    const depth = spawner.depth + 1
 
     if (depth > grant.maxDepth) {
       return yield* prestartDenied(
-        "nested-delegation",
-        "Delegation exceeds the inherited depth ceiling",
-      );
+        'nested-delegation',
+        'Delegation exceeds the inherited depth ceiling',
+      )
     }
-    if (!(spawner.grant?.childLifetimes ?? ["attached", "background"]).includes("attached")) {
+    if (!(spawner.grant?.childLifetimes ?? ['attached', 'background']).includes('attached')) {
       return yield* prestartDenied(
-        "grant-violation",
-        "The inherited grant does not permit attached children",
-      );
+        'grant-violation',
+        'The inherited grant does not permit attached children',
+      )
     }
 
-    return { toolCallId, grant, depth };
-  });
+    return { toolCallId, grant, depth }
+  })
 
-  const prepareChildInput = Effect.fnUntraced(function* (
-    parameters: Parameters["Type"],
+  const prepareChildInput = Effect.fnUntraced(function*(
+    parameters: Parameters['Type'],
     toolCallId: ToolCallId,
   ) {
-    const spawner = yield* AgentSpawner;
+    const spawner = yield* AgentSpawner
 
     const prepared = yield* delegation.prepareInput(parameters, {
-      source: "tool",
+      source: 'tool',
       delegationId: delegation.delegationId,
       toolCallId,
       parent: spawner.parent,
-    });
+    })
 
     return yield* encodeChildInput(prepared).pipe(
       Effect.mapError(() =>
         SubagentProjectionFailure.make({
           delegationId: delegation.delegationId,
-          stage: "input",
-          message: "Prepared child input did not satisfy the target Agent input Schema",
-        }),
+          stage: 'input',
+          message: 'Prepared child input did not satisfy the target Agent input Schema',
+        })
       ),
-    );
-  });
+    )
+  })
 
-  const build = Effect.gen(function* () {
-    const captured =
-      yield* Effect.context<
-        SubagentLayerRequirements<
-          TargetInput,
-          TargetOutput,
-          TargetInstructions,
-          TargetTools,
-          never,
-          ModelRequires | ModelServices,
-          PrepareRequirements,
-          ProjectRequirements,
-          HookRequirements,
-          InstructionError,
-          InstructionRequirements,
-          InputPromptValue,
-          UpdatesSchema,
-          RunDispositionValue
-        >
-      >();
+  const build = Effect.gen(function*() {
+    const captured = yield* Effect.context<
+      SubagentLayerRequirements<
+        TargetInput,
+        TargetOutput,
+        TargetInstructions,
+        TargetTools,
+        never,
+        ModelRequires | ModelServices,
+        PrepareRequirements,
+        ProjectRequirements,
+        HookRequirements,
+        InstructionError,
+        InstructionRequirements,
+        InputPromptValue,
+        UpdatesSchema,
+        RunDispositionValue
+      >
+    >()
 
-    const invoke = Effect.fnUntraced(function* (
-      parameters: Parameters["Type"],
+    const invoke = Effect.fnUntraced(function*(
+      parameters: Parameters['Type'],
       handlerContext: Toolkit.HandlerContext<
         SubagentTool<Name, Parameters, Success, Failure, Mode>
       >,
     ) {
-      const spawner = yield* AgentSpawner;
-      const resolved = resolvePolicy(spawner);
+      const spawner = yield* AgentSpawner
+      const resolved = resolvePolicy(spawner)
 
-      if (resolved === undefined)
+      if (resolved === undefined) {
         return yield* prestartDenied(
-          "budget-conflict",
-          "An unbounded parent Run requires an explicit finite delegation policy",
-        );
-      const { policy, childPolicy, allocation } = resolved;
+          'budget-conflict',
+          'An unbounded parent Run requires an explicit finite delegation policy',
+        )
+      }
+      const { policy, childPolicy, allocation } = resolved
 
-      const caps =
-        spawner.budget === undefined
-          ? resolved.caps
-          : residualSubagentCaps(
-              resolved.caps,
-              spawner.policy,
-              spawner.budget,
-              spawner.budgetScope === "worker-run",
-            );
+      const caps = spawner.budget === undefined
+        ? resolved.caps
+        : residualSubagentCaps(
+          resolved.caps,
+          spawner.policy,
+          spawner.budget,
+          spawner.budgetScope === 'worker-run',
+        )
 
-      const sink = yield* RunEventSink;
-      const reservations = yield* SubagentReservations;
+      const sink = yield* RunEventSink
+      const reservations = yield* SubagentReservations
 
-      const { toolCallId, grant, depth } = yield* validateAttachedCall(handlerContext.toolCallId);
+      const { toolCallId, grant, depth } = yield* validateAttachedCall(handlerContext.toolCallId)
 
       if (spawner.depth > 0 && spawner.budget === undefined) {
         return yield* prestartDenied(
-          "budget-conflict",
-          "Nested ephemeral delegation requires an inherited subtree reservation",
-        );
+          'budget-conflict',
+          'Nested ephemeral delegation requires an inherited subtree reservation',
+        )
       }
 
-      const encodedInput = yield* prepareChildInput(parameters, toolCallId);
+      const encodedInput = yield* prepareChildInput(parameters, toolCallId)
 
-      const parentRunId = spawner.parent.runId;
+      const parentRunId = spawner.parent.runId
 
       yield* Effect.acquireRelease(
         reservations.registerParent(parentRunId, caps).pipe(
-          Effect.catchTag("SubagentParentBudgetConflict", () =>
+          Effect.catchTag('SubagentParentBudgetConflict', () =>
             Effect.fail(
               prestartDenied(
-                "budget-conflict",
-                "The parent Run is already registered with different delegation caps; supply shared parentCaps explicitly",
+                'budget-conflict',
+                'The parent Run is already registered with different delegation caps; supply shared parentCaps explicitly',
               ),
-            ),
-          ),
+            )),
           Effect.asVoid,
         ),
         () => reservations.retireParent(parentRunId).pipe(Effect.orDie),
-      ).pipe(Scope.provide(spawner.scope));
+      ).pipe(Scope.provide(spawner.scope))
 
-      const reservationId = makeBudgetReservationId(parentRunId, toolCallId);
-      const startedAt = yield* Ref.make<number | undefined>(undefined);
+      const reservationId = makeBudgetReservationId(parentRunId, toolCallId)
+      const startedAt = yield* Ref.make<number | undefined>(undefined)
 
       // Reservation settlement is finalizer-driven from this point on: every
       // exit path — success, declared failure, interruption, defect — settles
@@ -1723,19 +1712,18 @@ export function layer<
             startedAt,
             (policy.descendantInvocations ?? 0) > 0 ? { parentRunId, allocation } : undefined,
           ),
-      );
+      )
       // Scope-owned concurrency permit: interruption while queued frees the
       // slot, and the settlement finalizer above releases the reservation.
       yield* reservations
         .acquireChildSlot(parentRunId, 1 + (policy.descendantInvocations ?? 0))
-        .pipe(Effect.catchTag("SubagentParentBudgetUnknown", (unknown) => Effect.die(unknown)));
+        .pipe(Effect.catchTag('SubagentParentBudgetUnknown', (unknown) => Effect.die(unknown)))
 
-      const seededChild = options.child;
-      const seededBudget = seededChild?.budget;
+      const seededChild = options.child
+      const seededBudget = seededChild?.budget
 
       const budget: RunBudgetHook<never, HookRequirements> = {
-        guard:
-          seededBudget === undefined ? (effect) => effect : (effect) => seededBudget.guard(effect),
+        guard: seededBudget === undefined ? (effect) => effect : (effect) => seededBudget.guard(effect),
         consume: (delta) =>
           reservations
             .observe(reservationId, observedUsageFromDelta(delta))
@@ -1745,11 +1733,11 @@ export function layer<
                 seededBudget === undefined ? Effect.void : seededBudget.consume(delta),
               ),
             ),
-      };
+      }
 
       // Preparation and waiting for a concurrency permit spend the parent's time too.
       // Keep the reservation unchanged; settlement refunds unused execution duration.
-      const childStartedAt = yield* Clock.currentTimeMillis;
+      const childStartedAt = yield* Clock.currentTimeMillis
 
       const durationMillis = Math.max(
         0,
@@ -1761,26 +1749,25 @@ export function layer<
               Duration.toMillis(policy.parentReserveDuration ?? Duration.zero),
           ),
         ),
-      );
+      )
 
       if (durationMillis === 0) {
         return yield* SubagentBudgetExhausted.make({
           parentRunId,
-          dimension: "duration",
+          dimension: 'duration',
           limitValue: 0,
           observedValue: 0,
-        });
+        })
       }
 
-      const durationDeadlineMillis = childStartedAt + durationMillis;
-      const durationDeadline = DateTime.makeUnsafe(durationDeadlineMillis);
+      const durationDeadlineMillis = childStartedAt + durationMillis
+      const durationDeadline = DateTime.makeUnsafe(durationDeadlineMillis)
 
       const childOptions: SpawnInterpreterOptions<never, HookRequirements> = {
         ...seededChild,
-        durationDeadline:
-          seededChild?.durationDeadline === undefined
-            ? durationDeadline
-            : DateTime.min(durationDeadline, seededChild.durationDeadline),
+        durationDeadline: seededChild?.durationDeadline === undefined
+          ? durationDeadline
+          : DateTime.min(durationDeadline, seededChild.durationDeadline),
         subagentGrant: grant,
         delegationDepth: depth,
         subagentBudget: SubagentBudgetReservation.make({
@@ -1792,13 +1779,13 @@ export function layer<
         }),
         budget,
         toolCallAllowance: childPolicy.maxToolCalls,
-      };
+      }
 
-      yield* Ref.set(startedAt, childStartedAt);
+      yield* Ref.set(startedAt, childStartedAt)
 
-      const childScope = yield* Scope.make();
+      const childScope = yield* Scope.make()
 
-      yield* Effect.addFinalizer((exit) => Scope.close(childScope, exit));
+      yield* Effect.addFinalizer((exit) => Scope.close(childScope, exit))
 
       const child = yield* spawner
         .spawn<
@@ -1821,7 +1808,7 @@ export function layer<
           { delegationId: delegation.delegationId, parentToolCallId: toolCallId },
           childOptions,
         )
-        .pipe(Scope.provide(childScope));
+        .pipe(Scope.provide(childScope))
 
       const payload: SubagentEventBasePayload = {
         toolCallId,
@@ -1830,48 +1817,48 @@ export function layer<
         childRunId: child.runId,
         targetAgentId: delegation.target.id,
         depth: child.parentLink.depth,
-      };
+      }
 
       // The sink cannot be closed while this Tool batch is live; a closed
       // sink here is an engine defect.
-      const emit = (event: SubagentEventPayload): Effect.Effect<void> =>
-        sink.emit(event).pipe(Effect.orDie);
+      const emit = (event: SubagentEventPayload): Effect.Effect<void> => sink.emit(event).pipe(Effect.orDie)
 
-      yield* emit({ _tag: "SubagentRequested", ...payload });
-      yield* emit({ _tag: "SubagentStarted", ...payload });
+      yield* emit({ _tag: 'SubagentRequested', ...payload })
+      yield* emit({ _tag: 'SubagentStarted', ...payload })
 
-      const joined = Effect.gen(function* () {
+      const joined = Effect.gen(function*() {
         const result = yield* child.await.pipe(
           Effect.catch((childFailure) =>
-            Effect.gen(function* () {
+            Effect.gen(function*() {
               // The child's own deadline and this handler's timeout can win in either
               // order. Both must deliver the same typed delegation duration failure.
               if (
                 isDurationPolicyError(childFailure) &&
                 (yield* Clock.currentTimeMillis) >= durationDeadlineMillis
-              )
-                return undefined;
+              ) {
+                return undefined
+              }
 
-              const report = yield* child.usageReport;
+              const report = yield* child.usageReport
 
               yield* emit({
-                _tag: "SubagentFailed",
+                _tag: 'SubagentFailed',
                 ...payload,
                 ...report,
                 errorTag: errorTagOf(childFailure),
                 message: boundedEventText(errorMessageOf(childFailure)),
-              });
+              })
 
               return yield* Effect.fail(
                 options.mapChildFailure === undefined
                   ? executionFailure(
-                      "child-failed",
-                      errorTagOf(childFailure),
-                      "The child Run failed",
-                    )
+                    'child-failed',
+                    errorTagOf(childFailure),
+                    'The child Run failed',
+                  )
                   : options.mapChildFailure(childFailure),
-              );
-            }),
+              )
+            })
           ),
           Effect.timeoutOrElse({
             duration: Math.max(0, durationDeadlineMillis - (yield* Clock.currentTimeMillis)),
@@ -1880,97 +1867,98 @@ export function layer<
           Effect.tapCause((cause) =>
             Cause.hasDies(cause)
               ? child.usageReport.pipe(
-                  Effect.flatMap((report) =>
-                    emit({
-                      _tag: "SubagentFailed",
-                      ...payload,
-                      ...report,
-                      errorTag: "Defect",
-                      message: "The child Run ended with a defect",
-                    }),
-                  ),
-                  Effect.ignore,
-                )
-              : Effect.void,
+                Effect.flatMap((report) =>
+                  emit({
+                    _tag: 'SubagentFailed',
+                    ...payload,
+                    ...report,
+                    errorTag: 'Defect',
+                    message: 'The child Run ended with a defect',
+                  })
+                ),
+                Effect.ignore,
+              )
+              : Effect.void
           ),
-        );
+        )
 
         if (result === undefined) {
           // Choose the timeout before interrupting the child; otherwise its interrupted await
           // can win the timeout race and replace the typed delegation failure.
-          yield* Scope.close(childScope, Exit.void);
-          const report = yield* child.usageReport;
+          yield* Scope.close(childScope, Exit.void)
+          const report = yield* child.usageReport
 
           yield* emit({
-            _tag: "SubagentFailed",
+            _tag: 'SubagentFailed',
             ...payload,
             ...report,
-            errorTag: "SubagentBudgetExhausted",
+            errorTag: 'SubagentBudgetExhausted',
             message: `Attached child exceeded its ${durationMillis}ms delegation duration budget`,
-          });
+          })
 
           return yield* SubagentBudgetExhausted.make({
             parentRunId,
-            dimension: "duration",
+            dimension: 'duration',
             limitValue: durationMillis,
             observedValue: durationMillis,
-          });
+          })
         }
-        const report = yield* child.usageReport;
+        const report = yield* child.usageReport
 
         yield* emit({
-          _tag: "SubagentCompleted",
+          _tag: 'SubagentCompleted',
           ...payload,
           ...report,
           turns: result.turns,
           finishReason: result.finishReason,
           ...(result.exhausted !== undefined ? { exhausted: result.exhausted } : {}),
-        });
+        })
 
         const projected = yield* delegation.projectResult(
           result.output,
           {
-            budgetExhausted: result.finishReason === "budget-exhausted",
+            budgetExhausted: result.finishReason === 'budget-exhausted',
             ...report,
           },
           parameters,
-        );
+        )
 
         const encodedResult = yield* encodeSuccess(projected).pipe(
           Effect.mapError(() =>
             SubagentProjectionFailure.make({
               delegationId: delegation.delegationId,
-              stage: "result",
-              message: "Projected child result did not satisfy the delegation success Schema",
-            }),
+              stage: 'result',
+              message: 'Projected child result did not satisfy the delegation success Schema',
+            })
           ),
-        );
+        )
 
-        const resultBytes = utf8ByteLength(JSON.stringify(encodedResult) ?? "");
+        const resultBytes = utf8ByteLength(JSON.stringify(encodedResult) ?? '')
 
         yield* reservations
           .observe(reservationId, SubagentObservedUsage.make({ resultBytes }))
-          .pipe(Effect.orDie);
+          .pipe(Effect.orDie)
         if (policy.maxResultBytes !== undefined && resultBytes > policy.maxResultBytes) {
           yield* emit({
-            _tag: "SubagentFailed",
+            _tag: 'SubagentFailed',
             ...payload,
             ...report,
-            errorTag: "SubagentBudgetExhausted",
-            message: `Projected child result of ${resultBytes} bytes exceeds the ${policy.maxResultBytes}-byte delegation budget`,
-          });
+            errorTag: 'SubagentBudgetExhausted',
+            message:
+              `Projected child result of ${resultBytes} bytes exceeds the ${policy.maxResultBytes}-byte delegation budget`,
+          })
 
           return yield* SubagentBudgetExhausted.make({
             parentRunId,
-            dimension: "result-bytes",
+            dimension: 'result-bytes',
             limitValue: policy.maxResultBytes,
             observedValue: resultBytes,
-          });
+          })
         }
-        yield* emit({ _tag: "SubagentJoined", ...payload, ...report });
+        yield* emit({ _tag: 'SubagentJoined', ...payload, ...report })
 
-        return projected;
-      });
+        return projected
+      })
 
       // Join the interrupted child before observing its final usage. Keep the original
       // interruption even when the closing parent can no longer accept lifecycle events.
@@ -1980,17 +1968,17 @@ export function layer<
             Effect.andThen(child.usageReport),
             Effect.flatMap((report) =>
               sink.emit({
-                _tag: "SubagentInterrupted",
+                _tag: 'SubagentInterrupted',
                 ...payload,
                 ...report,
-                reason: "Parent Run interrupted the attached child before it settled",
-              }),
+                reason: 'Parent Run interrupted the attached child before it settled',
+              })
             ),
             Effect.ignore,
-          ),
+          )
         ),
-      );
-    });
+      )
+    })
 
     /**
      * Durable branch: establishment through the
@@ -2001,43 +1989,43 @@ export function layer<
      * child keeps running; durable budget lives in the coordinator's fenced
      * ledger reservation built from `encodedAllocation`.
      */
-    const invokeDurable = Effect.fnUntraced(function* (
-      parameters: Parameters["Type"],
+    const invokeDurable = Effect.fnUntraced(function*(
+      parameters: Parameters['Type'],
       handlerContext: Toolkit.HandlerContext<
         SubagentTool<Name, Parameters, Success, Failure, Mode>
       >,
       durability: SubagentDurabilityDurable,
     ) {
-      const spawner = yield* AgentSpawner;
-      const resolved = resolvePolicy(spawner);
+      const spawner = yield* AgentSpawner
+      const resolved = resolvePolicy(spawner)
 
-      if (resolved === undefined)
+      if (resolved === undefined) {
         return yield* prestartDenied(
-          "budget-conflict",
-          "An unbounded parent Run requires an explicit finite delegation policy",
-        );
-      const { policy, childPolicy, allocation, caps } = resolved;
-      const encodedAllocation = yield* encodeAllocationAmounts(allocation).pipe(Effect.orDie);
+          'budget-conflict',
+          'An unbounded parent Run requires an explicit finite delegation policy',
+        )
+      }
+      const { policy, childPolicy, allocation, caps } = resolved
+      const encodedAllocation = yield* encodeAllocationAmounts(allocation).pipe(Effect.orDie)
 
       const conservativeAccounting = yield* encodeDurableAccounting(
         SubagentDurableAccounting.make({
           allocation,
           consumed: allocation,
           released: zeroReservationAmounts,
-          basis: "reserved-conservative",
+          basis: 'reserved-conservative',
         }),
-      ).pipe(Effect.orDie);
+      ).pipe(Effect.orDie)
 
-      const sink = yield* RunEventSink;
+      const sink = yield* RunEventSink
 
-      const { toolCallId, grant, depth } = yield* validateAttachedCall(handlerContext.toolCallId);
+      const { toolCallId, grant, depth } = yield* validateAttachedCall(handlerContext.toolCallId)
 
-      const emit = (event: SubagentEventPayload): Effect.Effect<void> =>
-        sink.emit(event).pipe(Effect.orDie);
+      const emit = (event: SubagentEventPayload): Effect.Effect<void> => sink.emit(event).pipe(Effect.orDie)
 
-      const encodedGrant = yield* encodeGrant(grant).pipe(Effect.orDie);
+      const encodedGrant = yield* encodeGrant(grant).pipe(Effect.orDie)
 
-      const encodedInput = yield* prepareChildInput(parameters, toolCallId);
+      const encodedInput = yield* prepareChildInput(parameters, toolCallId)
 
       // Establishment is idempotent by construction (SUB-016): the identical
       // request replays spec §12 steps 2-9 under the parent fence and
@@ -2064,13 +2052,13 @@ export function layer<
               : { descendantInvocations: policy.descendantInvocations }),
           },
         }),
-      );
+      )
 
       switch (status._tag) {
-        case "denied": {
-          return yield* executionFailure("establishment-denied", status.errorTag, status.message);
+        case 'denied': {
+          return yield* executionFailure('establishment-denied', status.errorTag, status.message)
         }
-        case "waiting": {
+        case 'waiting': {
           const payload: SubagentEventBasePayload = {
             toolCallId,
             delegationId: delegation.delegationId,
@@ -2078,18 +2066,18 @@ export function layer<
             childRunId: status.childRunId,
             targetAgentId: delegation.target.id,
             depth,
-          };
+          }
 
-          yield* emit({ _tag: "SubagentRequested", ...payload });
-          yield* emit({ _tag: "SubagentStarted", ...payload });
+          yield* emit({ _tag: 'SubagentRequested', ...payload })
+          yield* emit({ _tag: 'SubagentStarted', ...payload })
 
           // The handler ends here and never returns: the engine keeps the
           // call open (no Tool failure, no batch failure policy), siblings
           // finish, and the Run suspends waitingForChild — never polling,
           // never respawning (SUB-018, SUB-030).
-          return yield* Effect.mapError(wrapEngineSignal)(durability.waiting(toolCallId, status));
+          return yield* Effect.mapError(wrapEngineSignal)(durability.waiting(toolCallId, status))
         }
-        case "settled": {
+        case 'settled': {
           const payload: SubagentEventBasePayload = {
             toolCallId,
             delegationId: delegation.delegationId,
@@ -2097,12 +2085,12 @@ export function layer<
             childRunId: status.childRunId,
             targetAgentId: delegation.target.id,
             depth,
-          };
+          }
 
           const report = RunUsageReport.make({
             usage: status.usage ?? unknownRunTotals(),
             delegatedUsage: status.delegatedUsage ?? unknownRunTotals(),
-          });
+          })
 
           // Every terminal projection of a settled child — success or typed
           // failure — goes through ONE atomic join (SUB-019): the coordinator
@@ -2115,7 +2103,7 @@ export function layer<
             encodedFailure: unknown,
           ): Effect.Effect<never, F | GenuineEngineSignal> =>
             emit({
-              _tag: "SubagentFailed",
+              _tag: 'SubagentFailed',
               ...payload,
               ...report,
               errorTag: errorTagOf(failure),
@@ -2139,25 +2127,25 @@ export function layer<
                 ),
               ),
               Effect.andThen(Effect.fail(failure)),
-            );
+            )
 
-          if (status.outcome !== "completed") {
-            const projection = childFailureProjectionOf(status.encodedResult);
+          if (status.outcome !== 'completed') {
+            const projection = childFailureProjectionOf(status.encodedResult)
 
             const failure = executionFailure(
-              status.outcome === "aborted"
-                ? "child-aborted"
-                : projection.errorTag === "ChildCompatibilityFailure"
-                  ? "child-compatibility"
-                  : "child-failed",
+              status.outcome === 'aborted'
+                ? 'child-aborted'
+                : projection.errorTag === 'ChildCompatibilityFailure'
+                ? 'child-compatibility'
+                : 'child-failed',
               projection.errorTag,
               projection.message,
               status,
-            );
+            )
 
-            const encodedFailure = yield* encodeExecutionFailure(failure).pipe(Effect.orDie);
+            const encodedFailure = yield* encodeExecutionFailure(failure).pipe(Effect.orDie)
 
-            return yield* settleFailure(failure, encodedFailure);
+            return yield* settleFailure(failure, encodedFailure)
           }
 
           // The coordinator already verified lineage, target, digests, and
@@ -2170,22 +2158,22 @@ export function layer<
             Effect.catch(() => {
               const failure = SubagentProjectionFailure.make({
                 delegationId: delegation.delegationId,
-                stage: "result",
-                message: "Settled child output did not satisfy the target Agent output Schema",
-              });
+                stage: 'result',
+                message: 'Settled child output did not satisfy the target Agent output Schema',
+              })
 
               return encodeProjectionFailure(failure).pipe(
                 Effect.orDie,
                 Effect.flatMap((encodedFailure) => settleFailure(failure, encodedFailure)),
-              );
+              )
             }),
-          );
+          )
 
           const projected = yield* delegation
             .projectResult(
               decoded,
               {
-                budgetExhausted: status.finishReason === "budget-exhausted",
+                budgetExhausted: status.finishReason === 'budget-exhausted',
                 ...report,
               },
               parameters,
@@ -2195,38 +2183,38 @@ export function layer<
                 encodeResultProjectionFailure(declared).pipe(
                   Effect.orDie,
                   Effect.flatMap((encodedFailure) => settleFailure(declared, encodedFailure)),
-                ),
+                )
               ),
-            );
+            )
 
           const encodedResult = yield* encodeSuccess(projected).pipe(
             Effect.catch(() => {
               const failure = SubagentProjectionFailure.make({
                 delegationId: delegation.delegationId,
-                stage: "result",
-                message: "Projected child result did not satisfy the delegation success Schema",
-              });
+                stage: 'result',
+                message: 'Projected child result did not satisfy the delegation success Schema',
+              })
 
               return encodeProjectionFailure(failure).pipe(
                 Effect.orDie,
                 Effect.flatMap((encodedFailure) => settleFailure(failure, encodedFailure)),
-              );
+              )
             }),
-          );
+          )
 
-          const resultBytes = utf8ByteLength(JSON.stringify(encodedResult) ?? "");
+          const resultBytes = utf8ByteLength(JSON.stringify(encodedResult) ?? '')
 
           if (policy.maxResultBytes !== undefined && resultBytes > policy.maxResultBytes) {
             const failure = SubagentBudgetExhausted.make({
               parentRunId: spawner.parent.runId,
-              dimension: "result-bytes",
+              dimension: 'result-bytes',
               limitValue: policy.maxResultBytes,
               observedValue: resultBytes,
-            });
+            })
 
-            const encodedFailure = yield* encodeBudgetFailure(failure).pipe(Effect.orDie);
+            const encodedFailure = yield* encodeBudgetFailure(failure).pipe(Effect.orDie)
 
-            return yield* settleFailure(failure, encodedFailure);
+            return yield* settleFailure(failure, encodedFailure)
           }
           yield* Effect.mapError(wrapEngineSignal)(
             durability.join({
@@ -2235,13 +2223,13 @@ export function layer<
               isFailure: false,
               encodedAccounting: conservativeAccounting,
             }),
-          );
-          yield* emit({ _tag: "SubagentJoined", ...payload, ...report });
+          )
+          yield* emit({ _tag: 'SubagentJoined', ...payload, ...report })
 
-          return projected;
+          return projected
         }
       }
-    });
+    })
 
     // Containment boundary (SUB-033): under `"return"`, every expected
     // delegation failure becomes the handler's success value; exactly the
@@ -2251,24 +2239,23 @@ export function layer<
     // that happens to use the exported signal classes is contained as data,
     // never rethrown as a suspension signal.
     const containSignals = (
-      failure: SubagentToolFailure<Failure>["Type"] | GenuineEngineSignal,
+      failure: SubagentToolFailure<Failure>['Type'] | GenuineEngineSignal,
     ): Effect.Effect<
-      SubagentContainedFailure<Failure>["Type"],
+      SubagentContainedFailure<Failure>['Type'],
       ToolCallWaiting | SubagentDurabilityError
     > =>
       failure instanceof GenuineEngineSignal
         ? Effect.fail(failure.signal)
-        : Effect.succeed(failure);
+        : Effect.succeed(failure)
 
     // Error mode still unwraps genuine signals so the engine sees the raw
     // `ToolCallWaiting`/`SubagentDurabilityError` it owns.
     const unwrapSignals = (
-      failure: SubagentToolFailure<Failure>["Type"] | GenuineEngineSignal,
-    ): SubagentToolFailure<Failure>["Type"] =>
-      failure instanceof GenuineEngineSignal ? failure.signal : failure;
+      failure: SubagentToolFailure<Failure>['Type'] | GenuineEngineSignal,
+    ): SubagentToolFailure<Failure>['Type'] => failure instanceof GenuineEngineSignal ? failure.signal : failure
 
-    const handlerImpl = Effect.fnUntraced(function* (
-      parameters: Parameters["Type"],
+    const handlerImpl = Effect.fnUntraced(function*(
+      parameters: Parameters['Type'],
       handlerContext: Toolkit.HandlerContext<
         SubagentTool<Name, Parameters, Success, Failure, Mode>
       >,
@@ -2279,25 +2266,25 @@ export function layer<
       // context would otherwise shadow this Run's `AgentSpawner` (and its
       // delegation depth), this batch's live `RunEventSink`, and this
       // batch's live `SubagentDurability` mode.
-      const spawner = yield* AgentSpawner;
-      const sink = yield* RunEventSink;
-      const durability = yield* SubagentDurability;
+      const spawner = yield* AgentSpawner
+      const sink = yield* RunEventSink
+      const durability = yield* SubagentDurability
 
       // Service-mode dispatch (S2 plan §2): the engine states ephemeral
       // mode explicitly when no durable coordinator supplied the hook, so
       // absence keeps the S1 in-process spawn semantics honestly.
-      if (durability.mode === "durable") {
+      if (durability.mode === 'durable') {
         const durable = invokeDurable(parameters, handlerContext, durability).pipe(
           Effect.scoped,
           Effect.provideService(AgentSpawner, spawner),
           Effect.provideService(RunEventSink, sink),
           Effect.provideService(SubagentDurability, durability),
           Effect.provide(captured),
-        );
+        )
 
         return yield* contained
           ? durable.pipe(Effect.catch(containSignals))
-          : durable.pipe(Effect.mapError(unwrapSignals));
+          : durable.pipe(Effect.mapError(unwrapSignals))
       }
 
       const ephemeral = invoke(parameters, handlerContext).pipe(
@@ -2306,12 +2293,12 @@ export function layer<
         Effect.provideService(RunEventSink, sink),
         Effect.provideService(SubagentDurability, durability),
         Effect.provide(captured),
-      );
+      )
 
       return yield* contained
         ? ephemeral.pipe(Effect.catch(containSignals))
-        : ephemeral.pipe(Effect.mapError(unwrapSignals));
-    });
+        : ephemeral.pipe(Effect.mapError(unwrapSignals))
+    })
 
     // `handlerImpl`'s channels are the UNION of both modes because
     // `contained` is a runtime branch TypeScript cannot relate to the
@@ -2319,7 +2306,7 @@ export function layer<
     // matches `SubagentHandler`'s channels exactly (proven by the mode type
     // tests), so this assertion bridges only that limitation and crosses no
     // schema boundary.
-    const handler = handlerImpl as SubagentHandler<Name, Parameters, Success, Failure, Mode>;
+    const handler = handlerImpl as SubagentHandler<Name, Parameters, Success, Failure, Mode>
 
     // TypeScript cannot relate a computed single-key object literal to the
     // generic mapped key `Name`; `handler` is fully checked against the
@@ -2327,30 +2314,30 @@ export function layer<
     // that compiler limitation and crosses no schema boundary.
     return { [delegation.name]: handler } as Toolkit.HandlersFrom<
       SubagentTools<Name, Parameters, Success, Failure, Mode>
-    >;
-  });
+    >
+  })
 
-  return toolkit.toLayer(build);
+  return toolkit.toLayer(build)
 }
 
-export { WorkerReport, reporting, type ReportingOptions } from "./internal/subagent-reporting.ts";
+export { reporting, type ReportingOptions, WorkerReport } from './internal/subagent-reporting.ts'
 
 export {
+  awaitWorker as await,
+  cancel,
+  cancelTool,
+  followUp,
+  followUpTool,
+  inspect,
+  inspectTool,
+  list,
+  listTool,
+  observe,
+  start,
+  startTool,
+  type StartToolOptions,
+  stop,
+  summaryTool,
   Worker,
   WorkerObservation,
-  start,
-  followUp,
-  inspect,
-  observe,
-  awaitWorker as await,
-  list,
-  cancel,
-  stop,
-  startTool,
-  followUpTool,
-  inspectTool,
-  summaryTool,
-  listTool,
-  cancelTool,
-  type StartToolOptions,
-} from "./internal/subagent-background.ts";
+} from './internal/subagent-background.ts'

@@ -1,49 +1,49 @@
-import type * as Tool from "effect/ai/Tool";
-import * as Context from "effect/Context";
-import type * as Effect from "effect/Effect";
+import type * as Tool from 'effect/ai/Tool'
+import * as Context from 'effect/Context'
+import type * as Effect from 'effect/Effect'
 
-import type { RunId, ThreadId } from "../core/Identifiers.ts";
+import type { RunId, ThreadId } from '../core/Identifiers.ts'
 
 export type CatalogEntry =
   | {
-      readonly kind: "native";
-      readonly tool: Tool.Any;
-      readonly namespace?: string | undefined;
-      readonly nativeToolName: string;
-    }
+    readonly kind: 'native'
+    readonly tool: Tool.Any
+    readonly namespace?: string | undefined
+    readonly nativeToolName: string
+  }
   | {
-      readonly kind: "code-mode";
-      readonly tool: Tool.Any;
-      readonly namespace: string;
-      readonly method: string;
-      readonly nativeToolName: string;
-    };
+    readonly kind: 'code-mode'
+    readonly tool: Tool.Any
+    readonly namespace: string
+    readonly method: string
+    readonly nativeToolName: string
+  }
 
 /** Engine-owned per-Turn snapshot. All candidates passed host visibility and inherited grants. */
 export class CurrentToolCatalog extends Context.Service<
   CurrentToolCatalog,
   {
-    readonly entries: ReadonlyArray<CatalogEntry>;
+    readonly entries: ReadonlyArray<CatalogEntry>
   }
->()("@effect-agent/engine/ToolExposure/CurrentToolCatalog") {}
+>()('@effect-agent/engine/ToolExposure/CurrentToolCatalog') {}
 
 /** Host visibility is checked before a discovery Handler may inspect candidate documentation. */
 export interface VisibilityRequest {
-  readonly threadId: ThreadId;
-  readonly runId: RunId;
-  readonly turn: number;
-  readonly input: unknown;
+  readonly threadId: ThreadId
+  readonly runId: RunId
+  readonly turn: number
+  readonly input: unknown
   /** Includes registered native names and explicitly advertised programmatic names. */
-  readonly toolNames: ReadonlyArray<string>;
+  readonly toolNames: ReadonlyArray<string>
 }
 
 /** Resolve host dependencies when constructing the policy Layer. */
 export interface VisibilityHook {
-  readonly visible: (request: VisibilityRequest) => Effect.Effect<ReadonlyArray<string>>;
+  readonly visible: (request: VisibilityRequest) => Effect.Effect<ReadonlyArray<string>>
 }
 
 /** Optional host policy captured by durable runtimes; action authorization remains independent. */
 export const RunToolVisibility = Context.Reference<VisibilityHook | undefined>(
-  "@effect-agent/engine/ToolExposure/RunToolVisibility",
+  '@effect-agent/engine/ToolExposure/RunToolVisibility',
   { defaultValue: () => undefined },
-);
+)

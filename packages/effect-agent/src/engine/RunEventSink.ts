@@ -1,17 +1,11 @@
-import * as Context from "effect/Context";
-import type * as Effect from "effect/Effect";
-import * as Schema from "effect/Schema";
+import * as Context from 'effect/Context'
+import type * as Effect from 'effect/Effect'
+import * as Schema from 'effect/Schema'
 
-import {
-  type AgentId,
-  type ThreadId,
-  type DelegationId,
-  type RunId,
-  type ToolCallId,
-} from "../core/Identifiers.ts";
-import type { CompletionMetadata } from "../core/internal/completion.ts";
-import { type DelegationDepth } from "../core/SubagentContract.ts";
-import { type RunTotals } from "../core/Usage.ts";
+import { type AgentId, type DelegationId, type RunId, type ThreadId, type ToolCallId } from '../core/Identifiers.ts'
+import type { CompletionMetadata } from '../core/internal/completion.ts'
+import { type DelegationDepth } from '../core/SubagentContract.ts'
+import { type RunTotals } from '../core/Usage.ts'
 
 /**
  * Shared identity carried by every pre-base Subagent event payload. The
@@ -22,61 +16,61 @@ import { type RunTotals } from "../core/Usage.ts";
  * into the parent stream.
  */
 export interface SubagentEventBasePayload {
-  readonly toolCallId: ToolCallId;
-  readonly delegationId: DelegationId;
-  readonly childThreadId: ThreadId;
-  readonly childRunId: RunId;
-  readonly targetAgentId: AgentId;
-  readonly depth: DelegationDepth;
+  readonly toolCallId: ToolCallId
+  readonly delegationId: DelegationId
+  readonly childThreadId: ThreadId
+  readonly childRunId: RunId
+  readonly targetAgentId: AgentId
+  readonly depth: DelegationDepth
 }
 
 /** Pre-base payload for the core `SubagentRequested` event. */
 export interface SubagentRequestedPayload extends SubagentEventBasePayload {
-  readonly _tag: "SubagentRequested";
+  readonly _tag: 'SubagentRequested'
 }
 
 /** Pre-base payload for the core `SubagentStarted` event. */
 export interface SubagentStartedPayload extends SubagentEventBasePayload {
-  readonly _tag: "SubagentStarted";
+  readonly _tag: 'SubagentStarted'
 }
 
 /** Pre-base payload for the core `SubagentProgress` event; `summary` is at most 4096 characters. */
 export interface SubagentProgressPayload extends SubagentEventBasePayload {
-  readonly _tag: "SubagentProgress";
-  readonly summary: string;
+  readonly _tag: 'SubagentProgress'
+  readonly summary: string
 }
 
 /** Pre-base payload for the core `SubagentCompleted` event; `turns` is a positive integer. */
 export interface SubagentCompletedPayload extends SubagentEventBasePayload, CompletionMetadata {
-  readonly _tag: "SubagentCompleted";
-  readonly turns: number;
+  readonly _tag: 'SubagentCompleted'
+  readonly turns: number
   /** What the child spent, so a parent can account for delegated work. */
-  readonly usage?: RunTotals | undefined;
-  readonly delegatedUsage?: RunTotals | undefined;
+  readonly usage?: RunTotals | undefined
+  readonly delegatedUsage?: RunTotals | undefined
 }
 
 /** Pre-base payload for the core `SubagentFailed` event; `message` is at most 4096 characters. */
 export interface SubagentFailedPayload extends SubagentEventBasePayload {
-  readonly _tag: "SubagentFailed";
-  readonly usage?: RunTotals | undefined;
-  readonly delegatedUsage?: RunTotals | undefined;
-  readonly errorTag: string;
-  readonly message: string;
+  readonly _tag: 'SubagentFailed'
+  readonly usage?: RunTotals | undefined
+  readonly delegatedUsage?: RunTotals | undefined
+  readonly errorTag: string
+  readonly message: string
 }
 
 /** Pre-base payload for the core `SubagentInterrupted` event; `reason` is at most 4096 characters. */
 export interface SubagentInterruptedPayload extends SubagentEventBasePayload {
-  readonly _tag: "SubagentInterrupted";
-  readonly usage?: RunTotals | undefined;
-  readonly delegatedUsage?: RunTotals | undefined;
-  readonly reason: string;
+  readonly _tag: 'SubagentInterrupted'
+  readonly usage?: RunTotals | undefined
+  readonly delegatedUsage?: RunTotals | undefined
+  readonly reason: string
 }
 
 /** Pre-base payload for the core `SubagentJoined` event. */
 export interface SubagentJoinedPayload extends SubagentEventBasePayload {
-  readonly _tag: "SubagentJoined";
-  readonly usage?: RunTotals | undefined;
-  readonly delegatedUsage?: RunTotals | undefined;
+  readonly _tag: 'SubagentJoined'
+  readonly usage?: RunTotals | undefined
+  readonly delegatedUsage?: RunTotals | undefined
 }
 
 /**
@@ -94,11 +88,11 @@ export type SubagentEventPayload =
   | SubagentCompletedPayload
   | SubagentFailedPayload
   | SubagentInterruptedPayload
-  | SubagentJoinedPayload;
+  | SubagentJoinedPayload
 
 /** A handler emitted a Subagent event after its Tool batch had already settled. */
 export class RunEventSinkClosedError extends Schema.TaggedError<RunEventSinkClosedError>()(
-  "RunEventSinkClosedError",
+  'RunEventSinkClosedError',
   {
     message: Schema.String,
   },
@@ -114,7 +108,7 @@ export class RunEventSinkClosedError extends Schema.TaggedError<RunEventSinkClos
  * settled — or outside any Tool batch — fails closed with `RunEventSinkClosedError`.
  */
 export interface RunEventSinkService {
-  readonly emit: (payload: SubagentEventPayload) => Effect.Effect<void, RunEventSinkClosedError>;
+  readonly emit: (payload: SubagentEventPayload) => Effect.Effect<void, RunEventSinkClosedError>
 }
 
 /**
@@ -126,5 +120,5 @@ export interface RunEventSinkService {
  * Layer and is excluded from the runtime's public requirements.
  */
 export class RunEventSink extends Context.Service<RunEventSink, RunEventSinkService>()(
-  "@effect-agent/engine/RunEventSink",
+  '@effect-agent/engine/RunEventSink',
 ) {}

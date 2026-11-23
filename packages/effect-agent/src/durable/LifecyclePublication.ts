@@ -1,18 +1,18 @@
-import * as Cause from "effect/Cause";
-import * as Clock from "effect/Clock";
-import * as Context from "effect/Context";
-import * as CryptoDigest from "effect/crypto/Digest";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
-import type * as Scope from "effect/Scope";
+import * as Cause from 'effect/Cause'
+import * as Clock from 'effect/Clock'
+import * as Context from 'effect/Context'
+import * as CryptoDigest from 'effect/crypto/Digest'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
+import * as Option from 'effect/Option'
+import * as Schema from 'effect/Schema'
+import type * as Scope from 'effect/Scope'
 
-import { SubmissionId, ThreadId } from "../core/Identifiers.ts";
-import { Receipt } from "../core/Receipt.ts";
-import { AssignmentTerminal } from "../core/Worker.ts";
-import { MessageDeliveryKey } from "./MessageDelivery.ts";
-import { PreparedInput } from "./PreparedInputAdmission.ts";
+import { SubmissionId, ThreadId } from '../core/Identifiers.ts'
+import { Receipt } from '../core/Receipt.ts'
+import { AssignmentTerminal } from '../core/Worker.ts'
+import { MessageDeliveryKey } from './MessageDelivery.ts'
+import { PreparedInput } from './PreparedInputAdmission.ts'
 import {
   AbortRequested,
   AgentUpdateEmitted,
@@ -28,7 +28,7 @@ import {
   WorkerInputCompleted,
   WorkerInputRequested,
   WorkerStopRequested,
-} from "./Records.ts";
+} from './Records.ts'
 import {
   AbortIntent,
   Settlement,
@@ -36,8 +36,8 @@ import {
   SubmissionLookupById,
   SubmissionSnapshot,
   SuspensionReason,
-} from "./SubmissionLedger.ts";
-import { getRunInput } from "./ThreadStore.ts";
+} from './SubmissionLedger.ts'
+import { getRunInput } from './ThreadStore.ts'
 
 /** Immutable native admission evidence. It is private and grants no application authority. */
 export const LifecyclePublicationSource = SubmissionSnapshot.mapFields((fields) => ({
@@ -55,39 +55,39 @@ export const LifecyclePublicationSource = SubmissionSnapshot.mapFields((fields) 
   workerAdmission: fields.workerAdmission,
   messageAdmission: fields.messageAdmission,
   createdAt: fields.createdAt,
-}));
+}))
 
-export type LifecyclePublicationSource = typeof LifecyclePublicationSource.Type;
+export type LifecyclePublicationSource = typeof LifecyclePublicationSource.Type
 
 /** Closed producer facts; model history, Tool payloads and diagnostics are not a publication API. */
 export const LifecyclePublicationFact = Schema.Union([
-  Schema.TaggedStruct("DeliveryRetained", {
+  Schema.TaggedStruct('DeliveryRetained', {
     key: MessageDeliveryKey,
     envelope: PreparedInput,
     createdAtMillis: Schema.Natural,
   }),
-  Schema.TaggedStruct("DeliveryChanged", {
+  Schema.TaggedStruct('DeliveryChanged', {
     key: MessageDeliveryKey,
     envelope: PreparedInput,
-    status: Schema.Literals(["pending", "accepted", "processed", "refused", "parked"]),
+    status: Schema.Literals(['pending', 'accepted', 'processed', 'refused', 'parked']),
     receipt: Schema.NullOr(Receipt),
     settlement: Schema.NullOr(Settlement),
     version: Schema.Natural,
   }),
-  Schema.TaggedStruct("WorkerInboxSealed", {
+  Schema.TaggedStruct('WorkerInboxSealed', {
     threadId: ThreadId,
     activeSubmissionIds: Schema.Array(SubmissionId),
     /** First native seal winner; null is an explicit stop rather than assignment completion. */
     terminal: Schema.NullOr(AssignmentTerminal),
   }),
-  Schema.TaggedStruct("SubmissionReady", { submissionId: SubmissionId }),
-  Schema.TaggedStruct("SubmissionSuspended", {
+  Schema.TaggedStruct('SubmissionReady', { submissionId: SubmissionId }),
+  Schema.TaggedStruct('SubmissionSuspended', {
     submissionId: SubmissionId,
     reason: SuspensionReason,
   }),
-  Schema.TaggedStruct("SubmissionUnknown", { submissionId: SubmissionId }),
-  Schema.TaggedStruct("SubmissionResumed", { submissionId: SubmissionId }),
-  Schema.TaggedStruct("AbortIntentRecorded", { intent: AbortIntent }),
+  Schema.TaggedStruct('SubmissionUnknown', { submissionId: SubmissionId }),
+  Schema.TaggedStruct('SubmissionResumed', { submissionId: SubmissionId }),
+  Schema.TaggedStruct('AbortIntentRecorded', { intent: AbortIntent }),
   UserInputRecorded,
   RunStartedRecord,
   AgentUpdateEmitted,
@@ -101,9 +101,9 @@ export const LifecyclePublicationFact = Schema.Union([
   SubagentStarted,
   SubagentJoined,
   SubmissionSettledRecord,
-]);
+])
 
-export type LifecyclePublicationFact = typeof LifecyclePublicationFact.Type;
+export type LifecyclePublicationFact = typeof LifecyclePublicationFact.Type
 
 /**
  * An exact undelivered native fact. `id` is stable across retries and lost acknowledgements.
@@ -111,7 +111,7 @@ export type LifecyclePublicationFact = typeof LifecyclePublicationFact.Type;
  * never compare ordinals from the launching Thread and its worker Thread.
  */
 export class LifecyclePublication extends Schema.Class<LifecyclePublication>(
-  "@effect-agent/thread/LifecyclePublication",
+  '@effect-agent/thread/LifecyclePublication',
 )({
   id: Schema.NonEmptyString.check(Schema.isMaxLength(4096)),
   ownerThreadId: ThreadId,
@@ -123,15 +123,15 @@ export class LifecyclePublication extends Schema.Class<LifecyclePublication>(
 }) {}
 
 export class LifecyclePublicationError extends Schema.TaggedError<LifecyclePublicationError>()(
-  "LifecyclePublicationError",
+  'LifecyclePublicationError',
   {
-    reason: Schema.Literals(["unavailable", "conflict", "corrupt", "capacity"]),
+    reason: Schema.Literals(['unavailable', 'conflict', 'corrupt', 'capacity']),
     cause: Schema.optionalKey(Schema.Defect()),
   },
 ) {}
 
 /** Bound both retained facts and the immutable admission evidence resolved before dispatch. */
-export const lifecyclePublicationBatchMaxFacts = 8;
+export const lifecyclePublicationBatchMaxFacts = 8
 
 /** One owner's bounded pending prefix, strictly ordered by its durable ordinals. */
 export const LifecyclePublicationBatch = Schema.NonEmptyArray(LifecyclePublication).check(
@@ -139,18 +139,18 @@ export const LifecyclePublicationBatch = Schema.NonEmptyArray(LifecyclePublicati
   Schema.makeFilter(
     (facts) =>
       facts.every((fact, index) => {
-        const previous = facts[index - 1];
+        const previous = facts[index - 1]
 
         return (
           fact.ownerThreadId === facts[0].ownerThreadId &&
           (previous === undefined || fact.ordinal > previous.ordinal)
-        );
+        )
       }),
-    { expected: "One owner with strictly increasing publication ordinals" },
+    { expected: 'One owner with strictly increasing publication ordinals' },
   ),
-);
+)
 
-export type LifecyclePublicationBatch = typeof LifecyclePublicationBatch.Type;
+export type LifecyclePublicationBatch = typeof LifecyclePublicationBatch.Type
 
 /** Native recovery state, independent of Attempts. Hosts serialize drains per storage owner. */
 export interface LifecyclePublicationStorage {
@@ -161,11 +161,11 @@ export interface LifecyclePublicationStorage {
     nowMillis: number,
     limit: number,
     options?: { readonly retainedOnly?: boolean },
-  ) => Effect.Effect<ReadonlyArray<LifecyclePublicationBatch>, LifecyclePublicationError>;
+  ) => Effect.Effect<ReadonlyArray<LifecyclePublicationBatch>, LifecyclePublicationError>
   /** Atomically acknowledge the exact batch, retaining its identities and fingerprints. */
   readonly acknowledge: (
     publications: LifecyclePublicationBatch,
-  ) => Effect.Effect<void, LifecyclePublicationError>;
+  ) => Effect.Effect<void, LifecyclePublicationError>
   /** Optional atomic acknowledgement of up to 100 successfully published owner batches.
    * Validate every exact batch before consuming any debt. Empty waves succeed without writes.
    * Wrappers that validate acknowledgement authority must wrap this method too.
@@ -173,7 +173,7 @@ export interface LifecyclePublicationStorage {
    */
   readonly acknowledgeMany?: (
     batches: ReadonlyArray<LifecyclePublicationBatch>,
-  ) => Effect.Effect<void, LifecyclePublicationError>;
+  ) => Effect.Effect<void, LifecyclePublicationError>
   /**
    * Claim a due owner batch and persist its retry before dispatch. Eight automatic attempts;
    * 1s exponential backoff capped at 60s, after the dispatch timeout. The final attempt parks
@@ -183,8 +183,8 @@ export interface LifecyclePublicationStorage {
     publications: LifecyclePublicationBatch,
     nowMillis: number,
     timeoutMillis: number,
-  ) => Effect.Effect<boolean, LifecyclePublicationError>;
-  readonly pendingDeadline: Effect.Effect<Option.Option<number>, LifecyclePublicationError>;
+  ) => Effect.Effect<boolean, LifecyclePublicationError>
+  readonly pendingDeadline: Effect.Effect<Option.Option<number>, LifecyclePublicationError>
   /**
    * Deadline for `pending(..., { retainedOnly: true })`, excluding unmaterialized source facts.
    * Source-backed stores provide this when `pendingDeadline` also includes source intent.
@@ -193,12 +193,12 @@ export interface LifecyclePublicationStorage {
   readonly retainedPendingDeadline?: Effect.Effect<
     Option.Option<number>,
     LifecyclePublicationError
-  >;
+  >
   /** Explicit operator retry after repairing a parked owner's destination. */
   readonly retryParked: (
     ownerThreadId: ThreadId,
     nowMillis: number,
-  ) => Effect.Effect<void, LifecyclePublicationError>;
+  ) => Effect.Effect<void, LifecyclePublicationError>
 }
 
 /**
@@ -214,67 +214,68 @@ export class LifecyclePublicationHandler extends Context.Service<
   {
     readonly publish: (
       publications: LifecyclePublicationBatch,
-    ) => Effect.Effect<void, LifecyclePublicationError, Scope.Scope>;
+    ) => Effect.Effect<void, LifecyclePublicationError, Scope.Scope>
   }
->()("@effect-agent/thread/LifecyclePublicationHandler") {}
+>()('@effect-agent/thread/LifecyclePublicationHandler') {}
 
 /** Adapter configuration; the opt-in layer captures its explicit Digest requirement once. */
 export const LifecyclePublicationConfig = Context.Reference<
-  Option.Option<CryptoDigest.Digest["Service"]>
->("@effect-agent/thread/LifecyclePublicationConfig", { defaultValue: () => Option.none() });
+  Option.Option<CryptoDigest.Digest['Service']>
+>('@effect-agent/thread/LifecyclePublicationConfig', { defaultValue: () => Option.none() })
 
 /** Enable native SQL obligations without changing dependencies of disabled storage assemblies. */
 export const lifecyclePublicationLayer = Layer.effect(LifecyclePublicationConfig)(
   Effect.asSome(CryptoDigest.Digest),
-);
+)
 
 /** Resolve immutable evidence by its exact native identity, never by scanning execution history. */
 const withSource = Effect.fnUntraced(
-  function* (publication: LifecyclePublication) {
+  function*(publication: LifecyclePublication) {
     if (
       publication.source !== undefined ||
-      (publication.fact._tag === "WorkerInputCompleted" &&
+      (publication.fact._tag === 'WorkerInputCompleted' &&
         publication.fact.workerThreadId !== publication.ownerThreadId)
-    )
-      return publication;
-    const fact = publication.fact;
+    ) {
+      return publication
+    }
+    const fact = publication.fact
 
-    let submissionId =
-      fact._tag === "AbortIntentRecorded"
-        ? fact.intent.submissionId
-        : "submissionId" in fact
-          ? fact.submissionId
-          : undefined;
+    let submissionId = fact._tag === 'AbortIntentRecorded'
+      ? fact.intent.submissionId
+      : 'submissionId' in fact
+      ? fact.submissionId
+      : undefined
 
-    const runId =
-      fact._tag === "AgentUpdateEmitted"
-        ? fact.update.runId
-        : "runId" in fact
-          ? fact.runId
-          : undefined;
+    const runId = fact._tag === 'AgentUpdateEmitted'
+      ? fact.update.runId
+      : 'runId' in fact
+      ? fact.runId
+      : undefined
 
     if (submissionId === undefined && runId !== undefined) {
-      const input = yield* getRunInput({ threadId: publication.ownerThreadId, runId });
+      const input = yield* getRunInput({ threadId: publication.ownerThreadId, runId })
 
-      if (Option.isNone(input) || input.value.record.payload._tag !== "UserInputRecorded")
-        return yield* LifecyclePublicationError.make({ reason: "unavailable" });
-      submissionId = input.value.record.payload.submissionId;
+      if (Option.isNone(input) || input.value.record.payload._tag !== 'UserInputRecorded') {
+        return yield* LifecyclePublicationError.make({ reason: 'unavailable' })
+      }
+      submissionId = input.value.record.payload.submissionId
     }
-    if (submissionId === undefined) return publication;
-    const ledger = yield* SubmissionLedger;
-    const found = yield* ledger.lookup(SubmissionLookupById.make({ submissionId }));
+    if (submissionId === undefined) return publication
+    const ledger = yield* SubmissionLedger
+    const found = yield* ledger.lookup(SubmissionLookupById.make({ submissionId }))
 
-    if (Option.isNone(found))
-      return yield* LifecyclePublicationError.make({ reason: "unavailable" });
+    if (Option.isNone(found)) {
+      return yield* LifecyclePublicationError.make({ reason: 'unavailable' })
+    }
 
     const source = yield* Schema.decodeEffect(Schema.toType(LifecyclePublicationSource))(
       found.value,
-    );
+    )
 
-    return LifecyclePublication.make({ ...publication, source });
+    return LifecyclePublication.make({ ...publication, source })
   },
-  Effect.mapError((cause) => LifecyclePublicationError.make({ reason: "unavailable", cause })),
-);
+  Effect.mapError((cause) => LifecyclePublicationError.make({ reason: 'unavailable', cause })),
+)
 
 /**
  * One finite wave for the host's existing maintenance coordinator. Persist the next deadline
@@ -284,58 +285,59 @@ const withSource = Effect.fnUntraced(
  * completed batches in groups of up to 100, including when a later dispatch is interrupted. No producer or
  * external Tool is re-executed here.
  */
-export const drainLifecyclePublications = Effect.fnUntraced(function* (
+export const drainLifecyclePublications = Effect.fnUntraced(function*(
   storage: LifecyclePublicationStorage,
   timeoutMillis = 10_000,
   limit = 4,
   options?: { readonly retainedOnly?: boolean },
 ) {
-  const handler = yield* LifecyclePublicationHandler;
-  const pending = yield* storage.pending(yield* Clock.currentTimeMillis, limit, options);
-  const acknowledgeMany = storage.acknowledgeMany;
-  const published: Array<LifecyclePublicationBatch> = [];
-  let failures: Cause.Cause<LifecyclePublicationError> = Cause.empty;
+  const handler = yield* LifecyclePublicationHandler
+  const pending = yield* storage.pending(yield* Clock.currentTimeMillis, limit, options)
+  const acknowledgeMany = storage.acknowledgeMany
+  const published: Array<LifecyclePublicationBatch> = []
+  let failures: Cause.Cause<LifecyclePublicationError> = Cause.empty
 
-  return yield* Effect.gen(function* () {
+  return yield* Effect.gen(function*() {
     for (const batch of pending) {
-      yield* Effect.gen(function* () {
-        if (!(yield* storage.claim(batch, yield* Clock.currentTimeMillis, timeoutMillis))) return;
+      yield* Effect.gen(function*() {
+        if (!(yield* storage.claim(batch, yield* Clock.currentTimeMillis, timeoutMillis))) return
         yield* Effect.scoped(
-          Effect.gen(function* () {
-            const publications = yield* Effect.forEach(batch, withSource);
+          Effect.gen(function*() {
+            const publications = yield* Effect.forEach(batch, withSource)
 
-            yield* handler.publish(publications);
+            yield* handler.publish(publications)
           }),
         ).pipe(
           Effect.timeoutOrElse({
             duration: timeoutMillis,
-            orElse: () => LifecyclePublicationError.make({ reason: "unavailable" }),
+            orElse: () => LifecyclePublicationError.make({ reason: 'unavailable' }),
           }),
-        );
-        if (acknowledgeMany === undefined) yield* storage.acknowledge(batch);
-        else published.push(batch);
+        )
+        if (acknowledgeMany === undefined) yield* storage.acknowledge(batch)
+        else published.push(batch)
       }).pipe(
         Effect.catchCauseIf(
           (cause) => !Cause.hasInterrupts(cause),
           (cause) => {
-            failures = Cause.combine(failures, cause);
+            failures = Cause.combine(failures, cause)
 
-            return Effect.void;
+            return Effect.void
           },
         ),
-      );
+      )
     }
-    if (failures.reasons.length > 0) return yield* Effect.failCause(failures);
+    if (failures.reasons.length > 0) return yield* Effect.failCause(failures)
 
-    return pending.length;
+    return pending.length
   }).pipe(
     Effect.onExit(() =>
       acknowledgeMany === undefined || published.length === 0
         ? Effect.void
-        : Effect.gen(function* () {
-            for (let offset = 0; offset < published.length; offset += 100)
-              yield* acknowledgeMany(published.slice(offset, offset + 100));
-          }),
+        : Effect.gen(function*() {
+          for (let offset = 0; offset < published.length; offset += 100) {
+            yield* acknowledgeMany(published.slice(offset, offset + 100))
+          }
+        })
     ),
-  );
-});
+  )
+})

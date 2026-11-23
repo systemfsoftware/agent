@@ -1,45 +1,40 @@
-import * as Cause from "effect/Cause";
-import * as Context from "effect/Context";
-import * as CryptoDigest from "effect/crypto/Digest";
-import * as DateTime from "effect/DateTime";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
-import * as Result from "effect/Result";
-import * as Schema from "effect/Schema";
-import * as Semaphore from "effect/Semaphore";
+import * as Cause from 'effect/Cause'
+import * as Context from 'effect/Context'
+import * as CryptoDigest from 'effect/crypto/Digest'
+import * as DateTime from 'effect/DateTime'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
+import * as Option from 'effect/Option'
+import * as Result from 'effect/Result'
+import * as Schema from 'effect/Schema'
+import * as Semaphore from 'effect/Semaphore'
 
-import { type AgentId, ThreadId } from "../core/Identifiers.ts";
-import { utf8ByteLength } from "../core/internal/utf8.ts";
-import { digestJson } from "./Digest.ts";
-import type { DurableSubmitAgent } from "./DurableAgentRuntime.ts";
+import { type AgentId, ThreadId } from '../core/Identifiers.ts'
+import { utf8ByteLength } from '../core/internal/utf8.ts'
+import { digestJson } from './Digest.ts'
+import type { DurableSubmitAgent } from './DurableAgentRuntime.ts'
 import {
   normalizeScheduleTiming,
   scheduleDueOccurrence,
   scheduleInitialCursor,
   scheduleNextAfter,
   scheduleResumeCursor,
-} from "./internal/schedule-time.ts";
-import {
-  admitPreparedInput,
-  type PreparedInputRetryReason,
-  PreparedInputAdmission,
-} from "./PreparedInputAdmission.ts";
-import { DefinitionDigests, type Digest, PersistedJson } from "./Records.ts";
+} from './internal/schedule-time.ts'
+import { admitPreparedInput, PreparedInputAdmission, type PreparedInputRetryReason } from './PreparedInputAdmission.ts'
+import { DefinitionDigests, type Digest, PersistedJson } from './Records.ts'
 import {
   defaultSchedulingLimits,
   type ScheduleAuthorizationError,
   ScheduleAuthorizer,
-  ScheduleConflict,
   type ScheduleConfiguration,
-  ScheduleDestination as ScheduleDestinationSchema,
+  ScheduleConflict,
   type ScheduleDestination,
+  ScheduleDestination as ScheduleDestinationSchema,
+  type ScheduleDueCursor,
   ScheduleFailpoint,
   type ScheduleId,
-  type ScheduleDueCursor,
   ScheduleInstant,
   type ScheduleKey,
-  SchedulingLimits,
   ScheduleNotFound,
   type ScheduleOwner,
   type ScheduleRecord,
@@ -50,55 +45,56 @@ import {
   ScheduleStorageError,
   ScheduleStore,
   type ScheduleStoreFailure,
-  ScheduleTimingRequest as ScheduleTimingRequestSchema,
   type ScheduleTimingRequest,
+  ScheduleTimingRequest as ScheduleTimingRequestSchema,
   ScheduleValidationError,
   ScheduleWake,
-} from "./Schedule.ts";
-import { type AdmissionFence, IdempotencyKey, type Principal } from "./SubmissionLedger.ts";
+  SchedulingLimits,
+} from './Schedule.ts'
+import { type AdmissionFence, IdempotencyKey, type Principal } from './SubmissionLedger.ts'
 
 export interface ScheduleCreateOptions {
-  readonly scope: ScheduleScope;
-  readonly scheduleId: ScheduleId;
-  readonly timing: ScheduleTimingRequest;
-  readonly destination: ScheduleDestination;
-  readonly deliveryPrincipal: Principal;
-  readonly admissionGroup?: string;
-  readonly admissionFence?: AdmissionFence;
-  readonly definitions: DefinitionDigests;
+  readonly scope: ScheduleScope
+  readonly scheduleId: ScheduleId
+  readonly timing: ScheduleTimingRequest
+  readonly destination: ScheduleDestination
+  readonly deliveryPrincipal: Principal
+  readonly admissionGroup?: string
+  readonly admissionFence?: AdmissionFence
+  readonly definitions: DefinitionDigests
 }
 
 export interface ScheduleUpdateOptions extends ScheduleCreateOptions {
-  readonly expectedRevision: number;
+  readonly expectedRevision: number
 }
 
 export interface ScheduleListOptions {
-  readonly after?: ScheduleId | undefined;
-  readonly limit?: number | undefined;
+  readonly after?: ScheduleId | undefined
+  readonly limit?: number | undefined
 }
 
 export type ScheduleManagementFailure =
   | ScheduleValidationError
   | ScheduleAuthorizationError
-  | ScheduleStoreFailure;
+  | ScheduleStoreFailure
 
 export type ScheduleProcessFailure =
   | ScheduleValidationError
   | ScheduleStoreFailure
-  | ScheduleStorageError;
+  | ScheduleStorageError
 
-const equivalentDefinitions = Schema.toEquivalence(DefinitionDigests);
-const equivalentInput = Schema.toEquivalence(PersistedJson);
+const equivalentDefinitions = Schema.toEquivalence(DefinitionDigests)
+const equivalentInput = Schema.toEquivalence(PersistedJson)
 
 const keyOf = (scope: ScheduleScope, scheduleId: ScheduleId): ScheduleKey => ({
   owner: scope.owner,
   scheduleId,
-});
+})
 
-const notFound = (key: ScheduleKey) => ScheduleNotFound.make({ key });
+const notFound = (key: ScheduleKey) => ScheduleNotFound.make({ key })
 
 const asSnapshot = (record: ScheduleRecord, observedAtMillis: number): ScheduleSnapshot => {
-  const intendedAtMillis = record.pending?.envelope.intendedAtMillis ?? record.nextAtMillis;
+  const intendedAtMillis = record.pending?.envelope.intendedAtMillis ?? record.nextAtMillis
 
   return {
     owner: record.owner,
@@ -120,119 +116,110 @@ const asSnapshot = (record: ScheduleRecord, observedAtMillis: number): ScheduleS
     },
     state: record.state,
     nextAtMillis: record.nextAtMillis,
-    pending:
-      record.pending === null
-        ? null
-        : {
-            intendedAtMillis: record.pending.envelope.intendedAtMillis,
-            preparedAtMillis: record.pending.envelope.preparedAtMillis,
-            configurationRevision: record.pending.envelope.configurationRevision,
-            occurrenceId: record.pending.envelope.occurrenceId,
-            retry: record.pending.retry,
-          },
+    pending: record.pending === null
+      ? null
+      : {
+        intendedAtMillis: record.pending.envelope.intendedAtMillis,
+        preparedAtMillis: record.pending.envelope.preparedAtMillis,
+        configurationRevision: record.pending.envelope.configurationRevision,
+        occurrenceId: record.pending.envelope.occurrenceId,
+        retry: record.pending.retry,
+      },
     lastReceipt: record.lastReceipt,
     lastRefusal: record.lastRefusal,
     lastSkippedRange: record.lastSkippedRange,
     observedAtMillis,
-    pendingAgeMillis:
-      record.pending === null
-        ? null
-        : Math.max(0, observedAtMillis - record.pending.envelope.preparedAtMillis),
-    latenessMillis:
-      intendedAtMillis === null ? 0 : Math.max(0, observedAtMillis - intendedAtMillis),
-  };
-};
+    pendingAgeMillis: record.pending === null
+      ? null
+      : Math.max(0, observedAtMillis - record.pending.envelope.preparedAtMillis),
+    latenessMillis: intendedAtMillis === null ? 0 : Math.max(0, observedAtMillis - intendedAtMillis),
+  }
+}
 
-const inputByteLength = (input: PersistedJson): number => utf8ByteLength(JSON.stringify(input));
+const inputByteLength = (input: PersistedJson): number => utf8ByteLength(JSON.stringify(input))
 
-const currentMillis = DateTime.now.pipe(Effect.map(DateTime.toEpochMillis));
+const currentMillis = DateTime.now.pipe(Effect.map(DateTime.toEpochMillis))
 
-const validateRequestedFields = Effect.fnUntraced(function* (options: ScheduleCreateOptions) {
+const validateRequestedFields = Effect.fnUntraced(function*(options: ScheduleCreateOptions) {
   yield* Schema.encodeEffect(ScheduleTimingRequestSchema)(options.timing).pipe(
-    Effect.mapError(() => ScheduleValidationError.make({ message: "Invalid timing request" })),
-  );
+    Effect.mapError(() => ScheduleValidationError.make({ message: 'Invalid timing request' })),
+  )
   yield* Schema.encodeEffect(ScheduleDestinationSchema)(options.destination).pipe(
-    Effect.mapError(() => ScheduleValidationError.make({ message: "Invalid destination" })),
-  );
+    Effect.mapError(() => ScheduleValidationError.make({ message: 'Invalid destination' })),
+  )
   yield* Schema.encodeEffect(DefinitionDigests)(options.definitions).pipe(
-    Effect.mapError(() => ScheduleValidationError.make({ message: "Invalid definition digests" })),
-  );
-});
+    Effect.mapError(() => ScheduleValidationError.make({ message: 'Invalid definition digests' })),
+  )
+})
 
-const resolveInput = Effect.fnUntraced(function* <InputSchema extends Schema.Top>(
+const resolveInput = Effect.fnUntraced(function*<InputSchema extends Schema.Top>(
   agent: DurableSubmitAgent<InputSchema>,
-  input: InputSchema["Type"],
+  input: InputSchema['Type'],
   maximumBytes: number,
 ): Effect.fn.Return<
   { readonly payload: PersistedJson; readonly digest: Digest },
   ScheduleValidationError,
-  InputSchema["EncodingServices"] | CryptoDigest.Digest
+  InputSchema['EncodingServices'] | CryptoDigest.Digest
 > {
   const encoded = yield* Schema.encodeEffect(agent.definition.input)(input).pipe(
-    Effect.mapError(() =>
-      ScheduleValidationError.make({ message: "Unable to encode Agent input" }),
-    ),
-  );
+    Effect.mapError(() => ScheduleValidationError.make({ message: 'Unable to encode Agent input' })),
+  )
 
   const payload = yield* Schema.decodeUnknownEffect(PersistedJson)(encoded).pipe(
     Effect.mapError(() =>
       ScheduleValidationError.make({
-        message: "Agent input does not satisfy the canonical persistence bounds",
-      }),
+        message: 'Agent input does not satisfy the canonical persistence bounds',
+      })
     ),
-  );
+  )
 
   if (inputByteLength(payload) > maximumBytes) {
     return yield* ScheduleValidationError.make({
       message: `Encoded Agent input exceeds the configured ${maximumBytes} byte limit`,
-    });
+    })
   }
 
   const digest = yield* digestJson(payload).pipe(
-    Effect.mapError(() =>
-      ScheduleValidationError.make({ message: "Unable to digest encoded Agent input" }),
-    ),
-  );
+    Effect.mapError(() => ScheduleValidationError.make({ message: 'Unable to digest encoded Agent input' })),
+  )
 
-  return { payload, digest };
-});
+  return { payload, digest }
+})
 
-const makeManagement = Effect.fnUntraced(function* (limits: SchedulingLimits) {
-  const nowMillis = yield* currentMillis;
+const makeManagement = Effect.fnUntraced(function*(limits: SchedulingLimits) {
+  const nowMillis = yield* currentMillis
 
   yield* Schema.decodeEffect(ScheduleInstant)(nowMillis + limits.recoveryPollMillis).pipe(
     Effect.mapError(() =>
       ScheduleValidationError.make({
-        message: "Scheduling recovery deadline exceeds the supported instant range",
-      }),
+        message: 'Scheduling recovery deadline exceeds the supported instant range',
+      })
     ),
-  );
-  const store = yield* ScheduleStore;
-  const authorizer = yield* ScheduleAuthorizer;
-  const wake = yield* ScheduleWake;
-  const crypto = yield* CryptoDigest.Digest;
+  )
+  const store = yield* ScheduleStore
+  const authorizer = yield* ScheduleAuthorizer
+  const wake = yield* ScheduleWake
+  const crypto = yield* CryptoDigest.Digest
 
   const withCrypto = <A, E>(effect: Effect.Effect<A, E, CryptoDigest.Digest>) =>
-    Effect.provideService(effect, CryptoDigest.Digest, crypto);
+    Effect.provideService(effect, CryptoDigest.Digest, crypto)
 
-  const fingerprint = Effect.fnUntraced(function* (
+  const fingerprint = Effect.fnUntraced(function*(
     agentId: AgentId,
     inputDigest: Digest,
     options: ScheduleCreateOptions,
   ) {
     const timing = yield* Schema.encodeEffect(ScheduleTimingRequestSchema)(options.timing).pipe(
-      Effect.mapError(() => ScheduleValidationError.make({ message: "Invalid timing request" })),
-    );
+      Effect.mapError(() => ScheduleValidationError.make({ message: 'Invalid timing request' })),
+    )
 
     const destination = yield* Schema.encodeEffect(ScheduleDestinationSchema)(
       options.destination,
-    ).pipe(Effect.mapError(() => ScheduleValidationError.make({ message: "Invalid destination" })));
+    ).pipe(Effect.mapError(() => ScheduleValidationError.make({ message: 'Invalid destination' })))
 
     const definitions = yield* Schema.encodeEffect(DefinitionDigests)(options.definitions).pipe(
-      Effect.mapError(() =>
-        ScheduleValidationError.make({ message: "Invalid definition digests" }),
-      ),
-    );
+      Effect.mapError(() => ScheduleValidationError.make({ message: 'Invalid definition digests' })),
+    )
 
     return yield* withCrypto(
       digestJson({
@@ -250,18 +237,16 @@ const makeManagement = Effect.fnUntraced(function* (limits: SchedulingLimits) {
         inputDigest,
       }),
     ).pipe(
-      Effect.mapError(() =>
-        ScheduleValidationError.make({ message: "Unable to digest Schedule registration" }),
-      ),
-    );
-  });
+      Effect.mapError(() => ScheduleValidationError.make({ message: 'Unable to digest Schedule registration' })),
+    )
+  })
 
   const configuration = (
     agentId: AgentId,
     payload: PersistedJson,
     inputDigest: Digest,
     options: ScheduleCreateOptions,
-    timing: ScheduleConfiguration["timing"],
+    timing: ScheduleConfiguration['timing'],
   ): ScheduleConfiguration => ({
     timing,
     destination: options.destination,
@@ -272,60 +257,60 @@ const makeManagement = Effect.fnUntraced(function* (limits: SchedulingLimits) {
     definitions: options.definitions,
     input: payload,
     inputDigest,
-  });
+  })
 
-  const create = Effect.fnUntraced(function* <InputSchema extends Schema.Top>(
+  const create = Effect.fnUntraced(function*<InputSchema extends Schema.Top>(
     agent: DurableSubmitAgent<InputSchema>,
-    input: InputSchema["Type"],
+    input: InputSchema['Type'],
     options: ScheduleCreateOptions,
   ): Effect.fn.Return<
     ScheduleSnapshot,
     ScheduleManagementFailure,
-    InputSchema["EncodingServices"]
+    InputSchema['EncodingServices']
   > {
-    const nowMillis = yield* currentMillis;
+    const nowMillis = yield* currentMillis
 
     const resolvedInput = yield* resolveInput(agent, input, limits.maxInputBytes).pipe(
       Effect.provideService(CryptoDigest.Digest, crypto),
-    );
+    )
 
     const creationFingerprint = yield* fingerprint(
       agent.definition.id,
       resolvedInput.digest,
       options,
-    );
+    )
 
-    const key = keyOf(options.scope, options.scheduleId);
+    const key = keyOf(options.scope, options.scheduleId)
 
     yield* authorizer.manage({
-      operation: "create",
+      operation: 'create',
       scope: options.scope,
       scheduleId: options.scheduleId,
-    });
-    const existing = yield* store.get(key);
+    })
+    const existing = yield* store.get(key)
 
     if (existing !== null) {
       if (existing.creationFingerprint !== creationFingerprint) {
-        return yield* ScheduleConflict.make({ reason: "creation", key });
+        return yield* ScheduleConflict.make({ reason: 'creation', key })
       }
       yield* authorizer.manage({
-        operation: "create",
+        operation: 'create',
         scope: options.scope,
         scheduleId: options.scheduleId,
         configuration: existing.configuration,
-      });
+      })
 
-      return asSnapshot(existing, nowMillis);
+      return asSnapshot(existing, nowMillis)
     }
 
     const timing = yield* Effect.fromResult(
       normalizeScheduleTiming(options.timing, nowMillis, limits.minIntervalMillis),
-    );
+    )
 
-    const nextAtMillis = yield* Effect.fromResult(scheduleInitialCursor(timing, nowMillis));
+    const nextAtMillis = yield* Effect.fromResult(scheduleInitialCursor(timing, nowMillis))
 
     if (nextAtMillis === null) {
-      return yield* ScheduleValidationError.make({ message: "Timing has no next occurrence" });
+      return yield* ScheduleValidationError.make({ message: 'Timing has no next occurrence' })
     }
 
     const nextConfiguration = configuration(
@@ -334,14 +319,14 @@ const makeManagement = Effect.fnUntraced(function* (limits: SchedulingLimits) {
       resolvedInput.digest,
       options,
       timing,
-    );
+    )
 
     yield* authorizer.manage({
-      operation: "create",
+      operation: 'create',
       scope: options.scope,
       scheduleId: options.scheduleId,
       configuration: nextConfiguration,
-    });
+    })
 
     const record: ScheduleRecord = {
       schemaVersion: 1,
@@ -354,69 +339,67 @@ const makeManagement = Effect.fnUntraced(function* (limits: SchedulingLimits) {
       configurationRevision: 1,
       version: 1,
       configuration: nextConfiguration,
-      state: "active",
+      state: 'active',
       nextAtMillis,
       pending: null,
       lastReceipt: null,
       lastRefusal: null,
       lastSkippedRange: null,
-    };
+    }
 
-    const inserted = yield* store.insert(record, limits.maxSchedulesPerOwner);
+    const inserted = yield* store.insert(record, limits.maxSchedulesPerOwner)
 
-    yield* wake.notify;
+    yield* wake.notify
 
-    return asSnapshot(inserted, nowMillis);
-  });
+    return asSnapshot(inserted, nowMillis)
+  })
 
-  const update = Effect.fnUntraced(function* <InputSchema extends Schema.Top>(
+  const update = Effect.fnUntraced(function*<InputSchema extends Schema.Top>(
     agent: DurableSubmitAgent<InputSchema>,
-    input: InputSchema["Type"],
+    input: InputSchema['Type'],
     options: ScheduleUpdateOptions,
   ): Effect.fn.Return<
     ScheduleSnapshot,
     ScheduleManagementFailure,
-    InputSchema["EncodingServices"]
+    InputSchema['EncodingServices']
   > {
-    const nowMillis = yield* currentMillis;
-    const key = keyOf(options.scope, options.scheduleId);
+    const nowMillis = yield* currentMillis
+    const key = keyOf(options.scope, options.scheduleId)
 
     yield* authorizer.manage({
-      operation: "update",
+      operation: 'update',
       scope: options.scope,
       scheduleId: options.scheduleId,
-    });
-    yield* validateRequestedFields(options);
-    const existing = yield* store.get(key);
+    })
+    yield* validateRequestedFields(options)
+    const existing = yield* store.get(key)
 
-    if (existing === null) return yield* notFound(key);
+    if (existing === null) return yield* notFound(key)
     if (existing.configurationRevision !== options.expectedRevision) {
-      return yield* ScheduleConflict.make({ reason: "revision", key });
+      return yield* ScheduleConflict.make({ reason: 'revision', key })
     }
 
     const resolvedInput = yield* resolveInput(agent, input, limits.maxInputBytes).pipe(
       Effect.provideService(CryptoDigest.Digest, crypto),
-    );
+    )
 
-    const timingRequest =
-      options.timing._tag === "Interval" &&
-      options.timing.anchorMillis === undefined &&
-      existing.configuration.timing._tag === "Interval" &&
-      existing.configuration.timing.everyMillis === options.timing.everyMillis
-        ? { ...options.timing, anchorMillis: existing.configuration.timing.anchorMillis }
-        : options.timing;
+    const timingRequest = options.timing._tag === 'Interval' &&
+        options.timing.anchorMillis === undefined &&
+        existing.configuration.timing._tag === 'Interval' &&
+        existing.configuration.timing.everyMillis === options.timing.everyMillis
+      ? { ...options.timing, anchorMillis: existing.configuration.timing.anchorMillis }
+      : options.timing
 
     const timing = yield* Effect.fromResult(
       normalizeScheduleTiming(timingRequest, nowMillis, limits.minIntervalMillis),
-    );
+    )
 
-    const nextAtMillis =
-      timing._tag === "At"
-        ? timing.atMillis
-        : yield* Effect.fromResult(scheduleNextAfter(timing, nowMillis));
+    const nextAtMillis = timing._tag === 'At'
+      ? timing.atMillis
+      : yield* Effect.fromResult(scheduleNextAfter(timing, nowMillis))
 
     if (nextAtMillis === null) {
-      return yield* ScheduleValidationError.make({ message: "Timing has no next occurrence" });
+      return yield* ScheduleValidationError.make({ message: 'Timing has no next occurrence' })
     }
 
     const nextConfiguration = configuration(
@@ -425,110 +408,108 @@ const makeManagement = Effect.fnUntraced(function* (limits: SchedulingLimits) {
       resolvedInput.digest,
       options,
       timing,
-    );
+    )
 
     yield* authorizer.manage({
-      operation: "update",
+      operation: 'update',
       scope: options.scope,
       scheduleId: options.scheduleId,
       configuration: nextConfiguration,
-    });
+    })
 
     const changed = yield* store.change(
       key,
       {
-        _tag: "Update",
+        _tag: 'Update',
         expectedRevision: options.expectedRevision,
         configuration: nextConfiguration,
         nextAtMillis,
         nowMillis,
       },
       limits.maxSchedulesPerOwner,
-    );
+    )
 
-    yield* wake.notify;
+    yield* wake.notify
 
-    return asSnapshot(changed, nowMillis);
-  });
+    return asSnapshot(changed, nowMillis)
+  })
 
-  const get = Effect.fnUntraced(function* (scope: ScheduleScope, scheduleId: ScheduleId) {
-    yield* authorizer.manage({ operation: "get", scope, scheduleId });
-    const key = keyOf(scope, scheduleId);
-    const record = yield* store.get(key);
+  const get = Effect.fnUntraced(function*(scope: ScheduleScope, scheduleId: ScheduleId) {
+    yield* authorizer.manage({ operation: 'get', scope, scheduleId })
+    const key = keyOf(scope, scheduleId)
+    const record = yield* store.get(key)
 
-    if (record === null) return yield* notFound(key);
+    if (record === null) return yield* notFound(key)
 
-    return asSnapshot(record, yield* currentMillis);
-  });
+    return asSnapshot(record, yield* currentMillis)
+  })
 
-  const list = Effect.fnUntraced(function* (
+  const list = Effect.fnUntraced(function*(
     scope: ScheduleScope,
     options: ScheduleListOptions = {},
   ) {
-    yield* authorizer.manage({ operation: "list", scope });
-    const limit = options.limit ?? 50;
+    yield* authorizer.manage({ operation: 'list', scope })
+    const limit = options.limit ?? 50
 
     if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
       return yield* ScheduleValidationError.make({
-        message: "Schedule page limit must be an integer from 1 through 100",
-      });
+        message: 'Schedule page limit must be an integer from 1 through 100',
+      })
     }
 
     const page = yield* store.list({
       owner: scope.owner,
       ...(options.after === undefined ? {} : { after: options.after }),
       limit,
-    });
+    })
 
-    const nowMillis = yield* currentMillis;
+    const nowMillis = yield* currentMillis
 
-    return { items: page.items.map((record) => asSnapshot(record, nowMillis)), next: page.next };
-  });
+    return { items: page.items.map((record) => asSnapshot(record, nowMillis)), next: page.next }
+  })
 
-  const control = Effect.fnUntraced(function* (
-    operation: "pause" | "resume" | "cancel",
+  const control = Effect.fnUntraced(function*(
+    operation: 'pause' | 'resume' | 'cancel',
     scope: ScheduleScope,
     scheduleId: ScheduleId,
     expectedRevision: number,
   ): Effect.fn.Return<ScheduleSnapshot, ScheduleManagementFailure> {
-    yield* authorizer.manage({ operation, scope, scheduleId });
-    const key = keyOf(scope, scheduleId);
+    yield* authorizer.manage({ operation, scope, scheduleId })
+    const key = keyOf(scope, scheduleId)
 
     const attempt = (): Effect.Effect<ScheduleRecord, ScheduleManagementFailure> =>
       Effect.suspend(() =>
-        Effect.gen(function* () {
-          const record = yield* store.get(key);
+        Effect.gen(function*() {
+          const record = yield* store.get(key)
 
-          if (record === null) return yield* notFound(key);
+          if (record === null) return yield* notFound(key)
           if (record.configurationRevision !== expectedRevision) {
-            return yield* ScheduleConflict.make({ reason: "revision", key });
+            return yield* ScheduleConflict.make({ reason: 'revision', key })
           }
-          if (operation === "resume" && record.state === "active") return record;
-          const nowMillis = yield* currentMillis;
+          if (operation === 'resume' && record.state === 'active') return record
+          const nowMillis = yield* currentMillis
 
-          const nextAtMillis =
-            operation === "resume"
-              ? yield* Effect.fromResult(
-                  scheduleResumeCursor(record.configuration.timing, record.nextAtMillis, nowMillis),
-                )
-              : operation === "cancel"
-                ? null
-                : record.nextAtMillis;
+          const nextAtMillis = operation === 'resume'
+            ? yield* Effect.fromResult(
+              scheduleResumeCursor(record.configuration.timing, record.nextAtMillis, nowMillis),
+            )
+            : operation === 'cancel'
+            ? null
+            : record.nextAtMillis
 
-          const skippedRange =
-            operation === "resume" &&
-            record.configuration.timing._tag !== "At" &&
-            record.nextAtMillis !== null &&
-            nextAtMillis !== null &&
-            nextAtMillis > record.nextAtMillis
-              ? { fromMillis: record.nextAtMillis, toMillis: nextAtMillis }
-              : null;
+          const skippedRange = operation === 'resume' &&
+              record.configuration.timing._tag !== 'At' &&
+              record.nextAtMillis !== null &&
+              nextAtMillis !== null &&
+              nextAtMillis > record.nextAtMillis
+            ? { fromMillis: record.nextAtMillis, toMillis: nextAtMillis }
+            : null
 
           return yield* store
             .change(
               key,
               {
-                _tag: "Control",
+                _tag: 'Control',
                 expectedRevision,
                 expectedVersion: record.version,
                 action: operation,
@@ -539,49 +520,49 @@ const makeManagement = Effect.fnUntraced(function* (limits: SchedulingLimits) {
               limits.maxSchedulesPerOwner,
             )
             .pipe(
-              Effect.catchTag("ScheduleConflict", (error) =>
-                error.reason === "revision" ? attempt() : Effect.fail(error),
-              ),
-            );
-        }),
-      );
+              Effect.catchTag('ScheduleConflict', (error) =>
+                error.reason === 'revision' ? attempt() : Effect.fail(error)),
+            )
+        })
+      )
 
-    const changed = yield* attempt();
+    const changed = yield* attempt()
 
-    yield* wake.notify;
+    yield* wake.notify
 
-    return asSnapshot(changed, yield* currentMillis);
-  });
+    return asSnapshot(changed, yield* currentMillis)
+  })
 
-  const recover = Effect.fn("Scheduling.recover")(function* (
+  const recover = Effect.fn('Scheduling.recover')(function*(
     scope: ScheduleScope,
     scheduleId: ScheduleId,
     expectedRevision: number,
     expectedGeneration: number,
   ) {
-    yield* authorizer.manage({ operation: "recover", scope, scheduleId });
-    const key = keyOf(scope, scheduleId);
-    const record = yield* store.get(key);
+    yield* authorizer.manage({ operation: 'recover', scope, scheduleId })
+    const key = keyOf(scope, scheduleId)
+    const record = yield* store.get(key)
 
-    if (record === null) return yield* notFound(key);
-    if (record.configurationRevision !== expectedRevision)
-      return yield* ScheduleConflict.make({ reason: "revision", key });
-    const time = yield* currentMillis;
+    if (record === null) return yield* notFound(key)
+    if (record.configurationRevision !== expectedRevision) {
+      return yield* ScheduleConflict.make({ reason: 'revision', key })
+    }
+    const time = yield* currentMillis
 
-    if (record.pending === null) return asSnapshot(record, time);
+    if (record.pending === null) return asSnapshot(record, time)
 
     const recovered = yield* store.change(key, {
-      _tag: "Recover",
+      _tag: 'Recover',
       expectedGeneration,
       expectedRevision,
       occurrenceId: record.pending.envelope.occurrenceId,
       nowMillis: time,
-    });
+    })
 
-    yield* wake.notify;
+    yield* wake.notify
 
-    return asSnapshot(recovered, time);
-  });
+    return asSnapshot(recovered, time)
+  })
 
   return Scheduling.of({
     recover,
@@ -589,39 +570,39 @@ const makeManagement = Effect.fnUntraced(function* (limits: SchedulingLimits) {
     update,
     get,
     list,
-    pause: (scope, id, revision) => control("pause", scope, id, revision),
-    resume: (scope, id, revision) => control("resume", scope, id, revision),
-    cancel: (scope, id, revision) => control("cancel", scope, id, revision),
-  });
-});
+    pause: (scope, id, revision) => control('pause', scope, id, revision),
+    resume: (scope, id, revision) => control('resume', scope, id, revision),
+    cancel: (scope, id, revision) => control('cancel', scope, id, revision),
+  })
+})
 
-const makeDriver = Effect.fnUntraced(function* (limits: SchedulingLimits) {
-  const store = yield* ScheduleStore;
-  const authorizer = yield* ScheduleAuthorizer;
-  const admission = yield* PreparedInputAdmission;
-  const failpoint = yield* ScheduleFailpoint;
-  const crypto = yield* CryptoDigest.Digest;
-  const admissionSemaphore = yield* Semaphore.make(limits.admissionConcurrency);
+const makeDriver = Effect.fnUntraced(function*(limits: SchedulingLimits) {
+  const store = yield* ScheduleStore
+  const authorizer = yield* ScheduleAuthorizer
+  const admission = yield* PreparedInputAdmission
+  const failpoint = yield* ScheduleFailpoint
+  const crypto = yield* CryptoDigest.Digest
+  const admissionSemaphore = yield* Semaphore.make(limits.admissionConcurrency)
 
   const withCrypto = <A, E>(effect: Effect.Effect<A, E, CryptoDigest.Digest>) =>
-    Effect.provideService(effect, CryptoDigest.Digest, crypto);
+    Effect.provideService(effect, CryptoDigest.Digest, crypto)
 
-  const retry = Effect.fnUntraced(function* (
+  const retry = Effect.fnUntraced(function*(
     key: ScheduleKey,
     record: ScheduleRecord,
     reason: PreparedInputRetryReason,
     nowMillis: number,
   ) {
-    if (record.pending === null) return record;
-    const current = record.pending.retry;
+    if (record.pending === null) return record
+    const current = record.pending.retry
 
     const delay = Math.min(
       limits.retryBaseMillis * 2 ** Math.min(current.attempts, 52),
       limits.retryMaxMillis,
-    );
+    )
 
     return yield* store.change(key, {
-      _tag: "Retry",
+      _tag: 'Retry',
       occurrenceId: record.pending.envelope.occurrenceId,
       retry: {
         generation: current.generation,
@@ -633,14 +614,14 @@ const makeDriver = Effect.fnUntraced(function* (limits: SchedulingLimits) {
         lastFailure: reason,
       },
       nowMillis,
-    });
-  });
+    })
+  })
 
-  const verifyPending = Effect.fnUntraced(function* (key: ScheduleKey, record: ScheduleRecord) {
-    const pending = record.pending;
+  const verifyPending = Effect.fnUntraced(function*(key: ScheduleKey, record: ScheduleRecord) {
+    const pending = record.pending
 
-    if (pending === null) return;
-    const envelope = pending.envelope;
+    if (pending === null) return
+    const envelope = pending.envelope
 
     const occurrenceId = yield* withCrypto(
       digestJson({
@@ -650,26 +631,25 @@ const makeDriver = Effect.fnUntraced(function* (limits: SchedulingLimits) {
         configurationRevision: envelope.configurationRevision,
         intendedAtMillis: envelope.intendedAtMillis,
       }),
-    ).pipe(Effect.mapError(() => corrupt("process")));
+    ).pipe(Effect.mapError(() => corrupt('process')))
 
-    const usesCurrentConfiguration =
-      envelope.configurationRevision === record.configurationRevision;
+    const usesCurrentConfiguration = envelope.configurationRevision === record.configurationRevision
 
     const expectedThreadId = usesCurrentConfiguration
-      ? record.configuration.destination._tag === "ExistingThread"
+      ? record.configuration.destination._tag === 'ExistingThread'
         ? record.configuration.destination.threadId
         : yield* Schema.decodeEffect(ThreadId)(`schedule-thread:${envelope.occurrenceId}`).pipe(
-            Effect.orDie,
-          )
-      : null;
+          Effect.orDie,
+        )
+      : null
 
     const expectedAdmissionKey = yield* Schema.decodeEffect(IdempotencyKey)(
       `schedule-occurrence:${envelope.occurrenceId}`,
-    ).pipe(Effect.orDie);
+    ).pipe(Effect.orDie)
 
     const digest = yield* withCrypto(digestJson(envelope.input)).pipe(
-      Effect.mapError(() => corrupt("process")),
-    );
+      Effect.mapError(() => corrupt('process')),
+    )
 
     if (
       envelope.schemaVersion !== 1 ||
@@ -688,11 +668,11 @@ const makeDriver = Effect.fnUntraced(function* (limits: SchedulingLimits) {
       (expectedThreadId !== null && envelope.threadId !== expectedThreadId) ||
       envelope.admissionKey !== expectedAdmissionKey
     ) {
-      return yield* corrupt("process");
+      return yield* corrupt('process')
     }
-  });
+  })
 
-  const deliverPending = Effect.fnUntraced(function* (
+  const deliverPending = Effect.fnUntraced(function*(
     key: ScheduleKey,
     record: ScheduleRecord,
     nowMillis: number,
@@ -702,98 +682,92 @@ const makeDriver = Effect.fnUntraced(function* (limits: SchedulingLimits) {
       record.pending.retry.parked === true ||
       record.pending.retry.nextAttemptAtMillis > nowMillis
     ) {
-      return record;
+      return record
     }
-    yield* verifyPending(key, record);
-    const envelope = record.pending.envelope;
+    yield* verifyPending(key, record)
+    const envelope = record.pending.envelope
 
     const outcome = yield* admissionSemaphore.withPermit(
       admitPreparedInput(admission.submit(envelope), limits.admissionTimeoutMillis).pipe(
-        Effect.tap((outcome) =>
-          outcome._tag === "Receipt" ? failpoint.hit("schedule:admission:after") : Effect.void,
-        ),
+        Effect.tap((outcome) => outcome._tag === 'Receipt' ? failpoint.hit('schedule:admission:after') : Effect.void),
       ),
-    );
+    )
 
-    const completedAtMillis = yield* currentMillis;
+    const completedAtMillis = yield* currentMillis
 
-    if (outcome._tag === "Receipt") {
+    if (outcome._tag === 'Receipt') {
       if (outcome.receipt.threadId !== envelope.threadId) {
-        return yield* corrupt("admission");
+        return yield* corrupt('admission')
       }
 
       return yield* store
         .change(key, {
-          _tag: "Complete",
+          _tag: 'Complete',
           occurrenceId: envelope.occurrenceId,
           receipt: outcome.receipt,
           nowMillis: completedAtMillis,
         })
         .pipe(
-          Effect.catchTag("ScheduleStorageError", (error) =>
-            error.reason === "unavailable"
-              ? retry(key, record, "storage", completedAtMillis)
-              : Effect.fail(error),
-          ),
-        );
+          Effect.catchTag('ScheduleStorageError', (error) =>
+            error.reason === 'unavailable'
+              ? retry(key, record, 'storage', completedAtMillis)
+              : Effect.fail(error)),
+        )
     }
-    if (outcome._tag === "Refused") {
+    if (outcome._tag === 'Refused') {
       const refusal: ScheduleRefusal = {
         atMillis: completedAtMillis,
         intendedAtMillis: envelope.intendedAtMillis,
         occurrenceId: envelope.occurrenceId,
-        phase: "admission",
+        phase: 'admission',
         code: outcome.error.code,
-      };
+      }
 
       return yield* store
         .change(key, {
-          _tag: "Refuse",
+          _tag: 'Refuse',
           occurrenceId: envelope.occurrenceId,
           refusal,
           nowMillis: completedAtMillis,
         })
         .pipe(
-          Effect.catchTag("ScheduleStorageError", (error) =>
-            error.reason === "unavailable"
-              ? retry(key, record, "storage", completedAtMillis)
-              : Effect.fail(error),
-          ),
-        );
+          Effect.catchTag('ScheduleStorageError', (error) =>
+            error.reason === 'unavailable'
+              ? retry(key, record, 'storage', completedAtMillis)
+              : Effect.fail(error)),
+        )
     }
 
-    return yield* retry(key, record, outcome.reason, completedAtMillis);
-  });
+    return yield* retry(key, record, outcome.reason, completedAtMillis)
+  })
 
-  const processRecord = Effect.fnUntraced(function* (
+  const processRecord = Effect.fnUntraced(function*(
     key: ScheduleKey,
     initial: ScheduleRecord,
     nowMillis: number,
   ): Effect.fn.Return<ScheduleRecord, ScheduleProcessFailure> {
-    if (initial.pending !== null) return yield* deliverPending(key, initial, nowMillis);
+    if (initial.pending !== null) return yield* deliverPending(key, initial, nowMillis)
     if (
-      initial.state !== "active" ||
+      initial.state !== 'active' ||
       initial.nextAtMillis === null ||
       initial.nextAtMillis > nowMillis
     ) {
-      return initial;
+      return initial
     }
 
     const currentInputDigest = yield* withCrypto(digestJson(initial.configuration.input)).pipe(
-      Effect.mapError(() =>
-        ScheduleStorageError.make({ operation: "prepare", reason: "unavailable" }),
-      ),
-    );
+      Effect.mapError(() => ScheduleStorageError.make({ operation: 'prepare', reason: 'unavailable' })),
+    )
 
     if (currentInputDigest !== initial.configuration.inputDigest) {
-      return yield* corrupt("prepare");
+      return yield* corrupt('prepare')
     }
 
     const due = yield* Effect.fromResult(
       scheduleDueOccurrence(initial.configuration.timing, initial.nextAtMillis, nowMillis),
-    );
+    )
 
-    if (due === null) return initial;
+    if (due === null) return initial
 
     const occurrenceId = yield* withCrypto(
       digestJson({
@@ -803,7 +777,7 @@ const makeDriver = Effect.fnUntraced(function* (limits: SchedulingLimits) {
         configurationRevision: initial.configurationRevision,
         intendedAtMillis: due.intendedAtMillis,
       }),
-    ).pipe(Effect.mapError(() => corrupt("prepare")));
+    ).pipe(Effect.mapError(() => corrupt('prepare')))
 
     const occurrence = {
       key,
@@ -811,43 +785,42 @@ const makeDriver = Effect.fnUntraced(function* (limits: SchedulingLimits) {
       configuration: initial.configuration,
       intendedAtMillis: due.intendedAtMillis,
       occurrenceId,
-    };
+    }
 
-    const authorization = yield* authorizer.prepare(occurrence).pipe(Effect.result);
+    const authorization = yield* authorizer.prepare(occurrence).pipe(Effect.result)
 
     if (Result.isFailure(authorization)) {
-      if (authorization.failure._tag === "ScheduleStorageError") {
-        return yield* authorization.failure;
+      if (authorization.failure._tag === 'ScheduleStorageError') {
+        return yield* authorization.failure
       }
 
       return yield* store.change(key, {
-        _tag: "DenyPreparation",
+        _tag: 'DenyPreparation',
         expectedRevision: initial.configurationRevision,
         expectedCursor: initial.nextAtMillis,
         refusal: {
           atMillis: nowMillis,
           intendedAtMillis: due.intendedAtMillis,
           occurrenceId,
-          phase: "preparation",
+          phase: 'preparation',
           code: authorization.failure.code,
         },
         nowMillis,
-      });
+      })
     }
 
-    const threadId =
-      initial.configuration.destination._tag === "ExistingThread"
-        ? initial.configuration.destination.threadId
-        : yield* Schema.decodeEffect(ThreadId)(`schedule-thread:${occurrenceId}`).pipe(
-            Effect.orDie,
-          );
+    const threadId = initial.configuration.destination._tag === 'ExistingThread'
+      ? initial.configuration.destination.threadId
+      : yield* Schema.decodeEffect(ThreadId)(`schedule-thread:${occurrenceId}`).pipe(
+        Effect.orDie,
+      )
 
     const admissionKey = yield* Schema.decodeEffect(IdempotencyKey)(
       `schedule-occurrence:${occurrenceId}`,
-    ).pipe(Effect.orDie);
+    ).pipe(Effect.orDie)
 
     const prepared = yield* store.change(key, {
-      _tag: "Prepare",
+      _tag: 'Prepare',
       expectedRevision: initial.configurationRevision,
       expectedCursor: initial.nextAtMillis,
       envelope: {
@@ -876,44 +849,43 @@ const makeDriver = Effect.fnUntraced(function* (limits: SchedulingLimits) {
       nextAtMillis: due.nextAtMillis,
       skippedRange: due.skippedRange,
       nowMillis,
-    });
+    })
 
-    return yield* deliverPending(key, prepared, nowMillis);
-  });
+    return yield* deliverPending(key, prepared, nowMillis)
+  })
 
-  const process = Effect.fnUntraced(function* (key: ScheduleKey) {
-    const nowMillis = yield* currentMillis;
-    const record = yield* store.get(key);
+  const process = Effect.fnUntraced(function*(key: ScheduleKey) {
+    const nowMillis = yield* currentMillis
+    const record = yield* store.get(key)
 
-    if (record === null) return yield* notFound(key);
+    if (record === null) return yield* notFound(key)
 
     const processed = yield* processRecord(key, record, nowMillis).pipe(
-      Effect.catchTag("ScheduleConflict", () =>
+      Effect.catchTag('ScheduleConflict', () =>
         store
           .get(key)
           .pipe(
             Effect.flatMap((current) =>
               current === null
                 ? Effect.fail(notFound(key))
-                : processRecord(key, current, nowMillis),
+                : processRecord(key, current, nowMillis)
             ),
-          ),
-      ),
-    );
+          )),
+    )
 
-    return processed;
-  });
+    return processed
+  })
 
-  const runDue = Effect.fnUntraced(function* (owner?: ScheduleOwner) {
-    const nowMillis = yield* currentMillis;
-    let after: ScheduleDueCursor | undefined;
-    let processed = 0;
-    let failed = 0;
+  const runDue = Effect.fnUntraced(function*(owner?: ScheduleOwner) {
+    const nowMillis = yield* currentMillis
+    let after: ScheduleDueCursor | undefined
+    let processed = 0
+    let failed = 0
 
     while (true) {
-      const due = yield* store.due(nowMillis, limits.dueBatchSize, owner, after);
+      const due = yield* store.due(nowMillis, limits.dueBatchSize, owner, after)
 
-      if (due.length === 0) break;
+      if (due.length === 0) break
       yield* Effect.forEach(
         due,
         (key) =>
@@ -921,105 +893,103 @@ const makeDriver = Effect.fnUntraced(function* (limits: SchedulingLimits) {
             Effect.matchCauseEffect({
               onSuccess: () =>
                 Effect.sync(() => {
-                  processed += 1;
+                  processed += 1
                 }),
               onFailure: (cause) =>
                 Cause.hasInterrupts(cause)
                   ? Effect.interrupt
-                  : Effect.gen(function* () {
-                      failed += 1;
-                      yield* Effect.logWarning("Schedule processing failed").pipe(
-                        Effect.annotateLogs({
-                          failureTag: Option.match(Cause.findErrorOption(cause), {
-                            onNone: () => "Defect",
-                            onSome: (error) => error._tag,
-                          }),
+                  : Effect.gen(function*() {
+                    failed += 1
+                    yield* Effect.logWarning('Schedule processing failed').pipe(
+                      Effect.annotateLogs({
+                        failureTag: Option.match(Cause.findErrorOption(cause), {
+                          onNone: () => 'Defect',
+                          onSome: (error) => error._tag,
                         }),
-                      );
-                    }),
+                      }),
+                    )
+                  }),
             }),
           ),
         { concurrency: limits.admissionConcurrency },
-      );
-      after = due.at(-1);
-      if (due.length < limits.dueBatchSize) break;
+      )
+      after = due.at(-1)
+      if (due.length < limits.dueBatchSize) break
     }
 
-    return { processed, failed };
-  });
+    return { processed, failed }
+  })
 
-  return ScheduleDriver.of({ process, runDue });
-});
+  return ScheduleDriver.of({ process, runDue })
+})
 
-const corrupt = (operation: string): ScheduleStorageError =>
-  ScheduleStorageError.make({ operation, reason: "corrupt" });
+const corrupt = (operation: string): ScheduleStorageError => ScheduleStorageError.make({ operation, reason: 'corrupt' })
 
 const validateLimits = (limits: SchedulingLimits) =>
   Schema.decodeEffect(SchedulingLimits)(limits).pipe(
     Effect.mapError((error) =>
-      ScheduleValidationError.make({ message: `Invalid Scheduling limits: ${error.message}` }),
+      ScheduleValidationError.make({ message: `Invalid Scheduling limits: ${error.message}` })
     ),
     Effect.filterOrFail(
       (validated) => validated.retryBaseMillis <= validated.retryMaxMillis,
-      () =>
-        ScheduleValidationError.make({
-          message: "Scheduling retryBaseMillis must not exceed retryMaxMillis",
-        }),
+      () => ScheduleValidationError.make({
+        message: 'Scheduling retryBaseMillis must not exceed retryMaxMillis',
+      }),
     ),
-  );
+  )
 
 export class Scheduling extends Context.Service<
   Scheduling,
   {
     readonly create: <InputSchema extends Schema.Top>(
       agent: DurableSubmitAgent<InputSchema>,
-      input: InputSchema["Type"],
+      input: InputSchema['Type'],
       options: ScheduleCreateOptions,
     ) => Effect.Effect<
       ScheduleSnapshot,
       ScheduleManagementFailure,
-      InputSchema["EncodingServices"]
-    >;
+      InputSchema['EncodingServices']
+    >
     readonly update: <InputSchema extends Schema.Top>(
       agent: DurableSubmitAgent<InputSchema>,
-      input: InputSchema["Type"],
+      input: InputSchema['Type'],
       options: ScheduleUpdateOptions,
     ) => Effect.Effect<
       ScheduleSnapshot,
       ScheduleManagementFailure,
-      InputSchema["EncodingServices"]
-    >;
+      InputSchema['EncodingServices']
+    >
     readonly get: (
       scope: ScheduleScope,
       scheduleId: ScheduleId,
-    ) => Effect.Effect<ScheduleSnapshot, ScheduleManagementFailure>;
+    ) => Effect.Effect<ScheduleSnapshot, ScheduleManagementFailure>
     readonly list: (
       scope: ScheduleScope,
       options?: ScheduleListOptions,
-    ) => Effect.Effect<ScheduleSnapshotPage, ScheduleManagementFailure>;
+    ) => Effect.Effect<ScheduleSnapshotPage, ScheduleManagementFailure>
     readonly pause: (
       scope: ScheduleScope,
       scheduleId: ScheduleId,
       expectedRevision: number,
-    ) => Effect.Effect<ScheduleSnapshot, ScheduleManagementFailure>;
+    ) => Effect.Effect<ScheduleSnapshot, ScheduleManagementFailure>
     readonly resume: (
       scope: ScheduleScope,
       scheduleId: ScheduleId,
       expectedRevision: number,
-    ) => Effect.Effect<ScheduleSnapshot, ScheduleManagementFailure>;
+    ) => Effect.Effect<ScheduleSnapshot, ScheduleManagementFailure>
     readonly recover: (
       scope: ScheduleScope,
       scheduleId: ScheduleId,
       expectedRevision: number,
       expectedGeneration: number,
-    ) => Effect.Effect<ScheduleSnapshot, ScheduleManagementFailure>;
+    ) => Effect.Effect<ScheduleSnapshot, ScheduleManagementFailure>
     readonly cancel: (
       scope: ScheduleScope,
       scheduleId: ScheduleId,
       expectedRevision: number,
-    ) => Effect.Effect<ScheduleSnapshot, ScheduleManagementFailure>;
+    ) => Effect.Effect<ScheduleSnapshot, ScheduleManagementFailure>
   }
->()("@effect-agent/thread/Scheduling") {
+>()('@effect-agent/thread/Scheduling') {
   static layer(
     limits: SchedulingLimits = defaultSchedulingLimits,
   ): Layer.Layer<
@@ -1027,28 +997,28 @@ export class Scheduling extends Context.Service<
     ScheduleValidationError,
     ScheduleStore | ScheduleAuthorizer | ScheduleWake | CryptoDigest.Digest
   > {
-    return Layer.effect(Scheduling, validateLimits(limits).pipe(Effect.flatMap(makeManagement)));
+    return Layer.effect(Scheduling, validateLimits(limits).pipe(Effect.flatMap(makeManagement)))
   }
 }
 
 export const ScheduleWakeNoop: Layer.Layer<ScheduleWake> = Layer.succeed(ScheduleWake, {
   notify: Effect.void,
   await: Effect.never,
-});
+})
 
 /** Privileged host capability. Never provide this service to management callers or model tools. */
 export class ScheduleDriver extends Context.Service<
   ScheduleDriver,
   {
-    readonly process: (key: ScheduleKey) => Effect.Effect<ScheduleRecord, ScheduleProcessFailure>;
+    readonly process: (key: ScheduleKey) => Effect.Effect<ScheduleRecord, ScheduleProcessFailure>
     readonly runDue: (
       owner?: ScheduleOwner,
     ) => Effect.Effect<
       { readonly processed: number; readonly failed: number },
       ScheduleStorageError
-    >;
+    >
   }
->()("@effect-agent/thread/ScheduleDriver") {
+>()('@effect-agent/thread/ScheduleDriver') {
   static layer(
     limits: SchedulingLimits = defaultSchedulingLimits,
   ): Layer.Layer<
@@ -1056,6 +1026,6 @@ export class ScheduleDriver extends Context.Service<
     ScheduleValidationError,
     ScheduleStore | ScheduleAuthorizer | PreparedInputAdmission | CryptoDigest.Digest
   > {
-    return Layer.effect(ScheduleDriver, validateLimits(limits).pipe(Effect.flatMap(makeDriver)));
+    return Layer.effect(ScheduleDriver, validateLimits(limits).pipe(Effect.flatMap(makeDriver)))
   }
 }

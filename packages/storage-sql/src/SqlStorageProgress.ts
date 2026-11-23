@@ -1,10 +1,10 @@
-import * as Context from "effect/Context";
-import * as Effect from "effect/Effect";
-import * as Schema from "effect/Schema";
+import * as Context from 'effect/Context'
+import * as Effect from 'effect/Effect'
+import * as Schema from 'effect/Schema'
 
 /** Failure to enroll newly committed execution work. The source transaction must roll back. */
 export class SqlStorageProgressError extends Schema.TaggedError<SqlStorageProgressError>()(
-  "SqlStorageProgressError",
+  'SqlStorageProgressError',
   {
     operation: Schema.String,
     message: Schema.String,
@@ -13,13 +13,13 @@ export class SqlStorageProgressError extends Schema.TaggedError<SqlStorageProgre
 ) {}
 
 export type SqlStorageProgressKind =
-  | "canonical"
-  | "submission"
-  | "control"
-  | "lifecycle"
-  | "lifecycle-ack"
-  | "work-index"
-  | "delivery";
+  | 'canonical'
+  | 'submission'
+  | 'control'
+  | 'lifecycle'
+  | 'lifecycle-ack'
+  | 'work-index'
+  | 'delivery'
 
 /**
  * Source-transaction enrollment for durable maintenance. Call only after a new fact was
@@ -31,7 +31,7 @@ export type SqlStorageProgressKind =
 export const SqlStorageProgress = Context.Reference<{
   readonly committed: (
     kind: SqlStorageProgressKind,
-  ) => Effect.Effect<void, SqlStorageProgressError>;
-}>("@effect-agent/storage-sql/SqlStorageProgress", {
+  ) => Effect.Effect<void, SqlStorageProgressError>
+}>('@effect-agent/storage-sql/SqlStorageProgress', {
   defaultValue: () => ({ committed: () => Effect.void }),
-});
+})

@@ -1,70 +1,70 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
-import * as SqliteClient from "@effect/sql-sqlite-node/SqliteClient";
-import { expect, it } from "@effect/vitest";
-import { PersistentHistory } from "@yielded/agent";
-import { activityProcessorStoreLayer } from "@yielded/agent-storage-sqlite/sqlite-activity-store";
-import { layer as sqliteThreadStoreLayer } from "@yielded/agent-storage-sqlite/sqlite-thread-store";
-import { ActivityProcessorStore } from "@yielded/agent/activity-store";
-import * as Agent from "@yielded/agent/agent";
-import { AgentPolicy } from "@yielded/agent/agent-policy";
-import * as AgentRuntime from "@yielded/agent/agent-runtime";
-import { ThreadId } from "@yielded/agent/identifiers";
-import { MemoryReader } from "@yielded/agent/memory-store";
-import { RunContextPreparationPassthrough } from "@yielded/agent/run-options";
-import { memoryReaderLayer } from "@yielded/agent/sql-memory-store";
-import { readTestThread } from "@yielded/agent/testing/thread-store-conformance";
-import { ThreadExportRequest, ThreadStore } from "@yielded/agent/thread-store";
-import * as LanguageModel from "effect/ai/LanguageModel";
-import * as Model from "effect/ai/Model";
-import type * as Response from "effect/ai/Response";
-import * as Toolkit from "effect/ai/Toolkit";
-import * as Duration from "effect/Duration";
-import * as Effect from "effect/Effect";
-import * as Fiber from "effect/Fiber";
-import * as FileSystem from "effect/FileSystem";
-import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
-import * as Path from "effect/Path";
-import * as ChildProcess from "effect/process/ChildProcess";
-import type * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
-import * as Result from "effect/Result";
-import * as Schema from "effect/Schema";
-import * as Stream from "effect/Stream";
+import * as NodeServices from '@effect/platform-node/NodeServices'
+import * as SqliteClient from '@effect/sql-sqlite-node/SqliteClient'
+import { expect, it } from '@effect/vitest'
+import { PersistentHistory } from '@yielded/agent'
+import { activityProcessorStoreLayer } from '@yielded/agent-storage-sqlite/sqlite-activity-store'
+import { layer as sqliteThreadStoreLayer } from '@yielded/agent-storage-sqlite/sqlite-thread-store'
+import { ActivityProcessorStore } from '@yielded/agent/activity-store'
+import * as Agent from '@yielded/agent/agent'
+import { AgentPolicy } from '@yielded/agent/agent-policy'
+import * as AgentRuntime from '@yielded/agent/agent-runtime'
+import { ThreadId } from '@yielded/agent/identifiers'
+import { MemoryReader } from '@yielded/agent/memory-store'
+import { RunContextPreparationPassthrough } from '@yielded/agent/run-options'
+import { memoryReaderLayer } from '@yielded/agent/sql-memory-store'
+import { readTestThread } from '@yielded/agent/testing/thread-store-conformance'
+import { ThreadExportRequest, ThreadStore } from '@yielded/agent/thread-store'
+import * as LanguageModel from 'effect/ai/LanguageModel'
+import * as Model from 'effect/ai/Model'
+import type * as Response from 'effect/ai/Response'
+import * as Toolkit from 'effect/ai/Toolkit'
+import * as Duration from 'effect/Duration'
+import * as Effect from 'effect/Effect'
+import * as Fiber from 'effect/Fiber'
+import * as FileSystem from 'effect/FileSystem'
+import * as Layer from 'effect/Layer'
+import * as Option from 'effect/Option'
+import * as Path from 'effect/Path'
+import * as ChildProcess from 'effect/process/ChildProcess'
+import type * as ChildProcessSpawner from 'effect/process/ChildProcessSpawner'
+import * as Result from 'effect/Result'
+import * as Schema from 'effect/Schema'
+import * as Stream from 'effect/Stream'
 
 import {
-  DAN_THREAD,
-  DIVERGENT_TEXT,
-  MemoryActivityMarker,
-  MemoryActivityWorkerResult,
-  ORIGINAL_TEXT,
   activityKey,
+  DAN_THREAD,
   DanStatement,
   danStatement,
-  memoryKey,
+  DIVERGENT_TEXT,
+  MemoryActivityMarker,
   type MemoryActivityWorkerMode,
-} from "./memory-activity-fixtures.ts";
+  MemoryActivityWorkerResult,
+  memoryKey,
+  ORIGINAL_TEXT,
+} from './memory-activity-fixtures.ts'
 
-const danThreadId = Schema.decodeSync(ThreadId)(DAN_THREAD);
+const danThreadId = Schema.decodeSync(ThreadId)(DAN_THREAD)
 
 const policy = AgentPolicy.make({
   maxTurns: 1,
   maxToolCalls: 1,
-  maxDuration: "30 seconds",
+  maxDuration: '30 seconds',
   toolConcurrency: 1,
-});
+})
 
-const usage = { inputTokens: {}, outputTokens: {} };
+const usage = { inputTokens: {}, outputTokens: {} }
 
 const finalParts = (text: string): ReadonlyArray<Response.StreamPartEncoded> => [
-  { type: "text-start", id: "answer" },
-  { type: "text-delta", id: "answer", delta: JSON.stringify(text) },
-  { type: "text-end", id: "answer" },
-  { type: "finish", reason: "stop", usage },
-];
+  { type: 'text-start', id: 'answer' },
+  { type: 'text-delta', id: 'answer', delta: JSON.stringify(text) },
+  { type: 'text-end', id: 'answer' },
+  { type: 'finish', reason: 'stop', usage },
+]
 
 const model = (name: string, answer: string) =>
   Model.make(
-    "scripted",
+    'scripted',
     name,
     Layer.effect(
       LanguageModel.LanguageModel,
@@ -73,67 +73,67 @@ const model = (name: string, answer: string) =>
         streamText: () => Stream.fromIterable(finalParts(answer)),
       }),
     ),
-  );
+  )
 
 const sourceAgent = Agent.withModel(
-  Agent.make("memory-observer-chad", {
+  Agent.make('memory-observer-chad', {
     input: DanStatement,
     output: Schema.String,
     instructions: "Acknowledge Dan's statement without changing its status.",
     toolkit: Toolkit.empty,
     policy,
   }),
-  model("memory-observer-chad", ORIGINAL_TEXT),
-);
+  model('memory-observer-chad', ORIGINAL_TEXT),
+)
 
 const historyLayer = (filename: string) =>
-  PersistentHistory.layer.pipe(Layer.provide(sqliteThreadStoreLayer({ filename })));
+  PersistentHistory.layer.pipe(Layer.provide(sqliteThreadStoreLayer({ filename })))
 
 const activityLayer = (filename: string) =>
   activityProcessorStoreLayer.pipe(
     Layer.provide(SqliteClient.layer({ filename, busyTimeout: 5_000 })),
-  );
+  )
 
 const readerLayer = (filename: string) =>
-  memoryReaderLayer.pipe(Layer.provide(SqliteClient.layer({ filename, busyTimeout: 5_000 })));
+  memoryReaderLayer.pipe(Layer.provide(SqliteClient.layer({ filename, busyTimeout: 5_000 })))
 
 const readMemory = (filename: string, key = memoryKey) =>
   Effect.flatMap(MemoryReader, (reader) => reader.get(key)).pipe(
     Effect.provide(readerLayer(filename)),
-  );
+  )
 
 const inspectActivity = (filename: string) =>
   Effect.flatMap(ActivityProcessorStore, (store) => store.inspect(activityKey)).pipe(
     Effect.provide(activityLayer(filename)),
-  );
+  )
 
 const exportThread = (filename: string, threadId: ThreadId) =>
-  Effect.flatMap(ThreadStore, (store) =>
-    readTestThread(store, ThreadExportRequest.make({ threadId })),
-  ).pipe(Effect.provide(sqliteThreadStoreLayer({ filename })));
+  Effect.flatMap(ThreadStore, (store) => readTestThread(store, ThreadExportRequest.make({ threadId }))).pipe(
+    Effect.provide(sqliteThreadStoreLayer({ filename })),
+  )
 
-const spawnWorker = Effect.fn("MemoryActivityTest.spawnWorker")(function* (
+const spawnWorker = Effect.fn('MemoryActivityTest.spawnWorker')(function*(
   filename: string,
   mode: MemoryActivityWorkerMode,
 ) {
-  const path = yield* Path.Path;
+  const path = yield* Path.Path
 
   const entry = yield* path.fromFileUrl(
-    new URL("./memory-activity-worker-entry.ts", import.meta.url),
-  );
+    new URL('./memory-activity-worker-entry.ts', import.meta.url),
+  )
 
-  return yield* ChildProcess.make("node", [entry], {
+  return yield* ChildProcess.make('node', [entry], {
     cwd: path.dirname(entry),
     env: {
       EFFECT_AGENT_MEMORY_ACTIVITY_DB: filename,
       EFFECT_AGENT_MEMORY_ACTIVITY_MODE: mode,
     },
     extendEnv: true,
-    stdin: "ignore",
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-});
+    stdin: 'ignore',
+    stdout: 'pipe',
+    stderr: 'pipe',
+  })
+})
 
 const decodeFirstLine = <A, I>(
   child: ChildProcessSpawner.ChildProcessHandle,
@@ -147,43 +147,43 @@ const decodeFirstLine = <A, I>(
     Effect.timeout(Duration.seconds(15)),
     Effect.flatMap(
       Option.match({
-        onNone: () => Effect.die("Child exited without a protocol message"),
+        onNone: () => Effect.die('Child exited without a protocol message'),
         onSome: Effect.succeed,
       }),
     ),
-  );
+  )
 
 const runWorker = (filename: string, mode: MemoryActivityWorkerMode) =>
   Effect.scoped(
-    Effect.gen(function* () {
-      const child = yield* spawnWorker(filename, mode);
+    Effect.gen(function*() {
+      const child = yield* spawnWorker(filename, mode)
 
       const stderr = yield* Effect.forkScoped(
         child.stderr.pipe(Stream.decodeText(), Stream.mkString),
-      );
+      )
 
-      const output = yield* decodeFirstLine(child, MemoryActivityWorkerResult);
-      const exitCode = yield* child.exitCode;
-      const errorText = yield* Fiber.join(stderr);
+      const output = yield* decodeFirstLine(child, MemoryActivityWorkerResult)
+      const exitCode = yield* child.exitCode
+      const errorText = yield* Fiber.join(stderr)
 
-      if (Number(exitCode) !== 0) return yield* Effect.die(`Worker failed: ${errorText}`);
+      if (Number(exitCode) !== 0) return yield* Effect.die(`Worker failed: ${errorText}`)
 
-      return output;
+      return output
     }),
-  );
+  )
 
 it.live(
-  "replays pinned memory after SIGKILL without re-extracting or overwriting it",
+  'replays pinned memory after SIGKILL without re-extracting or overwriting it',
   () =>
     Effect.scoped(
-      Effect.gen(function* () {
-        const fs = yield* FileSystem.FileSystem;
+      Effect.gen(function*() {
+        const fs = yield* FileSystem.FileSystem
 
         const directory = yield* fs.makeTempDirectoryScoped({
-          prefix: "effect-agent-memory-activity-restart-",
-        });
+          prefix: 'effect-agent-memory-activity-restart-',
+        })
 
-        const filename = `${directory}/memory.sqlite`;
+        const filename = `${directory}/memory.sqlite`
 
         yield* AgentRuntime.run(sourceAgent, danStatement, { threadId: danThreadId }).pipe(
           Effect.provide([
@@ -191,75 +191,75 @@ it.live(
 
             RunContextPreparationPassthrough,
           ]),
-        );
-        const source = yield* exportThread(filename, danThreadId);
+        )
+        const source = yield* exportThread(filename, danThreadId)
 
         expect(source.records.map(({ record }) => record.payload._tag)).toEqual([
-          "UserInputRecorded",
-          "ModelCompleted",
-          "RunCompleted",
-        ]);
-        expect(JSON.stringify(source.records[1])).toContain(ORIGINAL_TEXT);
+          'UserInputRecorded',
+          'ModelCompleted',
+          'RunCompleted',
+        ])
+        expect(JSON.stringify(source.records[1])).toContain(ORIGINAL_TEXT)
 
-        const first = yield* spawnWorker(filename, "crash-after-apply");
+        const first = yield* spawnWorker(filename, 'crash-after-apply')
 
         const stderr = yield* Effect.forkScoped(
           first.stderr.pipe(Stream.decodeText(), Stream.mkString),
-        );
+        )
 
         expect(yield* decodeFirstLine(first, MemoryActivityMarker)).toEqual({
-          _tag: "MemoryActivityMarker",
-          point: "memory:change:after",
-        });
-        yield* first.kill({ killSignal: "SIGKILL" });
-        const killed = yield* first.exitCode.pipe(Effect.result);
+          _tag: 'MemoryActivityMarker',
+          point: 'memory:change:after',
+        })
+        yield* first.kill({ killSignal: 'SIGKILL' })
+        const killed = yield* first.exitCode.pipe(Effect.result)
 
-        yield* Fiber.join(stderr);
-        expect(Result.isFailure(killed)).toBe(true);
+        yield* Fiber.join(stderr)
+        expect(Result.isFailure(killed)).toBe(true)
 
-        const crashedProgress = yield* inspectActivity(filename);
+        const crashedProgress = yield* inspectActivity(filename)
 
-        expect(crashedProgress?.throughSequence).toBe(0);
-        expect(crashedProgress?.pending?.sequence).toBe(1);
-        const pending = crashedProgress?.pending;
+        expect(crashedProgress?.throughSequence).toBe(0)
+        expect(crashedProgress?.pending?.sequence).toBe(1)
+        const pending = crashedProgress?.pending
 
         if (pending === null || pending === undefined) {
-          return yield* Effect.die("Expected pinned activity after process death");
+          return yield* Effect.die('Expected pinned activity after process death')
         }
-        const firstDocument = yield* readMemory(filename);
+        const firstDocument = yield* readMemory(filename)
 
         expect(firstDocument).toMatchObject({
-          _tag: "ActiveMemoryDocument",
+          _tag: 'ActiveMemoryDocument',
           generation: 1,
           predecessor: null,
           content: { text: ORIGINAL_TEXT },
-        });
+        })
 
         // Process death retires local authority; pinned output is immediately recoverable.
-        const recovered = yield* runWorker(filename, "recover-divergent");
+        const recovered = yield* runWorker(filename, 'recover-divergent')
 
         expect(recovered.pass).toMatchObject({
           capturedTail: 3,
           throughSequence: 3,
           processed: 3,
           pendingRecords: 0,
-        });
-        expect(recovered.appliedWorkIds[0]).toBe(pending.workId);
-        expect(recovered.extractedUserRecords).toBe(0);
-        const progress = yield* inspectActivity(filename);
+        })
+        expect(recovered.appliedWorkIds[0]).toBe(pending.workId)
+        expect(recovered.extractedUserRecords).toBe(0)
+        const progress = yield* inspectActivity(filename)
 
-        expect(progress).toMatchObject({ throughSequence: 3, pending: null });
+        expect(progress).toMatchObject({ throughSequence: 3, pending: null })
 
-        const original = yield* readMemory(filename);
+        const original = yield* readMemory(filename)
 
-        expect(original?._tag).toBe("ActiveMemoryDocument");
-        if (original === null || original._tag !== "ActiveMemoryDocument") {
-          return yield* Effect.die("Expected active recovered memory");
+        expect(original?._tag).toBe('ActiveMemoryDocument')
+        if (original === null || original._tag !== 'ActiveMemoryDocument') {
+          return yield* Effect.die('Expected active recovered memory')
         }
-        expect(original.generation).toBe(1);
-        expect(original.content.text).toBe(ORIGINAL_TEXT);
-        expect(original.content.text).not.toBe(DIVERGENT_TEXT);
+        expect(original.generation).toBe(1)
+        expect(original.content.text).toBe(ORIGINAL_TEXT)
+        expect(original.content.text).not.toBe(DIVERGENT_TEXT)
       }),
     ).pipe(Effect.provide(NodeServices.layer)),
   60_000,
-);
+)

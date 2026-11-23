@@ -1,28 +1,28 @@
-import * as Result from "effect/Result";
-import * as Schema from "effect/Schema";
+import * as Result from 'effect/Result'
+import * as Schema from 'effect/Schema'
 
-import { Receipt } from "./DurableAgentRuntime.ts";
-import { DefinitionDigests } from "./Records.ts";
-import { AdmissionFence } from "./SubmissionLedger.ts";
+import { Receipt } from './DurableAgentRuntime.ts'
+import { DefinitionDigests } from './Records.ts'
+import { AdmissionFence } from './SubmissionLedger.ts'
 import {
   type AcceptedEvent,
   type DeliveryChange,
-  type SubscriptionChange,
-  type SubscriptionLimits,
   type SourcePartition,
-  SubscriptionDelivery,
+  type SubscriptionChange,
   SubscriptionConfiguration,
+  SubscriptionDelivery,
   type SubscriptionDelivery as SubscriptionDeliveryType,
-  type SubscriptionRecord,
   SubscriptionError,
-} from "./Subscription.ts";
+  type SubscriptionLimits,
+  type SubscriptionRecord,
+} from './Subscription.ts'
 
-const conflict = (code: string) => SubscriptionError.make({ reason: "conflict", code });
-const sameDefinitions = Schema.toEquivalence(DefinitionDigests);
-const sameReceipt = Schema.toEquivalence(Receipt);
+const conflict = (code: string) => SubscriptionError.make({ reason: 'conflict', code })
+const sameDefinitions = Schema.toEquivalence(DefinitionDigests)
+const sameReceipt = Schema.toEquivalence(Receipt)
 
 export const sameSourcePartition = (left: SourcePartition, right: SourcePartition): boolean =>
-  left.tenantId === right.tenantId && left.address === right.address;
+  left.tenantId === right.tenantId && left.address === right.address
 
 /** The retained event is authoritative. An absent historical occurrence stays unknown on replay. */
 export const sameAcceptedEventIdentity = (left: AcceptedEvent, right: AcceptedEvent): boolean =>
@@ -32,7 +32,7 @@ export const sameAcceptedEventIdentity = (left: AcceptedEvent, right: AcceptedEv
   left.source.version === right.source.version &&
   left.matchingKey === right.matchingKey &&
   left.payloadDigest === right.payloadDigest &&
-  (left.occurredAtMillis === undefined || left.occurredAtMillis === right.occurredAtMillis);
+  (left.occurredAtMillis === undefined || left.occurredAtMillis === right.occurredAtMillis)
 
 export const subscriptionMatchesEvent = (
   subscription: SubscriptionRecord,
@@ -40,22 +40,22 @@ export const subscriptionMatchesEvent = (
 ): boolean =>
   subscription.configuration.source.name === event.source.name &&
   subscription.configuration.source.version === event.source.version &&
-  subscription.configuration.matchingKey === event.matchingKey;
+  subscription.configuration.matchingKey === event.matchingKey
 
 /** Paused registrations reserve capacity; terminal and expired replay evidence does not. */
 export const subscriptionUsesCapacity = (
   subscription: SubscriptionRecord,
   nowMillis: number,
 ): boolean =>
-  (subscription.state === "active" || subscription.state === "paused") &&
+  (subscription.state === 'active' || subscription.state === 'paused') &&
   (subscription.configuration.expiresAtMillis === null ||
-    subscription.configuration.expiresAtMillis > nowMillis);
+    subscription.configuration.expiresAtMillis > nowMillis)
 
 /** Parked work still owns a slot. A receipt releases it unless settlement is being observed. */
 export const subscriptionDeliveryUsesCapacity = (delivery: SubscriptionDeliveryType): boolean =>
-  delivery.state === "selected" ||
-  delivery.state === "prepared" ||
-  (delivery.state === "delivered" && delivery.observeSettlement === true);
+  delivery.state === 'selected' ||
+  delivery.state === 'prepared' ||
+  (delivery.state === 'delivered' && delivery.observeSettlement === true)
 
 export const subscriptionCanSelect = (
   subscription: SubscriptionRecord,
@@ -64,20 +64,19 @@ export const subscriptionCanSelect = (
   bypassCutoff: boolean,
 ): boolean =>
   subscriptionMatchesEvent(subscription, event) &&
-  subscription.state === "active" &&
+  subscription.state === 'active' &&
   (subscription.configuration.expiresAtMillis === null ||
     subscription.configuration.expiresAtMillis > nowMillis) &&
-  (bypassCutoff || subscription.ordinal <= event.cutoff);
+  (bypassCutoff || subscription.ordinal <= event.cutoff)
 
 export const subscriptionDeliveryCanSelect = (
   delivery: SubscriptionDeliveryType,
   subscription: SubscriptionRecord,
   event: AcceptedEvent,
 ): boolean => {
-  const expectedThread =
-    subscription.configuration.destination._tag === "ExistingThread"
-      ? subscription.configuration.destination.threadId
-      : `subscription:${delivery.deliveryId}`;
+  const expectedThread = subscription.configuration.destination._tag === 'ExistingThread'
+    ? subscription.configuration.destination.threadId
+    : `subscription:${delivery.deliveryId}`
 
   return (
     event.tombstone !== true &&
@@ -97,20 +96,20 @@ export const subscriptionDeliveryCanSelect = (
     delivery.eventDigest === event.payloadDigest &&
     delivery.threadId === expectedThread &&
     delivery.admissionKey === `subscription:${delivery.deliveryId}` &&
-    delivery.state === "selected" &&
+    delivery.state === 'selected' &&
     delivery.envelope === null &&
     delivery.envelopeDigest === null &&
     delivery.receipt === null &&
     delivery.refusal === null
-  );
-};
+  )
+}
 
 export const sameSubscriptionDelivery = (
   left: SubscriptionDeliveryType,
   right: SubscriptionDeliveryType,
 ): boolean =>
   Schema.encodeSync(Schema.fromJsonString(SubscriptionDelivery))(left) ===
-  Schema.encodeSync(Schema.fromJsonString(SubscriptionDelivery))(right);
+    Schema.encodeSync(Schema.fromJsonString(SubscriptionDelivery))(right)
 
 /** Pure lifecycle transition used inside each adapter's local atomic mutation. */
 export const applySubscriptionDeliveryChange = (
@@ -119,30 +118,32 @@ export const applySubscriptionDeliveryChange = (
   deliveryId: string,
   change: DeliveryChange,
 ): Result.Result<SubscriptionDeliveryType, SubscriptionError> => {
-  if (existing.deliveryId !== deliveryId) return Result.fail(conflict("stale-delivery"));
+  if (existing.deliveryId !== deliveryId) return Result.fail(conflict('stale-delivery'))
 
-  const configuration = existing.configuration;
+  const configuration = existing.configuration
 
   switch (change._tag) {
-    case "ObserveSettlement":
+    case 'ObserveSettlement':
       if (
-        existing.state !== "delivered" ||
+        existing.state !== 'delivered' ||
         existing.receipt === null ||
         !sameReceipt(existing.receipt, change.receipt)
-      )
-        return Result.fail(conflict("settlement-receipt"));
-      if (existing.settledAtMillis !== undefined) return Result.succeed(existing);
+      ) {
+        return Result.fail(conflict('settlement-receipt'))
+      }
+      if (existing.settledAtMillis !== undefined) return Result.succeed(existing)
 
       return Result.succeed({
         ...existing,
         observeSettlement: !change.settled,
         ...(change.settled ? { settledAtMillis: change.nowMillis } : {}),
         retry: { ...existing.retry, nextAttemptAtMillis: change.nextAttemptAtMillis },
-      });
-    case "Recover":
-      if (existing.retry.generation !== change.expectedGeneration) return Result.succeed(existing);
-      if (existing.state === "delivered" || existing.state === "refused")
-        return Result.succeed(existing);
+      })
+    case 'Recover':
+      if (existing.retry.generation !== change.expectedGeneration) return Result.succeed(existing)
+      if (existing.state === 'delivered' || existing.state === 'refused') {
+        return Result.succeed(existing)
+      }
 
       return Result.succeed({
         ...existing,
@@ -153,34 +154,34 @@ export const applySubscriptionDeliveryChange = (
           parked: false,
           nextAttemptAtMillis: change.nowMillis,
         },
-      });
-    case "Prepare": {
-      if (existing.state === "prepared") {
+      })
+    case 'Prepare': {
+      if (existing.state === 'prepared') {
         return existing.envelope !== null &&
-          existing.envelopeDigest === change.envelopeDigest &&
-          Schema.encodeSync(Schema.fromJsonString(SubscriptionDelivery.fields.envelope))(
-            existing.envelope,
-          ) ===
+            existing.envelopeDigest === change.envelopeDigest &&
             Schema.encodeSync(Schema.fromJsonString(SubscriptionDelivery.fields.envelope))(
-              change.envelope,
-            )
+                existing.envelope,
+              ) ===
+              Schema.encodeSync(Schema.fromJsonString(SubscriptionDelivery.fields.envelope))(
+                change.envelope,
+              )
           ? Result.succeed(existing)
-          : Result.fail(conflict("prepared-envelope"));
+          : Result.fail(conflict('prepared-envelope'))
       }
-      if (existing.state !== "selected") return Result.fail(conflict("delivery-state"));
+      if (existing.state !== 'selected') return Result.fail(conflict('delivery-state'))
       if (
-        subscription.state === "cancelled" ||
+        subscription.state === 'cancelled' ||
         (configuration.expiresAtMillis !== null &&
           configuration.expiresAtMillis <= change.nowMillis)
       ) {
         return Result.succeed({
           ...existing,
-          state: "refused",
+          state: 'refused',
           refusal: {
-            phase: "preparation",
-            code: subscription.state === "cancelled" ? "cancelled" : "expired",
+            phase: 'preparation',
+            code: subscription.state === 'cancelled' ? 'cancelled' : 'expired',
           },
-        });
+        })
       }
       if (
         change.envelope.threadId !== existing.threadId ||
@@ -193,65 +194,72 @@ export const applySubscriptionDeliveryChange = (
           configuration.admissionFence,
         ) ||
         !sameDefinitions(change.envelope.definitions, configuration.definitions)
-      )
-        return Result.fail(conflict("prepared-identity"));
+      ) {
+        return Result.fail(conflict('prepared-identity'))
+      }
 
       return Result.succeed({
         ...existing,
-        state: "prepared",
+        state: 'prepared',
         envelope: change.envelope,
         envelopeDigest: change.envelopeDigest,
-      });
+      })
     }
-    case "Complete":
-      if (change.receipt.threadId !== existing.threadId)
-        return Result.fail(conflict("receipt-thread"));
-      if (existing.state === "delivered")
+    case 'Complete':
+      if (change.receipt.threadId !== existing.threadId) {
+        return Result.fail(conflict('receipt-thread'))
+      }
+      if (existing.state === 'delivered') {
         return existing.receipt !== null && sameReceipt(existing.receipt, change.receipt)
           ? Result.succeed(existing)
-          : Result.fail(conflict("receipt"));
+          : Result.fail(conflict('receipt'))
+      }
 
-      return existing.state === "prepared"
+      return existing.state === 'prepared'
         ? Result.succeed({
-            ...existing,
-            state: "delivered",
-            receipt: change.receipt,
-            completedAtMillis: change.nowMillis,
-          })
-        : Result.fail(conflict("delivery-state"));
-    case "Refuse":
-      if (existing.state === "refused")
+          ...existing,
+          state: 'delivered',
+          receipt: change.receipt,
+          completedAtMillis: change.nowMillis,
+        })
+        : Result.fail(conflict('delivery-state'))
+    case 'Refuse':
+      if (existing.state === 'refused') {
         return existing.refusal?.phase === change.refusal.phase &&
-          existing.refusal.code === change.refusal.code
+            existing.refusal.code === change.refusal.code
           ? Result.succeed(existing)
-          : Result.fail(conflict("refusal"));
+          : Result.fail(conflict('refusal'))
+      }
       if (
-        (change.refusal.phase === "preparation" && existing.state !== "selected") ||
-        (change.refusal.phase === "admission" && existing.state !== "prepared")
-      )
-        return Result.fail(conflict("refusal-phase"));
+        (change.refusal.phase === 'preparation' && existing.state !== 'selected') ||
+        (change.refusal.phase === 'admission' && existing.state !== 'prepared')
+      ) {
+        return Result.fail(conflict('refusal-phase'))
+      }
 
-      return existing.state === "delivered"
-        ? Result.fail(conflict("delivery-state"))
+      return existing.state === 'delivered'
+        ? Result.fail(conflict('delivery-state'))
         : Result.succeed({
-            ...existing,
-            state: "refused",
-            refusal: change.refusal,
-            completedAtMillis: change.nowMillis,
-          });
-    case "Retry":
-      if (existing.state === "delivered" || existing.state === "refused")
-        return Result.fail(conflict("delivery-state"));
+          ...existing,
+          state: 'refused',
+          refusal: change.refusal,
+          completedAtMillis: change.nowMillis,
+        })
+    case 'Retry':
+      if (existing.state === 'delivered' || existing.state === 'refused') {
+        return Result.fail(conflict('delivery-state'))
+      }
       if (
         change.retry.generation !== existing.retry.generation ||
         change.retry.attempts <= existing.retry.attempts ||
         change.retry.nextAttemptAtMillis < existing.retry.nextAttemptAtMillis
-      )
-        return Result.succeed(existing);
+      ) {
+        return Result.succeed(existing)
+      }
 
-      return Result.succeed({ ...existing, retry: change.retry });
+      return Result.succeed({ ...existing, retry: change.retry })
   }
-};
+}
 
 /** CAS management never mutates a selected or prepared delivery. */
 export const applySubscriptionChange = (
@@ -259,44 +267,47 @@ export const applySubscriptionChange = (
   expectedRevision: number,
   change: SubscriptionChange,
 ): Result.Result<SubscriptionRecord, SubscriptionError> => {
-  const revision = existing.configurationRevision;
+  const revision = existing.configurationRevision
 
-  if (revision !== expectedRevision)
+  if (revision !== expectedRevision) {
     return Result.fail(
       SubscriptionError.make({
-        reason: "conflict",
-        code: "configuration-revision",
+        reason: 'conflict',
+        code: 'configuration-revision',
         currentRevision: revision,
         currentState: existing.state,
       }),
-    );
-  if (existing.state === "cancelled" || existing.state === "consumed")
-    return Result.fail(conflict("subscription-state"));
-  if (change._tag === "Pause" && existing.state !== "active")
-    return Result.fail(conflict("subscription-state"));
-  if (change._tag === "Resume" && existing.state !== "paused")
-    return Result.fail(conflict("subscription-state"));
+    )
+  }
+  if (existing.state === 'cancelled' || existing.state === 'consumed') {
+    return Result.fail(conflict('subscription-state'))
+  }
+  if (change._tag === 'Pause' && existing.state !== 'active') {
+    return Result.fail(conflict('subscription-state'))
+  }
+  if (change._tag === 'Resume' && existing.state !== 'paused') {
+    return Result.fail(conflict('subscription-state'))
+  }
 
   return Result.succeed({
     ...existing,
     creationConfiguration: existing.creationConfiguration,
     configurationRevision: revision + 1,
-    ...(change._tag === "Update"
+    ...(change._tag === 'Update'
       ? {
-          configuration: change.configuration,
-          configurationFingerprint: change.configurationFingerprint,
-          recovery: change.recovery,
-        }
-      : change._tag === "Recover"
-        ? {
-            recovery:
-              existing.recovery === null
-                ? null
-                : { ...existing.recovery, nextAttemptAtMillis: change.nowMillis },
-          }
-        : { state: change._tag === "Pause" ? ("paused" as const) : ("active" as const) }),
-  });
-};
+        configuration: change.configuration,
+        configurationFingerprint: change.configurationFingerprint,
+        recovery: change.recovery,
+      }
+      : change._tag === 'Recover'
+      ? {
+        recovery: existing.recovery === null
+          ? null
+          : { ...existing.recovery, nextAttemptAtMillis: change.nowMillis },
+      }
+      : { state: change._tag === 'Pause' ? ('paused' as const) : ('active' as const) }),
+  })
+}
 
 /** Called only after retained identity lookup: unfinished work remains replayable past the horizon. */
 export const validateEventRetention = (
@@ -304,15 +315,16 @@ export const validateEventRetention = (
   limits: SubscriptionLimits,
   nowMillis: number,
 ): Result.Result<void, SubscriptionError> => {
-  if (limits.retention === undefined) return Result.void;
+  if (limits.retention === undefined) return Result.void
   if (
     event.occurredAtMillis === undefined ||
     event.occurredAtMillis > nowMillis ||
     event.occurredAtMillis <= nowMillis - limits.retention.replayHorizonMillis
-  )
+  ) {
     return Result.fail(
-      SubscriptionError.make({ reason: "validation", code: "event-replay-horizon" }),
-    );
+      SubscriptionError.make({ reason: 'validation', code: 'event-replay-horizon' }),
+    )
+  }
 
-  return Result.void;
-};
+  return Result.void
+}

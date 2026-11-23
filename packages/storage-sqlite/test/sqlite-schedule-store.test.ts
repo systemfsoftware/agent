@@ -1,17 +1,14 @@
-import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
-import * as SqliteClient from "@effect/sql-sqlite-node/SqliteClient";
-import { describe, it } from "@effect/vitest";
-import { scheduleStoreLayer } from "@yielded/agent-storage-sqlite/sqlite-schedule-store";
-import {
-  SqliteStorageConfig,
-  SqliteStorageConfigValue,
-} from "@yielded/agent-storage-sqlite/sqlite-storage-config";
-import { SqliteStorageFailpoint } from "@yielded/agent-storage-sqlite/sqlite-storage-failpoint";
-import { scheduleStoreConformanceCases } from "@yielded/agent/testing/schedule-store-conformance";
-import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
-import * as Layer from "effect/Layer";
-import type * as PlatformError from "effect/PlatformError";
+import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
+import * as SqliteClient from '@effect/sql-sqlite-node/SqliteClient'
+import { describe, it } from '@effect/vitest'
+import { scheduleStoreLayer } from '@yielded/agent-storage-sqlite/sqlite-schedule-store'
+import { SqliteStorageConfig, SqliteStorageConfigValue } from '@yielded/agent-storage-sqlite/sqlite-storage-config'
+import { SqliteStorageFailpoint } from '@yielded/agent-storage-sqlite/sqlite-storage-failpoint'
+import { scheduleStoreConformanceCases } from '@yielded/agent/testing/schedule-store-conformance'
+import * as Effect from 'effect/Effect'
+import * as FileSystem from 'effect/FileSystem'
+import * as Layer from 'effect/Layer'
+import type * as PlatformError from 'effect/PlatformError'
 
 const testLayer = (filename: string) =>
   scheduleStoreLayer.pipe(
@@ -21,7 +18,7 @@ const testLayer = (filename: string) =>
           SqliteStorageConfigValue.make({
             observationPollInterval: 1,
             busyTimeout: 5_000,
-            synchronous: "FULL",
+            synchronous: 'FULL',
             verifyOnOpen: false,
           }),
         ),
@@ -29,29 +26,28 @@ const testLayer = (filename: string) =>
         SqliteClient.layer({ filename }),
       ),
     ),
-  );
+  )
 
 const withTemporaryDatabase = <A, E>(
   use: (filename: string) => Effect.Effect<A, E>,
 ): Effect.Effect<A, E | PlatformError.PlatformError> =>
   Effect.scoped(
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
+    Effect.gen(function*() {
+      const fs = yield* FileSystem.FileSystem
 
       const directory = yield* fs.makeTempDirectoryScoped({
-        prefix: "effect-agent-schedule-sqlite-",
-      });
+        prefix: 'effect-agent-schedule-sqlite-',
+      })
 
-      return yield* use(`${directory}/schedules.sqlite`);
+      return yield* use(`${directory}/schedules.sqlite`)
     }),
-  ).pipe(Effect.provide(NodeFileSystem.layer));
+  ).pipe(Effect.provide(NodeFileSystem.layer))
 
-describe("SqliteScheduleStore", () => {
+describe('SqliteScheduleStore', () => {
   for (const conformanceCase of scheduleStoreConformanceCases) {
-    it.effect(conformanceCase.name, () =>
-      withTemporaryDatabase((filename) =>
-        conformanceCase.run.pipe(Effect.provide(testLayer(filename))),
-      ),
-    );
+    it.effect(
+      conformanceCase.name,
+      () => withTemporaryDatabase((filename) => conformanceCase.run.pipe(Effect.provide(testLayer(filename)))),
+    )
   }
-});
+})

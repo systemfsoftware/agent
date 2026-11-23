@@ -1,36 +1,28 @@
-import * as Brand from "effect/Brand";
-import * as Context from "effect/Context";
-import * as Effect from "effect/Effect";
-import type * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
-import type * as Stream from "effect/Stream";
+import * as Brand from 'effect/Brand'
+import * as Context from 'effect/Context'
+import * as Effect from 'effect/Effect'
+import type * as Option from 'effect/Option'
+import * as Schema from 'effect/Schema'
+import type * as Stream from 'effect/Stream'
 
-import { InputMessage } from "../capabilities/Messaging.ts";
-import * as FailureDiagnostic from "../core/FailureDiagnostic.ts";
+import { InputMessage } from '../capabilities/Messaging.ts'
+import * as FailureDiagnostic from '../core/FailureDiagnostic.ts'
+import { AgentId, AttemptId, ReceiptId, SettlementId, SubmissionId, ThreadId, ToolCallId } from '../core/Identifiers.ts'
+import type { JoinedToHost } from '../core/Receipt.ts'
+import { IdempotencyKey, Principal, QueueSequence } from '../core/Receipt.ts'
+import { RunUsageSummary } from '../core/Usage.ts'
+import { AssignmentTerminal } from '../core/Worker.ts'
+import { canonicalJson } from './Digest.ts'
 import {
-  AgentId,
-  AttemptId,
-  ThreadId,
-  ReceiptId,
-  SettlementId,
-  SubmissionId,
-  ToolCallId,
-} from "../core/Identifiers.ts";
-import type { JoinedToHost } from "../core/Receipt.ts";
-import { IdempotencyKey, QueueSequence, Principal } from "../core/Receipt.ts";
-import { RunUsageSummary } from "../core/Usage.ts";
-import { AssignmentTerminal } from "../core/Worker.ts";
-import { canonicalJson } from "./Digest.ts";
-import {
-  type BatchId,
-  type RecordEnvelope,
   AbortRequested,
   ApprovalDecision,
+  type BatchId,
   CanonicalSequence,
   DefinitionDigests,
   DeploymentId,
   Digest,
   PersistedJson,
+  type RecordEnvelope,
   RecordId,
   SettlementFailureDiagnostic,
   SettlementOutcome,
@@ -39,10 +31,10 @@ import {
   type ToolCallSettled,
   ToolCallUnknown,
   WorkerAdmission,
-} from "./Records.ts";
-import type { AppendRequest, AppendResult, ThreadStoreFailure } from "./ThreadStore.ts";
+} from './Records.ts'
+import type { AppendRequest, AppendResult, ThreadStoreFailure } from './ThreadStore.ts'
 
-export { IdempotencyKey, JoinedToHost, QueueSequence, Principal } from "../core/Receipt.ts";
+export { IdempotencyKey, JoinedToHost, Principal, QueueSequence } from '../core/Receipt.ts'
 
 /**
  * Ledger lifecycle states for one Submission. `settled` is the only terminal state; every other
@@ -64,17 +56,17 @@ export { IdempotencyKey, JoinedToHost, QueueSequence, Principal } from "../core/
  * work without an abort intent. Any live ownership in the Thread prevents another claim.
  */
 export const SubmissionState = Schema.Literals([
-  "admitted",
-  "ready",
-  "joining",
-  "joined",
-  "input-applied",
-  "suspended",
-  "unknown",
-  "settled",
-]);
+  'admitted',
+  'ready',
+  'joining',
+  'joined',
+  'input-applied',
+  'suspended',
+  'unknown',
+  'settled',
+])
 
-export type SubmissionState = typeof SubmissionState.Type;
+export type SubmissionState = typeof SubmissionState.Type
 
 /**
  * Opt-in host policy for handling the next runnable same-Agent input in its own Run at a complete Turn
@@ -86,10 +78,10 @@ export type SubmissionState = typeof SubmissionState.Type;
  */
 export const SubmissionScheduling = Context.Reference<{
   readonly yieldTo?: (request: {
-    readonly active: SubmissionSnapshot;
-    readonly next: SubmissionSnapshot;
-  }) => Effect.Effect<boolean, LedgerError>;
-}>("@effect-agent/thread/SubmissionScheduling", { defaultValue: () => ({}) });
+    readonly active: SubmissionSnapshot
+    readonly next: SubmissionSnapshot
+  }) => Effect.Effect<boolean, LedgerError>
+}>('@effect-agent/thread/SubmissionScheduling', { defaultValue: () => ({}) })
 
 /**
  * What a SubmissionLedger adapter claims about itself. `durable-node` asserts single-node
@@ -100,9 +92,9 @@ export const SubmissionScheduling = Context.Reference<{
  * evidence — no runtime behavior branches on it.
  */
 export class LedgerCapabilities extends Schema.Class<LedgerCapabilities>(
-  "@effect-agent/thread/LedgerCapabilities",
+  '@effect-agent/thread/LedgerCapabilities',
 )({
-  durability: Schema.Literals(["durable-node", "durable-cloudflare", "non-durable"]),
+  durability: Schema.Literals(['durable-node', 'durable-cloudflare', 'non-durable']),
 }) {}
 
 /**
@@ -112,7 +104,7 @@ export class LedgerCapabilities extends Schema.Class<LedgerCapabilities>(
  * Parent Link records, never this marker alone.
  */
 export class ParentLinkage extends Schema.Class<ParentLinkage>(
-  "@effect-agent/thread/ParentLinkage",
+  '@effect-agent/thread/ParentLinkage',
 )({
   parentSubmissionId: SubmissionId,
   parentToolCallId: ToolCallId,
@@ -123,16 +115,16 @@ export const AdmissionFence = Schema.Struct({
   policyId: Schema.NonEmptyString.check(Schema.isMaxLength(128)),
   key: Schema.NonEmptyString.check(Schema.isMaxLength(256)),
   revision: Schema.NonEmptyString.check(Schema.isMaxLength(256)),
-});
+})
 
-export type AdmissionFence = typeof AdmissionFence.Type;
-export const AdmissionGroup = Schema.NonEmptyString.check(Schema.isMaxLength(256));
+export type AdmissionFence = typeof AdmissionFence.Type
+export const AdmissionGroup = Schema.NonEmptyString.check(Schema.isMaxLength(256))
 
 /** Fresh admission alone may be refused; unavailability never proves non-admission. */
 export class AdmissionPolicyError extends Schema.TaggedError<AdmissionPolicyError>()(
-  "AdmissionPolicyError",
+  'AdmissionPolicyError',
   {
-    reason: Schema.Literals(["refused", "unavailable", "occupied"]),
+    reason: Schema.Literals(['refused', 'unavailable', 'occupied']),
     code: Schema.NonEmptyString.check(Schema.isMaxLength(128)),
     cause: Schema.optionalKey(FailureDiagnostic.Value),
     stack: Schema.optionalKey(Schema.String),
@@ -148,7 +140,7 @@ export class AdmissionPolicyError extends Schema.TaggedError<AdmissionPolicyErro
  * linkage (or its absence) or fail with `AdmissionConflict`.
  */
 export class AdmissionRequest extends Schema.Class<AdmissionRequest>(
-  "@effect-agent/thread/AdmissionRequest",
+  '@effect-agent/thread/AdmissionRequest',
 )({
   threadId: ThreadId,
   principal: Principal,
@@ -171,7 +163,7 @@ export class AdmissionRequest extends Schema.Class<AdmissionRequest>(
  * unchanged so a client retry resumes rather than duplicates (DUR-001).
  */
 export class AdmissionResult extends Schema.Class<AdmissionResult>(
-  "@effect-agent/thread/AdmissionResult",
+  '@effect-agent/thread/AdmissionResult',
 )({
   submissionId: SubmissionId,
   receiptId: ReceiptId,
@@ -181,29 +173,29 @@ export class AdmissionResult extends Schema.Class<AdmissionResult>(
 }) {}
 
 export class MarkReadyRequest extends Schema.Class<MarkReadyRequest>(
-  "@effect-agent/thread/MarkReadyRequest",
+  '@effect-agent/thread/MarkReadyRequest',
 )({
   submissionId: SubmissionId,
 }) {}
 
 export class SubmissionLookupById extends Schema.TaggedClass<SubmissionLookupById>(
-  "@effect-agent/thread/SubmissionLookupById",
-)("SubmissionLookupById", {
+  '@effect-agent/thread/SubmissionLookupById',
+)('SubmissionLookupById', {
   submissionId: SubmissionId,
 }) {}
 
 export class SubmissionLookupByKey extends Schema.TaggedClass<SubmissionLookupByKey>(
-  "@effect-agent/thread/SubmissionLookupByKey",
-)("SubmissionLookupByKey", {
+  '@effect-agent/thread/SubmissionLookupByKey',
+)('SubmissionLookupByKey', {
   threadId: ThreadId,
   principal: Principal,
   idempotencyKey: IdempotencyKey,
 }) {}
 
 /** Lookup by Submission identity or by the scoped client idempotency key. */
-export const SubmissionLookup = Schema.Union([SubmissionLookupById, SubmissionLookupByKey]);
+export const SubmissionLookup = Schema.Union([SubmissionLookupById, SubmissionLookupByKey])
 
-export type SubmissionLookup = typeof SubmissionLookup.Type;
+export type SubmissionLookup = typeof SubmissionLookup.Type
 
 /**
  * Control-only worklist entry. Discovery validates identities, ordering and state without
@@ -211,7 +203,7 @@ export type SubmissionLookup = typeof SubmissionLookup.Type;
  * or `loadRecoverySnapshot`, inside its recovery failure boundary.
  */
 export class SubmissionWorkItem extends Schema.Class<SubmissionWorkItem>(
-  "@effect-agent/thread/SubmissionWorkItem",
+  '@effect-agent/thread/SubmissionWorkItem',
 )({
   submissionId: SubmissionId,
   threadId: ThreadId,
@@ -225,7 +217,7 @@ export class SubmissionWorkItem extends Schema.Class<SubmissionWorkItem>(
 
 /** The full durable ledger view of one Submission. */
 export class SubmissionSnapshot extends Schema.Class<SubmissionSnapshot>(
-  "@effect-agent/thread/SubmissionSnapshot",
+  '@effect-agent/thread/SubmissionSnapshot',
 )({
   ...SubmissionWorkItem.fields,
   agentId: AgentId,
@@ -250,16 +242,16 @@ export class SubmissionSnapshot extends Schema.Class<SubmissionSnapshot>(
 export const FundingOwnerRequest = Schema.Struct({
   threadId: ThreadId,
   submissionId: SubmissionId,
-});
+})
 
-export type FundingOwnerRequest = typeof FundingOwnerRequest.Type;
+export type FundingOwnerRequest = typeof FundingOwnerRequest.Type
 
 export const FundingOwner = Schema.Struct({
   selected: SubmissionSnapshot,
   owner: SubmissionSnapshot,
-});
+})
 
-export type FundingOwner = typeof FundingOwner.Type;
+export type FundingOwner = typeof FundingOwner.Type
 
 /** Bounded native control facts. Canonical input/Run records remain ThreadStore-owned. */
 export const WorkerLedgerState = Schema.Struct({
@@ -267,19 +259,19 @@ export const WorkerLedgerState = Schema.Struct({
   active: Schema.NullOr(SubmissionSnapshot),
   stopped: Schema.Boolean,
   terminal: Schema.optionalKey(AssignmentTerminal),
-}).check(Schema.makeFilter((state) => state.terminal === undefined || state.stopped));
+}).check(Schema.makeFilter((state) => state.terminal === undefined || state.stopped))
 
-export type WorkerLedgerState = typeof WorkerLedgerState.Type;
+export type WorkerLedgerState = typeof WorkerLedgerState.Type
 
 /** The authoritative store proves the scoped idempotency key was never admitted (SUB-031). */
 export class AdmissionNotAdmitted extends Schema.TaggedClass<AdmissionNotAdmitted>(
-  "@effect-agent/thread/AdmissionNotAdmitted",
-)("NotAdmitted", {}) {}
+  '@effect-agent/thread/AdmissionNotAdmitted',
+)('NotAdmitted', {}) {}
 
 /** The scoped idempotency key was admitted; the full Submission snapshot is authoritative. */
 export class AdmissionAdmitted extends Schema.TaggedClass<AdmissionAdmitted>(
-  "@effect-agent/thread/AdmissionAdmitted",
-)("Admitted", {
+  '@effect-agent/thread/AdmissionAdmitted',
+)('Admitted', {
   submission: SubmissionSnapshot,
 }) {}
 
@@ -289,8 +281,8 @@ export class AdmissionAdmitted extends Schema.TaggedClass<AdmissionAdmitted>(
  * answer NEVER permits a second admission attempt (SUB-031).
  */
 export class AdmissionIndeterminate extends Schema.TaggedClass<AdmissionIndeterminate>(
-  "@effect-agent/thread/AdmissionIndeterminate",
-)("Indeterminate", {
+  '@effect-agent/thread/AdmissionIndeterminate',
+)('Indeterminate', {
   reason: Schema.String.check(Schema.isMaxLength(4096)),
 }) {}
 
@@ -304,21 +296,21 @@ export const AdmissionResolution = Schema.Union([
   AdmissionNotAdmitted,
   AdmissionAdmitted,
   AdmissionIndeterminate,
-]);
+])
 
-export type AdmissionResolution = typeof AdmissionResolution.Type;
+export type AdmissionResolution = typeof AdmissionResolution.Type
 
 /**
  * A trusted runtime's advisory handoff after committing a complete Turn and closing its
  * Attempt. The owner rechecks the entire deferred prefix and target under its mutation gate.
  * Deferred Runs retain their identities and obligations; losing this hint resumes FIFO.
  */
-export class ClaimHandoff extends Schema.Class<ClaimHandoff>("@effect-agent/thread/ClaimHandoff")({
+export class ClaimHandoff extends Schema.Class<ClaimHandoff>('@effect-agent/thread/ClaimHandoff')({
   deferredSubmissionIds: Schema.NonEmptyArray(SubmissionId),
   submissionId: SubmissionId,
 }) {}
 
-export class ClaimRequest extends Schema.Class<ClaimRequest>("@effect-agent/thread/ClaimRequest")({
+export class ClaimRequest extends Schema.Class<ClaimRequest>('@effect-agent/thread/ClaimRequest')({
   threadId: ThreadId,
   handoff: Schema.optionalKey(ClaimHandoff),
 }) {}
@@ -327,7 +319,7 @@ export class ClaimRequest extends Schema.Class<ClaimRequest>("@effect-agent/thre
  * Selected accepted work. Attempt identity is diagnostic; only the bound scoped session
  * grants execution authority. No field is a portable ownership capability.
  */
-export class Claim extends Schema.Class<Claim>("@effect-agent/thread/Claim")({
+export class Claim extends Schema.Class<Claim>('@effect-agent/thread/Claim')({
   submissionId: SubmissionId,
   attemptId: AttemptId,
   inputPayload: PersistedJson,
@@ -337,7 +329,7 @@ export class Claim extends Schema.Class<Claim>("@effect-agent/thread/Claim")({
  * The canonical position of the applied `UserInputRecorded` record for one Submission.
  */
 export class MarkInputAppliedRequest extends Schema.Class<MarkInputAppliedRequest>(
-  "@effect-agent/thread/MarkInputAppliedRequest",
+  '@effect-agent/thread/MarkInputAppliedRequest',
 )({
   submissionId: SubmissionId,
   recordId: RecordId,
@@ -345,14 +337,14 @@ export class MarkInputAppliedRequest extends Schema.Class<MarkInputAppliedReques
 }) {}
 
 export class InputAppliedMarker extends Schema.Class<InputAppliedMarker>(
-  "@effect-agent/thread/InputAppliedMarker",
+  '@effect-agent/thread/InputAppliedMarker',
 )({
   recordId: RecordId,
   sequence: CanonicalSequence,
 }) {}
 
 export class SettlementFinalization extends Schema.Class<SettlementFinalization>(
-  "@effect-agent/thread/SettlementFinalization",
+  '@effect-agent/thread/SettlementFinalization',
 )({
   submissionId: SubmissionId,
   settlementId: SettlementId,
@@ -372,13 +364,13 @@ const SettlementFields = Schema.Struct({
   settledAt: Schema.DateTimeUtcFromString,
 }).check(
   Schema.makeFilter(
-    (settlement) => (settlement.outcome === "failed") === (settlement.failure !== undefined),
-    { title: "failure exactly on a failed Settlement" },
+    (settlement) => (settlement.outcome === 'failed') === (settlement.failure !== undefined),
+    { title: 'failure exactly on a failed Settlement' },
   ),
-);
+)
 
 /** The single durable terminal outcome recorded for one accepted Submission (DUR-002). */
-export class Settlement extends Schema.Class<Settlement>("@effect-agent/thread/Settlement")(
+export class Settlement extends Schema.Class<Settlement>('@effect-agent/thread/Settlement')(
   SettlementFields,
 ) {}
 
@@ -390,12 +382,12 @@ export class Settlement extends Schema.Class<Settlement>("@effect-agent/thread/S
 export const settlementFailureFromRecord = (
   record: RecordEnvelope,
 ): SettlementFailureDiagnostic | undefined => {
-  const payload = record.payload;
+  const payload = record.payload
 
-  return payload._tag === "SubmissionSettled" && payload.outcome === "failed"
+  return payload._tag === 'SubmissionSettled' && payload.outcome === 'failed'
     ? payload.result
-    : undefined;
-};
+    : undefined
+}
 
 /**
  * Assignment intent derived only from frozen admission and exact settlement evidence.
@@ -407,33 +399,34 @@ export const workerTerminalFromRecord = (
   submission: SubmissionSnapshot,
   record: RecordEnvelope,
 ): AssignmentTerminal | undefined => {
-  const payload = record.payload;
+  const payload = record.payload
 
   if (
-    submission.workerAdmission?.origin.lifecycle !== "assignment" ||
-    payload._tag !== "SubmissionSettled" ||
+    submission.workerAdmission?.origin.lifecycle !== 'assignment' ||
+    payload._tag !== 'SubmissionSettled' ||
     (payload.runId !== undefined && payload.runId !== `run:${submission.submissionId}`)
-  )
-    return undefined;
-  if (payload.outcome === "failed" || payload.finishReason === "budget-exhausted") return "failed";
-  if (payload.outcome === "aborted") return payload.runId === undefined ? undefined : "cancelled";
+  ) {
+    return undefined
+  }
+  if (payload.outcome === 'failed' || payload.finishReason === 'budget-exhausted') return 'failed'
+  if (payload.outcome === 'aborted') return payload.runId === undefined ? undefined : 'cancelled'
 
-  return payload.runDisposition === "completed" ? "completed" : undefined;
-};
+  return payload.runDisposition === 'completed' ? 'completed' : undefined
+}
 
 /** Destination-owned permanent inbox seal; recorded atomically with all outstanding abort intents. */
 export const WorkerStopCommand = Schema.Struct({
   threadId: ThreadId,
   author: Principal,
-});
+})
 
-export type WorkerStopCommand = typeof WorkerStopCommand.Type;
+export type WorkerStopCommand = typeof WorkerStopCommand.Type
 
 /**
  * A durable abort command (durability §13). Field bounds are exactly those of the canonical
  * `AbortRequested` payload so the intent can become canonical without re-validation.
  */
-export class AbortCommand extends Schema.Class<AbortCommand>("@effect-agent/thread/AbortCommand")({
+export class AbortCommand extends Schema.Class<AbortCommand>('@effect-agent/thread/AbortCommand')({
   submissionId: SubmissionId,
   author: AbortRequested.fields.author,
   reason: AbortRequested.fields.reason,
@@ -444,7 +437,7 @@ export class AbortCommand extends Schema.Class<AbortCommand>("@effect-agent/thre
  * `AbortRequested` record has been appended (its identity is deterministic; see
  * `submissionAbortRecordId`).
  */
-export class AbortIntent extends Schema.Class<AbortIntent>("@effect-agent/thread/AbortIntent")({
+export class AbortIntent extends Schema.Class<AbortIntent>('@effect-agent/thread/AbortIntent')({
   submissionId: SubmissionId,
   author: AbortRequested.fields.author,
   reason: AbortRequested.fields.reason,
@@ -454,7 +447,7 @@ export class AbortIntent extends Schema.Class<AbortIntent>("@effect-agent/thread
 
 /** Address one lane-local abort intent without loading unrelated recovery state. */
 export class AbortIntentRequest extends Schema.Class<AbortIntentRequest>(
-  "@effect-agent/thread/AbortIntentRequest",
+  '@effect-agent/thread/AbortIntentRequest',
 )({ submissionId: SubmissionId }) {}
 
 /**
@@ -463,7 +456,7 @@ export class AbortIntentRequest extends Schema.Class<AbortIntentRequest>(
  * an aborted-settled row is a closed obligation and is skipped as a non-gap (P7 §7(c)).
  */
 export class ClaimJoiningRequest extends Schema.Class<ClaimJoiningRequest>(
-  "@effect-agent/thread/ClaimJoiningRequest",
+  '@effect-agent/thread/ClaimJoiningRequest',
 )({
   threadId: ThreadId,
   hostSubmissionId: SubmissionId,
@@ -471,7 +464,7 @@ export class ClaimJoiningRequest extends Schema.Class<ClaimJoiningRequest>(
 }) {}
 
 /** One queued Submission transitioned to `joining` under the host's ownership. */
-export class JoiningClaim extends Schema.Class<JoiningClaim>("@effect-agent/thread/JoiningClaim")({
+export class JoiningClaim extends Schema.Class<JoiningClaim>('@effect-agent/thread/JoiningClaim')({
   submissionId: SubmissionId,
   queueSequence: QueueSequence,
   inputPayload: PersistedJson,
@@ -482,7 +475,7 @@ export class JoiningClaim extends Schema.Class<JoiningClaim>("@effect-agent/thre
  * Marking transitions `joining → joined` and records the host linkage established at claim time.
  */
 export class MarkJoinedRequest extends Schema.Class<MarkJoinedRequest>(
-  "@effect-agent/thread/MarkJoinedRequest",
+  '@effect-agent/thread/MarkJoinedRequest',
 )({
   submissionId: SubmissionId,
   recordId: RecordId,
@@ -497,7 +490,7 @@ export class MarkJoinedRequest extends Schema.Class<MarkJoinedRequest>(
  * caller-owned recovery contract.
  */
 export class RevertJoiningRequest extends Schema.Class<RevertJoiningRequest>(
-  "@effect-agent/thread/RevertJoiningRequest",
+  '@effect-agent/thread/RevertJoiningRequest',
 )({
   submissionId: SubmissionId,
   guard: Schema.optionalKey(
@@ -513,8 +506,8 @@ export class RevertJoiningRequest extends Schema.Class<RevertJoiningRequest>(
  * operator quarantine) additive.
  */
 export class ApprovalPendingSuspension extends Schema.TaggedClass<ApprovalPendingSuspension>(
-  "@effect-agent/thread/ApprovalPendingSuspension",
-)("ApprovalPending", {
+  '@effect-agent/thread/ApprovalPendingSuspension',
+)('ApprovalPending', {
   toolCallIds: Schema.NonEmptyArray(ToolCallId),
 }) {}
 
@@ -523,20 +516,20 @@ export const approvalDecisionsCover = (
   toolCallIds: ReadonlyArray<ToolCallId>,
   decisionFor: (toolCallId: ToolCallId) => ApprovalDecision | undefined,
 ): boolean => {
-  let allDecided = true;
+  let allDecided = true
 
   for (const toolCallId of toolCallIds) {
-    const decision = decisionFor(toolCallId);
+    const decision = decisionFor(toolCallId)
 
-    if (decision === "denied") return true;
-    if (decision === undefined) allDecided = false;
+    if (decision === 'denied') return true
+    if (decision === undefined) allDecided = false
   }
 
-  return allDecided;
-};
+  return allDecided
+}
 
 /** One attached child a `waitingForChild` parent is durably waiting on (spec §12 step 10). */
-export class WaitingChild extends Schema.Class<WaitingChild>("@effect-agent/thread/WaitingChild")({
+export class WaitingChild extends Schema.Class<WaitingChild>('@effect-agent/thread/WaitingChild')({
   toolCallId: ToolCallId,
   childSubmissionId: SubmissionId,
 }) {}
@@ -548,17 +541,17 @@ export class WaitingChild extends Schema.Class<WaitingChild>("@effect-agent/thre
  * every listed child is settled.
  */
 export class WaitingForChildSuspension extends Schema.TaggedClass<WaitingForChildSuspension>(
-  "@effect-agent/thread/WaitingForChildSuspension",
-)("WaitingForChild", {
+  '@effect-agent/thread/WaitingForChildSuspension',
+)('WaitingForChild', {
   children: Schema.NonEmptyArray(WaitingChild),
 }) {}
 
 export const SuspensionReason = Schema.Union([
   ApprovalPendingSuspension,
   WaitingForChildSuspension,
-]);
+])
 
-export type SuspensionReason = typeof SuspensionReason.Type;
+export type SuspensionReason = typeof SuspensionReason.Type
 
 /**
  * Durable suspension of owned work (plan §2.6): `input-applied`/`ready` → `suspended`, the
@@ -566,7 +559,7 @@ export type SuspensionReason = typeof SuspensionReason.Type;
  * the lane consumes no worker permit.
  */
 export class SuspendRequest extends Schema.Class<SuspendRequest>(
-  "@effect-agent/thread/SuspendRequest",
+  '@effect-agent/thread/SuspendRequest',
 )({
   submissionId: SubmissionId,
   reason: SuspensionReason,
@@ -577,9 +570,9 @@ export class SuspendRequest extends Schema.Class<SuspendRequest>(
  * reason is already fully covered (a covering decision or child settlement raced ahead of the
  * suspend transaction), so the caller resumes without releasing the lane.
  */
-export const SuspensionOutcome = Schema.Literals(["suspended", "resume-immediately"]);
+export const SuspensionOutcome = Schema.Literals(['suspended', 'resume-immediately'])
 
-export type SuspensionOutcome = typeof SuspensionOutcome.Type;
+export type SuspensionOutcome = typeof SuspensionOutcome.Type
 
 /**
  * A durable child-settlement notification for one waitingForChild parent (spec §12 step 10).
@@ -587,7 +580,7 @@ export type SuspensionOutcome = typeof SuspensionOutcome.Type;
  * wake transition.
  */
 export class ChildSettledNotification extends Schema.Class<ChildSettledNotification>(
-  "@effect-agent/thread/ChildSettledNotification",
+  '@effect-agent/thread/ChildSettledNotification',
 )({
   parentSubmissionId: SubmissionId,
   childSubmissionId: SubmissionId,
@@ -599,26 +592,26 @@ export class ChildSettledNotification extends Schema.Class<ChildSettledNotificat
  * unsettled; `not-waiting` when the parent is not (or no longer) suspended waiting on this
  * child — including replays after a wake, so the operation is idempotent.
  */
-export const ChildSettledOutcome = Schema.Literals(["woken", "still-waiting", "not-waiting"]);
+export const ChildSettledOutcome = Schema.Literals(['woken', 'still-waiting', 'not-waiting'])
 
-export type ChildSettledOutcome = typeof ChildSettledOutcome.Type;
+export type ChildSettledOutcome = typeof ChildSettledOutcome.Type
 
 /** Parent-owned child budget reservation identity, deterministically derived by the
  * coordinator from the parent Run and Tool Call identity (spec §12 step 2). */
 export const ChildReservationId = Schema.NonEmptyString.check(Schema.isMaxLength(256)).pipe(
-  Schema.brand("@effect-agent/thread/ChildReservationId"),
-);
+  Schema.brand('@effect-agent/thread/ChildReservationId'),
+)
 
-export type ChildReservationId = typeof ChildReservationId.Type;
+export type ChildReservationId = typeof ChildReservationId.Type
 
 /**
  * The reservation state machine (spec §12 steps 2 and 6): `reserved` while the child may still
  * consume the allocation, `releasePending` once the final accounting decision is frozen, and
  * `released` after the unused allocation returned exactly once.
  */
-export const ChildReservationStatus = Schema.Literals(["reserved", "releasePending", "released"]);
+export const ChildReservationStatus = Schema.Literals(['reserved', 'releasePending', 'released'])
 
-export type ChildReservationStatus = typeof ChildReservationStatus.Type;
+export type ChildReservationStatus = typeof ChildReservationStatus.Type
 
 /**
  * Creation input for one parent-owned child budget reservation. The allocation is an opaque
@@ -626,7 +619,7 @@ export type ChildReservationStatus = typeof ChildReservationStatus.Type;
  * budget dimensions); `allocationDigest` must be the digest of its canonical JSON encoding.
  */
 export class ChildBudgetReservationRequest extends Schema.Class<ChildBudgetReservationRequest>(
-  "@effect-agent/thread/ChildBudgetReservationRequest",
+  '@effect-agent/thread/ChildBudgetReservationRequest',
 )({
   reservationId: ChildReservationId,
   parentSubmissionId: SubmissionId,
@@ -637,7 +630,7 @@ export class ChildBudgetReservationRequest extends Schema.Class<ChildBudgetReser
 
 /** One child budget reservation row as the port exposes it. */
 export class ChildBudgetReservationSnapshot extends Schema.Class<ChildBudgetReservationSnapshot>(
-  "@effect-agent/thread/ChildBudgetReservationSnapshot",
+  '@effect-agent/thread/ChildBudgetReservationSnapshot',
 )({
   reservationId: ChildReservationId,
   parentSubmissionId: SubmissionId,
@@ -658,7 +651,7 @@ export class ChildBudgetReservationSnapshot extends Schema.Class<ChildBudgetRese
  * (SUB-016).
  */
 export class ReservedChildBudget extends Schema.Class<ReservedChildBudget>(
-  "@effect-agent/thread/ReservedChildBudget",
+  '@effect-agent/thread/ReservedChildBudget',
 )({
   reservation: ChildBudgetReservationSnapshot,
   replayed: Schema.Boolean,
@@ -666,7 +659,7 @@ export class ReservedChildBudget extends Schema.Class<ReservedChildBudget>(
 
 /** Records the admitted child on its reservation row (repairable from `SubagentStarted`). */
 export class AttachChildToReservationRequest extends Schema.Class<AttachChildToReservationRequest>(
-  "@effect-agent/thread/AttachChildToReservationRequest",
+  '@effect-agent/thread/AttachChildToReservationRequest',
 )({
   reservationId: ChildReservationId,
   childSubmissionId: SubmissionId,
@@ -679,7 +672,7 @@ export class AttachChildToReservationRequest extends Schema.Class<AttachChildToR
  * decision itself authorizes the transition — no execution owner is required (DUR-015).
  */
 export class BeginChildBudgetReleaseRequest extends Schema.Class<BeginChildBudgetReleaseRequest>(
-  "@effect-agent/thread/BeginChildBudgetReleaseRequest",
+  '@effect-agent/thread/BeginChildBudgetReleaseRequest',
 )({
   reservationId: ChildReservationId,
   accounting: PersistedJson,
@@ -687,7 +680,7 @@ export class BeginChildBudgetReleaseRequest extends Schema.Class<BeginChildBudge
 
 /** Applies the frozen accounting decision: `releasePending → released`, exactly once. */
 export class ReleaseChildBudgetRequest extends Schema.Class<ReleaseChildBudgetRequest>(
-  "@effect-agent/thread/ReleaseChildBudgetRequest",
+  '@effect-agent/thread/ReleaseChildBudgetRequest',
 )({
   reservationId: ChildReservationId,
 }) {}
@@ -698,7 +691,7 @@ export class ReleaseChildBudgetRequest extends Schema.Class<ReleaseChildBudgetRe
  * re-validation.
  */
 export class ApprovalDecisionCommand extends Schema.Class<ApprovalDecisionCommand>(
-  "@effect-agent/thread/ApprovalDecisionCommand",
+  '@effect-agent/thread/ApprovalDecisionCommand',
 )({
   submissionId: SubmissionId,
   toolCallId: ToolCallId,
@@ -713,7 +706,7 @@ export class ApprovalDecisionCommand extends Schema.Class<ApprovalDecisionComman
  * has been appended (see `toolApprovalDecisionRecordId`).
  */
 export class ApprovalDecisionIntent extends Schema.Class<ApprovalDecisionIntent>(
-  "@effect-agent/thread/ApprovalDecisionIntent",
+  '@effect-agent/thread/ApprovalDecisionIntent',
 )({
   submissionId: SubmissionId,
   toolCallId: ToolCallId,
@@ -729,7 +722,7 @@ export class ApprovalDecisionIntent extends Schema.Class<ApprovalDecisionIntent>
  * `unknown`, parking that Submission without changing its local owner generation. Idempotent.
  */
 export class MarkUnknownRequest extends Schema.Class<MarkUnknownRequest>(
-  "@effect-agent/thread/MarkUnknownRequest",
+  '@effect-agent/thread/MarkUnknownRequest',
 )({
   submissionId: SubmissionId,
   toolCallIds: Schema.NonEmptyArray(ToolCallId),
@@ -738,27 +731,27 @@ export class MarkUnknownRequest extends Schema.Class<MarkUnknownRequest>(
 
 /** The recovered supplier truth: the external effect completed with this exact result. */
 export class ResolutionCompletedWithResult extends Schema.TaggedClass<ResolutionCompletedWithResult>(
-  "@effect-agent/thread/ResolutionCompletedWithResult",
-)("CompletedWithResult", {
+  '@effect-agent/thread/ResolutionCompletedWithResult',
+)('CompletedWithResult', {
   result: PersistedJson,
   isFailure: Schema.Boolean,
 }) {}
 
 /** The external effect provably never happened; the call may re-execute on resume. */
 export class ResolutionNeverHappened extends Schema.TaggedClass<ResolutionNeverHappened>(
-  "@effect-agent/thread/ResolutionNeverHappened",
-)("NeverHappened", {}) {}
+  '@effect-agent/thread/ResolutionNeverHappened',
+)('NeverHappened', {}) {}
 
 /** The call is safe to repeat under the external system's idempotency contract. */
 export class ResolutionSafeToRetry extends Schema.TaggedClass<ResolutionSafeToRetry>(
-  "@effect-agent/thread/ResolutionSafeToRetry",
-)("SafeToRetry", {}) {}
+  '@effect-agent/thread/ResolutionSafeToRetry',
+)('SafeToRetry', {}) {}
 
 /** Give up on the Submission: route into the abort path (unknown calls stay recorded; abort
  * never claims external rollback, durability §13). */
 export class ResolutionAbortSubmission extends Schema.TaggedClass<ResolutionAbortSubmission>(
-  "@effect-agent/thread/ResolutionAbortSubmission",
-)("AbortSubmission", {}) {}
+  '@effect-agent/thread/ResolutionAbortSubmission',
+)('AbortSubmission', {}) {}
 
 /** An authorized execution decision or factual closure for one Unknown Outcome (DUR-017). */
 export const UnknownResolution = Schema.Union([
@@ -766,28 +759,28 @@ export const UnknownResolution = Schema.Union([
   ResolutionNeverHappened,
   ResolutionSafeToRetry,
   ResolutionAbortSubmission,
-]);
+])
 
-export type UnknownResolution = typeof UnknownResolution.Type;
+export type UnknownResolution = typeof UnknownResolution.Type
 
 /** Execution permission never establishes whether the original external effect happened. */
-export const UnknownResolutionKind = Schema.Literals(["execution", "factual"]);
+export const UnknownResolutionKind = Schema.Literals(['execution', 'factual'])
 
-export type UnknownResolutionKind = typeof UnknownResolutionKind.Type;
+export type UnknownResolutionKind = typeof UnknownResolutionKind.Type
 
 export const unknownResolutionKind = (resolution: UnknownResolution): UnknownResolutionKind =>
-  resolution._tag === "CompletedWithResult" || resolution._tag === "NeverHappened"
-    ? "factual"
-    : "execution";
+  resolution._tag === 'CompletedWithResult' || resolution._tag === 'NeverHappened'
+    ? 'factual'
+    : 'execution'
 
 /** A new factual intent cannot replace an already committed Tool result. */
 export const unknownResolutionMatchesResult = (
   resolution: UnknownResolution,
   result: ToolCallSettled,
 ): boolean =>
-  resolution._tag === "CompletedWithResult" &&
+  resolution._tag === 'CompletedWithResult' &&
   resolution.isFailure === result.isFailure &&
-  canonicalJson(resolution.result) === canonicalJson(result.result);
+  canonicalJson(resolution.result) === canonicalJson(result.result)
 
 /**
  * A durable Unknown-Outcome resolution command (DUR-017, `abort`-shaped). Possession of the
@@ -796,7 +789,7 @@ export const unknownResolutionMatchesResult = (
  * Field bounds are exactly those of the canonical `ToolCallResolved` payload.
  */
 export class UnknownResolutionCommand extends Schema.Class<UnknownResolutionCommand>(
-  "@effect-agent/thread/UnknownResolutionCommand",
+  '@effect-agent/thread/UnknownResolutionCommand',
 )({
   submissionId: SubmissionId,
   toolCallId: ToolCallId,
@@ -814,7 +807,7 @@ export class UnknownResolutionCommand extends Schema.Class<UnknownResolutionComm
  * by the recovery pass or the next owning Attempt; `canonicalRecordId` is present once it is.
  */
 export class UnknownResolutionIntent extends Schema.Class<UnknownResolutionIntent>(
-  "@effect-agent/thread/UnknownResolutionIntent",
+  '@effect-agent/thread/UnknownResolutionIntent',
 )({
   submissionId: SubmissionId,
   toolCallId: ToolCallId,
@@ -826,13 +819,13 @@ export class UnknownResolutionIntent extends Schema.Class<UnknownResolutionInten
 }) {}
 
 export class RecoverySnapshotRequest extends Schema.Class<RecoverySnapshotRequest>(
-  "@effect-agent/thread/RecoverySnapshotRequest",
+  '@effect-agent/thread/RecoverySnapshotRequest',
 )({
   submissionId: SubmissionId,
 }) {}
 
 /** One joined/joining Submission of a host Run, as the host's recovery sees it. */
-export class JoinSnapshot extends Schema.Class<JoinSnapshot>("@effect-agent/thread/JoinSnapshot")({
+export class JoinSnapshot extends Schema.Class<JoinSnapshot>('@effect-agent/thread/JoinSnapshot')({
   submissionId: SubmissionId,
   state: SubmissionState,
   hostSubmissionId: SubmissionId,
@@ -840,7 +833,7 @@ export class JoinSnapshot extends Schema.Class<JoinSnapshot>("@effect-agent/thre
 
 /** A durable suspension as recovery sees it. */
 export class SuspensionSnapshot extends Schema.Class<SuspensionSnapshot>(
-  "@effect-agent/thread/SuspensionSnapshot",
+  '@effect-agent/thread/SuspensionSnapshot',
 )({
   reason: SuspensionReason,
   suspendedAt: Schema.DateTimeUtcFromString,
@@ -853,7 +846,7 @@ export class SuspensionSnapshot extends Schema.Class<SuspensionSnapshot>(
  * the recovery truth (DUR-015).
  */
 export class ChildAttachmentSnapshot extends Schema.Class<ChildAttachmentSnapshot>(
-  "@effect-agent/thread/ChildAttachmentSnapshot",
+  '@effect-agent/thread/ChildAttachmentSnapshot',
 )({
   toolCallId: ToolCallId,
   childSubmissionId: SubmissionId,
@@ -875,7 +868,7 @@ export class ChildAttachmentSnapshot extends Schema.Class<ChildAttachmentSnapsho
  * empty/absent at construction so pre-S2 call sites stay valid; adapters always populate them.
  */
 export class RecoverySnapshot extends Schema.Class<RecoverySnapshot>(
-  "@effect-agent/thread/RecoverySnapshot",
+  '@effect-agent/thread/RecoverySnapshot',
 )({
   submission: SubmissionSnapshot,
   hasOwner: Schema.Boolean,
@@ -897,7 +890,7 @@ export class RecoverySnapshot extends Schema.Class<RecoverySnapshot>(
 
 /** The same idempotency key was admitted with different canonical input content. */
 export class AdmissionConflict extends Schema.TaggedError<AdmissionConflict>()(
-  "AdmissionConflict",
+  'AdmissionConflict',
   {
     threadId: ThreadId,
     principal: Principal,
@@ -911,13 +904,13 @@ export class AdmissionConflict extends Schema.TaggedError<AdmissionConflict>()(
  * The captured local session has closed or was replaced. Reading current state cannot
  * grant that session authority again.
  */
-export class OwnershipLost extends Schema.TaggedError<OwnershipLost>()("OwnershipLost", {
+export class OwnershipLost extends Schema.TaggedError<OwnershipLost>()('OwnershipLost', {
   submissionId: SubmissionId,
 }) {}
 
 /** A conflicting terminal outcome was already reserved or finalized (DUR-002, DUR-012). */
 export class SettlementConflict extends Schema.TaggedError<SettlementConflict>()(
-  "SettlementConflict",
+  'SettlementConflict',
   {
     submissionId: SubmissionId,
     existingOutcome: SettlementOutcome,
@@ -928,7 +921,7 @@ export class SettlementConflict extends Schema.TaggedError<SettlementConflict>()
  * A divergent approval re-decision for an already-decided `(submissionId, toolCallId)` pair.
  * Repeating the SAME decision replays the recorded intent instead (idempotency).
  */
-export class ApprovalConflict extends Schema.TaggedError<ApprovalConflict>()("ApprovalConflict", {
+export class ApprovalConflict extends Schema.TaggedError<ApprovalConflict>()('ApprovalConflict', {
   submissionId: SubmissionId,
   toolCallId: ToolCallId,
   existingDecision: ApprovalDecision,
@@ -939,7 +932,7 @@ export class ApprovalConflict extends Schema.TaggedError<ApprovalConflict>()("Ap
  * result (DUR-017). Repeating the SAME accepted resolution replays the recorded intent instead.
  */
 export class UnknownResolutionConflict extends Schema.TaggedError<UnknownResolutionConflict>()(
-  "UnknownResolutionConflict",
+  'UnknownResolutionConflict',
   {
     submissionId: SubmissionId,
     toolCallId: ToolCallId,
@@ -953,7 +946,7 @@ export class UnknownResolutionConflict extends Schema.TaggedError<UnknownResolut
  * transition. `status` reports the existing row's status. Identical replays never conflict.
  */
 export class ChildReservationConflict extends Schema.TaggedError<ChildReservationConflict>()(
-  "ChildReservationConflict",
+  'ChildReservationConflict',
   {
     reservationId: ChildReservationId,
     status: ChildReservationStatus,
@@ -962,7 +955,7 @@ export class ChildReservationConflict extends Schema.TaggedError<ChildReservatio
 ) {}
 
 /** Adapter-level ledger failure (storage unavailable, unknown submission, corrupt row, ...). */
-export class LedgerError extends Schema.TaggedError<LedgerError>()("LedgerError", {
+export class LedgerError extends Schema.TaggedError<LedgerError>()('LedgerError', {
   operation: Schema.String,
   message: Schema.String,
   cause: Schema.optionalKey(FailureDiagnostic.Value),
@@ -977,7 +970,7 @@ export type SubmissionLedgerFailure =
   | JoinedToHost
   | ChildReservationConflict
   | LedgerError
-  | AdmissionPolicyError;
+  | AdmissionPolicyError
 
 /**
  * Operational durable state for accepted work: admission, FIFO readiness, readiness,
@@ -1099,105 +1092,105 @@ export type SubmissionLedgerFailure =
 export class SubmissionLedger extends Context.Service<
   SubmissionLedger,
   {
-    readonly capabilities: Effect.Effect<LedgerCapabilities>;
+    readonly capabilities: Effect.Effect<LedgerCapabilities>
     readonly admit: (
       request: AdmissionRequest,
       options?: { readonly readyIfInitialized?: boolean },
-    ) => Effect.Effect<AdmissionResult, AdmissionConflict | AdmissionPolicyError | LedgerError>;
-    readonly markReady: (request: MarkReadyRequest) => Effect.Effect<void, LedgerError>;
+    ) => Effect.Effect<AdmissionResult, AdmissionConflict | AdmissionPolicyError | LedgerError>
+    readonly markReady: (request: MarkReadyRequest) => Effect.Effect<void, LedgerError>
     readonly lookup: (
       request: SubmissionLookup,
-    ) => Effect.Effect<Option.Option<SubmissionSnapshot>, LedgerError>;
+    ) => Effect.Effect<Option.Option<SubmissionSnapshot>, LedgerError>
     /** Absent adapters fail closed when funding a worker from an explicitly selected input. */
     readonly resolveFundingOwner?: (
       request: FundingOwnerRequest,
-    ) => Effect.Effect<FundingOwner, LedgerError>;
+    ) => Effect.Effect<FundingOwner, LedgerError>
     readonly resolveAdmission: (
       request: SubmissionLookupByKey,
-    ) => Effect.Effect<AdmissionResolution, LedgerError>;
+    ) => Effect.Effect<AdmissionResolution, LedgerError>
     readonly selectHead: (
       request: ClaimRequest,
-    ) => Effect.Effect<Option.Option<Claim>, LedgerError>;
+    ) => Effect.Effect<Option.Option<Claim>, LedgerError>
     /** Atomically publish a captured original input, active context and applied marker.
      * Optional adapters retain the ordinary append-then-repair protocol. The captured input
      * must be this owner's deterministic admission; a moved context boundary is refused. */
     readonly appendInput?: (
       submissionId: SubmissionId,
       request: AppendRequest,
-    ) => Effect.Effect<AppendResult, ThreadStoreFailure>;
+    ) => Effect.Effect<AppendResult, ThreadStoreFailure>
     readonly markInputApplied: (
       request: MarkInputAppliedRequest,
-    ) => Effect.Effect<void, OwnershipLost | LedgerError>;
+    ) => Effect.Effect<void, OwnershipLost | LedgerError>
     readonly finalizeSettlement: (
       request: SettlementFinalization,
-    ) => Effect.Effect<Settlement, SettlementConflict | LedgerError>;
+    ) => Effect.Effect<Settlement, SettlementConflict | LedgerError>
     /** Optional for third-party adapters. Remaining ownership must reach zero before stop acknowledgement. */
-    readonly inspectWorker?: (threadId: ThreadId) => Effect.Effect<WorkerLedgerState, LedgerError>;
-    readonly stopWorker?: (request: WorkerStopCommand) => Effect.Effect<number, LedgerError>;
+    readonly inspectWorker?: (threadId: ThreadId) => Effect.Effect<WorkerLedgerState, LedgerError>
+    readonly stopWorker?: (request: WorkerStopCommand) => Effect.Effect<number, LedgerError>
     readonly requestAbort: (
       request: AbortCommand,
-    ) => Effect.Effect<AbortIntent, SettlementConflict | JoinedToHost | LedgerError>;
+    ) => Effect.Effect<AbortIntent, SettlementConflict | JoinedToHost | LedgerError>
     /**
      * Strongly consistent lane-local read. Unknown Submissions fail with LedgerError. Canonical
      * proof has the same meaning as in RecoverySnapshot; this read grants no execution authority.
      */
     readonly readAbortIntent: (
       request: AbortIntentRequest,
-    ) => Effect.Effect<AbortIntent | undefined, LedgerError>;
+    ) => Effect.Effect<AbortIntent | undefined, LedgerError>
     readonly claimJoining: (
       request: ClaimJoiningRequest,
-    ) => Effect.Effect<ReadonlyArray<JoiningClaim>, OwnershipLost | LedgerError>;
+    ) => Effect.Effect<ReadonlyArray<JoiningClaim>, OwnershipLost | LedgerError>
     readonly markJoined: (
       request: MarkJoinedRequest,
-    ) => Effect.Effect<void, OwnershipLost | LedgerError>;
-    readonly revertJoining: (request: RevertJoiningRequest) => Effect.Effect<void, LedgerError>;
+    ) => Effect.Effect<void, OwnershipLost | LedgerError>
+    readonly revertJoining: (request: RevertJoiningRequest) => Effect.Effect<void, LedgerError>
     readonly suspend: (
       request: SuspendRequest,
-    ) => Effect.Effect<SuspensionOutcome, OwnershipLost | SettlementConflict | LedgerError>;
+    ) => Effect.Effect<SuspensionOutcome, OwnershipLost | SettlementConflict | LedgerError>
     readonly recordApprovalDecision: (
       command: ApprovalDecisionCommand,
-    ) => Effect.Effect<ApprovalDecisionIntent, ApprovalConflict | SettlementConflict | LedgerError>;
+    ) => Effect.Effect<ApprovalDecisionIntent, ApprovalConflict | SettlementConflict | LedgerError>
     readonly markUnknown: (
       request: MarkUnknownRequest,
-    ) => Effect.Effect<void, SettlementConflict | LedgerError>;
+    ) => Effect.Effect<void, SettlementConflict | LedgerError>
     readonly recordUnknownResolution: (
       command: UnknownResolutionCommand,
     ) => Effect.Effect<
       UnknownResolutionIntent,
       UnknownResolutionConflict | SettlementConflict | LedgerError
-    >;
+    >
     readonly recordChildSettled: (
       request: ChildSettledNotification,
-    ) => Effect.Effect<ChildSettledOutcome, LedgerError>;
+    ) => Effect.Effect<ChildSettledOutcome, LedgerError>
     readonly reserveChildBudget: (
       request: ChildBudgetReservationRequest,
-    ) => Effect.Effect<ReservedChildBudget, ChildReservationConflict | OwnershipLost | LedgerError>;
+    ) => Effect.Effect<ReservedChildBudget, ChildReservationConflict | OwnershipLost | LedgerError>
     readonly attachChildToReservation: (
       request: AttachChildToReservationRequest,
     ) => Effect.Effect<
       ChildBudgetReservationSnapshot,
       ChildReservationConflict | OwnershipLost | LedgerError
-    >;
+    >
     readonly beginChildBudgetRelease: (
       request: BeginChildBudgetReleaseRequest,
-    ) => Effect.Effect<ChildBudgetReservationSnapshot, ChildReservationConflict | LedgerError>;
+    ) => Effect.Effect<ChildBudgetReservationSnapshot, ChildReservationConflict | LedgerError>
     readonly releaseChildBudget: (
       request: ReleaseChildBudgetRequest,
-    ) => Effect.Effect<ChildBudgetReservationSnapshot, ChildReservationConflict | LedgerError>;
-    readonly scanNonterminal: Stream.Stream<SubmissionWorkItem, LedgerError>;
+    ) => Effect.Effect<ChildBudgetReservationSnapshot, ChildReservationConflict | LedgerError>
+    readonly scanNonterminal: Stream.Stream<SubmissionWorkItem, LedgerError>
     /** Optional native snapshot for hosts that need the complete control worklist. */
-    readonly listNonterminal?: Effect.Effect<ReadonlyArray<SubmissionWorkItem>, LedgerError>;
+    readonly listNonterminal?: Effect.Effect<ReadonlyArray<SubmissionWorkItem>, LedgerError>
     readonly loadRecoverySnapshot: (
       request: RecoverySnapshotRequest,
-    ) => Effect.Effect<RecoverySnapshot, LedgerError>;
+    ) => Effect.Effect<RecoverySnapshot, LedgerError>
   }
->()("@effect-agent/thread/SubmissionLedger") {}
+>()('@effect-agent/thread/SubmissionLedger') {}
 
 // These constructors produce nonempty strings from fixed prefixes or validated nonempty IDs.
 // Keep the canonical Schemas as the validation boundary for incoming and persisted values.
-const makeBatchId = Brand.nominal<BatchId>();
-const makeRecordId = Brand.nominal<RecordId>();
-const makeSettlementId = Brand.nominal<SettlementId>();
+const makeBatchId = Brand.nominal<BatchId>()
+const makeRecordId = Brand.nominal<RecordId>()
+const makeSettlementId = Brand.nominal<SettlementId>()
 
 /**
  * Deterministic identity rules shared by every adapter and the durable coordinator. The batch
@@ -1206,31 +1199,29 @@ const makeSettlementId = Brand.nominal<SettlementId>();
  * exactly-once-canonical across Attempts.
  */
 export const submissionInputBatchId = (submissionId: SubmissionId): BatchId =>
-  makeBatchId(`submission-input:${submissionId}`);
+  makeBatchId(`submission-input:${submissionId}`)
 
 /** Deterministic canonical record identity of one Submission's `UserInputRecorded` record. */
-export const submissionInputRecordId = (submissionId: SubmissionId): RecordId =>
-  makeRecordId(`input:${submissionId}`);
+export const submissionInputRecordId = (submissionId: SubmissionId): RecordId => makeRecordId(`input:${submissionId}`)
 
 /** Deterministic `SettlementId` for one Submission: `settlement:{sid}`. */
 export const submissionSettlementId = (submissionId: SubmissionId): SettlementId =>
-  makeSettlementId(`settlement:${submissionId}`);
+  makeSettlementId(`settlement:${submissionId}`)
 
 /** Deterministic batch identity of one Submission's canonical `SubmissionSettled` append. */
 export const submissionSettlementBatchId = (submissionId: SubmissionId): BatchId =>
-  makeBatchId(`submission-settlement:${submissionId}`);
+  makeBatchId(`submission-settlement:${submissionId}`)
 
 /** Deterministic canonical record identity of one Submission's `SubmissionSettled` record. */
 export const submissionSettlementRecordId = (submissionId: SubmissionId): RecordId =>
-  makeRecordId(`settlement:${submissionId}`);
+  makeRecordId(`settlement:${submissionId}`)
 
 /** Deterministic batch identity of one Submission's canonical `AbortRequested` append. */
 export const submissionAbortBatchId = (submissionId: SubmissionId): BatchId =>
-  makeBatchId(`submission-abort:${submissionId}`);
+  makeBatchId(`submission-abort:${submissionId}`)
 
 /** Deterministic canonical record identity of one Submission's `AbortRequested` record. */
-export const submissionAbortRecordId = (submissionId: SubmissionId): RecordId =>
-  makeRecordId(`abort:${submissionId}`);
+export const submissionAbortRecordId = (submissionId: SubmissionId): RecordId => makeRecordId(`abort:${submissionId}`)
 
 /** Destination policy, captured when the ledger is acquired. It runs inside fresh admission's
  * serialization after replay lookup. The host must keep it bounded and must not reenter admit.
@@ -1242,15 +1233,15 @@ export const submissionAbortRecordId = (submissionId: SubmissionId): RecordId =>
  * Current policy never invalidates an exact retained receipt. A supplied fence fails closed
  * unless the destination installed an interpreter for it. */
 export const SubmissionAdmissionFence = Context.Reference<{
-  readonly check: (request: AdmissionRequest) => Effect.Effect<void, AdmissionPolicyError>;
-}>("@effect-agent/thread/SubmissionAdmissionFence", {
+  readonly check: (request: AdmissionRequest) => Effect.Effect<void, AdmissionPolicyError>
+}>('@effect-agent/thread/SubmissionAdmissionFence', {
   defaultValue: () => ({
     check: (request) =>
       request.admissionFence === undefined
         ? Effect.void
         : AdmissionPolicyError.make({
-            reason: "refused",
-            code: "unsupported-policy",
-          }),
+          reason: 'refused',
+          code: 'unsupported-policy',
+        }),
   }),
-});
+})

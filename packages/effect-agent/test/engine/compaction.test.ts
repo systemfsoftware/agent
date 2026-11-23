@@ -1,71 +1,62 @@
-import { expect, layer } from "@effect/vitest";
-import * as Agent from "@yielded/agent/agent";
-import { AgentPolicy, CompactionPolicy } from "@yielded/agent/agent-policy";
-import {
-  CompactionError,
-  ContextCompactor,
-  type CompactionDecision,
-} from "@yielded/agent/context-compactor";
-import { IdGenerator } from "@yielded/agent/id-generator";
-import { ThreadId, RunId, TurnId } from "@yielded/agent/identifiers";
-import { type RunEvent } from "@yielded/agent/run-event";
-import { type RunContextHook } from "@yielded/agent/run-options";
-import * as AiError from "effect/ai/AiError";
-import * as LanguageModel from "effect/ai/LanguageModel";
-import * as Model from "effect/ai/Model";
-import * as Prompt from "effect/ai/Prompt";
-import type * as Response from "effect/ai/Response";
-import * as Tool from "effect/ai/Tool";
-import * as Toolkit from "effect/ai/Toolkit";
-import * as Cause from "effect/Cause";
-import * as Context from "effect/Context";
-import * as Effect from "effect/Effect";
-import * as Exit from "effect/Exit";
-import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
-import * as Ref from "effect/Ref";
-import * as Schema from "effect/Schema";
-import * as Stream from "effect/Stream";
+import { expect, layer } from '@effect/vitest'
+import * as Agent from '@yielded/agent/agent'
+import { AgentPolicy, CompactionPolicy } from '@yielded/agent/agent-policy'
+import { type CompactionDecision, CompactionError, ContextCompactor } from '@yielded/agent/context-compactor'
+import { IdGenerator } from '@yielded/agent/id-generator'
+import { RunId, ThreadId, TurnId } from '@yielded/agent/identifiers'
+import { type RunEvent } from '@yielded/agent/run-event'
+import { type RunContextHook } from '@yielded/agent/run-options'
+import * as AiError from 'effect/ai/AiError'
+import * as LanguageModel from 'effect/ai/LanguageModel'
+import * as Model from 'effect/ai/Model'
+import * as Prompt from 'effect/ai/Prompt'
+import type * as Response from 'effect/ai/Response'
+import * as Tool from 'effect/ai/Tool'
+import * as Toolkit from 'effect/ai/Toolkit'
+import * as Cause from 'effect/Cause'
+import * as Context from 'effect/Context'
+import * as Effect from 'effect/Effect'
+import * as Exit from 'effect/Exit'
+import * as Layer from 'effect/Layer'
+import * as Option from 'effect/Option'
+import * as Ref from 'effect/Ref'
+import * as Schema from 'effect/Schema'
+import * as Stream from 'effect/Stream'
 
-import * as AgentRuntime from "../../src/engine/internal/agent-runtime.ts";
+import * as AgentRuntime from '../../src/engine/internal/agent-runtime.ts'
 import {
   CLEARED_TOOL_RESULT,
   estimatePromptTokens,
   initialCompactionState,
-} from "../../src/engine/internal/compaction.ts";
-import {
-  type RunCompactionCommit,
-  type RunDurabilityHook,
-} from "../../src/engine/internal/interpreter-options.ts";
-import { RunContextPreparationPassthrough } from "../../src/engine/RunOptions.ts";
-import { ThreadHistory } from "../../src/engine/ThreadHistory.ts";
+} from '../../src/engine/internal/compaction.ts'
+import { type RunCompactionCommit, type RunDurabilityHook } from '../../src/engine/internal/interpreter-options.ts'
+import { RunContextPreparationPassthrough } from '../../src/engine/RunOptions.ts'
+import { ThreadHistory } from '../../src/engine/ThreadHistory.ts'
 
-let threadSequence = 0;
+let threadSequence = 0
 
 const identifiers = Layer.succeed(IdGenerator, {
-  nextThreadId: Effect.suspend(() =>
-    Schema.decodeEffect(ThreadId)(`thread-1-${++threadSequence}`).pipe(Effect.orDie),
-  ),
-  nextRunId: Effect.succeed(Schema.decodeSync(RunId)("run-1")),
-  nextTurnId: Effect.succeed(Schema.decodeSync(TurnId)("turn-1")),
-});
+  nextThreadId: Effect.suspend(() => Schema.decodeEffect(ThreadId)(`thread-1-${++threadSequence}`).pipe(Effect.orDie)),
+  nextRunId: Effect.succeed(Schema.decodeSync(RunId)('run-1')),
+  nextTurnId: Effect.succeed(Schema.decodeSync(TurnId)('turn-1')),
+})
 
-const emptyUsage = { inputTokens: {}, outputTokens: {} };
+const emptyUsage = { inputTokens: {}, outputTokens: {} }
 
 const usageOf = (input: number, output: number) => ({
   inputTokens: { total: input },
   outputTokens: { total: output },
-});
+})
 
 const finalParts = (
   text: string,
   usage: typeof emptyUsage | ReturnType<typeof usageOf> = emptyUsage,
 ): ReadonlyArray<Response.StreamPartEncoded> => [
-  { type: "text-start", id: "answer" },
-  { type: "text-delta", id: "answer", delta: text },
-  { type: "text-end", id: "answer" },
-  { type: "finish", reason: "stop", usage },
-];
+  { type: 'text-start', id: 'answer' },
+  { type: 'text-delta', id: 'answer', delta: text },
+  { type: 'text-end', id: 'answer' },
+  { type: 'finish', reason: 'stop', usage },
+]
 
 const toolCallParts = (
   id: string,
@@ -73,168 +64,164 @@ const toolCallParts = (
   params: Record<string, unknown>,
   usage: typeof emptyUsage | ReturnType<typeof usageOf> = emptyUsage,
 ): ReadonlyArray<Response.StreamPartEncoded> => [
-  { type: "tool-call", id, name, params, providerExecuted: false },
-  { type: "finish", reason: "tool-calls", usage },
-];
+  { type: 'tool-call', id, name, params, providerExecuted: false },
+  { type: 'finish', reason: 'tool-calls', usage },
+]
 
 interface CapturedRequest {
-  readonly prompt: Prompt.Prompt;
-  readonly toolCount: number;
-  readonly toolChoice: unknown;
+  readonly prompt: Prompt.Prompt
+  readonly toolCount: number
+  readonly toolChoice: unknown
 }
 
-type ScriptEntry = ReadonlyArray<Response.StreamPartEncoded> | { readonly fail: string };
+type ScriptEntry = ReadonlyArray<Response.StreamPartEncoded> | { readonly fail: string }
 
 const overflowFailure = (description: string): AiError.AiError =>
   AiError.AiError.make({
-    module: "test",
-    method: "streamText",
+    module: 'test',
+    method: 'streamText',
     reason: AiError.UnknownError.make({ description }),
-  });
+  })
 
 /** Scripted multi-call model; an entry may fail the whole request typed. */
-const scriptedModel = (script: ReadonlyArray<ScriptEntry>, name = "compaction") => {
-  const requests: Array<CapturedRequest> = [];
+const scriptedModel = (script: ReadonlyArray<ScriptEntry>, name = 'compaction') => {
+  const requests: Array<CapturedRequest> = []
 
   const model = Model.make(
-    "scripted",
+    'scripted',
     name,
     Layer.effect(
       LanguageModel.LanguageModel,
       LanguageModel.make({
         generateText: () => Effect.succeed([]),
         streamText: (request) => {
-          const index = Math.min(requests.length, script.length - 1);
+          const index = Math.min(requests.length, script.length - 1)
 
           requests.push({
             prompt: request.prompt,
             toolCount: request.tools.length,
             toolChoice: request.toolChoice,
-          });
-          const entry = script[index];
+          })
+          const entry = script[index]
 
-          if (entry === undefined) return Stream.empty;
-          if ("fail" in entry) return Stream.fail(overflowFailure(entry.fail));
+          if (entry === undefined) return Stream.empty
+          if ('fail' in entry) return Stream.fail(overflowFailure(entry.fail))
 
-          return Stream.fromIterable(entry);
+          return Stream.fromIterable(entry)
         },
       }),
     ),
-  );
+  )
 
-  return { model, requests };
-};
+  return { model, requests }
+}
 
-const messageText = (message: Prompt.Prompt["content"][number]): string => {
-  if (typeof message.content === "string") {
-    return message.content;
+const messageText = (message: Prompt.Prompt['content'][number]): string => {
+  if (typeof message.content === 'string') {
+    return message.content
   }
 
   return message.content
-    .map((part) => ("text" in part && typeof part.text === "string" ? part.text : ""))
-    .join("");
-};
+    .map((part) => ('text' in part && typeof part.text === 'string' ? part.text : ''))
+    .join('')
+}
 
-const promptText = (prompt: Prompt.Prompt): string =>
-  prompt.content.map((message) => messageText(message)).join("\n");
+const promptText = (prompt: Prompt.Prompt): string => prompt.content.map((message) => messageText(message)).join('\n')
 
 const toolResultValues = (prompt: Prompt.Prompt): ReadonlyArray<unknown> =>
   prompt.content.flatMap((message) =>
-    typeof message.content === "string"
+    typeof message.content === 'string'
       ? []
-      : message.content.flatMap((part) =>
-          part.type === "tool-result" ? [part.result as unknown] : [],
-        ),
-  );
+      : message.content.flatMap((part) => part.type === 'tool-result' ? [part.result as unknown] : [])
+  )
 
 const failureFrom = <E>(exit: Exit.Exit<unknown, E>): E => {
-  expect(Exit.isFailure(exit)).toBe(true);
+  expect(Exit.isFailure(exit)).toBe(true)
   if (Exit.isSuccess(exit)) {
-    throw new Error("Expected the Effect to fail");
+    throw new Error('Expected the Effect to fail')
   }
-  const failure = Cause.findErrorOption(exit.cause);
+  const failure = Cause.findErrorOption(exit.cause)
 
-  expect(Option.isSome(failure)).toBe(true);
+  expect(Option.isSome(failure)).toBe(true)
   if (Option.isNone(failure)) {
-    throw new Error("Expected a typed failure in the Cause");
+    throw new Error('Expected a typed failure in the Cause')
   }
 
-  return failure.value;
-};
+  return failure.value
+}
 
-const SearchTool = Tool.make("search", {
+const SearchTool = Tool.make('search', {
   parameters: Schema.Struct({}),
   success: Schema.String,
-});
+})
 
-const searchToolkit = Toolkit.make(SearchTool);
+const searchToolkit = Toolkit.make(SearchTool)
 
-const answerOutput = Schema.Struct({ answer: Schema.String });
+const answerOutput = Schema.Struct({ answer: Schema.String })
 
 const compactionEvents = (events: ReadonlyArray<RunEvent>) =>
-  events.flatMap((event) => (event._tag === "CompactionPerformed" ? [event] : []));
+  events.flatMap((event) => (event._tag === 'CompactionPerformed' ? [event] : []))
 
 interface RunSetup {
-  readonly policy: AgentPolicy;
-  readonly script: ReadonlyArray<ScriptEntry>;
-  readonly results: ReadonlyArray<string>;
-  readonly commitCompaction?: (commit: RunCompactionCommit) => Effect.Effect<void>;
-  readonly context?: RunContextHook | undefined;
+  readonly policy: AgentPolicy
+  readonly script: ReadonlyArray<ScriptEntry>
+  readonly results: ReadonlyArray<string>
+  readonly commitCompaction?: (commit: RunCompactionCommit) => Effect.Effect<void>
+  readonly context?: RunContextHook | undefined
 }
 
 const basePolicy = {
   maxTurns: 6,
   maxToolCalls: 6,
-  maxDuration: "1 minute",
+  maxDuration: '1 minute',
   toolConcurrency: 1,
-} as const;
+} as const
 
 /** Capture model requests, published history and Run outcomes. */
-const driveRun = Effect.fnUntraced(function* (setup: RunSetup) {
-  const { policy, script, results, commitCompaction } = setup;
+const driveRun = Effect.fnUntraced(function*(setup: RunSetup) {
+  const { policy, script, results, commitCompaction } = setup
 
-  const definition = Agent.make("compaction-agent", {
+  const definition = Agent.make('compaction-agent', {
     input: Schema.Struct({ question: Schema.String }),
     output: answerOutput,
-    instructions: "Research the question with the search tool, then answer.",
+    instructions: 'Research the question with the search tool, then answer.',
     toolkit: searchToolkit,
     policy,
-  });
+  })
 
-  const { model, requests } = scriptedModel(script);
-  const callCount = yield* Ref.make(0);
+  const { model, requests } = scriptedModel(script)
+  const callCount = yield* Ref.make(0)
 
   const toolLayer = searchToolkit.toLayer({
     search: () =>
       Ref.getAndUpdate(callCount, (count) => count + 1).pipe(
-        Effect.map((count) => results[count] ?? "found"),
+        Effect.map((count) => results[count] ?? 'found'),
       ),
-  });
+  })
 
-  const events = yield* Ref.make<ReadonlyArray<RunEvent>>([]);
-  const histories: Array<Prompt.Prompt> = [];
+  const events = yield* Ref.make<ReadonlyArray<RunEvent>>([])
+  const histories: Array<Prompt.Prompt> = []
 
-  const durability: RunDurabilityHook | undefined =
-    commitCompaction === undefined
-      ? undefined
-      : {
-          toolResultMaxBytes: 1024 * 1024,
-          checkpoint: Effect.void,
-          initialize: () => Effect.void,
-          commitTurn: () => Effect.succeed("committed"),
-          checkToolDispatch: Effect.void,
-          step: {
-            lookup: () => Effect.succeedNone,
-            reserve: () => Effect.succeed(Effect.void),
-            commit: () => Effect.void,
-          },
-          commitCompaction,
-          noteTurnUsage: () => Effect.void,
-        };
+  const durability: RunDurabilityHook | undefined = commitCompaction === undefined
+    ? undefined
+    : {
+      toolResultMaxBytes: 1024 * 1024,
+      checkpoint: Effect.void,
+      initialize: () => Effect.void,
+      commitTurn: () => Effect.succeed('committed'),
+      checkToolDispatch: Effect.void,
+      step: {
+        lookup: () => Effect.succeedNone,
+        reserve: () => Effect.succeed(Effect.void),
+        commit: () => Effect.void,
+      },
+      commitCompaction,
+      noteTurnUsage: () => Effect.void,
+    }
 
   const exit = yield* AgentRuntime.stream(
     Agent.withModel(definition, model),
-    { question: "compact?" },
+    { question: 'compact?' },
     {
       context: setup.context,
       onHistory: (history) => Effect.sync(() => void histories.push(history)),
@@ -245,38 +232,38 @@ const driveRun = Effect.fnUntraced(function* (setup: RunSetup) {
     Stream.runDrain,
     Effect.provide(toolLayer),
     Effect.exit,
-  );
+  )
 
-  return { exit, requests, histories, events: yield* Ref.get(events) };
-});
+  return { exit, requests, histories, events: yield* Ref.get(events) }
+})
 
-const compactionTestLayer = Layer.merge(identifiers, ContextCompactor.layer);
+const compactionTestLayer = Layer.merge(identifiers, ContextCompactor.layer)
 
 const testLayer = Layer.mergeAll(
   compactionTestLayer,
   ThreadHistory.layer,
   RunContextPreparationPassthrough,
-);
+)
 
-layer(testLayer)("engine compaction and overflow recovery", (it) => {
-  for (const change of ["equivalent", "replace"] as const) {
+layer(testLayer)('engine compaction and overflow recovery', (it) => {
+  for (const change of ['equivalent', 'replace'] as const) {
     it.effect(`preserves protected prepared history across compaction: ${change}`, () =>
-      Effect.gen(function* () {
+      Effect.gen(function*() {
         const result = yield* driveRun({
           policy: AgentPolicy.make({
             ...basePolicy,
             contextTokenLimit: 2_000,
-            compaction: CompactionPolicy.make({ mode: "summarize", keepRecentTokens: 300 }),
+            compaction: CompactionPolicy.make({ mode: 'summarize', keepRecentTokens: 300 }),
           }),
           context: {
             prepare: ({ source, turn }) => {
-              const messages = [...source.content];
+              const messages = [...source.content]
 
               if (turn === 4) {
-                if (change === "replace") {
+                if (change === 'replace') {
                   messages[2] = Prompt.assistantMessage({
-                    content: [Prompt.textPart({ text: "UNRELATED" })],
-                  });
+                    content: [Prompt.textPart({ text: 'UNRELATED' })],
+                  })
                 }
               }
 
@@ -284,101 +271,98 @@ layer(testLayer)("engine compaction and overflow recovery", (it) => {
                 prompt: Schema.decodeUnknownSync(Prompt.Prompt)(
                   JSON.parse(JSON.stringify({ content: messages })),
                 ),
-              });
+              })
             },
           },
           script: [
-            toolCallParts("s1", "search", {}, usageOf(100, 5)),
-            toolCallParts("s2", "search", {}, usageOf(1_300, 5)),
-            toolCallParts("s3", "search", {}, usageOf(50, 5)),
+            toolCallParts('s1', 'search', {}, usageOf(100, 5)),
+            toolCallParts('s2', 'search', {}, usageOf(1_300, 5)),
+            toolCallParts('s3', 'search', {}, usageOf(50, 5)),
             finalParts('{"answer":"done"}'),
           ],
-          results: ["a".repeat(4_000), "b".repeat(4_000), "small"],
+          results: ['a'.repeat(4_000), 'b'.repeat(4_000), 'small'],
         }).pipe(
           Effect.provideService(ContextCompactor, {
             estimate: estimatePromptTokens,
-            compact: () =>
-              Stream.succeed({ kind: "summarize", through: 4, summary: "First result covered" }),
+            compact: () => Stream.succeed({ kind: 'summarize', through: 4, summary: 'First result covered' }),
           }),
-        );
+        )
 
-        expect(promptText(result.requests[2]?.prompt ?? Prompt.empty)).toContain("compact?");
-        if (change === "equivalent") {
-          if (Exit.isFailure(result.exit)) return yield* Effect.failCause(result.exit.cause);
-          expect(result.requests).toHaveLength(4);
+        expect(promptText(result.requests[2]?.prompt ?? Prompt.empty)).toContain('compact?')
+        if (change === 'equivalent') {
+          if (Exit.isFailure(result.exit)) return yield* Effect.failCause(result.exit.cause)
+          expect(result.requests).toHaveLength(4)
           expect(toolResultValues(result.requests[3]?.prompt ?? Prompt.empty)).toEqual([
-            "b".repeat(4_000),
-            "small",
-          ]);
+            'b'.repeat(4_000),
+            'small',
+          ])
         } else {
-          expect(failureFrom(result.exit)).toBeInstanceOf(CompactionError);
-          expect(result.requests).toHaveLength(3);
+          expect(failureFrom(result.exit)).toBeInstanceOf(CompactionError)
+          expect(result.requests).toHaveLength(3)
         }
-        expect(JSON.stringify(result.histories)).toContain("a".repeat(4_000));
-        expect(JSON.stringify(result.histories)).not.toContain("UNRELATED");
-      }),
-    );
+        expect(JSON.stringify(result.histories)).toContain('a'.repeat(4_000))
+        expect(JSON.stringify(result.histories)).not.toContain('UNRELATED')
+      }))
   }
 
-  it.effect("RUN-034: summarizer usage is charged before admitting the post-compaction call", () =>
-    Effect.gen(function* () {
+  it.effect('RUN-034: summarizer usage is charged before admitting the post-compaction call', () =>
+    Effect.gen(function*() {
       const policy = AgentPolicy.make({
         ...basePolicy,
         tokenBudget: 12_000,
         completionReserveTokens: 1_000,
         contextTokenLimit: 2_000,
-        compaction: CompactionPolicy.make({ keepRecentTokens: 300, mode: "summarize" }),
-      });
+        compaction: CompactionPolicy.make({ keepRecentTokens: 300, mode: 'summarize' }),
+      })
 
       const { exit, requests, events } = yield* driveRun({
         policy,
         script: [
-          toolCallParts("s1", "search", {}, usageOf(100, 5)),
-          toolCallParts("s2", "search", {}, usageOf(1_300, 5)),
-          finalParts("Goal: preserve delivery capacity", usageOf(9_600, 100)),
+          toolCallParts('s1', 'search', {}, usageOf(100, 5)),
+          toolCallParts('s2', 'search', {}, usageOf(1_300, 5)),
+          finalParts('Goal: preserve delivery capacity', usageOf(9_600, 100)),
           finalParts('{"answer":"delivered"}', usageOf(50, 10)),
         ],
-        results: ["a".repeat(4_000), "b".repeat(4_000)],
+        results: ['a'.repeat(4_000), 'b'.repeat(4_000)],
         commitCompaction: () => Effect.void,
-      });
+      })
 
-      expect(requests).toHaveLength(4);
-      expect(Exit.isSuccess(exit)).toBe(true);
-      expect(requests[3]?.toolChoice).toBe("none");
+      expect(requests).toHaveLength(4)
+      expect(Exit.isSuccess(exit)).toBe(true)
+      expect(requests[3]?.toolChoice).toBe('none')
       expect(
         events.some(
           (event) =>
-            event._tag === "RunCompleted" &&
-            event.finishReason === "budget-exhausted" &&
-            event.exhausted === "tokens",
+            event._tag === 'RunCompleted' &&
+            event.finishReason === 'budget-exhausted' &&
+            event.exhausted === 'tokens',
         ),
-      ).toBe(true);
-    }),
-  );
+      ).toBe(true)
+    }))
 
   // ------------------------------------------------------------ RUN-027 flows
 
   {
     it.effect("shares the Turn's summary allowance with overflow recovery", () =>
-      Effect.gen(function* () {
-        const commits: Array<RunCompactionCommit> = [];
-        const passes: Array<boolean> = [];
+      Effect.gen(function*() {
+        const commits: Array<RunCompactionCommit> = []
+        const passes: Array<boolean> = []
 
         const result = yield* driveRun({
-          policy: AgentPolicy.make({ ...basePolicy, contextTokenLimit: 800, runStatus: "off" }),
+          policy: AgentPolicy.make({ ...basePolicy, contextTokenLimit: 800, runStatus: 'off' }),
           script: [
-            toolCallParts("s1", "search", {}),
-            toolCallParts("s2", "search", {}),
-            toolCallParts("s3", "search", {}),
-            finalParts("summary-first"),
-            { fail: "context_length_exceeded" },
-            finalParts("summary-retry"),
+            toolCallParts('s1', 'search', {}),
+            toolCallParts('s2', 'search', {}),
+            toolCallParts('s3', 'search', {}),
+            finalParts('summary-first'),
+            { fail: 'context_length_exceeded' },
+            finalParts('summary-retry'),
             finalParts('{"answer":"done"}'),
           ],
-          results: ["first result", "second result", "third result"],
+          results: ['first result', 'second result', 'third result'],
           commitCompaction: (commit) =>
             Effect.sync(() => {
-              commits.push(commit);
+              commits.push(commit)
             }),
         }).pipe(
           Effect.provideService(ContextCompactor, {
@@ -387,107 +371,102 @@ layer(testLayer)("engine compaction and overflow recovery", (it) => {
               300 *
               messages.filter(
                 (message) =>
-                  message.role === "tool" &&
+                  message.role === 'tool' &&
                   message.content.some(
-                    (part) => part.type === "tool-result" && part.result !== CLEARED_TOOL_RESULT,
+                    (part) => part.type === 'tool-result' && part.result !== CLEARED_TOOL_RESULT,
                   ),
               ).length,
             compact: (request) =>
               Stream.suspend(() => {
-                passes.push(request.trigger === "overflow");
-                const kind = "summarize";
-                const through = request.trigger === "overflow" ? 6 : 4;
+                passes.push(request.trigger === 'overflow')
+                const kind = 'summarize'
+                const through = request.trigger === 'overflow' ? 6 : 4
 
                 return Stream.fromEffect(
                   request.summarize(
                     Prompt.fromMessages([
                       Prompt.userMessage({
-                        content: [Prompt.textPart({ text: "Summarize requested coverage." })],
+                        content: [Prompt.textPart({ text: 'Summarize requested coverage.' })],
                       }),
                     ]),
                   ),
-                ).pipe(Stream.map((summary): CompactionDecision => ({ kind, through, summary })));
+                ).pipe(Stream.map((summary): CompactionDecision => ({ kind, through, summary })))
               }),
           }),
-        );
+        )
 
-        expect(commits.map(({ turn, kind }) => [turn, kind])).toEqual([[4, "summarize"]]);
-        expect(compactionEvents(result.events).map((event) => event.kind)).toEqual(["summarize"]);
-        expect(passes).toEqual([false]);
+        expect(commits.map(({ turn, kind }) => [turn, kind])).toEqual([[4, 'summarize']])
+        expect(compactionEvents(result.events).map((event) => event.kind)).toEqual(['summarize'])
+        expect(passes).toEqual([false])
         expect(
-          result.requests.filter(({ prompt }) =>
-            promptText(prompt).includes("Summarize requested coverage."),
-          ),
-        ).toHaveLength(1);
+          result.requests.filter(({ prompt }) => promptText(prompt).includes('Summarize requested coverage.')),
+        ).toHaveLength(1)
 
-        expect(failureFrom(result.exit)).toBeInstanceOf(CompactionError);
-        expect(result.requests).toHaveLength(5);
-      }),
-    );
+        expect(failureFrom(result.exit)).toBeInstanceOf(CompactionError)
+        expect(result.requests).toHaveLength(5)
+      }))
   }
-});
+})
 
-export const verifyCompactionCallbackAndModelRequirements = Effect.fnUntraced(function* () {
+export const verifyCompactionCallbackAndModelRequirements = Effect.fnUntraced(function*() {
   class SummaryConfig extends Context.Service<SummaryConfig, { readonly text: string }>()(
-    "test/SummaryConfig",
+    'test/SummaryConfig',
   ) {}
-  class SummaryFailure extends Schema.TaggedError<SummaryFailure>()("SummaryFailure", {}) {}
+  class SummaryFailure extends Schema.TaggedError<SummaryFailure>()('SummaryFailure', {}) {}
 
   const source = Prompt.fromMessages([
-    Prompt.assistantMessage({ content: [Prompt.textPart({ text: "older history" })] }),
-    Prompt.userMessage({ content: [Prompt.textPart({ text: "latest input" })] }),
-  ]);
+    Prompt.assistantMessage({ content: [Prompt.textPart({ text: 'older history' })] }),
+    Prompt.userMessage({ content: [Prompt.textPart({ text: 'latest input' })] }),
+  ])
 
-  const compactor = yield* ContextCompactor;
+  const compactor = yield* ContextCompactor
 
-  const summarize = Effect.fnUntraced(function* () {
-    const config = yield* SummaryConfig;
+  const summarize = Effect.fnUntraced(function*() {
+    const config = yield* SummaryConfig
 
-    if (config.text === "") return yield* SummaryFailure.make({});
+    if (config.text === '') return yield* SummaryFailure.make({})
 
-    return config.text;
-  });
+    return config.text
+  })
 
   const program = compactor
     .compact({
       source,
       state: initialCompactionState(),
-      policy: CompactionPolicy.make({ keepRecentTokens: 1, mode: "summarize" }),
+      policy: CompactionPolicy.make({ keepRecentTokens: 1, mode: 'summarize' }),
       targetTokens: 10,
-      threadId: ThreadId.make("thread-compact"),
-      runId: RunId.make("run-compact"),
+      threadId: ThreadId.make('thread-compact'),
+      runId: RunId.make('run-compact'),
       turn: 1,
-      trigger: "pressure",
+      trigger: 'pressure',
       modelCallAllowed: true,
       summarize,
     })
-    .pipe(Stream.runCollect);
+    .pipe(Stream.runCollect)
 
-  const errorProof: SummaryFailure extends Effect.Error<typeof program> ? true : false = true;
+  const errorProof: SummaryFailure extends Effect.Error<typeof program> ? true : false = true
 
-  const requirementProof: SummaryConfig extends Effect.Services<typeof program> ? true : false =
-    true;
+  const requirementProof: SummaryConfig extends Effect.Services<typeof program> ? true : false = true
 
   const model = Model.make(
-    "test",
-    "configured",
+    'test',
+    'configured',
     Layer.effect(
       LanguageModel.LanguageModel,
-      Effect.gen(function* () {
-        const config = yield* SummaryConfig;
+      Effect.gen(function*() {
+        const config = yield* SummaryConfig
 
         return yield* LanguageModel.make({
           generateText: () => Effect.succeed([]),
           streamText: () => Stream.fromIterable(finalParts(config.text)),
-        });
+        })
       }),
     ),
-  );
+  )
 
-  const configured = ContextCompactor.layerWithModel(model);
+  const configured = ContextCompactor.layerWithModel(model)
 
-  const modelRequirements: SummaryConfig extends Layer.Services<typeof configured> ? true : false =
-    true;
+  const modelRequirements: SummaryConfig extends Layer.Services<typeof configured> ? true : false = true
 
-  void [errorProof, requirementProof, modelRequirements];
-});
+  void [errorProof, requirementProof, modelRequirements]
+})

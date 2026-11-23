@@ -1,14 +1,14 @@
-import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
+import * as Option from 'effect/Option'
+import * as Schema from 'effect/Schema'
 
-const ErrorMessage = Schema.Struct({ message: Schema.String });
-const ErrorTag = Schema.Struct({ _tag: Schema.NonEmptyString });
-const decodeErrorMessage = Schema.decodeUnknownOption(ErrorMessage);
-const decodeErrorTag = Schema.decodeUnknownOption(ErrorTag);
+const ErrorMessage = Schema.Struct({ message: Schema.String })
+const ErrorTag = Schema.Struct({ _tag: Schema.NonEmptyString })
+const decodeErrorMessage = Schema.decodeUnknownOption(ErrorMessage)
+const decodeErrorTag = Schema.decodeUnknownOption(ErrorTag)
 
 interface ForeignDiagnostic {
-  readonly tag?: string | undefined;
-  readonly message?: string | undefined;
+  readonly tag?: string | undefined
+  readonly message?: string | undefined
 }
 
 /**
@@ -17,17 +17,17 @@ interface ForeignDiagnostic {
  * defects during diagnostic projection.
  */
 export const inspectForeignDiagnostic = (value: unknown): ForeignDiagnostic => {
-  let tag: string | undefined;
-  let message: string | undefined;
+  let tag: string | undefined
+  let message: string | undefined
 
   try {
-    tag = Option.getOrUndefined(decodeErrorTag(value))?._tag;
+    tag = Option.getOrUndefined(decodeErrorTag(value))?._tag
   } catch {
     // A diagnostic is best effort. The caller supplies the stable fallback classification.
   }
 
   try {
-    message = Option.getOrUndefined(decodeErrorMessage(value))?.message;
+    message = Option.getOrUndefined(decodeErrorMessage(value))?.message
   } catch {
     // A hostile message accessor must not replace the original failure with a defect.
   }
@@ -35,14 +35,14 @@ export const inspectForeignDiagnostic = (value: unknown): ForeignDiagnostic => {
   return {
     ...(tag === undefined ? {} : { tag }),
     ...(message === undefined ? {} : { message }),
-  };
-};
+  }
+}
 
 /** Render an opaque foreign value without allowing its coercion hooks to escape. */
 export const safeUnknownString = (value: unknown, fallback: string): string => {
   try {
-    return String(value);
+    return String(value)
   } catch {
-    return fallback;
+    return fallback
   }
-};
+}

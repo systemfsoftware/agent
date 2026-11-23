@@ -1,10 +1,10 @@
-import * as Prompt from "effect/ai/Prompt";
-import * as Tool from "effect/ai/Tool";
-import * as Schema from "effect/Schema";
+import * as Prompt from 'effect/ai/Prompt'
+import * as Tool from 'effect/ai/Tool'
+import * as Schema from 'effect/Schema'
 
-import type * as Agent from "../../core/Agent.ts";
+import type * as Agent from '../../core/Agent.ts'
 
-const outputFormatAnnotation = "@effect-agent/engine/Output/format";
+const outputFormatAnnotation = '@effect-agent/engine/Output/format'
 
 /**
  * Declare ordinary assistant text as an Agent's final-output wire format. Apply this to the
@@ -20,10 +20,10 @@ const outputFormatAnnotation = "@effect-agent/engine/Output/format";
  */
 export const textOutput = <S extends Schema.Top & { readonly Encoded: string }>(
   schema: S,
-): S["Rebuild"] => schema.annotate({ [outputFormatAnnotation]: "text" });
+): S['Rebuild'] => schema.annotate({ [outputFormatAnnotation]: 'text' })
 
 export const isTextOutput = (schema: Schema.Top): boolean =>
-  Schema.resolveAnnotations(schema)?.[outputFormatAnnotation] === "text";
+  Schema.resolveAnnotations(schema)?.[outputFormatAnnotation] === 'text'
 
 /**
  * Model-visible final-output contract (RUN-028).
@@ -42,32 +42,31 @@ export const isTextOutput = (schema: Schema.Top): boolean =>
  * at model-request materialization (after context preparation) and never
  * into official history, so canonical records, run events, and the committed
  * DN/DC golden are unchanged.
- *
  */
 
 /** Rendering outcome for one definition's output Schema. */
 type OutputContract =
   | {
-      readonly _tag: "rendered";
-      /** The complete system-message text: directive plus the derived JSON Schema. */
-      readonly message: string;
-      readonly part: Prompt.SystemMessage;
-    }
+    readonly _tag: 'rendered'
+    /** The complete system-message text: directive plus the derived JSON Schema. */
+    readonly message: string
+    readonly part: Prompt.SystemMessage
+  }
   | {
-      readonly _tag: "unrenderable";
-      /** Why Effect AI's JSON-Schema derivation rejected the output Schema. */
-      readonly reason: string;
-    };
+    readonly _tag: 'unrenderable'
+    /** Why Effect AI's JSON-Schema derivation rejected the output Schema. */
+    readonly reason: string
+  }
 
 const contractDirective =
-  "Final output contract: when the task is complete, the final assistant message must be only " +
-  "JSON that is valid against this JSON Schema — no prose, no Markdown code fences, nothing " +
-  "before or after the JSON.";
+  'Final output contract: when the task is complete, the final assistant message must be only ' +
+  'JSON that is valid against this JSON Schema — no prose, no Markdown code fences, nothing ' +
+  'before or after the JSON.'
 
 const requiredCompletionDirective = (tool: string): string =>
   `Final output contract: complete only by calling the required completion Tool ${JSON.stringify(tool)} ` +
-  "as the sole application Tool Call in its batch. Completed provider Tool results may accompany it. Do not emit an ordinary final assistant text answer. " +
-  "The Tool's canonical parameters and successful result are projected and validated as the Agent output.";
+  'as the sole application Tool Call in its batch. Completed provider Tool results may accompany it. Do not emit an ordinary final assistant text answer. ' +
+  "The Tool's canonical parameters and successful result are projected and validated as the Agent output."
 
 /**
  * Render the model-visible final-output contract for one definition. The
@@ -78,49 +77,49 @@ const requiredCompletionDirective = (tool: string): string =>
  * a new failure mode.
  */
 const rendered = (message: string): OutputContract => ({
-  _tag: "rendered",
+  _tag: 'rendered',
   message,
-  part: Prompt.makeMessage("system", { content: message }),
-});
+  part: Prompt.makeMessage('system', { content: message }),
+})
 
 const renderOutputSchemaContract = (definition: Agent.AnyDefinition): OutputContract => {
   if (definition.completion !== undefined) {
-    return rendered(requiredCompletionDirective(definition.completion.tool));
+    return rendered(requiredCompletionDirective(definition.completion.tool))
   }
   if (isTextOutput(definition.output)) {
     return rendered(
-      "Final output contract: write the final reply as ordinary assistant text, without JSON wrapping. " +
-        "An empty reply is valid only when allowed by the output Schema and the task instructions.",
-    );
+      'Final output contract: write the final reply as ordinary assistant text, without JSON wrapping. ' +
+        'An empty reply is valid only when allowed by the output Schema and the task instructions.',
+    )
   }
   try {
-    const jsonSchema = Tool.getJsonSchemaFromSchema(definition.output);
+    const jsonSchema = Tool.getJsonSchemaFromSchema(definition.output)
 
-    return rendered(`${contractDirective}\n\n${JSON.stringify(jsonSchema, undefined, 2)}`);
+    return rendered(`${contractDirective}\n\n${JSON.stringify(jsonSchema, undefined, 2)}`)
   } catch (cause) {
     return {
-      _tag: "unrenderable",
+      _tag: 'unrenderable',
       reason: cause instanceof Error ? cause.message : String(cause),
-    };
+    }
   }
-};
+}
 
 // Native incremental-response tracking recognizes message objects, not rendered text.
 // Weak keys retain neither discarded definitions nor their Schema graphs.
-const outputContracts = new WeakMap<Agent.AnyDefinition, OutputContract>();
+const outputContracts = new WeakMap<Agent.AnyDefinition, OutputContract>()
 
 export const outputSchemaContract = (definition: Agent.AnyDefinition): OutputContract => {
-  const cached = outputContracts.get(definition);
+  const cached = outputContracts.get(definition)
 
-  if (cached !== undefined) return cached;
-  const contract = renderOutputSchemaContract(definition);
+  if (cached !== undefined) return cached
+  const contract = renderOutputSchemaContract(definition)
 
-  outputContracts.set(definition, contract);
+  outputContracts.set(definition, contract)
 
-  return contract;
-};
+  return contract
+}
 
-const sameSystemMessage = Schema.toEquivalence(Prompt.SystemMessage);
+const sameSystemMessage = Schema.toEquivalence(Prompt.SystemMessage)
 
 /**
  * Keep supported system instructions in conversation order so changing late guidance
@@ -143,84 +142,85 @@ export const prepareModelPrompt = (
   staticInstructions: Prompt.RawInput | undefined,
 ): Prompt.Prompt => {
   if (systemMessagesInHistory) {
-    const content: Array<Prompt.Message> = [];
-    let pendingContract = contract;
-    let lastSystem: Prompt.SystemMessage | undefined;
-    let ordered = prompt.content;
+    const content: Array<Prompt.Message> = []
+    let pendingContract = contract
+    let lastSystem: Prompt.SystemMessage | undefined
+    let ordered = prompt.content
 
     if (staticInstructions !== undefined) {
-      const firstConversation = prompt.content.findIndex((message) => message.role !== "system");
+      const firstConversation = prompt.content.findIndex((message) => message.role !== 'system')
 
       const leading = prompt.content.slice(
         0,
         firstConversation === -1 ? prompt.content.length : firstConversation,
-      );
+      )
 
-      const restored: Array<Prompt.Message> = [];
+      const restored: Array<Prompt.Message> = []
 
-      const instructions =
-        typeof staticInstructions === "string"
-          ? [Prompt.systemMessage({ content: staticInstructions })]
-          : Prompt.make(staticInstructions).content;
+      const instructions = typeof staticInstructions === 'string'
+        ? [Prompt.systemMessage({ content: staticInstructions })]
+        : Prompt.make(staticInstructions).content
 
       for (const message of instructions) {
-        if (message.role !== "system") break;
+        if (message.role !== 'system') break
         if (
           leading.some(
-            (candidate) => candidate.role === "system" && sameSystemMessage(candidate, message),
+            (candidate) => candidate.role === 'system' && sameSystemMessage(candidate, message),
           )
-        )
-          break;
+        ) {
+          break
+        }
 
         const original = prompt.content.find(
-          (candidate) => candidate.role === "system" && sameSystemMessage(candidate, message),
-        );
+          (candidate) => candidate.role === 'system' && sameSystemMessage(candidate, message),
+        )
 
-        if (original === undefined) break;
-        restored.push(original);
+        if (original === undefined) break
+        restored.push(original)
       }
-      if (restored.length > 0)
-        ordered = [...leading, ...restored, ...prompt.content.slice(leading.length)];
+      if (restored.length > 0) {
+        ordered = [...leading, ...restored, ...prompt.content.slice(leading.length)]
+      }
     }
 
     for (const message of ordered) {
-      if (message.role === "system") {
-        if (lastSystem !== undefined && sameSystemMessage(lastSystem, message)) continue;
-        lastSystem = message;
+      if (message.role === 'system') {
+        if (lastSystem !== undefined && sameSystemMessage(lastSystem, message)) continue
+        lastSystem = message
       }
-      if (message.role !== "system" && pendingContract !== undefined) {
-        content.push(pendingContract);
-        pendingContract = undefined;
+      if (message.role !== 'system' && pendingContract !== undefined) {
+        content.push(pendingContract)
+        pendingContract = undefined
       }
-      content.push(message);
+      content.push(message)
     }
-    if (pendingContract !== undefined) content.push(pendingContract);
+    if (pendingContract !== undefined) content.push(pendingContract)
 
-    return Prompt.fromMessages(content);
+    return Prompt.fromMessages(content)
   }
 
-  const systems: Array<Prompt.SystemMessage> = [];
-  const seen = new Map<string, Array<Prompt.SystemMessage>>();
+  const systems: Array<Prompt.SystemMessage> = []
+  const seen = new Map<string, Array<Prompt.SystemMessage>>()
 
   for (let index = prompt.content.length - 1; index >= 0; index -= 1) {
-    const message = prompt.content[index];
+    const message = prompt.content[index]
 
-    if (message === undefined) continue;
-    if (message.role !== "system") continue;
-    const variants = seen.get(message.content);
+    if (message === undefined) continue
+    if (message.role !== 'system') continue
+    const variants = seen.get(message.content)
 
-    if (variants?.some((previous) => sameSystemMessage(previous, message))) continue;
-    if (variants === undefined) seen.set(message.content, [message]);
-    else variants.push(message);
-    systems.push(message);
+    if (variants?.some((previous) => sameSystemMessage(previous, message))) continue
+    if (variants === undefined) seen.set(message.content, [message])
+    else variants.push(message)
+    systems.push(message)
   }
 
-  const content: Array<Prompt.Message> = systems.reverse();
+  const content: Array<Prompt.Message> = systems.reverse()
 
-  if (contract !== undefined) content.push(contract);
+  if (contract !== undefined) content.push(contract)
   for (const message of prompt.content) {
-    if (message !== undefined && message.role !== "system") content.push(message);
+    if (message !== undefined && message.role !== 'system') content.push(message)
   }
 
-  return Prompt.fromMessages(content);
-};
+  return Prompt.fromMessages(content)
+}

@@ -1,33 +1,33 @@
-import * as Schema from "effect/Schema";
+import * as Schema from 'effect/Schema'
 
-import * as FailureDiagnostic from "./FailureDiagnostic.ts";
-import { ToolCallId } from "./Identifiers.ts";
+import * as FailureDiagnostic from './FailureDiagnostic.ts'
+import { ToolCallId } from './Identifiers.ts'
 
 /** Input projection, encoding, or host preparation failed during a Run. */
-export class AgentInputError extends Schema.TaggedError<AgentInputError>()("AgentInputError", {
+export class AgentInputError extends Schema.TaggedError<AgentInputError>()('AgentInputError', {
   message: Schema.String,
 }) {}
 
 /** The current Definition's input Schema cannot interpret this input. */
 export class AgentInputDecodeError extends Schema.TaggedError<AgentInputDecodeError>()(
-  "AgentInputDecodeError",
+  'AgentInputDecodeError',
   { message: Schema.String },
 ) {}
 
 /** A dispatch or local result exceeds canonical capacity; retain room for a bounded failure. */
 export class AgentPersistenceCapacityError extends Schema.TaggedError<AgentPersistenceCapacityError>()(
-  "AgentPersistenceCapacityError",
+  'AgentPersistenceCapacityError',
   { message: Schema.String.check(Schema.isMaxLength(4_096)) },
 ) {}
 
 /** Final model output failed to decode through the agent definition's output Schema. */
-export class AgentOutputError extends Schema.TaggedError<AgentOutputError>()("AgentOutputError", {
+export class AgentOutputError extends Schema.TaggedError<AgentOutputError>()('AgentOutputError', {
   message: Schema.String,
 }) {}
 
 /** An application-selected run disposition failed its definition-owned Schema boundary. */
 export class AgentRunDispositionError extends Schema.TaggedError<AgentRunDispositionError>()(
-  "AgentRunDispositionError",
+  'AgentRunDispositionError',
   {
     cause: Schema.Defect(),
     message: Schema.String,
@@ -36,29 +36,29 @@ export class AgentRunDispositionError extends Schema.TaggedError<AgentRunDisposi
 
 /** The finite policy dimension a run exhausted; shared with durable settlement metadata. */
 export const PolicyLimit = Schema.Literals([
-  "turns",
-  "tool-calls",
-  "duration",
-  "usage",
-  "tokens",
-  "cost",
-  "repeated-failures",
-]);
+  'turns',
+  'tool-calls',
+  'duration',
+  'usage',
+  'tokens',
+  'cost',
+  'repeated-failures',
+])
 
-export type PolicyLimit = typeof PolicyLimit.Type;
+export type PolicyLimit = typeof PolicyLimit.Type
 
 /** A run exhausted one of its finite policy limits. */
-export class AgentPolicyError extends Schema.TaggedError<AgentPolicyError>()("AgentPolicyError", {
+export class AgentPolicyError extends Schema.TaggedError<AgentPolicyError>()('AgentPolicyError', {
   limit: PolicyLimit,
   message: Schema.String,
 }) {
   /** Prior failed completion when exhaustion prevents correction; private, excluded from JSON. */
-  declare readonly cause?: unknown;
+  declare readonly cause?: unknown
 }
 
 /** A native Effect AI Tool approval was explicitly denied before its Handler started. */
 export class AgentApprovalDenied extends Schema.TaggedError<AgentApprovalDenied>()(
-  "AgentApprovalDenied",
+  'AgentApprovalDenied',
   {
     toolCallId: ToolCallId,
     toolName: Schema.NonEmptyString,
@@ -67,20 +67,20 @@ export class AgentApprovalDenied extends Schema.TaggedError<AgentApprovalDenied>
 ) {
   /** Decode the native Effect AI Tool Call ID at the core error boundary. */
   static override make(input: {
-    readonly toolCallId: string;
-    readonly toolName: string;
-    readonly message: string;
+    readonly toolCallId: string
+    readonly toolName: string
+    readonly message: string
   }): AgentApprovalDenied {
     return super.make({
       ...input,
       toolCallId: Schema.decodeSync(ToolCallId)(input.toolCallId),
-    });
+    })
   }
 }
 
 /** A host denied current execution authority for a Tool Call before its Handler started. */
 export class AgentToolAuthorizationDenied extends Schema.TaggedError<AgentToolAuthorizationDenied>()(
-  "AgentToolAuthorizationDenied",
+  'AgentToolAuthorizationDenied',
   {
     toolCallId: ToolCallId,
     toolName: Schema.NonEmptyString,
@@ -93,7 +93,7 @@ export class AgentToolAuthorizationDenied extends Schema.TaggedError<AgentToolAu
 
 /** The host could not complete its authority check; this is not a policy denial. */
 export class AgentToolAuthorizationCheckError extends Schema.TaggedError<AgentToolAuthorizationCheckError>()(
-  "AgentToolAuthorizationCheckError",
+  'AgentToolAuthorizationCheckError',
   {
     toolCallId: ToolCallId,
     toolName: Schema.NonEmptyString,
@@ -108,7 +108,7 @@ export class AgentToolAuthorizationCheckError extends Schema.TaggedError<AgentTo
 
 /** A native Effect AI Tool approval has no decision and the ephemeral Run cannot proceed. */
 export class AgentApprovalPending extends Schema.TaggedError<AgentApprovalPending>()(
-  "AgentApprovalPending",
+  'AgentApprovalPending',
   {
     approvalId: Schema.NonEmptyString,
     toolCallId: ToolCallId,
@@ -118,28 +118,28 @@ export class AgentApprovalPending extends Schema.TaggedError<AgentApprovalPendin
 ) {
   /** Decode the native Effect AI Tool Call ID at the core error boundary. */
   static override make(input: {
-    readonly approvalId: string;
-    readonly toolCallId: string;
-    readonly toolName: string;
-    readonly message: string;
+    readonly approvalId: string
+    readonly toolCallId: string
+    readonly toolName: string
+    readonly message: string
   }): AgentApprovalPending {
     return super.make({
       ...input,
       toolCallId: Schema.decodeSync(ToolCallId)(input.toolCallId),
-    });
+    })
   }
 }
 
 /** A model response sequence violated an agent-loop protocol invariant. */
 export class ModelProtocolError extends Schema.TaggedError<ModelProtocolError>()(
-  "ModelProtocolError",
+  'ModelProtocolError',
   {
     message: Schema.String,
   },
 ) {}
 
 /** A run was interrupted without manufacturing a successful result. */
-export class AgentInterrupted extends Schema.TaggedError<AgentInterrupted>()("AgentInterrupted", {
+export class AgentInterrupted extends Schema.TaggedError<AgentInterrupted>()('AgentInterrupted', {
   message: Schema.String,
 }) {}
 
@@ -150,7 +150,7 @@ export class AgentInterrupted extends Schema.TaggedError<AgentInterrupted>()("Ag
  * surfacing an opaque transport failure.
  */
 export class ContextOverflowError extends Schema.TaggedError<ContextOverflowError>()(
-  "ContextOverflowError",
+  'ContextOverflowError',
   {
     message: Schema.String,
     retried: Schema.Boolean,
@@ -159,7 +159,7 @@ export class ContextOverflowError extends Schema.TaggedError<ContextOverflowErro
 
 /** Local context preparation could not fit a legal prompt inside its target before provider I/O. */
 export class ContextBudgetError extends Schema.TaggedError<ContextBudgetError>()(
-  "ContextBudgetError",
+  'ContextBudgetError',
   {
     message: Schema.String,
     estimatedTokens: Schema.Natural,
@@ -184,6 +184,6 @@ export const AgentError = Schema.Union([
   AgentInterrupted,
   ContextOverflowError,
   ContextBudgetError,
-]);
+])
 
-export type AgentError = typeof AgentError.Type;
+export type AgentError = typeof AgentError.Type

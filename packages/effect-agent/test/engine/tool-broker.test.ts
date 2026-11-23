@@ -1,69 +1,65 @@
-import { expect, layer } from "@effect/vitest";
-import * as Agent from "@yielded/agent/agent";
-import { AgentPolicy } from "@yielded/agent/agent-policy";
-import { IdGenerator } from "@yielded/agent/id-generator";
-import { ThreadId, RunId, TurnId } from "@yielded/agent/identifiers";
-import { RunToolAuthorization, type RunToolAuthorizationRequest } from "@yielded/agent/run-options";
-import {
-  ToolBroker,
-  type ToolBrokerPass,
-  type ToolBrokerPassOptions,
-} from "@yielded/agent/tool-broker";
-import * as LanguageModel from "effect/ai/LanguageModel";
-import * as Model from "effect/ai/Model";
-import type * as Response from "effect/ai/Response";
-import * as Tool from "effect/ai/Tool";
-import * as Toolkit from "effect/ai/Toolkit";
-import * as Cause from "effect/Cause";
-import * as Deferred from "effect/Deferred";
-import * as Effect from "effect/Effect";
-import * as Exit from "effect/Exit";
-import * as Fiber from "effect/Fiber";
-import * as Layer from "effect/Layer";
-import * as Ref from "effect/Ref";
-import * as Schema from "effect/Schema";
-import * as Stream from "effect/Stream";
+import { expect, layer } from '@effect/vitest'
+import * as Agent from '@yielded/agent/agent'
+import { AgentPolicy } from '@yielded/agent/agent-policy'
+import { IdGenerator } from '@yielded/agent/id-generator'
+import { RunId, ThreadId, TurnId } from '@yielded/agent/identifiers'
+import { RunToolAuthorization, type RunToolAuthorizationRequest } from '@yielded/agent/run-options'
+import { ToolBroker, type ToolBrokerPass, type ToolBrokerPassOptions } from '@yielded/agent/tool-broker'
+import * as LanguageModel from 'effect/ai/LanguageModel'
+import * as Model from 'effect/ai/Model'
+import type * as Response from 'effect/ai/Response'
+import * as Tool from 'effect/ai/Tool'
+import * as Toolkit from 'effect/ai/Toolkit'
+import * as Cause from 'effect/Cause'
+import * as Deferred from 'effect/Deferred'
+import * as Effect from 'effect/Effect'
+import * as Exit from 'effect/Exit'
+import * as Fiber from 'effect/Fiber'
+import * as Layer from 'effect/Layer'
+import * as Ref from 'effect/Ref'
+import * as Schema from 'effect/Schema'
+import * as Stream from 'effect/Stream'
 
-import * as AgentRuntime from "../../src/engine/internal/agent-runtime.ts";
-import type { InterpreterOptions as RunOptions } from "../../src/engine/internal/interpreter-options.ts";
-import { RunContextPreparationPassthrough } from "../../src/engine/RunOptions.ts";
-import { ThreadHistory } from "../../src/engine/ThreadHistory.ts";
+import * as AgentRuntime from '../../src/engine/internal/agent-runtime.ts'
+import type { InterpreterOptions as RunOptions } from '../../src/engine/internal/interpreter-options.ts'
+import { RunContextPreparationPassthrough } from '../../src/engine/RunOptions.ts'
+import { ThreadHistory } from '../../src/engine/ThreadHistory.ts'
 
-let threadSequence = 0;
+let threadSequence = 0
 
-class QueryFailure extends Schema.TaggedError<QueryFailure>()("QueryFailure", {
+class QueryFailure extends Schema.TaggedError<QueryFailure>()('QueryFailure', {
   message: Schema.String,
 }) {}
 
 const usage = {
   inputTokens: {},
   outputTokens: {},
-};
+}
 
 const identifiers = Layer.succeed(IdGenerator, {
   nextThreadId: Effect.suspend(() =>
-    Schema.decodeEffect(ThreadId)(`thread-broker-${++threadSequence}`).pipe(Effect.orDie),
+    Schema.decodeEffect(ThreadId)(`thread-broker-${++threadSequence}`).pipe(Effect.orDie)
   ),
-  nextRunId: Effect.succeed(Schema.decodeSync(RunId)("run-broker")),
-  nextTurnId: Effect.succeed(Schema.decodeSync(TurnId)("turn-broker")),
-});
+  nextRunId: Effect.succeed(Schema.decodeSync(RunId)('run-broker')),
+  nextTurnId: Effect.succeed(Schema.decodeSync(TurnId)('turn-broker')),
+})
 
 const finalParts = (text: string): ReadonlyArray<Response.StreamPartEncoded> => [
-  { type: "text-start", id: "answer" },
-  { type: "text-delta", id: "answer", delta: text },
-  { type: "text-end", id: "answer" },
-  { type: "finish", reason: "stop", usage },
-];
+  { type: 'text-start', id: 'answer' },
+  { type: 'text-delta', id: 'answer', delta: text },
+  { type: 'text-end', id: 'answer' },
+  { type: 'finish', reason: 'stop', usage },
+]
 
 /** Scripted model: one scripted first turn, then a fixed final answer. */
 const scriptedModel = (firstTurn: ReadonlyArray<Response.StreamPartEncoded>, finalText: string) =>
   Model.make(
-    "scripted",
-    "tool-broker",
+    'scripted',
+    'tool-broker',
     Layer.effect(
       LanguageModel.LanguageModel,
-      Effect.gen(function* () {
-        const turn = yield* Ref.make(0);
+      Effect.gen(function*() {
+        const turn = yield* Ref.make(0)
 
         return yield* LanguageModel.make({
           generateText: () => Effect.succeed([]),
@@ -73,45 +69,45 @@ const scriptedModel = (firstTurn: ReadonlyArray<Response.StreamPartEncoded>, fin
                 Effect.map((value) =>
                   Stream.fromIterable<Response.StreamPartEncoded>(
                     value === 0 ? firstTurn : finalParts(finalText),
-                  ),
+                  )
                 ),
               ),
             ),
-        });
+        })
       }),
     ),
-  );
+  )
 
 const policy = (overrides?: Partial<Parameters<typeof AgentPolicy.make>[0]>) =>
   AgentPolicy.make({
     maxTurns: 3,
     maxToolCalls: 8,
-    maxDuration: "30 seconds",
+    maxDuration: '30 seconds',
     toolConcurrency: 2,
     ...overrides,
-  });
+  })
 
-const Query = Tool.make("query", {
+const Query = Tool.make('query', {
   parameters: Schema.Struct({ sql: Schema.String }),
   success: Schema.Struct({ rows: Schema.Array(Schema.Int) }),
   failure: QueryFailure,
-});
+})
 
-const LooseTool = Tool.make("loose", {
+const LooseTool = Tool.make('loose', {
   parameters: Schema.Struct({ key: Schema.String }),
   success: Schema.Any,
-});
+})
 
 const orchestrateCall = (id: string): ReadonlyArray<Response.StreamPartEncoded> => [
   {
-    type: "tool-call",
+    type: 'tool-call',
     id,
-    name: "orchestrate",
-    params: { plan: "run" },
+    name: 'orchestrate',
+    params: { plan: 'run' },
     providerExecuted: false,
   },
-  { type: "finish", reason: "tool-calls", usage },
-];
+  { type: 'finish', reason: 'tool-calls', usage },
+]
 
 /**
  * Build a Run whose single `orchestrate` Tool Call opens one broker pass over
@@ -119,126 +115,125 @@ const orchestrateCall = (id: string): ReadonlyArray<Response.StreamPartEncoded> 
  * outcomes as its Tool success so the test observes exactly what generated
  * code would.
  */
-const runOrchestrated = Effect.fnUntraced(function* <
+const runOrchestrated = Effect.fnUntraced(function*<
   InnerTools extends Record<string, Tool.Any>,
   HookError = never,
   HookRequirements = never,
 >(options: {
-  readonly innerToolkit: Toolkit.Toolkit<InnerTools>;
-  readonly innerHandlers: Layer.Layer<Tool.HandlersFor<InnerTools>, never, never>;
-  readonly program: (pass: ToolBrokerPass) => Effect.Effect<unknown>;
-  readonly passOptions?: ToolBrokerPassOptions;
-  readonly agentPolicy?: AgentPolicy;
-  readonly runOptions?: RunOptions<HookError, HookRequirements>;
+  readonly innerToolkit: Toolkit.Toolkit<InnerTools>
+  readonly innerHandlers: Layer.Layer<Tool.HandlersFor<InnerTools>, never, never>
+  readonly program: (pass: ToolBrokerPass) => Effect.Effect<unknown>
+  readonly passOptions?: ToolBrokerPassOptions
+  readonly agentPolicy?: AgentPolicy
+  readonly runOptions?: RunOptions<HookError, HookRequirements>
 }) {
-  const Orchestrate = Tool.make("orchestrate", {
+  const Orchestrate = Tool.make('orchestrate', {
     parameters: Schema.Struct({ plan: Schema.String }),
     success: Schema.Any,
-  }).addDependency(ToolBroker);
+  }).addDependency(ToolBroker)
 
-  const outerToolkit = Toolkit.make(Orchestrate);
+  const outerToolkit = Toolkit.make(Orchestrate)
 
-  const definition = Agent.make("broker-host", {
+  const definition = Agent.make('broker-host', {
     input: Schema.Struct({ question: Schema.String }),
     output: Schema.Struct({ answer: Schema.String }),
-    instructions: "Orchestrate.",
+    instructions: 'Orchestrate.',
     toolkit: outerToolkit,
     policy: options.agentPolicy ?? policy(),
-  });
+  })
 
-  const model = scriptedModel(orchestrateCall("orchestrate-1"), '{"answer":"done"}');
+  const model = scriptedModel(orchestrateCall('orchestrate-1'), '{"answer":"done"}')
 
   const toolLayer = outerToolkit
     .toLayer(
-      Effect.gen(function* () {
-        const inner = yield* options.innerToolkit;
+      Effect.gen(function*() {
+        const inner = yield* options.innerToolkit
 
-        const schemaServices =
-          yield* Effect.context<Tool.SchemaServices<InnerTools[keyof InnerTools]>>();
+        const schemaServices = yield* Effect.context<Tool.SchemaServices<InnerTools[keyof InnerTools]>>()
 
         return {
-          orchestrate: Effect.fnUntraced(function* () {
-            const broker = yield* ToolBroker;
+          orchestrate: Effect.fnUntraced(function*() {
+            const broker = yield* ToolBroker
 
             // Inside a live Tool batch the broker is always bound; an
             // unavailable broker here is a harness defect, not a test case.
             const pass = yield* broker
               .openPass(inner, options.passOptions ?? { maxResultBytes: 1024 * 1024 })
-              .pipe(Effect.provide(schemaServices), Effect.orDie);
+              .pipe(Effect.provide(schemaServices), Effect.orDie)
 
-            return yield* options.program(pass);
+            return yield* options.program(pass)
           }),
-        };
+        }
       }),
     )
-    .pipe(Layer.provide(options.innerHandlers));
+    .pipe(Layer.provide(options.innerHandlers))
 
   const result = yield* AgentRuntime.run(
     Agent.withModel(definition, model),
-    { question: "go" },
+    { question: 'go' },
     options.runOptions ?? {},
-  ).pipe(Effect.provide(toolLayer), Effect.scoped);
+  ).pipe(Effect.provide(toolLayer), Effect.scoped)
 
-  return result;
-});
+  return result
+})
 
 const testLayer = Layer.mergeAll(
   identifiers,
   ThreadHistory.layer,
   RunContextPreparationPassthrough,
-);
+)
 
-layer(testLayer)("RUN-016 programmatic Tool broker", (it) => {
-  it.effect("serializes cumulative reservations across concurrent outer handlers", () =>
-    Effect.gen(function* () {
-      const Orchestrate = Tool.make("orchestrate", {
+layer(testLayer)('RUN-016 programmatic Tool broker', (it) => {
+  it.effect('serializes cumulative reservations across concurrent outer handlers', () =>
+    Effect.gen(function*() {
+      const Orchestrate = Tool.make('orchestrate', {
         parameters: Schema.Struct({ plan: Schema.String }),
         success: Schema.Unknown,
-      }).addDependency(ToolBroker);
+      }).addDependency(ToolBroker)
 
-      const outer = Toolkit.make(Orchestrate);
-      const inner = Toolkit.make(Query);
-      const bothEntered = yield* Deferred.make<void>();
-      let entered = 0;
-      let activeReservations = 0;
-      let maxActiveReservations = 0;
-      const reservations: Array<number> = [];
-      let handlerStarts = 0;
+      const outer = Toolkit.make(Orchestrate)
+      const inner = Toolkit.make(Query)
+      const bothEntered = yield* Deferred.make<void>()
+      let entered = 0
+      let activeReservations = 0
+      let maxActiveReservations = 0
+      const reservations: Array<number> = []
+      let handlerStarts = 0
 
-      const definition = Agent.make("parallel-reservations", {
+      const definition = Agent.make('parallel-reservations', {
         input: Schema.String,
         output: Schema.String,
-        instructions: "Answer.",
+        instructions: 'Answer.',
         toolkit: outer,
         policy: policy({ maxToolCalls: 4 }),
-      });
+      })
 
       const model = scriptedModel(
-        [...orchestrateCall("outer-1").slice(0, -1), ...orchestrateCall("outer-2")],
+        [...orchestrateCall('outer-1').slice(0, -1), ...orchestrateCall('outer-2')],
         '"done"',
-      );
+      )
 
       const handlers = outer
         .toLayer(
-          Effect.gen(function* () {
-            const toolkit = yield* inner;
+          Effect.gen(function*() {
+            const toolkit = yield* inner
 
             return {
-              orchestrate: Effect.fnUntraced(function* () {
-                entered += 1;
-                if (entered === 2) yield* Deferred.succeed(bothEntered, undefined);
-                const broker = yield* ToolBroker;
+              orchestrate: Effect.fnUntraced(function*() {
+                entered += 1
+                if (entered === 2) yield* Deferred.succeed(bothEntered, undefined)
+                const broker = yield* ToolBroker
 
                 const pass = yield* broker
                   .openPass(toolkit, { maxResultBytes: 1024 })
-                  .pipe(Effect.orDie);
+                  .pipe(Effect.orDie)
 
                 return yield* pass.invoke({
-                  toolName: "query",
-                  encodedArguments: { sql: "select" },
-                });
+                  toolName: 'query',
+                  encodedArguments: { sql: 'select' },
+                })
               }),
-            };
+            }
           }),
         )
         .pipe(
@@ -246,20 +241,20 @@ layer(testLayer)("RUN-016 programmatic Tool broker", (it) => {
             inner.toLayer({
               query: () =>
                 Effect.sync(() => {
-                  handlerStarts += 1;
+                  handlerStarts += 1
 
-                  return { rows: [1] };
+                  return { rows: [1] }
                 }),
             }),
           ),
-        );
+        )
 
-      yield* AgentRuntime.run(Agent.withModel(definition, model), "q", {
+      yield* AgentRuntime.run(Agent.withModel(definition, model), 'q', {
         durability: {
           toolResultMaxBytes: 1024 * 1024,
           checkpoint: Effect.void,
           initialize: () => Effect.void,
-          commitTurn: () => Effect.succeed("committed"),
+          commitTurn: () => Effect.succeed('committed'),
           checkToolDispatch: Effect.void,
           commitCompaction: () => Effect.void,
           noteTurnUsage: () => Effect.void,
@@ -268,36 +263,35 @@ layer(testLayer)("RUN-016 programmatic Tool broker", (it) => {
             reserve: () => Effect.succeed(Effect.void),
             commit: () => Effect.void,
           },
-          reservePolicyUsage: Effect.fnUntraced(function* (usage) {
-            activeReservations += 1;
-            maxActiveReservations = Math.max(maxActiveReservations, activeReservations);
-            yield* Deferred.await(bothEntered);
-            yield* Effect.yieldNow;
-            reservations.push(usage.programmaticToolCalls);
-            activeReservations -= 1;
+          reservePolicyUsage: Effect.fnUntraced(function*(usage) {
+            activeReservations += 1
+            maxActiveReservations = Math.max(maxActiveReservations, activeReservations)
+            yield* Deferred.await(bothEntered)
+            yield* Effect.yieldNow
+            reservations.push(usage.programmaticToolCalls)
+            activeReservations -= 1
           }),
         },
-      }).pipe(Effect.provide(handlers));
-      expect(reservations).toEqual([1, 2]);
-      expect(maxActiveReservations).toBe(1);
-      expect(handlerStarts).toBe(2);
-    }),
-  );
+      }).pipe(Effect.provide(handlers))
+      expect(reservations).toEqual([1, 2])
+      expect(maxActiveReservations).toBe(1)
+      expect(handlerStarts).toBe(2)
+    }))
 
-  it.effect("a reservation interrupted after commit starts no programmatic handler", () =>
-    Effect.gen(function* () {
-      const innerToolkit = Toolkit.make(Query);
-      let starts = 0;
-      let reserved = 0;
+  it.effect('a reservation interrupted after commit starts no programmatic handler', () =>
+    Effect.gen(function*() {
+      const innerToolkit = Toolkit.make(Query)
+      let starts = 0
+      let reserved = 0
 
       const exit = yield* runOrchestrated({
         innerToolkit,
         innerHandlers: innerToolkit.toLayer({
           query: () =>
             Effect.sync(() => {
-              starts += 1;
+              starts += 1
 
-              return { rows: [1] };
+              return { rows: [1] }
             }),
         }),
         runOptions: {
@@ -305,7 +299,7 @@ layer(testLayer)("RUN-016 programmatic Tool broker", (it) => {
             toolResultMaxBytes: 1024 * 1024,
             checkpoint: Effect.void,
             initialize: () => Effect.void,
-            commitTurn: () => Effect.succeed("committed"),
+            commitTurn: () => Effect.succeed('committed'),
             checkToolDispatch: Effect.void,
             commitCompaction: () => Effect.void,
             noteTurnUsage: () => Effect.void,
@@ -316,127 +310,124 @@ layer(testLayer)("RUN-016 programmatic Tool broker", (it) => {
             },
             reservePolicyUsage: (usage) =>
               Effect.sync(() => {
-                reserved = usage.programmaticToolCalls;
+                reserved = usage.programmaticToolCalls
               }).pipe(Effect.andThen(Effect.interrupt)),
           },
         },
-        program: (pass) => pass.invoke({ toolName: "query", encodedArguments: { sql: "never" } }),
-      }).pipe(Effect.exit);
+        program: (pass) => pass.invoke({ toolName: 'query', encodedArguments: { sql: 'never' } }),
+      }).pipe(Effect.exit)
 
-      expect(Exit.isFailure(exit) && Cause.hasInterrupts(exit.cause)).toBe(true);
-      expect(reserved).toBe(1);
-      expect(starts).toBe(0);
-    }),
-  );
+      expect(Exit.isFailure(exit) && Cause.hasInterrupts(exit.cause)).toBe(true)
+      expect(reserved).toBe(1)
+      expect(starts).toBe(0)
+    }))
 
   it.effect("uses the Run's ambient authorization despite an inner policy substitution", () =>
-    Effect.gen(function* () {
-      const innerToolkit = Toolkit.make(Query);
-      const requests: Array<RunToolAuthorizationRequest> = [];
+    Effect.gen(function*() {
+      const innerToolkit = Toolkit.make(Query)
+      const requests: Array<RunToolAuthorizationRequest> = []
 
       yield* runOrchestrated({
         innerToolkit,
-        innerHandlers: innerToolkit.toLayer({ query: () => Effect.die("Denied handler started") }),
+        innerHandlers: innerToolkit.toLayer({ query: () => Effect.die('Denied handler started') }),
         program: (pass) =>
-          pass.invoke({ toolName: "query", encodedArguments: { sql: "denied" } }).pipe(
+          pass.invoke({ toolName: 'query', encodedArguments: { sql: 'denied' } }).pipe(
             Effect.tap((outcome) =>
               Effect.sync(() => {
                 expect(outcome).toMatchObject({
-                  _tag: "ProgrammaticCallError",
-                  errorTag: "ProgrammaticToolAuthorizationDenied",
-                });
-              }),
+                  _tag: 'ProgrammaticCallError',
+                  errorTag: 'ProgrammaticToolAuthorizationDenied',
+                })
+              })
             ),
             Effect.provideService(RunToolAuthorization, {
-              authorize: () => Effect.succeed({ _tag: "allowed" }),
+              authorize: () => Effect.succeed({ _tag: 'allowed' }),
             }),
           ),
       }).pipe(
         Effect.provideService(RunToolAuthorization, {
           authorize: (request) =>
             Effect.sync(() => {
-              requests.push(request);
+              requests.push(request)
 
               return request.programmatic === undefined
-                ? { _tag: "allowed" as const }
-                : { _tag: "denied" as const, reason: "Inner call denied" };
+                ? { _tag: 'allowed' as const }
+                : { _tag: 'denied' as const, reason: 'Inner call denied' }
             }),
         }),
-      );
-      expect(requests.map((request) => request.call.toolName)).toEqual(["orchestrate", "query"]);
-    }),
-  );
+      )
+      expect(requests.map((request) => request.call.toolName)).toEqual(['orchestrate', 'query'])
+    }))
 
-  it.effect("interrupts active and queued calls without starting queued handlers", () =>
-    Effect.gen(function* () {
-      const started = yield* Deferred.make<void>();
-      const innerToolkit = Toolkit.make(Query);
-      let starts = 0;
-      let finalized = 0;
+  it.effect('interrupts active and queued calls without starting queued handlers', () =>
+    Effect.gen(function*() {
+      const started = yield* Deferred.make<void>()
+      const innerToolkit = Toolkit.make(Query)
+      let starts = 0
+      let finalized = 0
 
       yield* runOrchestrated({
         innerToolkit,
         passOptions: { maxResultBytes: 1024, concurrency: 1 },
         innerHandlers: innerToolkit.toLayer({
           query: Effect.fnUntraced(
-            function* () {
-              starts++;
-              yield* Deferred.succeed(started, undefined);
+            function*() {
+              starts++
+              yield* Deferred.succeed(started, undefined)
 
-              return yield* Effect.never;
+              return yield* Effect.never
             },
             (effect) =>
               effect.pipe(
                 Effect.ensuring(
                   Effect.sync(() => {
-                    finalized++;
+                    finalized++
                   }),
                 ),
               ),
           ),
         }),
-        program: Effect.fnUntraced(function* (pass) {
+        program: Effect.fnUntraced(function*(pass) {
           const first = yield* pass
-            .invoke({ toolName: "query", encodedArguments: { sql: "a" } })
-            .pipe(Effect.forkChild);
+            .invoke({ toolName: 'query', encodedArguments: { sql: 'a' } })
+            .pipe(Effect.forkChild)
 
-          yield* Deferred.await(started);
+          yield* Deferred.await(started)
 
           const queued = yield* pass
-            .invoke({ toolName: "query", encodedArguments: { sql: "b" } })
-            .pipe(Effect.forkChild);
+            .invoke({ toolName: 'query', encodedArguments: { sql: 'b' } })
+            .pipe(Effect.forkChild)
 
-          yield* Effect.yieldNow;
-          yield* Fiber.interrupt(queued);
-          yield* Fiber.interrupt(first);
+          yield* Effect.yieldNow
+          yield* Fiber.interrupt(queued)
+          yield* Fiber.interrupt(first)
           expect(yield* pass.snapshot).toEqual([
-            { sequenceIndex: 0, toolName: "query", status: "uncertain" },
-            { sequenceIndex: 1, toolName: "query", status: "not-started" },
-          ]);
+            { sequenceIndex: 0, toolName: 'query', status: 'uncertain' },
+            { sequenceIndex: 1, toolName: 'query', status: 'not-started' },
+          ])
 
-          return null;
+          return null
         }),
-      });
-      expect(starts).toBe(1);
-      expect(finalized).toBe(1);
-    }),
-  );
+      })
+      expect(starts).toBe(1)
+      expect(finalized).toBe(1)
+    }))
 
-  it.effect("owns the redacted JSON result across later mutation", () =>
-    Effect.gen(function* () {
-      const innerToolkit = Toolkit.make(LooseTool);
-      const maxResultBytes = 256;
-      let expanded = false;
-      const retained = { nested: { value: "small" } };
+  it.effect('owns the redacted JSON result across later mutation', () =>
+    Effect.gen(function*() {
+      const innerToolkit = Toolkit.make(LooseTool)
+      const maxResultBytes = 256
+      let expanded = false
+      const retained = { nested: { value: 'small' } }
 
       const dynamic = {
         get value() {
-          return expanded ? "x".repeat(1_048_576) : "small";
+          return expanded ? 'x'.repeat(1_048_576) : 'small'
         },
-      };
+      }
 
-      const values = [dynamic, retained];
-      let nextResult = 0;
+      const values = [dynamic, retained]
+      let nextResult = 0
 
       yield* runOrchestrated({
         innerToolkit,
@@ -447,37 +438,36 @@ layer(testLayer)("RUN-016 programmatic Tool broker", (it) => {
           maxResultBytes,
           redactResult: () => Effect.sync(() => values[nextResult++]),
         },
-        program: Effect.fnUntraced(function* (pass) {
+        program: Effect.fnUntraced(function*(pass) {
           const dynamicOutcome = yield* pass.invoke({
-            toolName: "loose",
-            encodedArguments: { key: "dynamic" },
-          });
+            toolName: 'loose',
+            encodedArguments: { key: 'dynamic' },
+          })
 
           const retainedOutcome = yield* pass.invoke({
-            toolName: "loose",
-            encodedArguments: { key: "retained" },
-          });
+            toolName: 'loose',
+            encodedArguments: { key: 'retained' },
+          })
 
-          expanded = true;
-          retained.nested.value = "x".repeat(1_048_576);
+          expanded = true
+          retained.nested.value = 'x'.repeat(1_048_576)
           for (const outcome of [dynamicOutcome, retainedOutcome]) {
-            expect(outcome._tag).toBe("ProgrammaticCallSuccess");
-            if (outcome._tag !== "ProgrammaticCallSuccess") {
-              throw new Error("Expected a JSON result within the broker limit");
+            expect(outcome._tag).toBe('ProgrammaticCallSuccess')
+            if (outcome._tag !== 'ProgrammaticCallSuccess') {
+              throw new Error('Expected a JSON result within the broker limit')
             }
             // Every character in these fixtures is ASCII, so string length is UTF-8 bytes.
             expect(JSON.stringify(outcome.encodedResult).length).toBeLessThanOrEqual(
               maxResultBytes,
-            );
+            )
           }
-          expect(dynamicOutcome).toMatchObject({ encodedResult: { value: "small" } });
+          expect(dynamicOutcome).toMatchObject({ encodedResult: { value: 'small' } })
           expect(retainedOutcome).toMatchObject({
-            encodedResult: { nested: { value: "small" } },
-          });
+            encodedResult: { nested: { value: 'small' } },
+          })
 
-          return null;
+          return null
         }),
-      });
-    }),
-  );
-});
+      })
+    }))
+})

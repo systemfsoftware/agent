@@ -1,55 +1,55 @@
-import { expect, layer } from "@effect/vitest";
-import * as Agent from "@yielded/agent/agent";
-import { AgentPolicy } from "@yielded/agent/agent-policy";
-import { IdGenerator } from "@yielded/agent/id-generator";
-import { RunId, ThreadId, TurnId } from "@yielded/agent/identifiers";
-import { RunContextPreparationPassthrough, type RunUsageDelta } from "@yielded/agent/run-options";
-import { ThreadHistory } from "@yielded/agent/thread-history";
-import * as LanguageModel from "effect/ai/LanguageModel";
-import * as Model from "effect/ai/Model";
-import type * as Prompt from "effect/ai/Prompt";
-import type * as Response from "effect/ai/Response";
-import * as Tool from "effect/ai/Tool";
-import * as Toolkit from "effect/ai/Toolkit";
-import * as Cause from "effect/Cause";
-import * as Effect from "effect/Effect";
-import * as Exit from "effect/Exit";
-import * as Layer from "effect/Layer";
-import * as Schema from "effect/Schema";
-import * as Stream from "effect/Stream";
+import { expect, layer } from '@effect/vitest'
+import * as Agent from '@yielded/agent/agent'
+import { AgentPolicy } from '@yielded/agent/agent-policy'
+import { IdGenerator } from '@yielded/agent/id-generator'
+import { RunId, ThreadId, TurnId } from '@yielded/agent/identifiers'
+import { RunContextPreparationPassthrough, type RunUsageDelta } from '@yielded/agent/run-options'
+import { ThreadHistory } from '@yielded/agent/thread-history'
+import * as LanguageModel from 'effect/ai/LanguageModel'
+import * as Model from 'effect/ai/Model'
+import type * as Prompt from 'effect/ai/Prompt'
+import type * as Response from 'effect/ai/Response'
+import * as Tool from 'effect/ai/Tool'
+import * as Toolkit from 'effect/ai/Toolkit'
+import * as Cause from 'effect/Cause'
+import * as Effect from 'effect/Effect'
+import * as Exit from 'effect/Exit'
+import * as Layer from 'effect/Layer'
+import * as Schema from 'effect/Schema'
+import * as Stream from 'effect/Stream'
 
-import * as AgentRuntime from "../../src/engine/internal/agent-runtime.ts";
+import * as AgentRuntime from '../../src/engine/internal/agent-runtime.ts'
 
-let threadSequence = 0;
+let threadSequence = 0
 
 const tools = Toolkit.make(
-  Tool.make("search", {
+  Tool.make('search', {
     parameters: Schema.Struct({ query: Schema.String }),
     success: Schema.String,
   }),
-  Tool.make("complete", {
+  Tool.make('complete', {
     parameters: Schema.Struct({ answer: Schema.String }),
     success: Schema.String,
   }),
-);
+)
 
 const definition = () =>
-  Agent.make("completion-correction", {
+  Agent.make('completion-correction', {
     input: Schema.String,
     output: Schema.String,
-    instructions: "Research before completing.",
+    instructions: 'Research before completing.',
     toolkit: tools,
     completion: {
-      tool: "complete",
+      tool: 'complete',
       project: ({ result }) => result,
     },
     policy: {
       maxTurns: 5,
       maxToolCalls: 10,
-      maxDuration: "30 seconds",
+      maxDuration: '30 seconds',
       toolConcurrency: 2,
     },
-  });
+  })
 
 const call = (
   id: string,
@@ -57,50 +57,50 @@ const call = (
   params: Schema.Json,
   providerExecuted = false,
 ): Response.StreamPartEncoded => ({
-  type: "tool-call",
+  type: 'tool-call',
   id,
   name,
   params,
   providerExecuted,
-});
+})
 
 const finish: Response.StreamPartEncoded = {
-  type: "finish",
-  reason: "tool-calls",
+  type: 'finish',
+  reason: 'tool-calls',
   usage: { inputTokens: { total: 10 }, outputTokens: { total: 5 } },
-};
+}
 
 const mixed = [
-  call("premature", "complete", { answer: "unresearched" }),
-  call("rejected-search", "search", { query: "Tahoe" }),
+  call('premature', 'complete', { answer: 'unresearched' }),
+  call('rejected-search', 'search', { query: 'Tahoe' }),
   finish,
-];
+]
 
-const complete = [call("final", "complete", { answer: "researched" }), finish];
+const complete = [call('final', 'complete', { answer: 'researched' }), finish]
 
 const scriptedModel = (responses: ReadonlyArray<ReadonlyArray<Response.StreamPartEncoded>>) => {
-  const prompts: Array<Prompt.Prompt> = [];
+  const prompts: Array<Prompt.Prompt> = []
 
   const model = Model.make(
-    "scripted",
-    "completion-correction",
+    'scripted',
+    'completion-correction',
     Layer.effect(
       LanguageModel.LanguageModel,
       LanguageModel.make({
         generateText: () => Effect.succeed([]),
         streamText: (request) => {
-          const index = prompts.length;
+          const index = prompts.length
 
-          prompts.push(request.prompt);
+          prompts.push(request.prompt)
 
-          return Stream.fromIterable(responses[Math.min(index, responses.length - 1)] ?? []);
+          return Stream.fromIterable(responses[Math.min(index, responses.length - 1)] ?? [])
         },
       }),
     ),
-  );
+  )
 
-  return { model, prompts };
-};
+  return { model, prompts }
+}
 
 const resumeUsage = {
   modelCalls: 1,
@@ -114,65 +114,65 @@ const resumeUsage = {
   programmaticToolCalls: 0,
   consecutiveToolFailures: 0,
   finalizationUsed: false,
-};
+}
 
 const identifiers = Layer.succeed(IdGenerator, {
   nextThreadId: Effect.sync(() => ThreadId.make(`correction-thread-${++threadSequence}`)),
-  nextRunId: Effect.succeed(RunId.make("correction-run")),
-  nextTurnId: Effect.succeed(TurnId.make("correction-turn")),
-});
+  nextRunId: Effect.succeed(RunId.make('correction-run')),
+  nextTurnId: Effect.succeed(TurnId.make('correction-turn')),
+})
 
 layer(Layer.mergeAll(identifiers, ThreadHistory.layer, RunContextPreparationPassthrough))(
-  "mixed completion correction",
+  'mixed completion correction',
   (it) => {
     {
-      it.effect("required completion corrects before any handler starts through the stream", () =>
-        Effect.gen(function* () {
+      it.effect('required completion corrects before any handler starts through the stream', () =>
+        Effect.gen(function*() {
           const { model, prompts } = scriptedModel([
             mixed,
             [
-              call("research-1", "search", { query: "Tahoe" }),
-              call("research-2", "search", { query: "dates" }),
+              call('research-1', 'search', { query: 'Tahoe' }),
+              call('research-2', 'search', { query: 'dates' }),
               finish,
             ],
             complete,
-          ]);
+          ])
 
-          const starts: Array<string> = [];
-          const usage: Array<RunUsageDelta> = [];
-          const agent = Agent.withModel(definition(), model);
+          const starts: Array<string> = []
+          const usage: Array<RunUsageDelta> = []
+          const agent = Agent.withModel(definition(), model)
 
           const options = {
             budget: {
               guard: <A, E, R>(effect: Effect.Effect<A, E, R>) => effect,
               consume: (delta: RunUsageDelta) =>
                 Effect.sync(() => {
-                  usage.push(delta);
+                  usage.push(delta)
                 }),
             },
-          };
+          }
 
           const handlers = tools.toLayer({
             search: ({ query }) =>
               Effect.sync(() => {
-                starts.push(query);
+                starts.push(query)
 
-                return `found ${query}`;
+                return `found ${query}`
               }),
             complete: ({ answer }) =>
               Effect.sync(() => {
-                starts.push(answer);
+                starts.push(answer)
 
-                return answer;
+                return answer
               }),
-          });
+          })
 
-          const events = yield* AgentRuntime.stream(agent, "travel", options).pipe(
+          const events = yield* AgentRuntime.stream(agent, 'travel', options).pipe(
             Stream.runCollect,
             Effect.provide(handlers),
-          );
+          )
 
-          const failures = events.filter((event) => event._tag === "ToolCallFailed");
+          const failures = events.filter((event) => event._tag === 'ToolCallFailed')
 
           expect(
             failures.map(({ toolCallId, toolName, errorTag, budgetRejected }) => ({
@@ -183,53 +183,51 @@ layer(Layer.mergeAll(identifiers, ThreadHistory.layer, RunContextPreparationPass
             })),
           ).toEqual([
             {
-              toolCallId: "premature",
-              toolName: "complete",
-              errorTag: "ModelProtocolError",
+              toolCallId: 'premature',
+              toolName: 'complete',
+              errorTag: 'ModelProtocolError',
               budgetRejected: undefined,
             },
             {
-              toolCallId: "rejected-search",
-              toolName: "search",
-              errorTag: "ModelProtocolError",
+              toolCallId: 'rejected-search',
+              toolName: 'search',
+              errorTag: 'ModelProtocolError',
               budgetRejected: undefined,
             },
-          ]);
+          ])
           expect(
             events
-              .filter((event) => event._tag === "ToolCallStarted")
+              .filter((event) => event._tag === 'ToolCallStarted')
               .map((event) => event.toolCallId),
-          ).toEqual(["research-1", "research-2", "final"]);
+          ).toEqual(['research-1', 'research-2', 'final'])
           expect(events.at(-1)).toMatchObject({
-            _tag: "RunCompleted",
-            output: "researched",
+            _tag: 'RunCompleted',
+            output: 'researched',
             turns: 3,
-          });
+          })
 
-          expect(starts).toEqual(["Tahoe", "dates", "researched"]);
-          expect(prompts).toHaveLength(3);
+          expect(starts).toEqual(['Tahoe', 'dates', 'researched'])
+          expect(prompts).toHaveLength(3)
 
-          const results = prompts[1]?.content.flatMap((message) =>
-            message.role === "tool" ? message.content : [],
-          );
+          const results = prompts[1]?.content.flatMap((message) => message.role === 'tool' ? message.content : [])
 
           expect(results).toMatchObject([
             {
-              id: "premature",
-              name: "complete",
+              id: 'premature',
+              name: 'complete',
               isFailure: true,
               result: {
-                _tag: "ModelProtocolError",
-                message: expect.stringContaining("none of its tools ran"),
+                _tag: 'ModelProtocolError',
+                message: expect.stringContaining('none of its tools ran'),
               },
             },
             {
-              id: "rejected-search",
-              name: "search",
+              id: 'rejected-search',
+              name: 'search',
               isFailure: true,
-              result: { _tag: "ModelProtocolError" },
+              result: { _tag: 'ModelProtocolError' },
             },
-          ]);
+          ])
           expect(
             usage
               .filter((delta) => delta.modelCalls > 0)
@@ -238,93 +236,91 @@ layer(Layer.mergeAll(identifiers, ThreadHistory.layer, RunContextPreparationPass
             [2, 10, 5],
             [2, 10, 5],
             [1, 10, 5],
-          ]);
-        }),
-      );
+          ])
+        }))
     }
 
-    it.effect("runs beyond default count ceilings with JSON-round-tripped unbounded policy", () =>
-      Effect.gen(function* () {
-        const policy = AgentPolicy.resolve({ maxTurns: null, maxToolCalls: null });
+    it.effect('runs beyond default count ceilings with JSON-round-tripped unbounded policy', () =>
+      Effect.gen(function*() {
+        const policy = AgentPolicy.resolve({ maxTurns: null, maxToolCalls: null })
 
         const encoded = yield* Schema.encodeEffect(Schema.toCodecJson(AgentPolicy))(policy).pipe(
           Effect.orDie,
-        );
+        )
 
         const restored = yield* Schema.decodeEffect(Schema.toCodecJson(AgentPolicy))(encoded).pipe(
           Effect.orDie,
-        );
+        )
 
-        expect(encoded).toMatchObject({ maxTurns: null, maxToolCalls: null });
+        expect(encoded).toMatchObject({ maxTurns: null, maxToolCalls: null })
 
         const { model, prompts } = scriptedModel([
           ...Array.from({ length: 13 }, (_, index) => [
-            call(`search-${index}`, "search", { query: "source" }),
-            call(`extra-${index}`, "search", { query: "more" }),
+            call(`search-${index}`, 'search', { query: 'source' }),
+            call(`extra-${index}`, 'search', { query: 'more' }),
             finish,
           ]),
           complete,
-        ]);
+        ])
 
         const agent = Agent.withModel(
-          Agent.make("unbounded-completion", {
+          Agent.make('unbounded-completion', {
             input: Schema.String,
             output: Schema.String,
-            instructions: "Research before completing.",
+            instructions: 'Research before completing.',
             toolkit: tools,
-            completion: { tool: "complete", project: ({ result }) => result },
+            completion: { tool: 'complete', project: ({ result }) => result },
             policy: restored,
           }),
           model,
-        );
+        )
 
-        const result = yield* AgentRuntime.run(agent, "go").pipe(
+        const result = yield* AgentRuntime.run(agent, 'go').pipe(
           Effect.provide(
             tools.toLayer({
               search: ({ query }) => Effect.succeed(query),
               complete: ({ answer }) => Effect.succeed(answer),
             }),
           ),
-        );
+        )
 
-        expect(result.output).toBe("researched");
-        expect(prompts).toHaveLength(14);
-      }),
-    );
+        expect(result.output).toBe('researched')
+        expect(prompts).toHaveLength(14)
+      }))
 
-    it.effect("refuses a canonically declared mixed resume with a settled call", () =>
-      Effect.gen(function* () {
-        const { model, prompts } = scriptedModel([complete]);
+    it.effect('refuses a canonically declared mixed resume with a settled call', () =>
+      Effect.gen(function*() {
+        const { model, prompts } = scriptedModel([complete])
 
-        const exit = yield* AgentRuntime.run(Agent.withModel(definition(), model), "travel", {
+        const exit = yield* AgentRuntime.run(Agent.withModel(definition(), model), 'travel', {
           resumeUsage,
           resume: {
             turn: 1,
-            turnId: TurnId.make("resumed"),
+            turnId: TurnId.make('resumed'),
             calls: [
-              { id: "premature", name: "complete", params: { answer: "unresearched" } },
-              { id: "search", name: "search", params: { query: "Tahoe" } },
+              { id: 'premature', name: 'complete', params: { answer: 'unresearched' } },
+              { id: 'search', name: 'search', params: { query: 'Tahoe' } },
             ],
-            settled: [{ id: "search", result: "already happened", isFailure: false }],
+            settled: [{ id: 'search', result: 'already happened', isFailure: false }],
           },
         }).pipe(
           Effect.provide(
             tools.toLayer({
-              search: () => Effect.die("must not replay"),
-              complete: () => Effect.die("must not execute"),
+              search: () => Effect.die('must not replay'),
+              complete: () => Effect.die('must not execute'),
             }),
           ),
           Effect.exit,
-        );
+        )
 
-        expect(Exit.isFailure(exit)).toBe(true);
-        if (Exit.isFailure(exit))
+        expect(Exit.isFailure(exit)).toBe(true)
+        if (Exit.isFailure(exit)) {
           expect(Cause.findErrorOption(exit.cause)).toMatchObject({
-            _tag: "Some",
-            value: { _tag: "ModelProtocolError" },
-          });
-        expect(prompts).toHaveLength(0);
-      }),
-    );
+            _tag: 'Some',
+            value: { _tag: 'ModelProtocolError' },
+          })
+        }
+        expect(prompts).toHaveLength(0)
+      }))
   },
-);
+)
