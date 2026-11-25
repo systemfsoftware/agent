@@ -56,6 +56,7 @@
     "./operation-authorizer": "./src/durable/OperationAuthorizer.ts",
     "./output": "./src/engine/Output.ts",
     "./page-capture": "./src/sandbox/PageCapture.ts",
+    "./page-inspection": "./src/sandbox/PageInspection.ts",
     "./page-screenshot": "./src/sandbox/PageScreenshot.ts",
     "./persistent-history": "./src/durable/PersistentHistory.ts",
     "./prepared-input-admission": "./src/durable/PreparedInputAdmission.ts",
@@ -294,6 +295,10 @@
       "./page-capture": {
         "types": "./dist/sandbox/PageCapture.d.mts",
         "default": "./dist/sandbox/PageCapture.mjs"
+      },
+      "./page-inspection": {
+        "types": "./dist/sandbox/PageInspection.d.mts",
+        "default": "./dist/sandbox/PageInspection.mjs"
       },
       "./page-screenshot": {
         "types": "./dist/sandbox/PageScreenshot.d.mts",

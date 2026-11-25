@@ -17,6 +17,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./alarm": "./src/Alarm.ts",
+    "./browser-inspection": "./src/BrowserInspection.ts",
     "./browser-rest-capture": "./src/BrowserRestCapture.ts",
     "./cloudflare-bindings": "./src/CloudflareBindings.ts",
     "./cloudflare-browser": "./src/CloudflareBrowser.ts",
@@ -46,6 +47,10 @@
       "./alarm": {
         "types": "./dist/Alarm.d.mts",
         "default": "./dist/Alarm.mjs"
+      },
+      "./browser-inspection": {
+        "types": "./dist/BrowserInspection.d.mts",
+        "default": "./dist/BrowserInspection.mjs"
       },
       "./browser-rest-capture": {
         "types": "./dist/BrowserRestCapture.d.mts",

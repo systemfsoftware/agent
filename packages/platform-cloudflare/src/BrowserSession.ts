@@ -93,6 +93,7 @@ export class BrowserSessionError extends Schema.TaggedError<BrowserSessionError>
       'timeout',
       'cleanup',
       'live-view-requires-rest-credentials',
+      'rate-limited',
     ]),
     dispatch: Schema.Literals(['not-dispatched', 'possibly-dispatched']),
     cleanup: Schema.Literals(['not-requested', 'confirmed', 'unconfirmed']),
@@ -570,7 +571,7 @@ export class BrowserSessions extends Context.Service<
             mapBrowserError((error) =>
               error instanceof BrowserRunFailure
                 ? reportedBrowserError(
-                  failure('provider', 'not-dispatched', 'not-requested', error),
+                  failure(error.status === 429 ? 'rate-limited' : 'provider', 'not-dispatched', 'not-requested', error),
                 )
                 : error
             ),
