@@ -28,7 +28,7 @@ import * as Schema from 'effect/Schema'
 import * as SchemaGetter from 'effect/SchemaGetter'
 import * as Stream from 'effect/Stream'
 
-import * as AgentRuntime from '../../src/engine/internal/agent-runtime.ts'
+import * as AgentRuntime from '../../src/engine/internal/agent-runtime'
 
 let threadSequence = 0
 

@@ -7,7 +7,7 @@ import {
   EvalObservationSetDigest,
   EvalOracleSetDigest,
   EvalVariantId,
-} from './contracts.ts'
+} from './contracts'
 
 const BoundedRationale = Schema.NonEmptyString.check(Schema.isMaxLength(4_096))
 

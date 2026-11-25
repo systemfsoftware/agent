@@ -2,15 +2,15 @@ import { ThreadObjectIdentity } from '@systemfsoftware/agent-platform-cloudflare
 import { DateTime, Effect, Layer, Schema } from 'effect'
 import { WorkerEnvironment } from 'effect-cf'
 
-import { AppCommit, type AppFile, AppId, PlannerError, type TripApp } from '../domain.ts'
-import { ownerOfThread } from '../server/tenancy.ts'
-import { TripFailpoint } from '../server/trips.ts'
-import { publishTripAppAddress, tripAppHostname } from './addresses.ts'
-import { SiteBuildBinding } from './bindings.ts'
-import { AppRepository } from './repository.ts'
-import { requireAppTrip } from './scope.ts'
-import { appSourceLayer, AppSourceStore } from './source.ts'
-import { TRIP_APP_MAP_FILES, TRIP_APP_TEMPLATE_FILES } from './template.ts'
+import { AppCommit, type AppFile, AppId, PlannerError, type TripApp } from '../domain'
+import { ownerOfThread } from '../server/tenancy'
+import { TripFailpoint } from '../server/trips'
+import { publishTripAppAddress, tripAppHostname } from './addresses'
+import { SiteBuildBinding } from './bindings'
+import { AppRepository } from './repository'
+import { requireAppTrip } from './scope'
+import { appSourceLayer, AppSourceStore } from './source'
+import { TRIP_APP_MAP_FILES, TRIP_APP_TEMPLATE_FILES } from './template'
 
 const files = (source: Readonly<Record<string, string>>): ReadonlyArray<AppFile> =>
   Object.entries(source).map(([path, content]) => ({ path, content }))
@@ -18,7 +18,7 @@ const files = (source: Readonly<Record<string, string>>): ReadonlyArray<AppFile>
 const failed = (message: string) => PlannerError.make({ code: 'unavailable', message })
 const now = DateTime.now.pipe(Effect.map(DateTime.formatIso))
 
-export { requireAppTrip } from './scope.ts'
+export { requireAppTrip } from './scope'
 
 const requireApp = Effect.fn('requireTripApp')(function*(tripId: string) {
   yield* requireAppTrip(tripId)

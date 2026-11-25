@@ -5,8 +5,8 @@ import { Command, Flag } from 'effect/cli'
 import { ChildProcess, ChildProcessSpawner } from 'effect/process'
 import { build } from 'esbuild'
 
-import { EvaluationError } from './contracts.ts'
-import { PERFORMANCE_FIXTURE } from './performance-contracts.ts'
+import { EvaluationError } from './contracts'
+import { PERFORMANCE_FIXTURE } from './performance-contracts'
 
 export const PerformanceBuild = Schema.Struct({
   sourceCommit: Schema.String,

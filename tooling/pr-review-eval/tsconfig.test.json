@@ -1,0 +1,30 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "node_modules/.cache/tsconfig.test.tsbuildinfo",
+    "types": [
+      "node"
+    ],
+    "composite": true,
+    "noEmit": false,
+    "emitDeclarationOnly": true,
+    "outDir": "node_modules/.cache/tsc/test"
+  },
+  "include": [
+    "test"
+  ],
+  "references": [
+    {
+      "path": "../../packages/pr-review/tsconfig.app.json"
+    },
+    {
+      "path": "../../packages/pr-review-action/tsconfig.app.json"
+    },
+    {
+      "path": "../../packages/testing/tsconfig.app.json"
+    },
+    {
+      "path": "./tsconfig.app.json"
+    }
+  ]
+}

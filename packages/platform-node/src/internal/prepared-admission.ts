@@ -10,7 +10,7 @@ import { ScheduleStorageError } from '@systemfsoftware/agent/schedule'
 import * as Context from 'effect/Context'
 import * as Effect from 'effect/Effect'
 
-import { type NodeDurableHost } from '../NodeDurableHost.ts'
+import { type NodeDurableHost } from '../NodeDurableHost'
 
 const passthroughSubmitAgent = (agentId: AgentId): DurableSubmitAgent<typeof PersistedJson> => ({
   definition: { id: agentId, input: PersistedJson },

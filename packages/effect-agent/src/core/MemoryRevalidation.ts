@@ -1,11 +1,11 @@
 import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 
-import { readMemoryDocument } from './internal/memory-document.ts'
-import { utf8ByteLength } from './internal/utf8.ts'
-import type * as MemoryNamespace from './MemoryNamespace.ts'
-import { MemoryLookup, MemoryPassage, MemoryRecallError, MemoryRecallLimits } from './MemoryReference.ts'
-import { MemoryKey, MemoryScope } from './MemoryStore.ts'
+import { readMemoryDocument } from './internal/memory-document'
+import { utf8ByteLength } from './internal/utf8'
+import type * as MemoryNamespace from './MemoryNamespace'
+import { MemoryLookup, MemoryPassage, MemoryRecallError, MemoryRecallLimits } from './MemoryReference'
+import { MemoryKey, MemoryScope } from './MemoryStore'
 
 const RevalidationLimits = Schema.Struct({
   maxInputBytes: MemoryRecallLimits.fields.maxInputBytes,

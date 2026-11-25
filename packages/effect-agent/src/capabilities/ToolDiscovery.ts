@@ -3,10 +3,10 @@ import * as Toolkit from 'effect/ai/Toolkit'
 import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 
-import { utf8ByteLength } from '../core/internal/utf8.ts'
-import { DiscoveryTool, PinnedTool } from '../core/ToolExposure.ts'
-import { ToolExecutionClass } from '../engine/DurableStep.ts'
-import { type CatalogEntry, CurrentToolCatalog } from '../engine/ToolExposure.ts'
+import { utf8ByteLength } from '../core/internal/utf8'
+import { DiscoveryTool, PinnedTool } from '../core/ToolExposure'
+import { ToolExecutionClass } from '../engine/DurableStep'
+import { type CatalogEntry, CurrentToolCatalog } from '../engine/ToolExposure'
 
 const Name = Schema.NonEmptyString.check(Schema.isMaxLength(256))
 const Namespace = Schema.NonEmptyString.check(Schema.isMaxLength(128))

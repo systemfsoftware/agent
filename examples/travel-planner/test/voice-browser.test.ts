@@ -1,8 +1,8 @@
 import { Effect, Fiber, Scope, Stream } from 'effect'
 import { afterEach, expect, it, vi } from 'vitest'
 
-import { connectBrowserVoice } from '../src/voice/browser.ts'
-import { type LiveEvent } from '../src/voice/protocol.ts'
+import { connectBrowserVoice } from '../src/voice/browser'
+import { type LiveEvent } from '../src/voice/protocol'
 
 afterEach(() => vi.unstubAllGlobals())
 

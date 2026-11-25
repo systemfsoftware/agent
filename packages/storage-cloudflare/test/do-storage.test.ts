@@ -52,8 +52,8 @@ import * as Stream from 'effect/Stream'
 import * as Tracer from 'effect/Tracer'
 import { describe, expect, it } from 'vitest'
 
-import { evictionFailpointHandler } from '../src/DoStorageFailpointTesting.ts'
-import { at, id, sequence, TEST_DEPLOYMENT, TEST_PRODUCER, thread, withThreadStorage } from './harness.ts'
+import { evictionFailpointHandler } from '../src/DoStorageFailpointTesting'
+import { at, id, sequence, TEST_DEPLOYMENT, TEST_PRODUCER, thread, withThreadStorage } from './harness'
 
 const isThreadStoreError = Schema.is(ThreadStoreError)
 const isDoStorageCompatibilityError = Schema.is(DoStorageCompatibilityError)

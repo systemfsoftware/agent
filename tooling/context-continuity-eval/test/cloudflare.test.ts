@@ -7,9 +7,9 @@ import { build } from 'esbuild'
 import { convertV4MiniflareOptions, Miniflare } from 'miniflare'
 import { expect, it } from 'vitest'
 
-import { CloudflareSnapshot } from '../src/cloudflare-contracts.ts'
-import { runCloudflareEvaluation } from '../src/cloudflare.ts'
-import { scriptedResponse } from './scripted-model.ts'
+import { runCloudflareEvaluation } from '../src/cloudflare'
+import { CloudflareSnapshot } from '../src/cloudflare-contracts'
+import { scriptedResponse } from './scripted-model'
 
 it('runs the same pressure and evidence gate through the public Cloudflare host in workerd', async () => {
   const bundle = await build({

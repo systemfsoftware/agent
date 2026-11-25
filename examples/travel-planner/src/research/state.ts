@@ -1,10 +1,10 @@
 import type { CanonicalRecordEnvelope } from '@systemfsoftware/agent/records'
 import { Schema } from 'effect'
 
-import type { ResearchScoutActivity } from '../domain.ts'
-import { emptyProgress } from '../server/progress.ts'
-import { ScoutRequest } from './contracts.ts'
-import { UpdatingResearchScout } from './scout.ts'
+import type { ResearchScoutActivity } from '../domain'
+import { emptyProgress } from '../server/progress'
+import { ScoutRequest } from './contracts'
+import { UpdatingResearchScout } from './scout'
 
 /** Discover the newest task per source-owned worker without reading any child objects. */
 export const researchOverview = (

@@ -1,8 +1,8 @@
 import { Context, Effect, Layer, Schema } from 'effect'
 import { SqlClient } from 'effect/sql/SqlClient'
 
-import { AppId, PlannerError, Revision, TripApp, TripId } from '../domain.ts'
-import { TripFailpoint } from '../server/trips.ts'
+import { AppId, PlannerError, Revision, TripApp, TripId } from '../domain'
+import { TripFailpoint } from '../server/trips'
 
 export class AppRepository extends Context.Service<
   AppRepository,

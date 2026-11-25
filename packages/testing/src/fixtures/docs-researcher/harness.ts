@@ -15,7 +15,7 @@ import * as Ref from 'effect/Ref'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
-import { DeterministicIdGeneratorLayer } from '../travel-planner/deterministic-layers.ts'
+import { DeterministicIdGeneratorLayer } from '../travel-planner/deterministic-layers'
 import {
   docContentToolkitLayer,
   DocsResearcher,
@@ -29,7 +29,7 @@ import {
   ResearchDocument,
   researchDocumentFor,
   researchDocumentLookup,
-} from './definition.ts'
+} from './definition'
 
 // ---------------------------------------------------------------------------
 // DN durable harness for the docs-researcher (P7 plan §6 agent #3), following

@@ -3,8 +3,8 @@ import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import * as Schema from 'effect/Schema'
 
-import * as MemoryNamespace from './MemoryNamespace.ts'
-import { MemoryContent, MemorySourceReference } from './MemoryReference.ts'
+import * as MemoryNamespace from './MemoryNamespace'
+import { MemoryContent, MemorySourceReference } from './MemoryReference'
 
 const Identity = Schema.NonEmptyString.check(Schema.isMaxLength(1_024))
 const Timestamp = Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0))

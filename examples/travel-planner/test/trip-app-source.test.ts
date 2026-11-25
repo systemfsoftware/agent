@@ -6,9 +6,9 @@ import { join } from 'node:path'
 import { Effect } from 'effect'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
-import { type AppFile, PlannerError } from '../src/domain.ts'
-import { TripFailpoint } from '../src/server/trips.ts'
-import { appSourceLayer, AppSourceStore } from '../src/trip-app/source.ts'
+import { type AppFile, PlannerError } from '../src/domain'
+import { TripFailpoint } from '../src/server/trips'
+import { appSourceLayer, AppSourceStore } from '../src/trip-app/source'
 
 // The native Artifacts control plane is deterministic; source transfer and Git
 // history use the real smart-HTTP backend and production isomorphic-git client.

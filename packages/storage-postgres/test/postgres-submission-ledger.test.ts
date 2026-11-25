@@ -5,7 +5,7 @@ import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import * as String from 'effect/String'
 
-import { storage as makeStorage, withTemporaryDatabase } from './harness.ts'
+import { storage as makeStorage, withTemporaryDatabase } from './harness'
 
 describe('PostgresSubmissionLedger', () => {
   describe('shared SubmissionLedger conformance', () => {

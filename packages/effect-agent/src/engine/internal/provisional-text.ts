@@ -2,8 +2,8 @@ import * as Response from 'effect/ai/Response'
 import * as Context from 'effect/Context'
 import * as Effect from 'effect/Effect'
 
-import type { AttemptId, RunId, SubmissionId, ThreadId, TurnId } from '../../core/Identifiers.ts'
-import * as ProvisionalText from '../../core/ProvisionalText.ts'
+import type { AttemptId, RunId, SubmissionId, ThreadId, TurnId } from '../../core/Identifiers'
+import * as ProvisionalText from '../../core/ProvisionalText'
 
 export interface ModelHandle {
   readonly offerUnsafe: (part: Extract<ProvisionalText.Event, { _tag: 'Text' }>['part']) => boolean

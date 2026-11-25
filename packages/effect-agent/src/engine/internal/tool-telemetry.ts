@@ -11,8 +11,8 @@ import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 import * as Tracer from 'effect/Tracer'
 
-import type { ToolFailureHandling } from '../../core/RunEvent.ts'
-import { isolateToolDerivative } from './tool-derivative.ts'
+import type { ToolFailureHandling } from '../../core/RunEvent'
+import { isolateToolDerivative } from './tool-derivative'
 
 /**
  * @internal Payload-free control signal used only to close the canonical Tool span with a failed

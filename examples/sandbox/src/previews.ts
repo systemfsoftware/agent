@@ -4,10 +4,10 @@ import { SandboxOperationError } from '@yielded/sandbox/cloudflare'
 import { Cause, Clock, Context, Effect, Layer, Schema, Semaphore } from 'effect'
 import { DurableObjectState } from 'effect-cf'
 
-import { PREVIEW_LIFETIME_MS, type WorkspacePreviewGrant } from './contract.ts'
-import { STATIC_PREVIEW_HEALTH_PATH, STATIC_PREVIEW_PORT, STATIC_PREVIEW_SERVER } from './preview-server.ts'
-import { snapshotBusy } from './snapshots.ts'
-import { Workspace } from './workspace.ts'
+import { PREVIEW_LIFETIME_MS, type WorkspacePreviewGrant } from './contract'
+import { STATIC_PREVIEW_HEALTH_PATH, STATIC_PREVIEW_PORT, STATIC_PREVIEW_SERVER } from './preview-server'
+import { snapshotBusy } from './snapshots'
+import { Workspace } from './workspace'
 
 export class PreviewRejected extends Schema.TaggedError<PreviewRejected>()('PreviewRejected', {
   message: Schema.String,

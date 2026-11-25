@@ -1,4 +1,4 @@
-import type { PlannerSnapshot } from '../domain.ts'
+import type { PlannerSnapshot } from '../domain'
 
 export type VoiceBackground = Pick<PlannerSnapshot, 'scouts' | 'editor' | 'app'>
 

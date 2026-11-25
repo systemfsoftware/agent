@@ -2,9 +2,9 @@ import { Dialog } from '@base-ui/react/dialog'
 import { Button } from '@systemfsoftware/ui'
 import { Check, CircleAlert, Expand, LoaderCircle, Search, X } from 'lucide-react'
 
-import type { ResearchScoutActivity } from '../domain.ts'
-import { ActivityEvents, ElapsedTime } from './activity-panel.tsx'
-import { AgentProgress } from './agent-progress.tsx'
+import type { ResearchScoutActivity } from '../domain'
+import { ActivityEvents, ElapsedTime } from './activity-panel'
+import { AgentProgress } from './agent-progress'
 
 const stateLabel = {
   loading: 'Loading updates…',

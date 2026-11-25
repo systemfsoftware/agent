@@ -15,7 +15,7 @@ import {
 import { DateTime, Effect, Schema } from 'effect'
 import * as Layer from 'effect/Layer'
 
-import type { EvalObservationSetDigest, EvalOracleSetDigest } from '../src/index.ts'
+import type { EvalObservationSetDigest, EvalOracleSetDigest } from '../src/index'
 import {
   CURRENT_RUNNER_VERSION,
   digestEvalSuiteOracles,
@@ -35,7 +35,7 @@ import {
   loadEvalSuite,
   makeQualityReport,
   renderQualityReport,
-} from '../src/index.ts'
+} from '../src/index'
 
 const fixturePath = fileURLToPath(new URL('../fixtures/smoke-suite.json', import.meta.url))
 const at = (millis: number) => DateTime.toUtc(DateTime.makeUnsafe(millis))

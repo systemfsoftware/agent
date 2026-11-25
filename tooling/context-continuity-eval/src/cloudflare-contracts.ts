@@ -4,10 +4,10 @@ import { CanonicalRecordEnvelope, DefinitionDigestInput } from '@systemfsoftware
 import { ExecutionCheckpoint } from '@systemfsoftware/agent/thread-store'
 import { Schema } from 'effect'
 
-import { CompactionEvidence, ModelUsage, ProjectStatus, RestartEvidence, RunContinuationEvidence } from './contracts.ts'
-import { MAX_OUTPUT_TOKENS, ModelId } from './live-model.ts'
-import { pressureInstructions, pressureToolkit } from './pressure.ts'
-import { RequestAudit } from './request-audit.ts'
+import { CompactionEvidence, ModelUsage, ProjectStatus, RestartEvidence, RunContinuationEvidence } from './contracts'
+import { MAX_OUTPUT_TOKENS, ModelId } from './live-model'
+import { pressureInstructions, pressureToolkit } from './pressure'
+import { RequestAudit } from './request-audit'
 
 export const CloudflareIdentity = Schema.Struct({
   sourceCommit: Schema.String,

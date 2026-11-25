@@ -2,7 +2,7 @@ import { type FeatureExtractionPipeline, pipeline } from '@huggingface/transform
 import { Clock, Effect, Layer, Ref, Semaphore } from 'effect'
 import { AiError, EmbeddingModel } from 'effect/ai'
 
-import { MODEL_ID, MODEL_REVISION } from './contracts.ts'
+import { MODEL_ID, MODEL_REVISION } from './contracts'
 
 export interface NativeEmbeddingOptions {
   readonly cachePath: string

@@ -22,7 +22,7 @@ import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 import * as TestClock from 'effect/testing/TestClock'
 
-import * as MemoryNotes from '../../src/capabilities/MemoryNotes.ts'
+import * as MemoryNotes from '../../src/capabilities/MemoryNotes'
 
 const NotesNamespace = MemoryNamespace.define({
   name: 'test/notes',

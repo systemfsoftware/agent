@@ -8,21 +8,21 @@ import * as Result from 'effect/Result'
 import * as Schema from 'effect/Schema'
 import * as Semaphore from 'effect/Semaphore'
 
-import * as FailureDiagnostic from '../core/FailureDiagnostic.ts'
-import { AgentId, DelegationId, ThreadId } from '../core/Identifiers.ts'
-import { Receipt } from '../core/Receipt.ts'
-import { WorkerUpdate } from '../core/Worker.ts'
-import { digestJson } from './Digest.ts'
-import type { LifecyclePublicationStorage } from './LifecyclePublication.ts'
+import * as FailureDiagnostic from '../core/FailureDiagnostic'
+import { AgentId, DelegationId, ThreadId } from '../core/Identifiers'
+import { Receipt } from '../core/Receipt'
+import { WorkerUpdate } from '../core/Worker'
+import { digestJson } from './Digest'
+import type { LifecyclePublicationStorage } from './LifecyclePublication'
 import {
   admitPreparedInput,
   PreparedInput,
   PreparedInputAdmission,
   PreparedInputRetryReason,
-} from './PreparedInputAdmission.ts'
-import { Digest, type RecordEnvelope } from './Records.ts'
-import { ScheduleInstant, ScheduleRetry } from './Schedule.ts'
-import { IdempotencyKey, Settlement } from './SubmissionLedger.ts'
+} from './PreparedInputAdmission'
+import { Digest, type RecordEnvelope } from './Records'
+import { ScheduleInstant, ScheduleRetry } from './Schedule'
+import { IdempotencyKey, Settlement } from './SubmissionLedger'
 
 const Positive = Schema.Int.check(Schema.isGreaterThan(0))
 const BoundedName = Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(256))

@@ -10,7 +10,7 @@ import * as Semaphore from 'effect/Semaphore'
 import * as SqlClient from 'effect/sql/SqlClient'
 import type * as SqlError from 'effect/sql/SqlError'
 
-import { DoStorageCorruptionError, DoStorageError } from '../DoStorageError.ts'
+import { DoStorageCorruptionError, DoStorageError } from '../DoStorageError'
 
 /** One disposable view per physical Object database, including separately acquired adapters. */
 export class OwnedState {

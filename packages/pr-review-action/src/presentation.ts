@@ -9,8 +9,8 @@ import {
 } from '@systemfsoftware/agent-pr-review/review'
 import * as Schema from 'effect/Schema'
 
-import { type GeneratedContentOmission } from './generated-content.ts'
-import { type ReviewHistoryItem, reviewMarker, reviewPauseMarker } from './selection.ts'
+import { type GeneratedContentOmission } from './generated-content'
+import { type ReviewHistoryItem, reviewMarker, reviewPauseMarker } from './selection'
 
 /** Shared with GitHub's publication schemas; includes the terminal attempt marker. */
 export const MAX_REVIEW_BODY_CHARS = 100_000

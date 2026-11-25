@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "measure": "node src/measure-main.ts",
-    "measure:heap": "node src/heap-main.ts",
-    "typecheck": "effect-tsgo tsrs --noEmit -p tsconfig.json"
+    "measure": "esbuild src/measure-main.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=.scripts/measure-main.mjs && node .scripts/measure-main.mjs",
+    "measure:heap": "esbuild src/heap-main.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=.scripts/heap-main.mjs && node .scripts/heap-main.mjs",
+    "typecheck": "tsc -b"
   },
   "dependencies": {
     "@effect/platform-node": "catalog:",

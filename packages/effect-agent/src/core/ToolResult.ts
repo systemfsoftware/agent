@@ -1,9 +1,9 @@
 import * as AiError from 'effect/ai/AiError'
 import * as Schema from 'effect/Schema'
 
-import { ToolCallId } from './Identifiers.ts'
-import { codePointUtf8Length, utf8ByteLength } from './internal/utf8.ts'
-import { ToolResultId, ToolResultStorageError } from './ToolResultStorage.ts'
+import { ToolCallId } from './Identifiers'
+import { codePointUtf8Length, utf8ByteLength } from './internal/utf8'
+import { ToolResultId, ToolResultStorageError } from './ToolResultStorage'
 
 /**
  * Engine-owned evidence that a fresh model call failed parameter validation.

@@ -4,7 +4,7 @@ import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
-import { canonicalJson, digestCanonicalJson } from '../Digest.ts'
+import { canonicalJson, digestCanonicalJson } from '../Digest'
 import {
   type CanonicalRecordEnvelope,
   CanonicalSequence,
@@ -12,16 +12,11 @@ import {
   PromptRecord,
   type RecordId,
   type RunContextRecorded,
-} from '../Records.ts'
-import {
-  type JournalBoundary,
-  projectRunJournalStream,
-  type RunJournalContext,
-  RunJournalError,
-} from '../RunJournal.ts'
-import type { ThreadNotMaterialized, ThreadStoreError } from '../ThreadStore.ts'
-import type { JournalRecordEnvelope } from './journal-metadata.ts'
-import { RunContextReader } from './run-context-reader.ts'
+} from '../Records'
+import { type JournalBoundary, projectRunJournalStream, type RunJournalContext, RunJournalError } from '../RunJournal'
+import type { ThreadNotMaterialized, ThreadStoreError } from '../ThreadStore'
+import type { JournalRecordEnvelope } from './journal-metadata'
+import { RunContextReader } from './run-context-reader'
 
 const invalid = (message: string) => RunJournalError.make({ message })
 const encodePrompt = Schema.encodeEffect(Schema.toCodecJson(Prompt.Prompt))

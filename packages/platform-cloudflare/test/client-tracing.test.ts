@@ -15,7 +15,7 @@ import * as Layer from 'effect/Layer'
 import * as Schema from 'effect/Schema'
 import * as TestClock from 'effect/testing/TestClock'
 
-import { decodeThreadId } from './fixtures.ts'
+import { decodeThreadId } from './fixtures'
 
 const binding = 'TASK_ORCHESTRATORS'
 const threadId = decodeThreadId('private-thread-not-a-span-name')

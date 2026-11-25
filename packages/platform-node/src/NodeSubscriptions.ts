@@ -18,8 +18,8 @@ import * as Exit from 'effect/Exit'
 import * as Layer from 'effect/Layer'
 import * as Option from 'effect/Option'
 
-import { makeNodePreparedInputAdmission, NodeAdmission } from './internal/prepared-admission.ts'
-import { NodeDurableHost } from './NodeDurableHost.ts'
+import { makeNodePreparedInputAdmission, NodeAdmission } from './internal/prepared-admission'
+import { NodeDurableHost } from './NodeDurableHost'
 
 /** Ordinary prepared admission through the Scope-owned Node host gate. */
 export const nodePreparedInputAdmissionLayer: Layer.Layer<

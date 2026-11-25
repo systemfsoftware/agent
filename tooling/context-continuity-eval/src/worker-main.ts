@@ -5,9 +5,9 @@ import { NodeCrypto, NodeRuntime, NodeServices } from '@effect/platform-node'
 import { Config, Effect, FileSystem, Layer, Schema } from 'effect'
 import { FetchHttpClient } from 'effect/http'
 
-import { EvaluationError } from './contracts.ts'
-import { runEvaluation } from './evaluate.ts'
-import { WorkerOptions } from './process-host.ts'
+import { EvaluationError } from './contracts'
+import { runEvaluation } from './evaluate'
+import { WorkerOptions } from './process-host'
 
 const program = Effect.gen(function*() {
   const fs = yield* FileSystem.FileSystem

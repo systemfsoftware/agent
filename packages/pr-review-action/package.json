@@ -8,7 +8,7 @@
     "./review-repository": "./src/review-repository.ts"
   },
   "scripts": {
-    "typecheck": "effect-tsgo tsrs --noEmit -p tsconfig.json",
+    "typecheck": "tsc -b",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {

@@ -7,10 +7,10 @@ import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import * as SqlClient from 'effect/sql/SqlClient'
 
-import { initializeSqliteStorage } from './internal/sqlite-journal.ts'
-import type { SqliteStorageConfig } from './SqliteStorageConfig.ts'
-import type { SqliteStorageFailpoint } from './SqliteStorageFailpoint.ts'
-import type { SqliteStorageInitializationError } from './SqliteThreadStore.ts'
+import { initializeSqliteStorage } from './internal/sqlite-journal'
+import type { SqliteStorageConfig } from './SqliteStorageConfig'
+import type { SqliteStorageFailpoint } from './SqliteStorageFailpoint'
+import type { SqliteStorageInitializationError } from './SqliteThreadStore'
 
 /** SQLite implementation of the atomic ScheduleStore port. */
 export const scheduleStoreLayer: Layer.Layer<

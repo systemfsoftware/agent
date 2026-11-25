@@ -1,9 +1,9 @@
 import { exportThread } from '@systemfsoftware/agent-storage-cloudflare/do-thread-store'
 import { Effect, Schema } from 'effect'
 
-import { CYCLE, history, MEASURED_TOOLS, turn } from '../../src/plan.ts'
-import { tables } from '../../src/serve.ts'
-import { attach, type Observation } from './observe.ts'
+import { CYCLE, history, MEASURED_TOOLS, turn } from '../../src/plan'
+import { tables } from '../../src/serve'
+import { attach, type Observation } from './observe'
 import {
   type Env,
   errorText,
@@ -19,10 +19,10 @@ import {
   type Target,
   TransientObjectTransport,
   transientObjectTransport,
-} from './protocol.ts'
-import { restore } from './restore.ts'
-import { FixtureError, FixtureExport, importRows, RestoreStorage } from './storage.ts'
-import { snapshotUsage } from './usage.ts'
+} from './protocol'
+import { restore } from './restore'
+import { FixtureError, FixtureExport, importRows, RestoreStorage } from './storage'
+import { snapshotUsage } from './usage'
 
 export const COLD_ABORT = 'durable-bench explicit cold'
 

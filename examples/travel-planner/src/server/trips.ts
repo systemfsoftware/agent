@@ -12,7 +12,7 @@ import {
   type SaveTripRequest,
   Trip,
   TripSiteStore,
-} from '../domain.ts'
+} from '../domain'
 
 const randomUUID = SecureRandom.SecureRandom.use((crypto) => crypto.uuidV4()).pipe(
   Effect.provide(BrowserCrypto.layer),

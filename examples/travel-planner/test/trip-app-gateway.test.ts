@@ -5,7 +5,7 @@ import { build } from 'esbuild'
 import { convertV4MiniflareOptions, Miniflare } from 'miniflare'
 import { afterAll, beforeAll, expect, it } from 'vitest'
 
-import { type TripApp, TripAppData } from '../src/domain.ts'
+import { type TripApp, TripAppData } from '../src/domain'
 
 const app: TripApp = {
   id: 'a'.repeat(32),
@@ -56,14 +56,14 @@ beforeAll(async () => {
 import { DurableObject } from "cloudflare:workers";
 import { Effect, Schema } from "effect";
 import { WorkerEnvironment } from "effect-cf";
-import { AppBuildBucketLive } from "../src/trip-app/bindings.ts";
-import { handleRequest } from "../src/worker.ts";
-import { publishTripAppAddress, appAddressKey } from "../src/trip-app/addresses.ts";
-import { TripFailpoint } from "../src/server/trips.ts";
-import { PlannerError } from "../src/domain.ts";
-import { AppCommand } from "../src/trip-app/remote.ts";
-import { BuildManifest,buildPrefix } from "../src/trip-app/build.ts";
-export { TripData } from "../src/trip-app/gateway.ts";
+import { AppBuildBucketLive } from "../src/trip-app/bindings";
+import { handleRequest } from "../src/worker";
+import { publishTripAppAddress, appAddressKey } from "../src/trip-app/addresses";
+import { TripFailpoint } from "../src/server/trips";
+import { PlannerError } from "../src/domain";
+import { AppCommand } from "../src/trip-app/remote";
+import { BuildManifest,buildPrefix } from "../src/trip-app/build";
+export { TripData } from "../src/trip-app/gateway";
 export class OwnerFixture extends DurableObject {
  async seed(app,data){await this.ctx.storage.put({app,data});}
  async tripApp(encoded){

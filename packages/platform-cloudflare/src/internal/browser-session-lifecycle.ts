@@ -9,7 +9,7 @@ import * as Redacted from 'effect/Redacted'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
-import { browserFailure } from './browser-failure.ts'
+import { browserFailure } from './browser-failure'
 
 export class BrowserRunCleanupError extends Schema.TaggedError<BrowserRunCleanupError>()(
   'BrowserRunCleanupError',

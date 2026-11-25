@@ -1,6 +1,6 @@
 import * as Schema from 'effect/Schema'
 
-import { utf8ByteLength } from './internal/utf8.ts'
+import { utf8ByteLength } from './internal/utf8'
 
 const Identity = Schema.NonEmptyString.check(Schema.isMaxLength(1_024))
 const Locator = Schema.NonEmptyString.check(Schema.isMaxLength(8_192))

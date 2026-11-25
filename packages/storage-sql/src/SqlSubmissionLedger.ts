@@ -110,9 +110,9 @@ import type * as SqlError from 'effect/sql/SqlError'
 import * as Stream from 'effect/Stream'
 import * as Struct from 'effect/Struct'
 
-import { decodeAbortFact, decodeAdmissionFact, decodeApprovalFact, decodeResolutionFact } from './SqlAdmissionFacts.ts'
-import { definitionJson, makeCanonicalStorage, runKey } from './SqlCanonicalStorage.ts'
-import type { SqlJournal } from './SqlJournal.ts'
+import { decodeAbortFact, decodeAdmissionFact, decodeApprovalFact, decodeResolutionFact } from './SqlAdmissionFacts'
+import { definitionJson, makeCanonicalStorage, runKey } from './SqlCanonicalStorage'
+import type { SqlJournal } from './SqlJournal'
 import {
   type Diagnostic,
   makeRowDecoder,
@@ -120,11 +120,11 @@ import {
   SqlInteger,
   type SqlStorageErrors,
   type SqlStorageFailpoint,
-} from './SqlStorage.ts'
-import type { SqlStorageFailpointLocation } from './SqlStorageFailpoint.ts'
-import { BoundedIdentifier, BoundedTimestamp, makeSubmissionRowFields } from './SqlSubmissionRows.ts'
-import { canonicalRecordJson } from './SqlThreadArchiveRange.ts'
-import { prepareSqlAppend } from './SqlThreadStore.ts'
+} from './SqlStorage'
+import type { SqlStorageFailpointLocation } from './SqlStorageFailpoint'
+import { BoundedIdentifier, BoundedTimestamp, makeSubmissionRowFields } from './SqlSubmissionRows'
+import { canonicalRecordJson } from './SqlThreadArchiveRange'
+import { prepareSqlAppend } from './SqlThreadStore'
 type SubmissionId = SubmissionSnapshot['submissionId']
 
 const BoundedStoredText = Schema.String.check(Schema.isMaxLength(16 * 1024 * 1024))

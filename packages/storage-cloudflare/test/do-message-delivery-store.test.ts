@@ -35,12 +35,12 @@ import * as Stream from 'effect/Stream'
 import * as Tracer from 'effect/Tracer'
 import { expect, it } from 'vitest'
 
-import { doMessageDeliveryStoreLayer } from '../src/DoMessageDeliveryStore.ts'
-import { DoStorageConfig, DoStorageConfigValue } from '../src/DoStorageConfig.ts'
-import { DoStorageFailpoint } from '../src/DoStorageFailpoint.ts'
-import { layer as threadLayer } from '../src/DoThreadStore.ts'
-import { initializeDoJournal } from '../src/internal/do-journal.ts'
-import { withThreadStorage } from './harness.ts'
+import { doMessageDeliveryStoreLayer } from '../src/DoMessageDeliveryStore'
+import { DoStorageConfig, DoStorageConfigValue } from '../src/DoStorageConfig'
+import { DoStorageFailpoint } from '../src/DoStorageFailpoint'
+import { layer as threadLayer } from '../src/DoThreadStore'
+import { initializeDoJournal } from '../src/internal/do-journal'
+import { withThreadStorage } from './harness'
 
 const storeLayer = (storage: DurableObjectStorage) =>
   doMessageDeliveryStoreLayer().pipe(

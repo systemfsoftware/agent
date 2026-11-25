@@ -47,22 +47,17 @@ import * as Predicate from 'effect/Predicate'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
-import {
-  callThreadObject,
-  DurableAlarmError,
-  ThreadObjectNamespace,
-  type ThreadObjectRpc,
-} from './CloudflareBindings.ts'
-import { AdmissionLimitExceeded } from './CloudflareConfig.ts'
-import { cloudflareFailureSignals, safeCauseMessage } from './internal/boundary.ts'
-import { cloudflareCryptoLayer } from './internal/crypto.ts'
-import { boundHostDiagnostic, HostProtocolError } from './internal/host-protocol-error.ts'
-import { Observation as LiveTextObservation } from './internal/live-text-observation.ts'
-import { liveTextProtocolFailure, Request as WatchTextRequest } from './internal/live-text-protocol.ts'
-import { decodeLiveText, type LiveTextFrame } from './LiveText.ts'
+import { callThreadObject, DurableAlarmError, ThreadObjectNamespace, type ThreadObjectRpc } from './CloudflareBindings'
+import { AdmissionLimitExceeded } from './CloudflareConfig'
+import { cloudflareFailureSignals, safeCauseMessage } from './internal/boundary'
+import { cloudflareCryptoLayer } from './internal/crypto'
+import { boundHostDiagnostic, HostProtocolError } from './internal/host-protocol-error'
+import { Observation as LiveTextObservation } from './internal/live-text-observation'
+import { liveTextProtocolFailure, Request as WatchTextRequest } from './internal/live-text-protocol'
+import { decodeLiveText, type LiveTextFrame } from './LiveText'
 
-export { boundHostDiagnostic, HostProtocolError } from './internal/host-protocol-error.ts'
-export { decodeLiveText, LiveTextFrame } from './LiveText.ts'
+export { boundHostDiagnostic, HostProtocolError } from './internal/host-protocol-error'
+export { decodeLiveText, LiveTextFrame } from './LiveText'
 
 /**
  * The Worker↔Thread-Object host protocol (plan §1.4): Schema envelopes for the host

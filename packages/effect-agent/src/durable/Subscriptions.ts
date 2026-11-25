@@ -8,18 +8,18 @@ import * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'
 import * as Semaphore from 'effect/Semaphore'
 
-import { ThreadId } from '../core/Identifiers.ts'
-import { utf8ByteLength } from '../core/internal/utf8.ts'
-import { digestJson } from './Digest.ts'
-import { EventSources, type NormalizedEvent } from './EventSource.ts'
+import { ThreadId } from '../core/Identifiers'
+import { utf8ByteLength } from '../core/internal/utf8'
+import { digestJson } from './Digest'
+import { EventSources, type NormalizedEvent } from './EventSource'
 import {
   admitPreparedInput,
   PreparedInput,
   PreparedInputAdmission,
   type PreparedInputRetryReason,
-} from './PreparedInputAdmission.ts'
-import { DefinitionDigests, type PersistedJson } from './Records.ts'
-import { type AdmissionFence, IdempotencyKey, type Principal } from './SubmissionLedger.ts'
+} from './PreparedInputAdmission'
+import { DefinitionDigests, type PersistedJson } from './Records'
+import { type AdmissionFence, IdempotencyKey, type Principal } from './SubmissionLedger'
 import {
   AcceptedEvent,
   defaultSubscriptionLimits,
@@ -42,8 +42,8 @@ import {
   SubscriptionSourceError,
   SubscriptionStore,
   type SubscriptionStoreFailure,
-} from './Subscription.ts'
-import { resolveSubscriptionInput, SubscriptionInputBindings } from './SubscriptionInput.ts'
+} from './Subscription'
+import { resolveSubscriptionInput, SubscriptionInputBindings } from './SubscriptionInput'
 
 const now = DateTime.now.pipe(Effect.map(DateTime.toEpochMillis))
 

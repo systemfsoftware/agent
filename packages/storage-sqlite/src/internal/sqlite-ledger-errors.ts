@@ -1,7 +1,7 @@
 import { LedgerError } from '@systemfsoftware/agent/submission-ledger'
 import type * as SqlError from 'effect/sql/SqlError'
 
-import { SqliteLedgerError, SqliteWriteContention } from '../SqliteStorageError.ts'
+import { SqliteLedgerError, SqliteWriteContention } from '../SqliteStorageError'
 
 /** Wrap an adapter-internal failure into the port's LedgerError without erasing its tag. */
 const internalFailure = (operation: string) => (error: { readonly message: string }): LedgerError =>

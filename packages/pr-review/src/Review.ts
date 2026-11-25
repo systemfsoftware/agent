@@ -28,7 +28,7 @@ import * as SchemaParser from 'effect/SchemaParser'
 import * as SchemaTransformation from 'effect/SchemaTransformation'
 import * as Stream from 'effect/Stream'
 
-import { reviewToolkit, reviewToolkitLayer } from './internal/repository.ts'
+import { reviewToolkit, reviewToolkitLayer } from './internal/repository'
 
 const ReviewPath = Schema.NonEmptyString.check(Schema.isMaxLength(512))
 const Revision = Schema.NonEmptyString.check(Schema.isMaxLength(128))

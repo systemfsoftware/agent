@@ -5,10 +5,10 @@ import * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
-import { ReceiptId, RunId, SubmissionId, ThreadId, ToolCallId } from '../core/Identifiers.ts'
-import { utf8ByteLength } from '../core/internal/utf8.ts'
-import { IdempotencyKey, QueueSequence } from '../core/Receipt.ts'
-import { digestJson } from './Digest.ts'
+import { ReceiptId, RunId, SubmissionId, ThreadId, ToolCallId } from '../core/Identifiers'
+import { utf8ByteLength } from '../core/internal/utf8'
+import { IdempotencyKey, QueueSequence } from '../core/Receipt'
+import { digestJson } from './Digest'
 import {
   type CanonicalRecordEnvelope,
   CanonicalSequence,
@@ -17,11 +17,11 @@ import {
   MAX_RUN_EVIDENCE_RECORDS,
   type ModelResponseRecorded,
   RecordId,
-} from './Records.ts'
-import { canonicalRecordBytes, resolveEvidence } from './RunContinuation.ts'
-import { runIdForSubmission } from './RunJournal.ts'
-import type { SubmissionWorkItem } from './SubmissionLedger.ts'
-import { ThreadReader, ThreadStore, ThreadStoreError } from './ThreadStore.ts'
+} from './Records'
+import { canonicalRecordBytes, resolveEvidence } from './RunContinuation'
+import { runIdForSubmission } from './RunJournal'
+import type { SubmissionWorkItem } from './SubmissionLedger'
+import { ThreadReader, ThreadStore, ThreadStoreError } from './ThreadStore'
 
 export const WORK_INDEX_VERSION = 4
 export const MAX_WORK_PAGE_ENTRIES = 128

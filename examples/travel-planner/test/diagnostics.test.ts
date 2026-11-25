@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
 
-import { diagnosticDetail } from '../src/server/diagnostics.ts'
+import { diagnosticDetail } from '../src/server/diagnostics'
 
 it('retains safe nested metadata without evaluating getters or exposing reasoning and credentials', () => {
   let evaluated = false

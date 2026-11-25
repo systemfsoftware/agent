@@ -1,11 +1,11 @@
 import * as Schema from 'effect/Schema'
 
-import { Update } from './AgentUpdates.ts'
-import { AgentId, DelegationId, RunId, ThreadId, ToolCallId, TurnId } from './Identifiers.ts'
-import { completionDispositionCheck, CompletionMetadata, completionMetadataCheck } from './internal/completion.ts'
-import { DelegationDepth } from './SubagentContract.ts'
-import { Selection } from './ToolExposure.ts'
-import { RunTotals } from './Usage.ts'
+import { Update } from './AgentUpdates'
+import { AgentId, DelegationId, RunId, ThreadId, ToolCallId, TurnId } from './Identifiers'
+import { completionDispositionCheck, CompletionMetadata, completionMetadataCheck } from './internal/completion'
+import { DelegationDepth } from './SubagentContract'
+import { Selection } from './ToolExposure'
+import { RunTotals } from './Usage'
 
 const RunEventBase = {
   eventVersion: Schema.Literal(1),
@@ -179,7 +179,7 @@ export class CompactionPerformed extends Schema.TaggedClass<CompactionPerformed>
  * the re-delegation grant flow (RUN-021) consumes and the durable
  * `SubmissionSettled` record persists (RUN-011).
  */
-export { ExhaustedLimit } from './internal/completion.ts'
+export { ExhaustedLimit } from './internal/completion'
 
 const RunCompletedFields = Schema.Struct({
   ...RunEventBase,

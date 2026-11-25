@@ -7,16 +7,16 @@ import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 import * as Struct from 'effect/Struct'
 
-import { ReceiptId, RunId, SubmissionId, ThreadId, ToolCallId } from '../core/Identifiers.ts'
-import { utf8ByteLength } from '../core/internal/utf8.ts'
-import { QueueSequence } from '../core/Receipt.ts'
-import { AssignmentTerminal } from '../core/Worker.ts'
-import type { IntegrityReport } from './Admin.ts'
-import { captureRecord, type ProgressAppendRecord, recordEncoding } from './internal/record-encoding.ts'
-import { transferRecordDependencies } from './internal/transfer-dependencies.ts'
-import type { LifecyclePublicationStorage } from './LifecyclePublication.ts'
-import { MessageDeliveryError, MessageDeliveryRecord } from './MessageDelivery.ts'
-import { ExportRecord } from './RecordFormat.ts'
+import { ReceiptId, RunId, SubmissionId, ThreadId, ToolCallId } from '../core/Identifiers'
+import { utf8ByteLength } from '../core/internal/utf8'
+import { QueueSequence } from '../core/Receipt'
+import { AssignmentTerminal } from '../core/Worker'
+import type { IntegrityReport } from './Admin'
+import { captureRecord, type ProgressAppendRecord, recordEncoding } from './internal/record-encoding'
+import { transferRecordDependencies } from './internal/transfer-dependencies'
+import type { LifecyclePublicationStorage } from './LifecyclePublication'
+import { MessageDeliveryError, MessageDeliveryRecord } from './MessageDelivery'
+import { ExportRecord } from './RecordFormat'
 import {
   BatchId,
   type CanonicalBatch,
@@ -32,13 +32,13 @@ import {
   RecordId,
   type RecordJson,
   type RunContinuation,
-} from './Records.ts'
-import { subagentLineageRecordId, workerOriginRecordId } from './RunJournal.ts'
-import { ScheduleInstant } from './Schedule.ts'
-import type { OwnershipLost } from './SubmissionLedger.ts'
-import { AbortIntent, AdmissionRequest, ApprovalDecisionIntent, UnknownResolutionIntent } from './SubmissionLedger.ts'
-import { MAX_CANONICAL_BATCH_BYTES, type ThreadArchiveStorage } from './ThreadArchiveRange.ts'
-import type { ThreadWorkStorage } from './ThreadWork.ts'
+} from './Records'
+import { subagentLineageRecordId, workerOriginRecordId } from './RunJournal'
+import { ScheduleInstant } from './Schedule'
+import type { OwnershipLost } from './SubmissionLedger'
+import { AbortIntent, AdmissionRequest, ApprovalDecisionIntent, UnknownResolutionIntent } from './SubmissionLedger'
+import { MAX_CANONICAL_BATCH_BYTES, type ThreadArchiveStorage } from './ThreadArchiveRange'
+import type { ThreadWorkStorage } from './ThreadWork'
 
 export const MAX_THREAD_EXPORT_PAGE_RECORDS = 256
 export const MAX_THREAD_EXPORT_PAGE_BYTES = 32 * 1024 * 1024
@@ -62,7 +62,7 @@ export const makeTransferFactCheck = <A, I>(schema: Schema.Codec<A, I>) => {
   }
 }
 
-export { PROMPT_EVIDENCE_TAGS } from './Records.ts'
+export { PROMPT_EVIDENCE_TAGS } from './Records'
 
 /** Counts of closed owner facts, computed only when an idle export begins. */
 export const ThreadExportSnapshot = Schema.Struct({

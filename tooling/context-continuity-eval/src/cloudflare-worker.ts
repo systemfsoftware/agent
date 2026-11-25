@@ -28,13 +28,13 @@ import {
   CloudflareIdentity,
   cloudflareModelSettings,
   CloudflareSnapshot,
-} from './cloudflare-contracts.ts'
-import { CompactionEvidence, EvaluationError, ModelUsage, RestartEvidence } from './contracts.ts'
-import { continuationEvidence, notesNamespace, originalExecutionFacts, readLog, readNotes } from './host-evidence.ts'
-import { makeLiveClient } from './live-model.ts'
-import { manifestLayer, observedCompactor } from './pressure.ts'
-import { RequestAudit, RequestAuditSink } from './request-audit.ts'
-import { RESTARTS } from './scenario.ts'
+} from './cloudflare-contracts'
+import { CompactionEvidence, EvaluationError, ModelUsage, RestartEvidence } from './contracts'
+import { continuationEvidence, notesNamespace, originalExecutionFacts, readLog, readNotes } from './host-evidence'
+import { makeLiveClient } from './live-model'
+import { manifestLayer, observedCompactor } from './pressure'
+import { RequestAudit, RequestAuditSink } from './request-audit'
+import { RESTARTS } from './scenario'
 
 // Embedded by the build from this checkout, not a mutable deployment variable.
 declare const CONTEXT_EVAL_SOURCE_COMMIT: string

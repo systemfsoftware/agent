@@ -3,9 +3,9 @@ import { Effect, Exit, Layer, Redacted, Ref } from 'effect'
 import { HttpClient, HttpClientResponse } from 'effect/http'
 import { expect, it } from 'vitest'
 
-import { type ModelUsage } from '../src/contracts.ts'
-import { makeLiveClient } from '../src/live-model.ts'
-import { RequestAuditSink } from '../src/request-audit.ts'
+import { type ModelUsage } from '../src/contracts'
+import { makeLiveClient } from '../src/live-model'
+import { RequestAuditSink } from '../src/request-audit'
 
 it('refuses inference and retry while spending is unresolved', async () => {
   let preflights = 0

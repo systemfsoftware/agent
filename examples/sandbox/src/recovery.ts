@@ -18,7 +18,7 @@ import {
 import { Effect, Layer, Option } from 'effect'
 import * as CryptoDigest from 'effect/crypto/Digest'
 
-import { codingTools } from './tools.ts'
+import { codingTools } from './tools'
 
 export const codingReconciler = Layer.effect(
   ToolReconciler,

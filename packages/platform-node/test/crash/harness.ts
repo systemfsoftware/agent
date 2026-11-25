@@ -1,6 +1,8 @@
 import { spawn } from 'node:child_process'
+
 import * as fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { bundledEntry } from './bundled-entry'
 
 import { expect } from '@effect/vitest'
 import {
@@ -44,7 +46,7 @@ import {
   KILL_EXIT_CODE,
   supplierCounts,
   supplierValues,
-} from './fixtures.ts'
+} from './fixtures'
 
 /**
  * Shared process-kill harness machinery (plan §Crash matrix, §4.4): spawning real worker
@@ -163,7 +165,7 @@ export const startWorker = (
 ): Effect.Effect<WorkerHandle, never, Scope.Scope> =>
   Effect.acquireRelease(
     Effect.sync(() => {
-      const child = spawn(process.execPath, [workerEntry], {
+      const child = spawn(process.execPath, [bundledEntry(workerEntry)], {
         cwd: packageRoot,
         env: { ...process.env, ...childEnv(options) },
         stdio: ['ignore', 'pipe', 'pipe'],

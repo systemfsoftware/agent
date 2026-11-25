@@ -2,9 +2,9 @@ import * as Context from 'effect/Context'
 import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 
-import { DurableRuntimeFailpoint, DurableRuntimeFailpointError } from './DurableFailpoint.ts'
-import { ensureThreadCreated, ensureWorkerOrigin } from './internal/thread-initialization.ts'
-import { ProducerId, WorkerAdmission } from './Records.ts'
+import { DurableRuntimeFailpoint, DurableRuntimeFailpointError } from './DurableFailpoint'
+import { ensureThreadCreated, ensureWorkerOrigin } from './internal/thread-initialization'
+import { ProducerId, WorkerAdmission } from './Records'
 import {
   AdmissionConflict,
   AdmissionPolicyError,
@@ -12,15 +12,15 @@ import {
   LedgerError,
   MarkReadyRequest,
   SubmissionLedger,
-} from './SubmissionLedger.ts'
+} from './SubmissionLedger'
 import {
   AppendConflict,
   ThreadMaterialization,
   ThreadNotMaterialized,
   ThreadStore,
   ThreadStoreError,
-} from './ThreadStore.ts'
-import { WakeScheduler } from './WakeScheduler.ts'
+} from './ThreadStore'
+import { WakeScheduler } from './WakeScheduler'
 
 /**
  * Storage admission after source authorization, input validation and capacity reservation.

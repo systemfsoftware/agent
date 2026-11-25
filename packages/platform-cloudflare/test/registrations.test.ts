@@ -14,7 +14,7 @@ import * as SqlClient from 'effect/sql/SqlClient'
 import * as Statement from 'effect/sql/Statement'
 import { expect, it } from 'vitest'
 
-import { stubFor } from './harness.ts'
+import { stubFor } from './harness'
 
 // Regression: https://github.com/yielded-dev/agent/commit/227b5e8a98ce4d1b303bacbeaf35c15ff45f6c75
 it('keeps local submission lookups inside the physical owner, including corrupt identity rows', async () => {

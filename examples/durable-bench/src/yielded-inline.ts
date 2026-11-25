@@ -1,1 +1,1 @@
-export { inlineWorker as default, YieldedDO } from './yielded.ts'
+export { inlineWorker as default, YieldedDO } from './yielded'

@@ -2,10 +2,10 @@ import { ThreadObjectIdentity } from '@systemfsoftware/agent-platform-cloudflare
 import { Effect, Layer, Schema } from 'effect'
 import { WorkerEnvironment } from 'effect-cf'
 
-import { AppId, PlannerError, TripApp, TripAppData, TripId } from '../domain.ts'
-import { ownerOfThread } from '../server/tenancy.ts'
-import { TripRepository } from '../server/trips.ts'
-import { AppRepository, AppRepositoryLive } from './repository.ts'
+import { AppId, PlannerError, TripApp, TripAppData, TripId } from '../domain'
+import { ownerOfThread } from '../server/tenancy'
+import { TripRepository } from '../server/trips'
+import { AppRepository, AppRepositoryLive } from './repository'
 
 export const AppCommand = Schema.Union([
   Schema.TaggedStruct('Get', { tripId: TripId }),

@@ -1,7 +1,7 @@
 import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 
-import { history, type Stats } from '../src/plan.ts'
-import { call, fixture, fixtureDirectory, SIZES, start, target, version } from './targets.ts'
+import { history, type Stats } from '../src/plan'
+import { call, fixture, fixtureDirectory, SIZES, start, target, version } from './targets'
 
 const BATCH = 50
 

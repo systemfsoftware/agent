@@ -15,19 +15,19 @@ import {
   Stream,
 } from 'effect'
 
-import { history, MEASURED_TOOLS, type Message, next, payload, type Turn, turn } from '../src/plan.ts'
-import { checkCost, planCost, reserveCost } from './budget.ts'
-import { build, ensureVendor } from './build.ts'
-import { Cloudflare, measureRequest, measureResult, request, requestEvents, retryRequest } from './cloudflare.ts'
-import { deployments } from './deploy.ts'
-import { checkFixture } from './fixture-check.ts'
-import { prepareFixtures } from './fixtures.ts'
-import { BuildEvent, HistoryCheckpoint, Options, type Profile, Result, type Sample } from './model.ts'
-import { BenchError, git, hash, nonce, read, redact, save, stateDirectory, workspace } from './platform.ts'
-import { prepareProfile, profileBatches } from './profile.ts'
-import { median, retirementFailures, sampleCpu, table, writeReport } from './report.ts'
-import { tailCpu } from './tail-cpu.ts'
-import { PREAMBLE, responseText } from './text.ts'
+import { history, MEASURED_TOOLS, type Message, next, payload, type Turn, turn } from '../src/plan'
+import { checkCost, planCost, reserveCost } from './budget'
+import { build, ensureVendor } from './build'
+import { Cloudflare, measureRequest, measureResult, request, requestEvents, retryRequest } from './cloudflare'
+import { deployments } from './deploy'
+import { checkFixture } from './fixture-check'
+import { prepareFixtures } from './fixtures'
+import { BuildEvent, HistoryCheckpoint, Options, type Profile, Result, type Sample } from './model'
+import { BenchError, git, hash, nonce, read, redact, save, stateDirectory, workspace } from './platform'
+import { prepareProfile, profileBatches } from './profile'
+import { median, retirementFailures, sampleCpu, table, writeReport } from './report'
+import { tailCpu } from './tail-cpu'
+import { PREAMBLE, responseText } from './text'
 import {
   ColdResult,
   expectedRestoredTables,
@@ -42,8 +42,8 @@ import {
   RestoreChunk,
   RouteReadiness,
   type TransientObjectTransport,
-} from './worker/protocol.ts'
-import type { UsageSnapshot } from './worker/usage.ts'
+} from './worker/protocol'
+import type { UsageSnapshot } from './worker/usage'
 
 const COLD_PROPAGATION_DELAY = '180 seconds'
 

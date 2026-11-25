@@ -1,10 +1,11 @@
 {
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": {
-    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.tsbuildinfo",
-    "types": ["node", "@cloudflare/workers-types"]
-  },
-  "include": ["src", "test"],
-  // Alchemy's beta SDK types this stack's effects as `any`; the deploy workflow, not the typechecker, verifies it.
-  "exclude": ["src/replay-cpu.stack.ts"]
+  "files": [],
+  "references": [
+    {
+      "path": "./tsconfig.app.json"
+    },
+    {
+      "path": "./tsconfig.test.json"
+    }
+  ]
 }

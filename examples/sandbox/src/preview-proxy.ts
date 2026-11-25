@@ -9,7 +9,7 @@ import {
 } from '@yielded/sandbox/cloudflare'
 import { Clock, Context, Effect, Layer, Schema } from 'effect'
 
-import { PREVIEW_LIFETIME_MS, WorkspacePreviewGrant } from './contract.ts'
+import { PREVIEW_LIFETIME_MS, WorkspacePreviewGrant } from './contract'
 
 export const PREVIEW_HANDOFF_PATH = '/__preview/session'
 const cookieName = '__Host-yielded-preview'

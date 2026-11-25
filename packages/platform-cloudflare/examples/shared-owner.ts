@@ -11,9 +11,9 @@ import * as Layer from 'effect/Layer'
 import * as ManagedRuntime from 'effect/ManagedRuntime'
 import * as SqlClient from 'effect/sql/SqlClient'
 
-import { ThreadMaintenanceAlarm, ThreadMutationGate } from '../src/Alarm.ts'
-import { DurableObjectContext, ThreadObjectNamespace } from '../src/CloudflareBindings.ts'
-import * as ThreadObject from '../src/ThreadObject.ts'
+import { ThreadMaintenanceAlarm, ThreadMutationGate } from '../src/Alarm'
+import { DurableObjectContext, ThreadObjectNamespace } from '../src/CloudflareBindings'
+import * as ThreadObject from '../src/ThreadObject'
 
 /** An application service acquired from the same ports its Bindings use. */
 class LocalReads extends Context.Service<LocalReads, { readonly store: ThreadStore['Service'] }>()(

@@ -1,8 +1,8 @@
 import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 
-import { SettlementId, SubmissionId, ThreadId, ToolCallId } from '../core/Identifiers.ts'
-import { ApprovalDecision, DeclaredToolCall, SettlementOutcome } from './Records.ts'
+import { SettlementId, SubmissionId, ThreadId, ToolCallId } from '../core/Identifiers'
+import { ApprovalDecision, DeclaredToolCall, SettlementOutcome } from './Records'
 import {
   type ChildAttachmentSnapshot,
   type ChildBudgetReservationSnapshot,
@@ -10,7 +10,7 @@ import {
   type RecoverySnapshot,
   submissionSettlementId,
   WaitingChild,
-} from './SubmissionLedger.ts'
+} from './SubmissionLedger'
 
 /** One declared operation that may have executed without a canonical outcome (DUR-009). */
 export class OpenToolCallEvidence extends Schema.Class<OpenToolCallEvidence>(

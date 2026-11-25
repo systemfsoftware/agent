@@ -7,22 +7,22 @@ import * as Schema from 'effect/Schema'
 import * as Semaphore from 'effect/Semaphore'
 import * as Stream from 'effect/Stream'
 
-import { AgentPersistenceCapacityError } from '../core/AgentError.ts'
-import type { RunId, SubmissionId, ThreadId } from '../core/Identifiers.ts'
-import { ToolCallId } from '../core/Identifiers.ts'
-import { utf8ByteLength } from '../core/internal/utf8.ts'
-import { resolveEvidence } from './internal/evidence.ts'
-import { continuationUsage } from './internal/usage-totals.ts'
-export { reference, resolveEvidence } from './internal/evidence.ts'
-import { captureRecord, type ProgressAppendRecord, recordEncoding } from './internal/record-encoding.ts'
+import { AgentPersistenceCapacityError } from '../core/AgentError'
+import type { RunId, SubmissionId, ThreadId } from '../core/Identifiers'
+import { ToolCallId } from '../core/Identifiers'
+import { utf8ByteLength } from '../core/internal/utf8'
+import { resolveEvidence } from './internal/evidence'
+import { continuationUsage } from './internal/usage-totals'
+export { reference, resolveEvidence } from './internal/evidence'
+import { captureRecord, type ProgressAppendRecord, recordEncoding } from './internal/record-encoding'
 import {
   canonicalRunIds,
   executionRunIds,
   isPreContinuationFact,
   isTerminalBudgetFact,
-} from './internal/record-ownership.ts'
-export { terminalUsageCharge } from './internal/record-ownership.ts'
-import { readRunContext, validateContextBoundary } from './internal/run-context.ts'
+} from './internal/record-ownership'
+export { terminalUsageCharge } from './internal/record-ownership'
+import { readRunContext, validateContextBoundary } from './internal/run-context'
 import {
   CanonicalBatch,
   type CanonicalRecordEnvelope,
@@ -45,7 +45,7 @@ import {
   RUN_TERMINAL_RESERVE_RECORDS,
   RunContinuation,
   type ToolCallSettled,
-} from './Records.ts'
+} from './Records'
 import {
   runCompletedRecordId,
   runIdForSubmission,
@@ -53,14 +53,14 @@ import {
   subagentStartedRecordId,
   toolCallResultBatchId,
   toolCallSettledRecordId,
-} from './RunJournal.ts'
-import type { RunStorageSession } from './RunStorage.ts'
+} from './RunJournal'
+import type { RunStorageSession } from './RunStorage'
 import {
   submissionAbortRecordId,
   submissionInputRecordId,
   submissionSettlementBatchId,
   submissionSettlementRecordId,
-} from './SubmissionLedger.ts'
+} from './SubmissionLedger'
 import {
   CommitBatch,
   ExecutionCheckpoint,
@@ -69,9 +69,9 @@ import {
   getRunInput,
   ThreadReader,
   ThreadStoreError,
-} from './ThreadStore.ts'
+} from './ThreadStore'
 
-export { EvidenceReference, RunContextRecorded, RunContinuation } from './Records.ts'
+export { EvidenceReference, RunContextRecorded, RunContinuation } from './Records'
 
 /** Writer and progress sequencer selected at the local owner's resource boundary. */
 export class CurrentRunWriter extends Context.Service<
@@ -98,7 +98,7 @@ export class ProgressAppendReader extends Context.Service<
   }
 >()('@effect-agent/thread/ProgressAppendReader') {}
 
-export { canonicalRunIds, executionRunIds, isPreContinuationFact, isWorkHandoff } from './internal/record-ownership.ts'
+export { canonicalRunIds, executionRunIds, isPreContinuationFact, isWorkHandoff } from './internal/record-ownership'
 
 const failure = (message: string, cause?: unknown) =>
   ThreadStoreError.make({
@@ -181,7 +181,7 @@ export const canonicalRecordBytes = (record: RecordEnvelope): number => {
   return encoded.success.bytes
 }
 
-export type { ProgressAppendRecord } from './internal/record-encoding.ts'
+export type { ProgressAppendRecord } from './internal/record-encoding'
 
 /** Capture before acquiring the mutation owner; summaries never cross a wire boundary. */
 export const prepareProgressAppend = (

@@ -3,7 +3,7 @@ import { HttpClient, HttpClientResponse } from 'effect/http'
 import { Socket } from 'effect/socket'
 import { convertV4MiniflareOptions, Log, LogLevel, Miniflare } from 'miniflare'
 
-import { HeapProbeError, HeapUsage, ObjectStatus, WorkerdSample } from './heap-contracts.ts'
+import { HeapProbeError, HeapUsage, ObjectStatus, WorkerdSample } from './heap-contracts'
 
 const Message = Schema.Struct({
   id: Schema.optionalKey(Schema.Finite),

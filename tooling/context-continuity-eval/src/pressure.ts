@@ -5,8 +5,8 @@ import * as MemoryNotes from '@systemfsoftware/agent/memory-notes'
 import { Effect, Layer, Schema, Stream } from 'effect'
 import { Tool, Toolkit } from 'effect/ai'
 
-import { type CompactionEvidence } from './contracts.ts'
-import { instructions, makeScenario } from './scenario.ts'
+import { type CompactionEvidence } from './contracts'
+import { instructions, makeScenario } from './scenario'
 
 export const pressureInstructions = instructions.replace(
   /When the user requests a window transition,[\s\S]*?A recovered transition is already complete\./,

@@ -4,8 +4,8 @@ import * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'
 import type * as Scope from 'effect/Scope'
 
-import type { PageScreenshotResult } from './PageScreenshot.ts'
-import { SandboxImplementation } from './Sandbox.ts'
+import type { PageScreenshotResult } from './PageScreenshot'
+import { SandboxImplementation } from './Sandbox'
 
 const PositiveInt = Schema.Int.check(Schema.isGreaterThan(0))
 const BoundedText = Schema.String.check(Schema.isMaxLength(8 * 1024 * 1024))

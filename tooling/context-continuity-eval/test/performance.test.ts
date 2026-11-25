@@ -7,8 +7,8 @@ import { build } from 'esbuild'
 import { convertV4MiniflareOptions, Miniflare } from 'miniflare'
 import { expect, it } from 'vitest'
 
-import { expectedPerformanceOutput, PerformanceIdentity, PerformanceSnapshot } from '../src/performance-contracts.ts'
-import { gradePerformancePhase, runPerformanceSample } from '../src/performance-evaluate.ts'
+import { expectedPerformanceOutput, PerformanceIdentity, PerformanceSnapshot } from '../src/performance-contracts'
+import { gradePerformancePhase, runPerformanceSample } from '../src/performance-evaluate'
 
 /** Offline transport fixture only; this does not constitute deployed/live evidence. */
 it('rejects fabricated tool consumption and missing history after workerd recovery', async () => {

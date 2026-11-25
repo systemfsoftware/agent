@@ -1,15 +1,15 @@
 import * as Result from 'effect/Result'
 import * as Schema from 'effect/Schema'
 
-import { DefinitionDigests, PersistedJson } from './Records.ts'
+import { DefinitionDigests, PersistedJson } from './Records'
 import {
   type ScheduleChange,
   ScheduleConflict,
   type ScheduleKey,
   type ScheduleOwner,
   type ScheduleRecord,
-} from './Schedule.ts'
-import { AdmissionFence } from './SubmissionLedger.ts'
+} from './Schedule'
+import { AdmissionFence } from './SubmissionLedger'
 
 const equivalentDefinitions = Schema.toEquivalence(DefinitionDigests)
 const equivalentInput = Schema.toEquivalence(PersistedJson)

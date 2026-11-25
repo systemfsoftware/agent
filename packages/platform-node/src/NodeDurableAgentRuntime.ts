@@ -51,9 +51,9 @@ import * as Scope from 'effect/Scope'
 import * as SqlClientService from 'effect/sql/SqlClient'
 import * as Statement from 'effect/sql/Statement'
 
-import { applicationInvocationContext } from './internal/application-context.ts'
-import { ExclusiveSqliteHost } from './internal/exclusive-host.ts'
-import { NodeWakeSchedulerConfig, nodeWakeSchedulerLayer } from './NodeWakeScheduler.ts'
+import { applicationInvocationContext } from './internal/application-context'
+import { ExclusiveSqliteHost } from './internal/exclusive-host'
+import { NodeWakeSchedulerConfig, nodeWakeSchedulerLayer } from './NodeWakeScheduler'
 
 const PositiveMillis = Schema.Int.check(Schema.isGreaterThan(0))
 const NonNegativeMillis = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))

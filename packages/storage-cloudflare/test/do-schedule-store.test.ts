@@ -7,7 +7,7 @@ import * as Layer from 'effect/Layer'
 import * as SqlClientService from 'effect/sql/SqlClient'
 import { describe, expect, it } from 'vitest'
 
-import { withScheduleStorage } from './harness.ts'
+import { withScheduleStorage } from './harness'
 
 let objectCounter = 0
 

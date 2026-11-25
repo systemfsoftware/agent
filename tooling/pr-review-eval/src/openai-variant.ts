@@ -20,9 +20,9 @@ import { Config, Effect, Layer, Option, Schema } from 'effect'
 import { AiError } from 'effect/ai'
 import { FetchHttpClient } from 'effect/http'
 
-import { EvalReviewerFailure, EvalServiceTier, EvalVariantConfiguration, type EvalVariantId } from './contracts.ts'
-import { digestText } from './corpus.ts'
-import { type EvalVariant } from './runner.ts'
+import { EvalReviewerFailure, EvalServiceTier, EvalVariantConfiguration, type EvalVariantId } from './contracts'
+import { digestText } from './corpus'
+import { type EvalVariant } from './runner'
 
 const ReviewerErrorView = Schema.Struct({
   _tag: Schema.NonEmptyString.check(Schema.isMaxLength(200)),

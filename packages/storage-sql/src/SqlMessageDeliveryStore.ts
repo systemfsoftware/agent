@@ -32,11 +32,11 @@ import * as SqlClient from 'effect/sql/SqlClient'
 import type * as SqlError from 'effect/sql/SqlError'
 import type * as Statement from 'effect/sql/Statement'
 
-import { queryIdentifier, sqliteJsonText } from './internal/sql-json.ts'
-import { makeSqlLifecyclePublication } from './SqlLifecyclePublication.ts'
-import { makeSqlQuery, SqlInteger } from './SqlStorage.ts'
-import { SqlStorageProgress } from './SqlStorageProgress.ts'
-import { makeSqlThreadWork } from './SqlThreadWork.ts'
+import { queryIdentifier, sqliteJsonText } from './internal/sql-json'
+import { makeSqlLifecyclePublication } from './SqlLifecyclePublication'
+import { makeSqlQuery, SqlInteger } from './SqlStorage'
+import { SqlStorageProgress } from './SqlStorageProgress'
+import { makeSqlThreadWork } from './SqlThreadWork'
 
 const workerPaths = {
   delegationId: ['envelope', 'workerAdmission', 'origin', 'worker', 'delegationId'],

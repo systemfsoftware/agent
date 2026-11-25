@@ -68,7 +68,7 @@ import {
   supplierCount,
   supplierReconcilerLayer,
   toolCallParts,
-} from './fixtures.ts'
+} from './fixtures'
 import {
   assertConvergence,
   childMessages,
@@ -87,7 +87,7 @@ import {
   withCrashSite,
   withHost,
   withRuntime,
-} from './harness.ts'
+} from './harness'
 
 /**
  * Process-kill crash harness (plan §Crash matrix + §4.3, durability §15). Every test spawns

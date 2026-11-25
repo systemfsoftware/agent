@@ -1,12 +1,12 @@
 import * as Duration from 'effect/Duration'
 import * as Schema from 'effect/Schema'
 
-import * as FailureDiagnostic from '../../core/FailureDiagnostic.ts'
-import { AgentId, DelegationId } from '../../core/Identifiers.ts'
-import type { SubagentPolicy } from '../../core/SubagentContract.ts'
-import { SubagentDelegationCaps, SubagentReservationAmounts } from '../../core/SubagentContract.ts'
+import * as FailureDiagnostic from '../../core/FailureDiagnostic'
+import { AgentId, DelegationId } from '../../core/Identifiers'
+import type { SubagentPolicy } from '../../core/SubagentContract'
+import { SubagentDelegationCaps, SubagentReservationAmounts } from '../../core/SubagentContract'
 
-export { SubagentPolicy, type SubagentPolicyInput } from '../../core/SubagentContract.ts'
+export { SubagentPolicy, type SubagentPolicyInput } from '../../core/SubagentContract'
 
 const BoundedFailureText = Schema.String.check(Schema.isMaxLength(4 * 1024))
 
@@ -46,7 +46,7 @@ export {
   maxErrorTagLength,
   SubagentExecutionFailure,
   SubagentExecutionFailureClassification,
-} from '../../core/SubagentContract.ts'
+} from '../../core/SubagentContract'
 
 const millisOfMaxDuration = (policy: SubagentPolicy): number =>
   Math.max(1, Math.ceil(Duration.toMillis(policy.maxDuration)))

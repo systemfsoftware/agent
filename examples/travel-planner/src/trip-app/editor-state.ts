@@ -1,9 +1,9 @@
 import type { CanonicalRecordEnvelope } from '@systemfsoftware/agent/records'
 import { Schema } from 'effect'
 
-import type { EditorActivity } from '../domain.ts'
-import { emptyProgress } from '../server/progress.ts'
-import { AppEditor, EditorRequest } from './editor.ts'
+import type { EditorActivity } from '../domain'
+import { emptyProgress } from '../server/progress'
+import { AppEditor, EditorRequest } from './editor'
 
 /** The overview uses the already loaded source journal, including its exact request locator. */
 export const editorOverview = (

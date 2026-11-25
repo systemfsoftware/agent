@@ -39,8 +39,8 @@ import * as Redacted from 'effect/Redacted'
 import * as Schema from 'effect/Schema'
 import * as TestClock from 'effect/testing/TestClock'
 
-import { BrowserRunBinding } from '../src/internal/browser-binding.ts'
-import { browserFailure } from '../src/internal/browser-failure.ts'
+import { BrowserRunBinding } from '../src/internal/browser-binding'
+import { browserFailure } from '../src/internal/browser-failure'
 
 type CloseTarget =
   | 'page'

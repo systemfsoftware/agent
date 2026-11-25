@@ -74,7 +74,7 @@ import {
   ThreadMaintenance,
   ThreadMaintenanceAlarm,
   ThreadMutationGate,
-} from './Alarm.ts'
+} from './Alarm'
 import {
   type CloudflareBindingError,
   DurableObjectContext,
@@ -82,8 +82,8 @@ import {
   ThreadObjectIdentity,
   ThreadObjectNamespace,
   ThreadObjectPlacement,
-} from './CloudflareBindings.ts'
-import { AdmissionLimitExceeded, CloudflareDurableRuntimeConfig } from './CloudflareConfig.ts'
+} from './CloudflareBindings'
+import { AdmissionLimitExceeded, CloudflareDurableRuntimeConfig } from './CloudflareConfig'
 import {
   AbortRecorded,
   ApprovalRecorded,
@@ -111,7 +111,7 @@ import {
   type SubmitRequest,
   SubmitSucceeded,
   UnknownResolutionRecorded,
-} from './CloudflareThreadClient.ts'
+} from './CloudflareThreadClient'
 import {
   type CloudflareBootstrapServices,
   type CloudflareDurableRuntimeInitializationError,
@@ -119,10 +119,10 @@ import {
   type CloudflareDurableRuntimeServices,
   layerConfig,
   ThreadObjectPorts,
-} from './internal/layers.ts'
-import { Request as WatchTextRequest } from './internal/live-text-protocol.ts'
-import { LiveTextHub } from './internal/live-text.ts'
-import { ProgressWaitRegistry } from './internal/progress-wait.ts'
+} from './internal/layers'
+import { LiveTextHub } from './internal/live-text'
+import { Request as WatchTextRequest } from './internal/live-text-protocol'
+import { ProgressWaitRegistry } from './internal/progress-wait'
 
 export {
   type CloudflareBootstrapServices as BootstrapServices,
@@ -136,7 +136,7 @@ export {
   type ThreadHostMutation,
   ThreadObjectPorts,
   type ThreadPublicationOptions as PublicationOptions,
-} from './internal/layers.ts'
+} from './internal/layers'
 
 /**
  * `ThreadObject.make(application, options)` — the Thread Durable Object

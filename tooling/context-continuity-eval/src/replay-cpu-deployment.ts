@@ -3,8 +3,8 @@ import * as SecureRandom from 'effect/crypto/SecureRandom'
 import { HttpClient, HttpClientRequest } from 'effect/http'
 import { ChildProcess, ChildProcessSpawner } from 'effect/process'
 
-import { requireReplayCpu, sha256 } from './replay-cpu-build.ts'
-import { ReplayCpuError, ReplayCpuRole, ReplayCpuStage } from './replay-cpu-contracts.ts'
+import { requireReplayCpu, sha256 } from './replay-cpu-build'
+import { ReplayCpuError, ReplayCpuRole, ReplayCpuStage } from './replay-cpu-contracts'
 
 export const ReplayCpuTarget = Schema.Struct({
   block: Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 2 })),

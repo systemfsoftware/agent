@@ -1,4 +1,4 @@
-import { utf8ByteLength } from '../Digest.ts'
+import { utf8ByteLength } from '../Digest'
 
 /**
  * Count JSON from an owned canonical projection or checkpoint parser before retaining a Prompt.

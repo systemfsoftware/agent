@@ -45,8 +45,8 @@ import * as Layer from 'effect/Layer'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
-import { layerFromBindings } from '../src/internal/layers.ts'
-import { pauseWorkerInputInsertion } from './helpers/worker-input-contention.ts'
+import { layerFromBindings } from '../src/internal/layers'
+import { pauseWorkerInputInsertion } from './helpers/worker-input-contention'
 
 /**
  * Workerd-safe eviction-harness fixtures (plan §3, §4 WP3). The vitest pool runs test files

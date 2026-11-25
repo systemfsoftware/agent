@@ -13,8 +13,8 @@ import type * as Redacted from 'effect/Redacted'
 import * as Result from 'effect/Result'
 import * as Schema from 'effect/Schema'
 
-import { MAX_REVIEW_BODY_CHARS } from './presentation.ts'
-import { dismissedReviews, type ReviewHistoryItem, unresolvedChangeRequests } from './selection.ts'
+import { MAX_REVIEW_BODY_CHARS } from './presentation'
+import { dismissedReviews, type ReviewHistoryItem, unresolvedChangeRequests } from './selection'
 
 const ShortString = Schema.String.check(Schema.isMaxLength(2_048))
 const Revision = Schema.NonEmptyString.check(Schema.isMaxLength(128))

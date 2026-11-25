@@ -4,7 +4,7 @@ import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import * as Schema from 'effect/Schema'
 
-import { RunId, ThreadId, TurnId } from './Identifiers.ts'
+import { RunId, ThreadId, TurnId } from './Identifiers'
 
 /** Replaceable authority for creating runtime identities, including deterministic test IDs. */
 export interface Service {

@@ -9,16 +9,11 @@ import type * as Layer from 'effect/Layer'
 import type * as Schema from 'effect/Schema'
 import * as S from 'effect/Schema'
 
-import type {
-  AgentInputDecodeError,
-  AgentInputError,
-  AgentOutputError,
-  AgentRunDispositionError,
-} from './AgentError.ts'
-import { AgentPolicy, type AgentPolicyInput } from './AgentPolicy.ts'
-import { AgentId } from './Identifiers.ts'
-import { type UpdateToolkit, withUpdateTool } from './internal/agent-updates.ts'
-import type { Configuration } from './ToolExposure.ts'
+import type { AgentInputDecodeError, AgentInputError, AgentOutputError, AgentRunDispositionError } from './AgentError'
+import { AgentPolicy, type AgentPolicyInput } from './AgentPolicy'
+import { AgentId } from './Identifiers'
+import { type UpdateToolkit, withUpdateTool } from './internal/agent-updates'
+import type { Configuration } from './ToolExposure'
 
 /** Prompt input produced directly or by an Effect that preserves its failure and requirements. */
 export type InstructionResult<E = never, R = never> =

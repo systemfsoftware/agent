@@ -1,7 +1,7 @@
 import { Schema } from 'effect'
 
-import { type Result, type Sample } from './model.ts'
-import { TARGETS } from './worker/protocol.ts'
+import { type Result, type Sample } from './model'
+import { TARGETS } from './worker/protocol'
 
 export const quantile = (values: readonly number[], q: number): number => {
   const sorted = [...values].sort((a, b) => a - b)

@@ -3,7 +3,7 @@ import { CanonicalRecordEnvelope } from '@systemfsoftware/agent/records'
 import { Schema } from 'effect'
 import { describe, expect, it } from 'vitest'
 
-import { hasSearchPathToRead, originalArchiveRecord } from '../src/evidence.ts'
+import { hasSearchPathToRead, originalArchiveRecord } from '../src/evidence'
 
 const source = 'model-response:run:archive:1'
 const citation = 'tool-settled:run:earlier:10:read-archive'

@@ -15,7 +15,7 @@ import * as Layer from 'effect/Layer'
 import * as Schema from 'effect/Schema'
 import * as SchemaGetter from 'effect/SchemaGetter'
 
-import type { SubagentReservations } from '../../src/capabilities/SubagentReservations.ts'
+import type { SubagentReservations } from '../../src/capabilities/SubagentReservations'
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2
   ? (<T>() => T extends B ? 1 : 2) extends <T>() => T extends A ? 1 : 2 ? true

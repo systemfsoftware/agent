@@ -1,8 +1,8 @@
 import { ThreadId } from '@systemfsoftware/agent/identifiers'
 import { Schema } from 'effect'
 
-import { PlannerSettings, ShortText, Text } from '../domain.ts'
-import { TravelPhoto, TravelUrl } from '../travel-content.ts'
+import { PlannerSettings, ShortText, Text } from '../domain'
+import { TravelPhoto, TravelUrl } from '../travel-content'
 
 export const researchCoordinatorId = 'travel-planner-v16'
 

@@ -25,19 +25,19 @@ import {
   CurrentSqliteStorageVersion,
   inspectManagedSqliteStorage,
   readSqliteStorageHeader,
-} from './internal/migrations.ts'
-import { sqliteClientLayer } from './internal/sqlite-client-layer.ts'
+} from './internal/migrations'
+import { sqliteClientLayer } from './internal/sqlite-client-layer'
 import {
   configureSqliteSynchronous,
   initializeSqliteJournal,
   initializeSqliteJournalKernel,
   sqliteErrors,
-} from './internal/sqlite-journal.ts'
-import { sqlFailure } from './internal/sqlite-ledger-errors.ts'
-import { SqliteStorageConfig, SqliteStorageConfigValue } from './SqliteStorageConfig.ts'
-import type { SqliteStorageCorruptionError } from './SqliteStorageError.ts'
-import { SqliteStorageCompatibilityError, SqliteStorageError } from './SqliteStorageError.ts'
-import { SqliteStorageFailpoint, type SqliteStorageFailpointHandler } from './SqliteStorageFailpoint.ts'
+} from './internal/sqlite-journal'
+import { sqlFailure } from './internal/sqlite-ledger-errors'
+import { SqliteStorageConfig, SqliteStorageConfigValue } from './SqliteStorageConfig'
+import type { SqliteStorageCorruptionError } from './SqliteStorageError'
+import { SqliteStorageCompatibilityError, SqliteStorageError } from './SqliteStorageError'
+import { SqliteStorageFailpoint, type SqliteStorageFailpointHandler } from './SqliteStorageFailpoint'
 
 export interface SqliteStorageOptions {
   readonly filename: string

@@ -4,7 +4,7 @@ import type * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 import type * as Scope from 'effect/Scope'
 
-import { SANDBOX_DIAGNOSTIC_MAX_LENGTH, SandboxImplementation, SandboxNetworkPolicy } from './Sandbox.ts'
+import { SANDBOX_DIAGNOSTIC_MAX_LENGTH, SandboxImplementation, SandboxNetworkPolicy } from './Sandbox'
 
 // Schema `isMaxLength` counts UTF-16 string elements: these caps are
 // transport sanity bounds, not byte budgets. The authoritative byte budgets

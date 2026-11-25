@@ -6,17 +6,17 @@ import * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
-import type { InboxPage } from '../../capabilities/Messaging.ts'
-import { MessageAdmission, MessageRef, MessagingError, PeerName } from '../../capabilities/Messaging.ts'
-import type { AgentId, ThreadId } from '../../core/Identifiers.ts'
-import { IdempotencyKey, type Principal } from '../../core/Receipt.ts'
-import type { WorkerSource } from '../../core/Worker.ts'
-import { type MessagingHost, type PeerTarget, type SendPeerMessage } from '../../engine/MessagingHost.ts'
-import { PeerAuthorizer, PeerDeliveryLifetime, PeerMessageCapacity, PeerRoutes } from '../../engine/MessagingHost.ts'
-import { digestJson } from '../Digest.ts'
-import type { DurableSubmitOptions } from '../DurableAgentRuntime.ts'
-import { MessageDeliveryFailpoint, type MessageDeliveryRecord, MessageDeliveryStore } from '../MessageDelivery.ts'
-import { PreparedInput } from '../PreparedInputAdmission.ts'
+import type { InboxPage } from '../../capabilities/Messaging'
+import { MessageAdmission, MessageRef, MessagingError, PeerName } from '../../capabilities/Messaging'
+import type { AgentId, ThreadId } from '../../core/Identifiers'
+import { IdempotencyKey, type Principal } from '../../core/Receipt'
+import type { WorkerSource } from '../../core/Worker'
+import { type MessagingHost, type PeerTarget, type SendPeerMessage } from '../../engine/MessagingHost'
+import { PeerAuthorizer, PeerDeliveryLifetime, PeerMessageCapacity, PeerRoutes } from '../../engine/MessagingHost'
+import { digestJson } from '../Digest'
+import type { DurableSubmitOptions } from '../DurableAgentRuntime'
+import { MessageDeliveryFailpoint, type MessageDeliveryRecord, MessageDeliveryStore } from '../MessageDelivery'
+import { PreparedInput } from '../PreparedInputAdmission'
 import {
   BatchId,
   CanonicalBatch,
@@ -27,9 +27,9 @@ import {
   PersistedJson,
   type ProducerId,
   RecordEnvelope,
-} from '../Records.ts'
-import { peerMessageRecordId } from '../RunJournal.ts'
-import { submissionInputRecordId, SubmissionLedger, SubmissionLookupByKey } from '../SubmissionLedger.ts'
+} from '../Records'
+import { peerMessageRecordId } from '../RunJournal'
+import { submissionInputRecordId, SubmissionLedger, SubmissionLookupByKey } from '../SubmissionLedger'
 import {
   AppendRequest,
   getRecord,
@@ -38,9 +38,9 @@ import {
   ThreadStore,
   ThreadStoreError,
   ThreadTailRequest,
-} from '../ThreadStore.ts'
-import { definitionDigestsEqual, type ResolvedBinding, resolveDefinitionBinding } from './agent-registration.ts'
-import { messageStatus } from './message-status.ts'
+} from '../ThreadStore'
+import { definitionDigestsEqual, type ResolvedBinding, resolveDefinitionBinding } from './agent-registration'
+import { messageStatus } from './message-status'
 
 export interface MessagingRuntimeOptions {
   readonly bindings: ReadonlyArray<ResolvedBinding>

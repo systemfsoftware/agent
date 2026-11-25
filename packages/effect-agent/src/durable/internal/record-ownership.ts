@@ -1,8 +1,8 @@
-import type { RunId } from '../../core/Identifiers.ts'
-import { utf8ByteLength } from '../../core/internal/utf8.ts'
-import type { ModelCallUsage } from '../../core/Usage.ts'
-import type { RecordEnvelope } from '../Records.ts'
-import { runIdForSubmission } from '../RunJournal.ts'
+import type { RunId } from '../../core/Identifiers'
+import { utf8ByteLength } from '../../core/internal/utf8'
+import type { ModelCallUsage } from '../../core/Usage'
+import type { RecordEnvelope } from '../Records'
+import { runIdForSubmission } from '../RunJournal'
 
 /** Index membership comes from canonical owner fields, never parsing opaque identities. */
 export const canonicalRunIds = ({ payload }: RecordEnvelope): ReadonlyArray<RunId> => {

@@ -2,7 +2,7 @@ import { toolFailureObserverLayer } from '@systemfsoftware/agent/run-options'
 import { Context, DateTime, Effect, Layer, Option, Predicate, Redacted, Schema } from 'effect'
 import { SqlClient } from 'effect/sql/SqlClient'
 
-import { PlannerError } from '../domain.ts'
+import { PlannerError } from '../domain'
 
 export const diagnosticTextLimit = 65_536
 

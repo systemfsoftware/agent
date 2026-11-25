@@ -3,9 +3,9 @@ import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 import type * as Scope from 'effect/Scope'
 
-import { type AgentId } from '../core/Identifiers.ts'
-import { definitionDigestsEqual } from './internal/agent-registration.ts'
-import { type DefinitionDigests, PersistedJson } from './Records.ts'
+import { type AgentId } from '../core/Identifiers'
+import { definitionDigestsEqual } from './internal/agent-registration'
+import { type DefinitionDigests, PersistedJson } from './Records'
 import {
   type AcceptedEvent,
   type EventSourceVersion,
@@ -13,7 +13,7 @@ import {
   SubscriptionError,
   type SubscriptionRecord,
   SubscriptionSourceError,
-} from './Subscription.ts'
+} from './Subscription'
 
 /** Host-retained preparation code for one source and exact destination Agent definition. */
 export interface SubscriptionInputBinding {

@@ -1,9 +1,9 @@
 import * as Result from 'effect/Result'
 import * as Schema from 'effect/Schema'
 
-import { Receipt } from './DurableAgentRuntime.ts'
-import { DefinitionDigests } from './Records.ts'
-import { AdmissionFence } from './SubmissionLedger.ts'
+import { Receipt } from './DurableAgentRuntime'
+import { DefinitionDigests } from './Records'
+import { AdmissionFence } from './SubmissionLedger'
 import {
   type AcceptedEvent,
   type DeliveryChange,
@@ -15,7 +15,7 @@ import {
   SubscriptionError,
   type SubscriptionLimits,
   type SubscriptionRecord,
-} from './Subscription.ts'
+} from './Subscription'
 
 const conflict = (code: string) => SubscriptionError.make({ reason: 'conflict', code })
 const sameDefinitions = Schema.toEquivalence(DefinitionDigests)

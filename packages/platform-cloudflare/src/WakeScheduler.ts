@@ -7,9 +7,9 @@ import * as PubSub from 'effect/PubSub'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
-import { DurableAlarmService } from './Alarm.ts'
-import { callThreadObject, ThreadObjectNamespace, ThreadObjectPlacement } from './CloudflareBindings.ts'
-import { safeCauseMessage } from './internal/boundary.ts'
+import { DurableAlarmService } from './Alarm'
+import { callThreadObject, ThreadObjectNamespace, ThreadObjectPlacement } from './CloudflareBindings'
+import { safeCauseMessage } from './internal/boundary'
 
 /**
  * Bounded in-memory wake buffer for same-incarnation workers. Wake

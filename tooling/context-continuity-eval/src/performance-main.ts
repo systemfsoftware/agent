@@ -18,11 +18,11 @@ import { Command, Flag } from 'effect/cli'
 import * as SecureRandom from 'effect/crypto/SecureRandom'
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http'
 
-import { buildPerformanceCloudflare, PerformanceBuild } from './build-performance-cloudflare.ts'
-import { EvaluationError } from './contracts.ts'
-import { MODEL_IDS } from './live-model.ts'
-import { PerformanceIdentity } from './performance-contracts.ts'
-import type { PerformanceTarget } from './performance-deployment.ts'
+import { buildPerformanceCloudflare, PerformanceBuild } from './build-performance-cloudflare'
+import { EvaluationError } from './contracts'
+import { MODEL_IDS } from './live-model'
+import { PerformanceIdentity } from './performance-contracts'
+import type { PerformanceTarget } from './performance-deployment'
 import {
   loadPerformanceConfig,
   makePerformanceDeployment,
@@ -31,8 +31,8 @@ import {
   PerformanceResources,
   preparePerformanceTarget,
   withPerformanceDeployment,
-} from './performance-deployment.ts'
-import { PerformanceSample, runPerformanceSample } from './performance-evaluate.ts'
+} from './performance-deployment'
+import { PerformanceSample, runPerformanceSample } from './performance-evaluate'
 
 const Report = Schema.Struct({
   version: Schema.Literal(1),

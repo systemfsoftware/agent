@@ -2,9 +2,9 @@ import { Effect, Exit, Layer, Schema, Scope, Stream } from 'effect'
 import { HttpRouter } from 'effect/http'
 import { RpcSerialization, RpcServer } from 'effect/rpc'
 
-import type { AccountSession } from '../auth/account.ts'
-import { PlannerError, PlannerProgress, ProgressRpcs } from '../domain.ts'
-import { plannerOwner, privateConversation } from './tenancy.ts'
+import type { AccountSession } from '../auth/account'
+import { PlannerError, PlannerProgress, ProgressRpcs } from '../domain'
+import { plannerOwner, privateConversation } from './tenancy'
 
 export interface ProgressEnvironment {
   readonly PLANNER_THREADS_V3: {

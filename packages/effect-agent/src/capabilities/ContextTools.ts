@@ -10,14 +10,14 @@ import {
   ContextHistoryPage,
   ContextHistoryRead,
   ContextHistorySearch,
-} from '../engine/ContextHistory.ts'
+} from '../engine/ContextHistory'
 import {
   ContextRolloverRequest,
   ContextRolloverTool,
   ContextWindow,
   ContextWindowStatus,
-} from '../engine/ContextWindow.ts'
-import { ToolExecutionClass } from '../engine/DurableStep.ts'
+} from '../engine/ContextWindow'
+import { ToolExecutionClass } from '../engine/DurableStep'
 
 /** The engine consumes this successful singleton result after committing its Tool batch. */
 export const NewContext = Tool.make('new_context', {

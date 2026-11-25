@@ -13,14 +13,14 @@ import {
   PlannerError,
   TripApp,
   TripAppBuildEvent,
-} from '../domain.ts'
-import { TripFailpoint } from '../server/trips.ts'
-import { publishTripAppAddress } from './addresses.ts'
-import { AppBuildBucketLive, AppBuildSandbox, SiteBuildBinding } from './bindings.ts'
-import { AppBuildBucket } from './bucket.ts'
-import { appRepositoryForOwner, callAppRepository } from './remote.ts'
-import { AppRepository } from './repository.ts'
-import { appSourceLayer, AppSourceStore } from './source.ts'
+} from '../domain'
+import { TripFailpoint } from '../server/trips'
+import { publishTripAppAddress } from './addresses'
+import { AppBuildBucketLive, AppBuildSandbox, SiteBuildBinding } from './bindings'
+import { AppBuildBucket } from './bucket'
+import { appRepositoryForOwner, callAppRepository } from './remote'
+import { AppRepository } from './repository'
+import { appSourceLayer, AppSourceStore } from './source'
 
 const randomUUID = SecureRandom.SecureRandom.use((crypto) => crypto.uuidV4()).pipe(
   Effect.provide(BrowserCrypto.layer),

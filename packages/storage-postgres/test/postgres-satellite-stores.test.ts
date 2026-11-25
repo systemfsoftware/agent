@@ -26,7 +26,7 @@ import * as Result from 'effect/Result'
 import * as Schema from 'effect/Schema'
 import * as TestClock from 'effect/testing/TestClock'
 
-import { clientLayer, storage, withTemporaryDatabase } from './harness.ts'
+import { clientLayer, storage, withTemporaryDatabase } from './harness'
 
 describe('PostgresScheduleStore', () => {
   it.effect('counts capacity without parsing arbitrary schedule inputs in PostgreSQL', () =>

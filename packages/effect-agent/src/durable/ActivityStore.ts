@@ -4,8 +4,8 @@ import * as Layer from 'effect/Layer'
 import * as Schema from 'effect/Schema'
 import type * as Scope from 'effect/Scope'
 
-import { ThreadId } from '../core/Identifiers.ts'
-import { CanonicalSequence, Digest, PersistedJson, RecordId } from './Records.ts'
+import { ThreadId } from '../core/Identifiers'
+import { CanonicalSequence, Digest, PersistedJson, RecordId } from './Records'
 
 const Identity = Schema.NonEmptyString.check(Schema.isMaxLength(256))
 const Timestamp = Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0))

@@ -5,9 +5,9 @@ import { Clock, Context, Effect, Layer, Schema } from 'effect'
 import { DurableObject, DurableObjectState } from 'effect-cf'
 
 import migrations from '../drizzle/migrations.js'
-import type { WorkspacePage } from './contract.ts'
-import { WorkspaceRegistration, WorkspaceSummary } from './contract.ts'
-import { workspaces } from './schema.ts'
+import type { WorkspacePage } from './contract'
+import { WorkspaceRegistration, WorkspaceSummary } from './contract'
+import { workspaces } from './schema'
 
 class DirectoryError extends Schema.TaggedError<DirectoryError>()('DirectoryError', {
   cause: Schema.Defect(),

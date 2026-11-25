@@ -2,9 +2,9 @@ import * as DateTime from 'effect/DateTime'
 import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 
-import type { AgentId, ThreadId } from '../../core/Identifiers.ts'
-import { WorkerError } from '../../core/Worker.ts'
-import { DurableRuntimeFailpoint } from '../DurableFailpoint.ts'
+import type { AgentId, ThreadId } from '../../core/Identifiers'
+import { WorkerError } from '../../core/Worker'
+import { DurableRuntimeFailpoint } from '../DurableFailpoint'
 import {
   BatchId,
   CanonicalBatch,
@@ -16,13 +16,13 @@ import {
   ThreadCreated,
   WorkerOrigin,
   WorkerOriginRecorded,
-} from '../Records.ts'
-import { workerOriginRecordId } from '../RunJournal.ts'
-import type { OwnershipLost } from '../SubmissionLedger.ts'
-import type { AppendConflict, ThreadNotMaterialized, ThreadStoreError } from '../ThreadStore.ts'
-import { AppendRequest, ThreadIdentityRequest, ThreadStore, ThreadTailRequest } from '../ThreadStore.ts'
-import { WakeScheduler } from '../WakeScheduler.ts'
-import { definitionDigestsEqual } from './agent-registration.ts'
+} from '../Records'
+import { workerOriginRecordId } from '../RunJournal'
+import type { OwnershipLost } from '../SubmissionLedger'
+import type { AppendConflict, ThreadNotMaterialized, ThreadStoreError } from '../ThreadStore'
+import { AppendRequest, ThreadIdentityRequest, ThreadStore, ThreadTailRequest } from '../ThreadStore'
+import { WakeScheduler } from '../WakeScheduler'
+import { definitionDigestsEqual } from './agent-registration'
 
 interface InitializationConfig {
   readonly producerId: ProducerId

@@ -1,9 +1,9 @@
 import * as Duration from 'effect/Duration'
 
-import type { AnyDefinition } from '../../core/Agent.ts'
-import { AgentPolicy } from '../../core/AgentPolicy.ts'
-import { type SubagentBudgetReservation, SubagentDelegationCaps } from '../../core/SubagentContract.ts'
-import { delegationAllocationFromPolicy, delegationCapsFromPolicy, SubagentPolicy } from './subagent-contract.ts'
+import type { AnyDefinition } from '../../core/Agent'
+import { AgentPolicy } from '../../core/AgentPolicy'
+import { type SubagentBudgetReservation, SubagentDelegationCaps } from '../../core/SubagentContract'
+import { delegationAllocationFromPolicy, delegationCapsFromPolicy, SubagentPolicy } from './subagent-contract'
 
 export const resolveSubagentPolicy = (
   delegation: {

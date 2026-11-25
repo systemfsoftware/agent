@@ -4,19 +4,14 @@ import * as Equal from 'effect/Equal'
 import * as Result from 'effect/Result'
 import * as Schema from 'effect/Schema'
 
-import { Update } from '../core/AgentUpdates.ts'
-import { AgentId, DelegationId, ReceiptId, RunId, SettlementId, SubmissionId, ThreadId } from '../core/Identifiers.ts'
-import { WorkerUpdate } from '../core/Worker.ts'
-import { digestJson } from './Digest.ts'
-import { Receipt } from './DurableAgentRuntime.ts'
-import {
-  messageDeliveryCapacity,
-  MessageDeliveryStore,
-  prepareMessageDelivery,
-  readPending,
-} from './MessageDelivery.ts'
-import { DefinitionDigests, Digest } from './Records.ts'
-import { IdempotencyKey, Principal, QueueSequence, Settlement } from './SubmissionLedger.ts'
+import { Update } from '../core/AgentUpdates'
+import { AgentId, DelegationId, ReceiptId, RunId, SettlementId, SubmissionId, ThreadId } from '../core/Identifiers'
+import { WorkerUpdate } from '../core/Worker'
+import { digestJson } from './Digest'
+import { Receipt } from './DurableAgentRuntime'
+import { messageDeliveryCapacity, MessageDeliveryStore, prepareMessageDelivery, readPending } from './MessageDelivery'
+import { DefinitionDigests, Digest } from './Records'
+import { IdempotencyKey, Principal, QueueSequence, Settlement } from './SubmissionLedger'
 
 export class MessageDeliveryConformanceViolation extends Schema.TaggedError<MessageDeliveryConformanceViolation>()(
   'MessageDeliveryConformanceViolation',

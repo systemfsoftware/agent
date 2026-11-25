@@ -23,7 +23,7 @@ import { FrameworkMessage } from '@systemfsoftware/agent/worker'
 import { Context, Effect, Option, Schema, Stream } from 'effect'
 import { WorkerEnvironment } from 'effect-cf'
 
-import { mergeSpeech } from '../conversation.ts'
+import { mergeSpeech } from '../conversation'
 import {
   defaultPlannerSettings,
   PlannerError,
@@ -33,20 +33,20 @@ import {
   type SendMessageRequest,
   type VoiceWork,
   type VoiceWorkRequest,
-} from '../domain.ts'
-import { researchOverview } from '../research/state.ts'
-import { PlannerResponse } from '../response.ts'
-import { TravelContent } from '../travel-content.ts'
-import { publishTripAppAddress } from '../trip-app/addresses.ts'
-import { editorOverview } from '../trip-app/editor-state.ts'
-import { AppRepository } from '../trip-app/repository.ts'
-import { plannerActivity } from './activity.ts'
-import { completedAnswer, type Messages } from './conversation.ts'
-import { readDiagnostics } from './diagnostics.ts'
-import { planner } from './planner.ts'
-import { requestsPublication } from './security.ts'
-import { ownerOfThread } from './tenancy.ts'
-import { TripRepository } from './trips.ts'
+} from '../domain'
+import { researchOverview } from '../research/state'
+import { PlannerResponse } from '../response'
+import { TravelContent } from '../travel-content'
+import { publishTripAppAddress } from '../trip-app/addresses'
+import { editorOverview } from '../trip-app/editor-state'
+import { AppRepository } from '../trip-app/repository'
+import { plannerActivity } from './activity'
+import { completedAnswer, type Messages } from './conversation'
+import { readDiagnostics } from './diagnostics'
+import { planner } from './planner'
+import { requestsPublication } from './security'
+import { ownerOfThread } from './tenancy'
+import { TripRepository } from './trips'
 
 export class PlannerModel extends Context.Service<PlannerModel, { readonly model: string }>()(
   'travel-planner/PlannerModel',

@@ -1,7 +1,7 @@
 import { Clock, Context, Effect, Exit, Layer, Option, Ref } from 'effect'
 
-import { type PlannerError, type PlannerProgress, type PlannerSettings } from '../domain.ts'
-import { recordDiagnostic } from './diagnostics.ts'
+import { type PlannerError, type PlannerProgress, type PlannerSettings } from '../domain'
+import { recordDiagnostic } from './diagnostics'
 
 export const emptyProgress: PlannerProgress = {
   submissionId: null,

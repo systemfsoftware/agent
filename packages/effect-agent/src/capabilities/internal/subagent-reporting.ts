@@ -1,18 +1,14 @@
 import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 
-import { utf8ByteLength } from '../../core/internal/utf8.ts'
-import { Receipt } from '../../core/Receipt.ts'
-import { WorkerCompletion, type WorkerReport } from '../../core/Worker.ts'
-import {
-  type WorkerReporting,
-  WorkerReportPreparationFailure,
-  type WorkerRunReport,
-} from '../../engine/SubagentHost.ts'
-import { type Declaration } from './subagent-background.ts'
-import { SubagentExecutionFailure } from './subagent-contract.ts'
+import { utf8ByteLength } from '../../core/internal/utf8'
+import { Receipt } from '../../core/Receipt'
+import { WorkerCompletion, type WorkerReport } from '../../core/Worker'
+import { type WorkerReporting, WorkerReportPreparationFailure, type WorkerRunReport } from '../../engine/SubagentHost'
+import { type Declaration } from './subagent-background'
+import { SubagentExecutionFailure } from './subagent-contract'
 
-export { WorkerReport } from '../../core/Worker.ts'
+export { WorkerReport } from '../../core/Worker'
 
 export interface ReportingOptions {
   /**

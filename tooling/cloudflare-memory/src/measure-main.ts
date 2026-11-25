@@ -2,7 +2,7 @@ import { NodeRuntime, NodeServices } from '@effect/platform-node'
 import { Effect, Layer } from 'effect'
 import { Command } from 'effect/cli'
 
-import { command, measurementHttpLayer } from './measure.ts'
+import { command, measurementHttpLayer } from './measure'
 
 NodeRuntime.runMain(
   Command.run(command, { version: '0.0.0' }).pipe(

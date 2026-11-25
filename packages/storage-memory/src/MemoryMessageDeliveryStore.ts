@@ -41,8 +41,8 @@ import * as MutableRef from 'effect/MutableRef'
 import * as Ref from 'effect/Ref'
 import * as Schema from 'effect/Schema'
 
-import { MemoryThreadStoreKernel } from './internal/MemoryThreadStoreKernel.ts'
-import { boundedWorkSelection } from './internal/WorkSelection.ts'
+import { MemoryThreadStoreKernel } from './internal/MemoryThreadStoreKernel'
+import { boundedWorkSelection } from './internal/WorkSelection'
 
 const codec = Schema.fromJsonString(MessageDeliveryRecord)
 const deliveryFitsTransfer = makeTransferFactCheck(MessageDeliveryRecord)

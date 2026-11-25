@@ -1,9 +1,9 @@
 import { contextWindowId } from '@systemfsoftware/agent/compaction'
 import { expect, it } from 'vitest'
 
-import { type EvaluationReport } from '../src/contracts.ts'
-import { gateChecks } from '../src/evaluate.ts'
-import { gradeStatus, makeScenario, RESTARTS } from '../src/scenario.ts'
+import { type EvaluationReport } from '../src/contracts'
+import { gateChecks } from '../src/evaluate'
+import { gradeStatus, makeScenario, RESTARTS } from '../src/scenario'
 
 const scenario = makeScenario(17)
 

@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import { RegistryProvider } from '@effect/atom-react'
 import { createRootRoute, HeadContent, Scripts } from '@tanstack/react-router'
 

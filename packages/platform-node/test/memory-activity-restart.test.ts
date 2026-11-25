@@ -31,6 +31,7 @@ import * as Result from 'effect/Result'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
+import { bundledEntry } from './crash/bundled-entry'
 import {
   activityKey,
   DAN_THREAD,
@@ -42,7 +43,7 @@ import {
   MemoryActivityWorkerResult,
   memoryKey,
   ORIGINAL_TEXT,
-} from './memory-activity-fixtures.ts'
+} from './memory-activity-fixtures'
 
 const danThreadId = Schema.decodeSync(ThreadId)(DAN_THREAD)
 
@@ -122,7 +123,7 @@ const spawnWorker = Effect.fn('MemoryActivityTest.spawnWorker')(function*(
     new URL('./memory-activity-worker-entry.ts', import.meta.url),
   )
 
-  return yield* ChildProcess.make('node', [entry], {
+  return yield* ChildProcess.make('node', [bundledEntry(entry)], {
     cwd: path.dirname(entry),
     env: {
       EFFECT_AGENT_MEMORY_ACTIVITY_DB: filename,

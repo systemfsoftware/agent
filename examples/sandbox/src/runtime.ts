@@ -17,8 +17,8 @@ import { DurableObject, Rpc, WorkerEnvironment } from 'effect-cf'
 import { AiError, LanguageModel, Model } from 'effect/ai'
 import { FetchHttpClient, HttpClient, HttpClientError, HttpClientRequest } from 'effect/http'
 
-import { codingAgent, definitions, modelContext, modelOptions } from './agent.ts'
-import { commandAdmission, commandMaintenance, ShellCommands } from './commands.ts'
+import { codingAgent, definitions, modelContext, modelOptions } from './agent'
+import { commandAdmission, commandMaintenance, ShellCommands } from './commands'
 import {
   CodingInput,
   CommandInput,
@@ -30,13 +30,13 @@ import {
   ShellCommand,
   WorkspaceEvent,
   WorkspaceId,
-} from './contract.ts'
-import { WorkspacePreviews } from './previews.ts'
-import { codingReconciler, recoverWorkspace, workspaceRecoveryRequired } from './recovery.ts'
-import { snapshotLane, WorkspaceSnapshots } from './snapshots.ts'
-import { codingToolsLive } from './tools.ts'
-import { webLive } from './web.ts'
-import { Workspace } from './workspace.ts'
+} from './contract'
+import { WorkspacePreviews } from './previews'
+import { codingReconciler, recoverWorkspace, workspaceRecoveryRequired } from './recovery'
+import { snapshotLane, WorkspaceSnapshots } from './snapshots'
+import { codingToolsLive } from './tools'
+import { webLive } from './web'
+import { Workspace } from './workspace'
 
 const Address = Schema.String.check(Schema.isPattern(/^([0-9a-f-]{36})--([0-9a-f-]{36})$/i))
 

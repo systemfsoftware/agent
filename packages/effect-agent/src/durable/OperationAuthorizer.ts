@@ -3,8 +3,8 @@ import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import * as Schema from 'effect/Schema'
 
-import { SubmissionId, ThreadId } from '../core/Identifiers.ts'
-import { Principal } from './SubmissionLedger.ts'
+import { SubmissionId, ThreadId } from '../core/Identifiers'
+import { Principal } from './SubmissionLedger'
 
 /**
  * Administrative/observation operations submitted to authorization (P7 WP1; SEC-003/SEC-011,

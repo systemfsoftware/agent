@@ -9,8 +9,8 @@ import * as Schema from 'effect/Schema'
 import * as SqlClientService from 'effect/sql/SqlClient'
 import { expect } from 'vitest'
 
-import { assertConvergence, laneRows, readCanonical, stubFor } from './harness.ts'
-import { childModelInvocations, delegateCallIdFor, PROJECTED_SUMMARY } from './subagent-fixtures.ts'
+import { assertConvergence, laneRows, readCanonical, stubFor } from './harness'
+import { childModelInvocations, delegateCallIdFor, PROJECTED_SUMMARY } from './subagent-fixtures'
 
 /**
  * WP4 cross-Object helpers over the WP3 eviction harness: two-lane alarm drains (a

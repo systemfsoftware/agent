@@ -20,7 +20,7 @@ import {
   decodeThreadId,
   plannerDefinition,
   submitOptions,
-} from './fixtures.ts'
+} from './fixtures'
 import {
   allSettled,
   anyInState,
@@ -29,7 +29,7 @@ import {
   laneRows,
   runClient,
   runClientExit,
-} from './harness.ts'
+} from './harness'
 
 /** Real Object retirement at partial append and committed client acknowledgement boundaries. */
 

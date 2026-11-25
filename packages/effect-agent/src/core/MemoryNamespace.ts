@@ -1,7 +1,7 @@
 import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 
-import { utf8ByteLength } from './internal/utf8.ts'
+import { utf8ByteLength } from './internal/utf8'
 
 const Name = Schema.NonEmptyString.check(Schema.isMaxLength(256))
 

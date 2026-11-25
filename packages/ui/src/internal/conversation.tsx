@@ -3,8 +3,8 @@ import { ArrowDown } from 'lucide-react'
 import type { ComponentProps } from 'react'
 import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom'
 
-import { Button } from './button.tsx'
-import { cn } from './class-names.ts'
+import { Button } from './button'
+import { cn } from './class-names'
 
 /** Follows new output until the reader scrolls up. */
 export function Conversation({ className, ...props }: ComponentProps<typeof StickToBottom>) {

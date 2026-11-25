@@ -5,7 +5,7 @@ import type * as Redacted from 'effect/Redacted'
 import * as Result from 'effect/Result'
 import * as Schema from 'effect/Schema'
 
-import { type GitHubApiFailure, makeGitHubClient, type RepositorySnapshot } from './github.ts'
+import { type GitHubApiFailure, makeGitHubClient, type RepositorySnapshot } from './github'
 
 const Commit = Schema.String.check(Schema.isPattern(/^[0-9a-f]{40}$/))
 

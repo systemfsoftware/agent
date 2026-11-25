@@ -11,10 +11,10 @@ import { ReviewChange, ReviewOutcome, ReviewReport, ReviewRequest } from '@syste
 import { Effect, Result, Schema, Stream } from 'effect'
 import * as Layer from 'effect/Layer'
 
-import { EvalCase, EvalCaseId, EvalSuite, EvalVariantConfiguration } from '../src/contracts.ts'
-import { digestReviewRequest } from '../src/corpus.ts'
-import { openLocalGitRepository } from '../src/local-git-repository.ts'
-import { runEvalSuite } from '../src/runner.ts'
+import { EvalCase, EvalCaseId, EvalSuite, EvalVariantConfiguration } from '../src/contracts'
+import { digestReviewRequest } from '../src/corpus'
+import { openLocalGitRepository } from '../src/local-git-repository'
+import { runEvalSuite } from '../src/runner'
 
 const makeGitFixture = () => {
   const root = mkdtempSync(join(tmpdir(), 'pr-review-pinned-git-'))

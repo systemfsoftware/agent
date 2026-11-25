@@ -6,28 +6,28 @@ import * as Predicate from 'effect/Predicate'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
-import { type RunId, type SubmissionId, ThreadId, ToolCallId, type TurnId } from '../core/Identifiers.ts'
-import { type ExhaustedLimit } from '../core/RunEvent.ts'
-import { RunPolicyUsage } from '../core/RunPolicyUsage.ts'
-import { type Selection, type Snapshot } from '../core/ToolExposure.ts'
-import type { ToolParameterRejection } from '../core/ToolResult.ts'
-import { type ModelCallUsage, type RunUsageSummary, summarizeModelUsage } from '../core/Usage.ts'
-import type { WorkerRef } from '../core/Worker.ts'
+import { type RunId, type SubmissionId, ThreadId, ToolCallId, type TurnId } from '../core/Identifiers'
+import { type ExhaustedLimit } from '../core/RunEvent'
+import { RunPolicyUsage } from '../core/RunPolicyUsage'
+import { type Selection, type Snapshot } from '../core/ToolExposure'
+import type { ToolParameterRejection } from '../core/ToolResult'
+import { type ModelCallUsage, type RunUsageSummary, summarizeModelUsage } from '../core/Usage'
+import type { WorkerRef } from '../core/Worker'
 import {
   CLEARED_TOOL_RESULT,
   COMPACTION_SUMMARY_PREFIX,
   contextWindowId,
   contextWindowMessage,
-} from '../engine/Compaction.ts'
-import { type RunTurnToolResult } from '../engine/internal/interpreter-options.ts'
-import { digestJson } from './Digest.ts'
+} from '../engine/Compaction'
+import { type RunTurnToolResult } from '../engine/internal/interpreter-options'
+import { digestJson } from './Digest'
 import {
   type JournalMetadata,
   type JournalRecordEnvelope,
   makeJournalMetadata,
   toolCallSettledRecordId,
-} from './internal/journal-metadata.ts'
-import { continuationUsage } from './internal/usage-totals.ts'
+} from './internal/journal-metadata'
+import { continuationUsage } from './internal/usage-totals'
 import {
   type BatchId,
   CanonicalBatch,
@@ -43,8 +43,8 @@ import {
   type RecordId,
   RunCompleted,
   ToolCallSettled,
-} from './Records.ts'
-import { IdempotencyKey } from './SubmissionLedger.ts'
+} from './Records'
+import { IdempotencyKey } from './SubmissionLedger'
 
 /** A canonical record could not be projected into Run/Prompt state. */
 export class RunJournalError extends Schema.TaggedError<RunJournalError>()('RunJournalError', {

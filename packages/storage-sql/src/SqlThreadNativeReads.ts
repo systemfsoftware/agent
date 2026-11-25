@@ -55,11 +55,11 @@ import * as SqlClient from 'effect/sql/SqlClient'
 import type * as SqlError from 'effect/sql/SqlError'
 import type * as Statement from 'effect/sql/Statement'
 
-import { executionStateKey, executionStates, retainExecutionState } from './internal/SqlExecutionState.ts'
-import { RECORD_TAGS, recordBatchId, runKey } from './SqlCanonicalStorage.ts'
-import type { RawAppendRequest } from './SqlJournal.ts'
-import { makeSqlQuery, makeSqlTransaction, SqlInteger } from './SqlStorage.ts'
-import { canonicalRecordJson } from './SqlThreadArchiveRange.ts'
+import { executionStateKey, executionStates, retainExecutionState } from './internal/SqlExecutionState'
+import { RECORD_TAGS, recordBatchId, runKey } from './SqlCanonicalStorage'
+import type { RawAppendRequest } from './SqlJournal'
+import { makeSqlQuery, makeSqlTransaction, SqlInteger } from './SqlStorage'
+import { canonicalRecordJson } from './SqlThreadArchiveRange'
 
 /** Closed library tags must match SQLite partial-index predicates at prepare time. */
 export const SQL_PROMPT_PREDICATE = `record_tag IN (${PROMPT_EVIDENCE_TAGS.map((tag) => RECORD_TAGS[tag]).join(', ')})`

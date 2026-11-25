@@ -12,13 +12,13 @@ import * as Layer from 'effect/Layer'
 import * as SqlClientService from 'effect/sql/SqlClient'
 import { describe, expect, it } from 'vitest'
 
-import { DoScheduleTransaction } from '../src/DoScheduleStore.ts'
-import { DoStorageFailpointError } from '../src/DoStorageError.ts'
-import { DoStorageFailpoint } from '../src/DoStorageFailpoint.ts'
-import { submissionLedgerLayer } from '../src/DoSubmissionLedger.ts'
-import { DoSubscriptionTransaction } from '../src/DoSubscriptionStore.ts'
-import { storageConfigLayer } from '../src/DoThreadStore.ts'
-import { admission, withScheduleStorage } from './harness.ts'
+import { DoScheduleTransaction } from '../src/DoScheduleStore'
+import { DoStorageFailpointError } from '../src/DoStorageError'
+import { DoStorageFailpoint } from '../src/DoStorageFailpoint'
+import { submissionLedgerLayer } from '../src/DoSubmissionLedger'
+import { DoSubscriptionTransaction } from '../src/DoSubscriptionStore'
+import { storageConfigLayer } from '../src/DoThreadStore'
+import { admission, withScheduleStorage } from './harness'
 
 let counter = 0
 

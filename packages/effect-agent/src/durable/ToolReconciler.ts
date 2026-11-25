@@ -3,8 +3,8 @@ import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import * as Schema from 'effect/Schema'
 
-import { RunId, SubmissionId, ThreadId, ToolCallId } from '../core/Identifiers.ts'
-import { DeclaredToolCall, Digest, PersistedJson } from './Records.ts'
+import { RunId, SubmissionId, ThreadId, ToolCallId } from '../core/Identifiers'
+import { DeclaredToolCall, Digest, PersistedJson } from './Records'
 
 /**
  * Everything a reconciliation policy can consult about one declared-but-unsettled ordinary Tool

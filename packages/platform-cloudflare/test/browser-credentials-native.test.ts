@@ -14,8 +14,8 @@ import {
   CredentialAccessError,
   FillCredentialRequest,
   LoginCredential,
-} from '../src/BrowserCredentials.ts'
-import { BrowserSessionPage, fillCredential } from '../src/internal/browser-credentials.ts'
+} from '../src/BrowserCredentials'
+import { BrowserSessionPage, fillCredential } from '../src/internal/browser-credentials'
 
 const secret = 'dummy-credential-secret-sentinel'
 

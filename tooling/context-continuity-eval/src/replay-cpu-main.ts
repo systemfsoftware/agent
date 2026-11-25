@@ -17,8 +17,8 @@ import { Command, Flag } from 'effect/cli'
 import * as SecureRandom from 'effect/crypto/SecureRandom'
 import { FetchHttpClient, HttpClient, HttpClientRequest } from 'effect/http'
 
-import { requireReplayCpu, sha256 } from './replay-cpu-build.ts'
-import type { ReplayCpuRole } from './replay-cpu-contracts.ts'
+import { requireReplayCpu, sha256 } from './replay-cpu-build'
+import type { ReplayCpuRole } from './replay-cpu-contracts'
 import {
   REPLAY_CPU_PHASES,
   REPLAY_CPU_PROTOCOL,
@@ -28,15 +28,15 @@ import {
   ReplayCpuIdentity,
   ReplayCpuOperation,
   ReplayCpuSeed,
-} from './replay-cpu-contracts.ts'
-import { openReplayCpuDeployment, prepareReplayCpuResources, writeReplayCpuJson } from './replay-cpu-deployment.ts'
+} from './replay-cpu-contracts'
+import { openReplayCpuDeployment, prepareReplayCpuResources, writeReplayCpuJson } from './replay-cpu-deployment'
 import {
   ReplayCpuSample,
   type ReplayCpuTelemetry,
   sanitizeReplayCpuTelemetry,
   summarizeReplayCpu,
   telemetryFor,
-} from './replay-cpu-results.ts'
+} from './replay-cpu-results'
 
 const roles = ['baseline', 'candidate', 'control'] as const
 const sizes = ['small', 'large'] as const

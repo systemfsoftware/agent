@@ -1,0 +1,33 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": [
+      "@cloudflare/workers-types",
+      "@cloudflare/vitest-plugin/types",
+      "node"
+    ],
+    "composite": true,
+    "noEmit": false,
+    "emitDeclarationOnly": true,
+    "outDir": "node_modules/.cache/tsc/app",
+    "tsBuildInfoFile": "node_modules/.cache/tsconfig.app.tsbuildinfo"
+  },
+  "include": [
+    "src/**/*.ts",
+    "examples/**/*.ts"
+  ],
+  "references": [
+    {
+      "path": "../effect-agent/tsconfig.app.json"
+    },
+    {
+      "path": "../storage-cloudflare/tsconfig.app.json"
+    },
+    {
+      "path": "../storage-sql/tsconfig.app.json"
+    },
+    {
+      "path": "../testing/tsconfig.app.json"
+    }
+  ]
+}

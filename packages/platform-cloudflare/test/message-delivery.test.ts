@@ -11,7 +11,7 @@ import * as Effect from 'effect/Effect'
 import * as TestClock from 'effect/testing/TestClock'
 import { describe, expect, it } from 'vitest'
 
-import { CloudflareThreadClient } from '../src/CloudflareThreadClient.ts'
+import { CloudflareThreadClient } from '../src/CloudflareThreadClient'
 import {
   alarmAttemptHolds,
   approvalDefinition,
@@ -22,8 +22,8 @@ import {
   plannerDefinition,
   submitOptions,
   supplierCountsFor,
-} from './fixtures.ts'
-import { allSettled, anyInState, drainAlarmsUntil, laneRows, runClient, scheduledAlarm, stubFor } from './harness.ts'
+} from './fixtures'
+import { allSettled, anyInState, drainAlarmsUntil, laneRows, runClient, scheduledAlarm, stubFor } from './harness'
 import {
   droppedMessageWakes,
   messageClaimDelays,
@@ -31,7 +31,7 @@ import {
   messageDeliveryResources,
   messageEvictions,
   messageInterruptions,
-} from './message-delivery-fixture.ts'
+} from './message-delivery-fixture'
 
 const randomUUID = SecureRandom.SecureRandom.use((crypto) => crypto.uuidV4()).pipe(
   Effect.provide(BrowserCrypto.layer),

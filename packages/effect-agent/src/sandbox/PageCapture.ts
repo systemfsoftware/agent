@@ -3,7 +3,7 @@ import type * as Effect from 'effect/Effect'
 import * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'
 
-import { SANDBOX_DIAGNOSTIC_MAX_LENGTH, SandboxImplementation } from './Sandbox.ts'
+import { SANDBOX_DIAGNOSTIC_MAX_LENGTH, SandboxImplementation } from './Sandbox'
 
 /**
  * Page capture (capability spec §9.2): one stateless, schema-first rendering

@@ -1,18 +1,11 @@
 import { Effect, Layer } from 'effect'
 import { WorkerEnvironment } from 'effect-cf'
 
-import { trackTool } from '../server/progress.ts'
-import { TripRepository } from '../server/trips.ts'
-import { AppRepository } from './repository.ts'
-import {
-  addTripAppMap,
-  createTripApp,
-  editTripApp,
-  readTripAppFiles,
-  requireAppTrip,
-  restoreTripApp,
-} from './service.ts'
-import { AppTools } from './tools.ts'
+import { trackTool } from '../server/progress'
+import { TripRepository } from '../server/trips'
+import { AppRepository } from './repository'
+import { addTripAppMap, createTripApp, editTripApp, readTripAppFiles, requireAppTrip, restoreTripApp } from './service'
+import { AppTools } from './tools'
 
 export const AppToolsLive = Layer.unwrap(
   Effect.map(WorkerEnvironment, (env) =>

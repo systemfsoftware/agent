@@ -1,12 +1,12 @@
 import { exportThread, layer } from '@systemfsoftware/agent-storage-cloudflare/do-thread-store'
 import { Effect, Schema } from 'effect'
 
-import { router } from '../../third-party/src/deployed/router.ts'
-import { type Env, errorText, Failure, readQuery } from './protocol.ts'
-import { RestoreDO } from './restore-worker.ts'
-import { restore } from './restore.ts'
-import { FixtureError, FixtureExport, RestoreStorage } from './storage.ts'
-import { installUsage } from './usage.ts'
+import { router } from '../../third-party/src/deployed/router'
+import { type Env, errorText, Failure, readQuery } from './protocol'
+import { restore } from './restore'
+import { RestoreDO } from './restore-worker'
+import { FixtureError, FixtureExport, RestoreStorage } from './storage'
+import { installUsage } from './usage'
 
 export class YieldedDO extends RestoreDO {
   constructor(ctx: DurableObjectState, env: Env) {

@@ -21,7 +21,7 @@ import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import * as Schema from 'effect/Schema'
 
-import { layerFromBindings } from '../../src/internal/layers.ts'
+import { layerFromBindings } from '../../src/internal/layers'
 import {
   armedEvictionsRemaining,
   armRuntimeEviction,
@@ -30,7 +30,7 @@ import {
   decodeThreadId,
   runtimeEvictionFailpoint,
   storageEvictionFailpoint,
-} from '../fixtures.ts'
+} from '../fixtures'
 
 /**
  * The WP5 Miniflare restart-lane Worker (plan §3, §6 restart row): the REAL Travel Planner

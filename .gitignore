@@ -29,3 +29,8 @@ test/fixtures/*.d.ts
 /result-*
 # Astro build cache and generated content types
 .astro/
+# esbuild bundles of node-run entrypoints
+.scripts/
+**/.scripts/
+scripts/.verify-record-format.mjs
+**/.entries/

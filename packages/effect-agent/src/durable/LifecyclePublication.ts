@@ -8,11 +8,11 @@ import * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'
 import type * as Scope from 'effect/Scope'
 
-import { SubmissionId, ThreadId } from '../core/Identifiers.ts'
-import { Receipt } from '../core/Receipt.ts'
-import { AssignmentTerminal } from '../core/Worker.ts'
-import { MessageDeliveryKey } from './MessageDelivery.ts'
-import { PreparedInput } from './PreparedInputAdmission.ts'
+import { SubmissionId, ThreadId } from '../core/Identifiers'
+import { Receipt } from '../core/Receipt'
+import { AssignmentTerminal } from '../core/Worker'
+import { MessageDeliveryKey } from './MessageDelivery'
+import { PreparedInput } from './PreparedInputAdmission'
 import {
   AbortRequested,
   AgentUpdateEmitted,
@@ -28,7 +28,7 @@ import {
   WorkerInputCompleted,
   WorkerInputRequested,
   WorkerStopRequested,
-} from './Records.ts'
+} from './Records'
 import {
   AbortIntent,
   Settlement,
@@ -36,8 +36,8 @@ import {
   SubmissionLookupById,
   SubmissionSnapshot,
   SuspensionReason,
-} from './SubmissionLedger.ts'
-import { getRunInput } from './ThreadStore.ts'
+} from './SubmissionLedger'
+import { getRunInput } from './ThreadStore'
 
 /** Immutable native admission evidence. It is private and grants no application authority. */
 export const LifecyclePublicationSource = SubmissionSnapshot.mapFields((fields) => ({

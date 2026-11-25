@@ -1,2 +1,2 @@
-export * from './core/ToolExposure.ts'
-export * from './engine/ToolExposure.ts'
+export * from './core/ToolExposure'
+export * from './engine/ToolExposure'

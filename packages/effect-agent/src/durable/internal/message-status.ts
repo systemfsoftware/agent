@@ -1,7 +1,7 @@
 import * as Schema from 'effect/Schema'
 
-import { MessageStatus } from '../../core/Messaging.ts'
-import type { MessageDeliveryRecord } from '../MessageDelivery.ts'
+import { MessageStatus } from '../../core/Messaging'
+import type { MessageDeliveryRecord } from '../MessageDelivery'
 
 /** Share the bounded projection across peer and worker delivery; diagnostics stay in storage. */
 export const messageStatus = (row: MessageDeliveryRecord) =>

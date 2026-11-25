@@ -19,10 +19,10 @@ import * as SqlClient from 'effect/sql/SqlClient'
 import * as Statement from 'effect/sql/Statement'
 import * as Stream from 'effect/Stream'
 
-import type { makeSqlJournalKernel, RawAppendRequest } from './SqlJournal.ts'
-import type { Diagnostic } from './SqlStorage.ts'
-import { makeSqlSubmissionLedgerKernel, type SqlSubmissionLedgerOptions } from './SqlSubmissionLedger.ts'
-import { makeSqlThreadStoreKernel, type SqlThreadStoreOptions } from './SqlThreadStore.ts'
+import type { makeSqlJournalKernel, RawAppendRequest } from './SqlJournal'
+import type { Diagnostic } from './SqlStorage'
+import { makeSqlSubmissionLedgerKernel, type SqlSubmissionLedgerOptions } from './SqlSubmissionLedger'
+import { makeSqlThreadStoreKernel, type SqlThreadStoreOptions } from './SqlThreadStore'
 
 /** Bind all ports to the physical client's root, retaining caller Scope, Clock and diagnostics. */
 export const makeSqlRunStorage = Effect.fnUntraced(function*<

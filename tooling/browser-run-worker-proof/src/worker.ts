@@ -1,3 +1,5 @@
+/// <reference lib="dom" />
+/// <reference lib="dom.iterable" />
 import { OpenAiClient, OpenAiLanguageModel } from '@effect/ai-openai'
 import * as BrowserCrypto from '@effect/platform-browser/BrowserCrypto'
 import { Agent, AgentRuntime, BrowserUse, InMemory } from '@systemfsoftware/agent'
@@ -35,7 +37,7 @@ import {
   Receipt,
   WorkerFailure,
   workerRunHeader,
-} from './proof.ts'
+} from './proof'
 
 const randomUUID = SecureRandom.SecureRandom.use((crypto) => crypto.uuidV4()).pipe(
   Effect.provide(BrowserCrypto.layer),

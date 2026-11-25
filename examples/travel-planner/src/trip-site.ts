@@ -1,4 +1,4 @@
-import type { Trip } from './domain.ts'
+import type { Trip } from './domain'
 
 const escapeHtml = (value: string) =>
   value.replace(/[&<>"']/g, (character) => {

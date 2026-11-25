@@ -16,8 +16,8 @@ import { DurableObjectState, Rpc } from 'effect-cf'
 import { Model, Toolkit } from 'effect/ai'
 import { FetchHttpClient } from 'effect/http'
 
-import { alarmEntered, constructed, identity, probe } from './identity.ts'
-import { encode, type Env, lines } from './protocol.ts'
+import { alarmEntered, constructed, identity, probe } from './identity'
+import { encode, type Env, lines } from './protocol'
 
 class CaptureError extends Schema.TaggedError<CaptureError>()('CaptureError', {
   message: Schema.String,

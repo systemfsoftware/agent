@@ -3,7 +3,7 @@ import { CanonicalSequence } from '@systemfsoftware/agent/records'
 import { ThreadRead, ThreadStore, ThreadTailRequest } from '@systemfsoftware/agent/thread-store'
 import { Effect, Schema, Stream } from 'effect'
 
-import { PlannerError } from '../domain.ts'
+import { PlannerError } from '../domain'
 
 /** Read a finite recent window, bounding storage/decoding before projecting activity. */
 export const workerHistory = Effect.fn('workerHistory')(

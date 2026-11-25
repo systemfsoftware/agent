@@ -9,19 +9,19 @@ import * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
-import { resolveSubagentPolicy } from '../../capabilities/internal/subagent-policy.ts'
-import type * as Agent from '../../core/Agent.ts'
-import { AgentPolicy } from '../../core/AgentPolicy.ts'
-import { Update, UpdateError } from '../../core/AgentUpdates.ts'
-import { type AgentId, type SubmissionId, ThreadId } from '../../core/Identifiers.ts'
-import { MessageRef, type MessageStatus } from '../../core/Messaging.ts'
-import { IdempotencyKey, Receipt } from '../../core/Receipt.ts'
+import { resolveSubagentPolicy } from '../../capabilities/internal/subagent-policy'
+import type * as Agent from '../../core/Agent'
+import { AgentPolicy } from '../../core/AgentPolicy'
+import { Update, UpdateError } from '../../core/AgentUpdates'
+import { type AgentId, type SubmissionId, ThreadId } from '../../core/Identifiers'
+import { MessageRef, type MessageStatus } from '../../core/Messaging'
+import { IdempotencyKey, Receipt } from '../../core/Receipt'
 import {
   SubagentBudgetReservation,
   SubagentDelegationCaps,
   SubagentGrant,
   SubagentPolicy,
-} from '../../core/SubagentContract.ts'
+} from '../../core/SubagentContract'
 import {
   FrameworkMessage,
   type WorkerBudgetScope,
@@ -34,7 +34,7 @@ import {
   WorkerStop,
   type WorkerSummary,
   WorkerUpdate,
-} from '../../core/Worker.ts'
+} from '../../core/Worker'
 import {
   type DeferredFollowUpWorkerRequest,
   type DeferredStartWorkerRequest,
@@ -44,28 +44,28 @@ import {
   type WorkerObservation,
   type WorkerReceiptRequest,
   type WorkerRunReport,
-} from '../../engine/SubagentHost.ts'
-import { digestJson } from '../Digest.ts'
+} from '../../engine/SubagentHost'
+import { digestJson } from '../Digest'
 import type {
   DurableAbortFailure,
   DurableAwaitFailure,
   DurableSubmitFailure,
   DurableSubmitOptions,
-} from '../DurableAgentRuntime.ts'
-import { DurableRuntimeFailpoint, type DurableRuntimeFailpointLocation } from '../DurableFailpoint.ts'
+} from '../DurableAgentRuntime'
+import { DurableRuntimeFailpoint, type DurableRuntimeFailpointLocation } from '../DurableFailpoint'
 import {
   MessageDeliveryDriver,
   type MessageDeliveryRecord,
   MessageDeliveryStore,
   prepareMessageDelivery,
-} from '../MessageDelivery.ts'
+} from '../MessageDelivery'
 import {
   PreparedInput,
   PreparedInputAdmission,
   type PreparedInputFailure,
   PreparedInputRefused,
   PreparedInputRetryable,
-} from '../PreparedInputAdmission.ts'
+} from '../PreparedInputAdmission'
 import {
   BatchId,
   CanonicalBatch,
@@ -92,8 +92,8 @@ import {
   WorkerReportRefused,
   WorkerStopRequested,
   WorkHandoffCompleted,
-} from '../Records.ts'
-import { canonicalRecordBytes, readRunEvidenceSnapshot, reference } from '../RunContinuation.ts'
+} from '../Records'
+import { canonicalRecordBytes, readRunEvidenceSnapshot, reference } from '../RunContinuation'
 import {
   agentUpdateRecordId,
   firstWorkerInputRecordId,
@@ -101,7 +101,7 @@ import {
   workerInputRecordId,
   workerOriginRecordId,
   workerReportRecordId,
-} from '../RunJournal.ts'
+} from '../RunJournal'
 import {
   AbortCommand,
   type AbortIntent,
@@ -115,8 +115,8 @@ import {
   submissionSettlementRecordId,
   type SubmissionSnapshot,
   WorkerLedgerState,
-} from '../SubmissionLedger.ts'
-import type { SubmissionStatus } from '../SubmissionStatus.ts'
+} from '../SubmissionLedger'
+import type { SubmissionStatus } from '../SubmissionStatus'
 import {
   AppendRequest,
   getRecord,
@@ -130,9 +130,9 @@ import {
   ThreadStoreError,
   ThreadTailRequest,
   type ThreadWorkerCapacity,
-} from '../ThreadStore.ts'
-import { deliveryPredecessor, workId } from '../ThreadWork.ts'
-import { WakeScheduler } from '../WakeScheduler.ts'
+} from '../ThreadStore'
+import { deliveryPredecessor, workId } from '../ThreadWork'
+import { WakeScheduler } from '../WakeScheduler'
 import {
   WorkerBudgetAuthorizer,
   WorkerConcurrencyLimit,
@@ -142,11 +142,11 @@ import {
   WorkerPolicyResolver,
   type WorkerPolicyTarget,
   type WorkerStartAdmission,
-} from '../WorkerHost.ts'
-import { definitionDigestsEqual, type ResolvedBinding, resolveDefinitionBinding } from './agent-registration.ts'
-import { messageStatus } from './message-status.ts'
-import { ensureWorkerOrigin } from './thread-initialization.ts'
-import { unresolvedToolOperations } from './tool-operations.ts'
+} from '../WorkerHost'
+import { definitionDigestsEqual, type ResolvedBinding, resolveDefinitionBinding } from './agent-registration'
+import { messageStatus } from './message-status'
+import { ensureWorkerOrigin } from './thread-initialization'
+import { unresolvedToolOperations } from './tool-operations'
 
 const failure = (
   operation: WorkerError['operation'],

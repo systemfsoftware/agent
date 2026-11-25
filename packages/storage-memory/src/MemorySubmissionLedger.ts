@@ -137,8 +137,8 @@ import * as Result from 'effect/Result'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
-import { MemoryThreadStoreKernel } from './internal/MemoryThreadStoreKernel.ts'
-import { boundedWorkSelection } from './internal/WorkSelection.ts'
+import { MemoryThreadStoreKernel } from './internal/MemoryThreadStoreKernel'
+import { boundedWorkSelection } from './internal/WorkSelection'
 
 /**
  * Lifecycle ordering used to advance-but-never-regress the operational state marker: a reclaimed

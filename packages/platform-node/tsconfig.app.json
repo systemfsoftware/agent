@@ -1,0 +1,21 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "noEmit": false,
+    "emitDeclarationOnly": true,
+    "outDir": "node_modules/.cache/tsc/app",
+    "tsBuildInfoFile": "node_modules/.cache/tsconfig.app.tsbuildinfo"
+  },
+  "include": [
+    "src/**/*.ts"
+  ],
+  "references": [
+    {
+      "path": "../effect-agent/tsconfig.app.json"
+    },
+    {
+      "path": "../storage-sqlite/tsconfig.app.json"
+    }
+  ]
+}

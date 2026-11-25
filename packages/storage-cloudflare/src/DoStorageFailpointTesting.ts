@@ -1,7 +1,7 @@
 import * as Effect from 'effect/Effect'
 
-import type { DoStorageFailpointLocation } from './DoStorageError.ts'
-import type { DoStorageFailpointHandler } from './DoStorageFailpoint.ts'
+import type { DoStorageFailpointLocation } from './DoStorageError'
+import type { DoStorageFailpointHandler } from './DoStorageFailpoint'
 
 /**
  * The DC-specific eviction failpoint mode: instead of failing typed, an armed hit evicts the

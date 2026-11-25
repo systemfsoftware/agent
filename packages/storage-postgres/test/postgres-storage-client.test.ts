@@ -16,7 +16,7 @@ import * as SqlClient from 'effect/sql/SqlClient'
 import * as String from 'effect/String'
 import * as TestClock from 'effect/testing/TestClock'
 
-import { withTemporaryDatabase } from './harness.ts'
+import { withTemporaryDatabase } from './harness'
 
 const Session = Schema.Array(Schema.Struct({ name: Schema.String, pid: Schema.Int }))
 

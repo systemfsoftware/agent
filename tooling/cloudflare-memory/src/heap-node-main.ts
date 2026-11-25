@@ -2,8 +2,8 @@ import { NodeRuntime, NodeServices } from '@effect/platform-node'
 import { Console, Effect, Schema } from 'effect'
 import { Argument, Command } from 'effect/cli'
 
-import { NodeSample } from './heap-contracts.ts'
-import { measureNode } from './heap-node.ts'
+import { NodeSample } from './heap-contracts'
+import { measureNode } from './heap-node'
 
 const command = Command.make(
   'heap-node',

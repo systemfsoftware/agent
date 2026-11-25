@@ -2,11 +2,11 @@ import * as Context from 'effect/Context'
 import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 
-import type { ThreadId } from '../core/Identifiers.ts'
-import { canonicalJson, utf8ByteLength } from './Digest.ts'
-import { ImportSourcePhase } from './internal/thread-transfer-source.ts'
-import { transferRecordDependencies } from './internal/transfer-dependencies.ts'
-import { type CanonicalRecordEnvelope, CanonicalSequence, CURRENT_RECORD_FORMAT, type RecordId } from './Records.ts'
+import type { ThreadId } from '../core/Identifiers'
+import { canonicalJson, utf8ByteLength } from './Digest'
+import { ImportSourcePhase } from './internal/thread-transfer-source'
+import { transferRecordDependencies } from './internal/transfer-dependencies'
+import { type CanonicalRecordEnvelope, CanonicalSequence, CURRENT_RECORD_FORMAT, type RecordId } from './Records'
 import {
   MAX_THREAD_EXPORT_PAGE_BYTES,
   ThreadExport,
@@ -15,7 +15,7 @@ import {
   ThreadExportSnapshot,
   type ThreadNotMaterialized,
   ThreadStoreError,
-} from './ThreadStore.ts'
+} from './ThreadStore'
 
 export const transferSections = [
   'admissions',

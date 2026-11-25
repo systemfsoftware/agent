@@ -16,8 +16,8 @@ import * as Layer from 'effect/Layer'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
-import { RunContextPreparationPassthrough } from '../../src/engine/RunOptions.ts'
-import { ThreadHistory } from '../../src/engine/ThreadHistory.ts'
+import { RunContextPreparationPassthrough } from '../../src/engine/RunOptions'
+import { ThreadHistory } from '../../src/engine/ThreadHistory'
 
 let threadSequence = 0
 

@@ -6,8 +6,8 @@ import { atom, defineActor, type ThreadCoordinate } from 'tardie/core'
 import { defineLibrary, MethodDescription, MethodHints } from 'tardie/libraries'
 import { modelLockService } from 'tardie/model/lock'
 import { cloudflareThreadName, createActorWorker } from 'tardie/platform/cloudflare'
-import { fingerprint, type Message, next, payload, type Turn } from '../../src/plan.ts'
-import { type Bench, serve, tables } from '../../src/serve.ts'
+import { fingerprint, type Message, next, payload, type Turn } from '../../src/plan'
+import { type Bench, serve, tables } from '../../src/serve'
 
 const SYSTEM = 'You are a benchmark agent. Call lookup as instructed, then answer briefly.'
 const MODEL = { provider: 'scripted', model_id: 'scripted-1' }

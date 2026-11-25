@@ -24,8 +24,8 @@ import type * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
 import type { expectTypeOf as ExpectTypeOf } from 'vitest'
 
-import { streamWithUsageAccountingUnknown } from '../../src/engine/internal/agent-runtime.ts'
-import { AgentUpdateAcceptance, ModelUsageAccounting } from '../../src/engine/internal/interpreter-options.ts'
+import { streamWithUsageAccountingUnknown } from '../../src/engine/internal/agent-runtime'
+import { AgentUpdateAcceptance, ModelUsageAccounting } from '../../src/engine/internal/interpreter-options'
 
 class Instructions extends Context.Service<Instructions, string>()('api-types/Instructions') {}
 class ProviderClient extends Context.Service<ProviderClient, string>()(

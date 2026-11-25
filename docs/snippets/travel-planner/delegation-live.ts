@@ -3,9 +3,9 @@ import { AgentRuntime, InMemory, Subagent } from '@systemfsoftware/agent'
 import { Config, Effect, Layer } from 'effect'
 import { FetchHttpClient } from 'effect/http'
 
-import { Coordinator } from './coordinator.ts'
-import { Research } from './delegation.ts'
-import { TravelToolsLive } from './tools.ts'
+import { Coordinator } from './coordinator'
+import { Research } from './delegation'
+import { TravelToolsLive } from './tools'
 
 const ModelLive = OpenAiLanguageModel.model('gpt-6-luna')
 

@@ -24,7 +24,7 @@ import * as Scope from 'effect/Scope'
 import * as SqlClientService from 'effect/sql/SqlClient'
 import * as TestClock from 'effect/testing/TestClock'
 
-import { clientLayer, storage, withTemporaryDatabase } from './harness.ts'
+import { clientLayer, storage, withTemporaryDatabase } from './harness'
 
 const key = Schema.decodeSync(ActivityProcessorKey)({
   processorId: 'profile',

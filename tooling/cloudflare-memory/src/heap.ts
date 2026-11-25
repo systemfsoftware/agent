@@ -4,8 +4,8 @@ import * as CryptoDigest from 'effect/crypto/Digest'
 import { Hex } from 'effect/encoding'
 import { ChildProcess } from 'effect/process'
 
-import { HeapProbeError, NodeSample, WorkerdSample } from './heap-contracts.ts'
-import { measureWorkerd } from './heap-workerd.ts'
+import { HeapProbeError, NodeSample, WorkerdSample } from './heap-contracts'
+import { measureWorkerd } from './heap-workerd'
 
 const ModuleContribution = Schema.Struct({ path: Schema.String, bytes: Schema.Finite })
 

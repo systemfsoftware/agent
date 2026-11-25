@@ -14,8 +14,8 @@ import { Effect, Layer, ManagedRuntime, Schema, Stream } from 'effect'
 import { DurableObject } from 'effect-cf'
 import { AiError, LanguageModel, Model, type Prompt, type Response, Tool, Toolkit } from 'effect/ai'
 
-import { fingerprint, type Message, next, payload, type Turn } from './plan.ts'
-import { type Bench, serve, tables } from './serve.ts'
+import { fingerprint, type Message, next, payload, type Turn } from './plan'
+import { type Bench, serve, tables } from './serve'
 
 const SYSTEM = 'You are a benchmark agent. Call lookup as instructed, then answer briefly.'
 

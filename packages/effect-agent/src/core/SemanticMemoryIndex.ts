@@ -2,9 +2,9 @@ import * as Context from 'effect/Context'
 import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 
-import * as MemoryNamespace from './MemoryNamespace.ts'
-import { MemoryPassage } from './MemoryReference.ts'
-import { ActiveMemoryDocument, MemoryKey } from './MemoryStore.ts'
+import * as MemoryNamespace from './MemoryNamespace'
+import { MemoryPassage } from './MemoryReference'
+import { ActiveMemoryDocument, MemoryKey } from './MemoryStore'
 
 const Identity = Schema.NonEmptyString.check(Schema.isMaxLength(256))
 

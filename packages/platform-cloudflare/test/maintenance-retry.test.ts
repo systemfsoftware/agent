@@ -30,7 +30,7 @@ import * as Stream from 'effect/Stream'
 import * as TestClock from 'effect/testing/TestClock'
 import { describe, expect, it } from 'vitest'
 
-import { instrumentedStorage } from '../../../test/fixtures/instrumented-storage.ts'
+import { instrumentedStorage } from '../../../test/fixtures/instrumented-storage'
 import {
   DurableAlarmError,
   ThreadHostMaintenance,
@@ -38,10 +38,10 @@ import {
   ThreadMaintenanceFailpoint,
   ThreadMutationGate,
   ThreadPublication,
-} from '../src/Alarm.ts'
-import { DurableObjectContext } from '../src/CloudflareBindings.ts'
-import { CloudflareDurableRuntimeConfig } from '../src/CloudflareConfig.ts'
-import { CloudflareThreadClient } from '../src/CloudflareThreadClient.ts'
+} from '../src/Alarm'
+import { DurableObjectContext } from '../src/CloudflareBindings'
+import { CloudflareDurableRuntimeConfig } from '../src/CloudflareConfig'
+import { CloudflareThreadClient } from '../src/CloudflareThreadClient'
 import {
   decodeThreadId,
   maintenanceBindings,
@@ -49,8 +49,8 @@ import {
   makeTestBindings,
   plannerDefinition,
   submitOptions,
-} from './fixtures.ts'
-import { readCanonical, runClient, scheduledAlarm, stubFor } from './harness.ts'
+} from './fixtures'
+import { readCanonical, runClient, scheduledAlarm, stubFor } from './harness'
 
 const randomUUID = SecureRandom.SecureRandom.use((crypto) => crypto.uuidV4()).pipe(
   Effect.provide(BrowserCrypto.layer),

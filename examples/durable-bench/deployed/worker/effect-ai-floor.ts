@@ -4,11 +4,11 @@ import { Effect, Layer, ManagedRuntime, Schema, Stream } from 'effect'
 import { LanguageModel, Prompt, type Response as AiResponse } from 'effect/ai'
 import { FetchHttpClient } from 'effect/http'
 
-import { fingerprint, history, type Message, payload, type Turn } from '../../src/plan.ts'
-import { TEXT_OUTPUT_INSTRUCTIONS } from '../text.ts'
-import { Host } from './host.ts'
-import { type Env, readQuery, TextObservation } from './protocol.ts'
-import { tools } from './yielded.ts'
+import { fingerprint, history, type Message, payload, type Turn } from '../../src/plan'
+import { TEXT_OUTPUT_INSTRUCTIONS } from '../text'
+import { Host } from './host'
+import { type Env, readQuery, TextObservation } from './protocol'
+import { tools } from './yielded'
 
 class FloorError extends Schema.TaggedError<FloorError>()('FloorError', {
   message: Schema.String,

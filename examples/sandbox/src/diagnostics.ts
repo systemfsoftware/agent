@@ -2,7 +2,7 @@ import type { CanonicalRecordEnvelope } from '@systemfsoftware/agent/records'
 import { DateTime, Schema } from 'effect'
 import { Prompt } from 'effect/ai'
 
-import { CodingInput, CommandOutput, type DiagnosticRow } from './contract.ts'
+import { CodingInput, CommandOutput, type DiagnosticRow } from './contract'
 
 const Failure = Schema.Struct({ errorTag: Schema.String, message: Schema.String })
 

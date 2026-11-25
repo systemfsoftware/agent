@@ -2,21 +2,10 @@ import { basename, join } from 'node:path'
 
 import { Clock, Console, Effect, FileSystem, Schema } from 'effect'
 
-import { build } from './build.ts'
-import { Cloudflare, request } from './cloudflare.ts'
-import { Health, WorkerBuild } from './model.ts'
-import {
-  BenchError,
-  directory,
-  execute,
-  hash,
-  nonce,
-  read,
-  redact,
-  repository,
-  save,
-  stateDirectory,
-} from './platform.ts'
+import { build } from './build'
+import { Cloudflare, request } from './cloudflare'
+import { Health, WorkerBuild } from './model'
+import { BenchError, directory, execute, hash, nonce, read, redact, repository, save, stateDirectory } from './platform'
 
 /** The only persistent state is private Alchemy state and enough ownership data to destroy it. */
 export const deployments = Effect.gen(function*() {

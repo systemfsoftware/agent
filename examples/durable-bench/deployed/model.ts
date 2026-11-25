@@ -16,8 +16,8 @@ import {
   SeedResult,
   Target,
   WorkerStart,
-} from './worker/protocol.ts'
-import { UsageSnapshot } from './worker/usage.ts'
+} from './worker/protocol'
+import { UsageSnapshot } from './worker/usage'
 
 export const DriverRequestId = Schema.NonEmptyString.check(Schema.isMaxLength(512))
 

@@ -13,7 +13,7 @@ accepts work that can outlive the request and resume after restart. Both use the
 ```ts twoslash
 import { AgentRuntime } from "@systemfsoftware/agent";
 import { Effect } from "effect";
-import { TravelPlanner as planner } from "./planner.ts";
+import { TravelPlanner as planner } from "./planner";
 // ---cut---
 const program = Effect.gen(function* () {
   const result = yield* AgentRuntime.run(planner, { city: "Lisbon", days: 2 });

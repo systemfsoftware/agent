@@ -15,7 +15,7 @@ import * as Layer from 'effect/Layer'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
-import { bookToolLayer, bookTools, recordSupplierCall, supplierCountsFor, TEST_DIGESTS } from './fixtures.ts'
+import { bookToolLayer, bookTools, recordSupplierCall, supplierCountsFor, TEST_DIGESTS } from './fixtures'
 
 /**
  * WP4 cross-Object subagent fixtures (plan §4 WP4): the crash-shape coordinator → researcher

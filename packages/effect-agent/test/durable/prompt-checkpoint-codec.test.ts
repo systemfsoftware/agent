@@ -3,7 +3,7 @@ import * as Prompt from 'effect/ai/Prompt'
 import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 
-import { decodeCheckpointPrefix } from '../../src/durable/internal/prompt-history-cache.ts'
+import { decodeCheckpointPrefix } from '../../src/durable/internal/prompt-history-cache'
 
 // Requested regression seam: hydration must track Effect's codec, including native
 // value types that can differ while producing identical JSON on re-encoding.

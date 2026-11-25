@@ -50,13 +50,13 @@ import {
   type Page,
 } from 'puppeteer-core/lib/esm/puppeteer/puppeteer-core-browser.js'
 
-import { BrowserRunBinding, BrowserRunRefusal } from './internal/browser-binding.ts'
-import { BrowserRunFailure, reportBrowserCause, reportedBrowserError } from './internal/browser-failure.ts'
-import { makeFileSelection } from './internal/browser-file-selection.ts'
-import { type BrowserRunLifecycleOptions, BrowserRunSessionLifecycle } from './internal/browser-session-lifecycle.ts'
-import { pageFunction } from './internal/page-function.ts'
+import { BrowserRunBinding, BrowserRunRefusal } from './internal/browser-binding'
+import { BrowserRunFailure, reportBrowserCause, reportedBrowserError } from './internal/browser-failure'
+import { makeFileSelection } from './internal/browser-file-selection'
+import { type BrowserRunLifecycleOptions, BrowserRunSessionLifecycle } from './internal/browser-session-lifecycle'
+import { pageFunction } from './internal/page-function'
 
-export { BrowserRunCleanupError, BrowserRunSessionLifecycle } from './internal/browser-session-lifecycle.ts'
+export { BrowserRunCleanupError, BrowserRunSessionLifecycle } from './internal/browser-session-lifecycle'
 
 export const browserRunInteractiveImplementation = SandboxImplementation.make({
   isolation: 'isolated',

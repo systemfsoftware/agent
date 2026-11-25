@@ -44,7 +44,7 @@ import * as Ref from 'effect/Ref'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
-import { makeJournalMetadata } from '../../src/durable/internal/journal-metadata.ts'
+import { makeJournalMetadata } from '../../src/durable/internal/journal-metadata'
 
 const SUBMISSION_ID = Schema.decodeSync(SubmissionId)('submission-journal')
 const RUN_ID = runIdForSubmission(SUBMISSION_ID)

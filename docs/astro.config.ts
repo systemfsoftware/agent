@@ -3,8 +3,8 @@ import yieldedTheme from '@yielded/starlight-theme'
 import { defineConfig } from 'astro/config'
 import starlightLinksValidator from 'starlight-links-validator'
 
-import { snippetPlugins } from './integrations/snippets.ts'
-import { socialImages } from './integrations/social-images.ts'
+import { snippetPlugins } from './integrations/snippets'
+import { socialImages } from './integrations/social-images'
 
 export default defineConfig({
   // No `site` until an approved documentation domain exists: a repository URL is not a docs

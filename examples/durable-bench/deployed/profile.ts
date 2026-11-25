@@ -2,10 +2,10 @@ import { join } from 'node:path'
 
 import { Clock, Console, Effect, FileSystem, Schema, Semaphore } from 'effect'
 
-import { Cloudflare, request } from './cloudflare.ts'
-import { type Profile, type ProfileType } from './model.ts'
-import { BenchError, redact } from './platform.ts'
-import { ProfileTarget, type Query } from './worker/protocol.ts'
+import { Cloudflare, request } from './cloudflare'
+import { type Profile, type ProfileType } from './model'
+import { BenchError, redact } from './platform'
+import { ProfileTarget, type Query } from './worker/protocol'
 
 const Settings = Schema.Struct({
   bindings: Schema.Array(

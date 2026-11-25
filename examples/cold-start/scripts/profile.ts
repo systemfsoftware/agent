@@ -1,9 +1,9 @@
 import { Cause, Clock, Console, Effect, Exit, Fiber, FileSystem, Schema } from 'effect'
 import { Command, Flag } from 'effect/cli'
 
-import { Cloudflare, type Run, withRun } from './cloudflare.ts'
-import { Frame, Identity } from './evidence.ts'
-import { BenchError, check, gunzip, save } from './platform.ts'
+import { Cloudflare, type Run, withRun } from './cloudflare'
+import { Frame, Identity } from './evidence'
+import { BenchError, check, gunzip, save } from './platform'
 
 const ProfileResult = Schema.Struct({
   label: Schema.String,

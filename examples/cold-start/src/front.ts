@@ -1,5 +1,5 @@
-import { identity } from './identity.ts'
-import { encode, type Env } from './protocol.ts'
+import { identity } from './identity'
+import { encode, type Env } from './protocol'
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {

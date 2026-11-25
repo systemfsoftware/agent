@@ -7,7 +7,7 @@ import { build } from 'esbuild'
 import { convertV4MiniflareOptions, Miniflare } from 'miniflare'
 import { afterAll, beforeAll, expect, it } from 'vitest'
 
-import { Trip, TripApp } from '../src/domain.ts'
+import { Trip, TripApp } from '../src/domain'
 
 let runtime: Miniflare
 let directory: string
@@ -40,12 +40,12 @@ import { SqliteClient } from "@effect/sql-sqlite-do";
 import { ThreadObjectIdentity } from "@systemfsoftware/agent-platform-cloudflare/cloudflare-bindings";
 import { Cause, Effect, Layer } from "effect";
 import { WorkerEnvironment } from "effect-cf";
-import { PlannerError } from "../src/domain.ts";
-import { TripRepository, TripRepositoryLive } from "../src/server/trips.ts";
-import { AppRepository, AppRepositoryLive } from "../src/trip-app/repository.ts";
-import { AppSourceStore } from "../src/trip-app/source.ts";
-import { AppBuildBucketLive } from "../src/trip-app/bindings.ts";
-import { createTripApp, editTripApp, retryTripAppBuild } from "../src/trip-app/service.ts";
+import { PlannerError } from "../src/domain";
+import { TripRepository, TripRepositoryLive } from "../src/server/trips";
+import { AppRepository, AppRepositoryLive } from "../src/trip-app/repository";
+import { AppSourceStore } from "../src/trip-app/source";
+import { AppBuildBucketLive } from "../src/trip-app/bindings";
+import { createTripApp, editTripApp, retryTripAppBuild } from "../src/trip-app/service";
 const conversation = "account-00000000-0000-0000-0000-000000000001--lisbon-conversation";
 const draft = { title:"Lisbon with friends", destination:"Lisbon", summary:"Three friends exploring Lisbon", startDate:null, endDate:null, travelers:3, days:[{title:"Arrival",activities:["Walk by the river"]}], notes:["Coming for work"], places:[] };
 export class ServiceFixture extends DurableObject {

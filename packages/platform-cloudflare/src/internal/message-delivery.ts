@@ -13,9 +13,9 @@ import * as Exit from 'effect/Exit'
 import * as Layer from 'effect/Layer'
 import * as Option from 'effect/Option'
 
-import { DurableAlarmError, ThreadMessageDelivery, ThreadMutationGate } from '../Alarm.ts'
-import { ThreadObjectPlacement } from '../CloudflareBindings.ts'
-import * as DueQueue from './due-queue.ts'
+import { DurableAlarmError, ThreadMessageDelivery, ThreadMutationGate } from '../Alarm'
+import { ThreadObjectPlacement } from '../CloudflareBindings'
+import * as DueQueue from './due-queue'
 
 /** Every write prearms its owner; the delivery due index owns its recovery deadline. */
 export const guardedMessageDeliveryStoreLayer = Layer.effect(

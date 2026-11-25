@@ -7,7 +7,7 @@ import {
   CURRENT_RECORD_VERSION,
   KnownRecordPayload,
   RecordEnvelope,
-} from '../packages/effect-agent/src/durable/Records.ts'
+} from '../packages/effect-agent/src/durable/Records'
 
 class RecordCompatibilityError extends Schema.TaggedError<RecordCompatibilityError>()(
   'RecordCompatibilityError',
@@ -126,7 +126,7 @@ export const verifyRecordFormat = Effect.fnUntraced(function*(options?: {
   if (CURRENT_RECORD_VERSION > baseline.version) {
     return yield* RecordCompatibilityError.make({
       message:
-        `Stale record schema baseline: scripts/record-format.schema.json is at version ${baseline.version}, but CURRENT_RECORD_VERSION is ${CURRENT_RECORD_VERSION}. Run vp run check:record-format --refresh after approving the fresh-store format boundary.`,
+        `Stale record schema baseline: scripts/record-format.schema.json is at version ${baseline.version}, but CURRENT_RECORD_VERSION is ${CURRENT_RECORD_VERSION}. Run pnpm check:record-format --refresh after approving the fresh-store format boundary.`,
     })
   }
 

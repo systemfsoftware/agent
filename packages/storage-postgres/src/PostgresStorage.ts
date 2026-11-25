@@ -42,14 +42,14 @@ import {
   makeWriteTransaction,
   postgresStorageErrors,
   readPostgresStorageHeader,
-} from './internal/postgres-storage.ts'
+} from './internal/postgres-storage'
 import {
   PostgresStorageError,
   type PostgresStorageFailpointError,
   type PostgresStorageFailpointLocation,
-} from './PostgresStorageError.ts'
+} from './PostgresStorageError'
 
-export { CurrentPostgresStorageVersion } from './internal/postgres-storage.ts'
+export { CurrentPostgresStorageVersion } from './internal/postgres-storage'
 
 export type PostgresStorageFailpointHandler = (
   location: PostgresStorageFailpointLocation,

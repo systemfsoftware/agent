@@ -3,9 +3,9 @@ import { join } from 'node:path'
 import { Console, Effect, FileSystem, Schema } from 'effect'
 import { convertV4MiniflareOptions, Log, LogLevel, Miniflare } from 'miniflare'
 
-import { build } from './build.ts'
-import { BenchError, execute, git, read, repository, save, workspace } from './platform.ts'
-import { ColdResult, Metrics, SeedResult, type Target } from './worker/protocol.ts'
+import { build } from './build'
+import { BenchError, execute, git, read, repository, save, workspace } from './platform'
+import { ColdResult, Metrics, SeedResult, type Target } from './worker/protocol'
 
 // Same prefix/run/hash/cell/replica shape and 50-character identity as the natural matrix.
 export const NATURAL_THREAD = 'durable-bench-cache-00000000-00000000-h1000-d0-o00'

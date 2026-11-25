@@ -1,7 +1,7 @@
 import * as Context from 'effect/Context'
 import type * as Effect from 'effect/Effect'
 
-import type { makeWorkerRuntime } from './worker-host.ts'
+import type { makeWorkerRuntime } from './worker-host'
 
 /** Canonical worker operations constructed once by the durable coordinator. */
 export class WorkerRuntime extends Context.Service<

@@ -3,8 +3,8 @@ import { FrameworkMessage } from '@systemfsoftware/agent/worker'
 import { DateTime, Schema } from 'effect'
 import { Prompt } from 'effect/ai'
 
-import { type PlannerActivity, PlannerInput } from '../domain.ts'
-import { diagnosticDetail, type RecordedDiagnostics, redactDiagnosticText as redactText } from './diagnostics.ts'
+import { type PlannerActivity, PlannerInput } from '../domain'
+import { diagnosticDetail, type RecordedDiagnostics, redactDiagnosticText as redactText } from './diagnostics'
 
 type PendingDetail = { readonly label: string; readonly value: unknown }
 type PendingActivity = Omit<PlannerActivity, 'details'> & { readonly details: PendingDetail[] }

@@ -16,10 +16,10 @@ import {
   type PostgresStorageFailpointError,
   type PostgresStorageFailpointLocation,
   PostgresWriteContention,
-} from '../PostgresStorageError.ts'
-import { applyPostgresLayout, inspectPostgresStorage } from './storage-layout.ts'
+} from '../PostgresStorageError'
+import { applyPostgresLayout, inspectPostgresStorage } from './storage-layout'
 
-export { CurrentPostgresStorageVersion, readPostgresStorageHeader } from './storage-layout.ts'
+export { CurrentPostgresStorageVersion, readPostgresStorageHeader } from './storage-layout'
 
 const storageError = (operation: string) => (cause: SqlError.SqlError) =>
   PostgresStorageError.make({ operation, cause, message: cause.message })

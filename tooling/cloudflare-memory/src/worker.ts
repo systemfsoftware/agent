@@ -12,7 +12,7 @@ import { Principal } from '@systemfsoftware/agent/submission-ledger'
 import { Clock, Effect, Layer, Schema } from 'effect'
 import { DurableObject, WorkerEnvironment } from 'effect-cf'
 
-import { BenchmarkCase, candidates, command, limits, memoryScope, Projects, Sample, sourceCount } from './contracts.ts'
+import { BenchmarkCase, candidates, command, limits, memoryScope, Projects, Sample, sourceCount } from './contracts'
 
 declare global {
   namespace Cloudflare {

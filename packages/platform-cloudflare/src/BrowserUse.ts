@@ -14,8 +14,8 @@ import * as Schema from 'effect/Schema'
 import * as Semaphore from 'effect/Semaphore'
 import type { CDPSession, Frame, Page } from 'puppeteer-core/lib/esm/puppeteer/puppeteer-core-browser.js'
 
-import type { BrowserSession, BrowserSessionError } from './BrowserSession.ts'
-import { mapBrowserError, reportBrowserCause } from './internal/browser-failure.ts'
+import type { BrowserSession, BrowserSessionError } from './BrowserSession'
+import { mapBrowserError, reportBrowserCause } from './internal/browser-failure'
 
 export type Command =
   | { readonly kind: 'connect' | 'tabs' | 'new-tab' }

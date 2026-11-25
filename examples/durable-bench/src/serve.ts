@@ -1,4 +1,4 @@
-import type { Stats, Turn } from './plan.ts'
+import type { Stats, Turn } from './plan'
 
 export interface Bench {
   wake(): Promise<void>

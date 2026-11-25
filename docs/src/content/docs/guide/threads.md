@@ -13,7 +13,7 @@ it does not by itself make execution durable or authorize access.
 import { AgentRuntime, InMemory } from '@systemfsoftware/agent'
 import { Effect } from 'effect'
 
-import { ModelLive, OpenAiLive, planner } from './node-agent.ts'
+import { ModelLive, OpenAiLive, planner } from './node-agent'
 // ---cut---
 const conversation = Effect.gen(function*() {
   const first = yield* AgentRuntime.run(planner, 'Plan a weekend in Lisbon.')

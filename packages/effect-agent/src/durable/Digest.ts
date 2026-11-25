@@ -3,13 +3,13 @@ import * as Effect from 'effect/Effect'
 import * as Hex from 'effect/encoding/Hex'
 import * as Schema from 'effect/Schema'
 
-import { utf8Bytes } from '../core/internal/utf8.ts'
-import { canonicalJson as stringifyCanonicalJson } from './internal/canonical-json.ts'
-import type { DefinitionDigestInput } from './Records.ts'
-import { DefinitionDigests, Digest } from './Records.ts'
+import { utf8Bytes } from '../core/internal/utf8'
+import { canonicalJson as stringifyCanonicalJson } from './internal/canonical-json'
+import type { DefinitionDigestInput } from './Records'
+import { DefinitionDigests, Digest } from './Records'
 
 /** Measure persisted text without allocating a UTF-8 copy. */
-export { utf8ByteLength } from '../core/internal/utf8.ts'
+export { utf8ByteLength } from '../core/internal/utf8'
 
 export class DigestError extends Schema.TaggedError<DigestError>()('DigestError', {
   message: Schema.String,

@@ -9,13 +9,13 @@ import {
   EvalSuite,
   EvalTrialCount,
   EvalVariantId,
-} from './contracts.ts'
-import { loadEvalSuite, writeObservations } from './corpus.ts'
-import { type LocalGitRepository, openLocalGitRepository } from './local-git-repository.ts'
-import { makeCurrentOpenAiVariant, openAiClientLayer } from './openai-variant.ts'
-import { loadJudgmentSet, loadObservationFiles, writeQualityReport } from './report-files.ts'
-import { makeQualityReport, renderQualityReport } from './report.ts'
-import { runEvalSuite, selectEvalCases } from './runner.ts'
+} from './contracts'
+import { loadEvalSuite, writeObservations } from './corpus'
+import { type LocalGitRepository, openLocalGitRepository } from './local-git-repository'
+import { makeCurrentOpenAiVariant, openAiClientLayer } from './openai-variant'
+import { makeQualityReport, renderQualityReport } from './report'
+import { loadJudgmentSet, loadObservationFiles, writeQualityReport } from './report-files'
+import { runEvalSuite, selectEvalCases } from './runner'
 
 const casesFile = Flag.File('cases').pipe(
   Flag.withDescription('Path to one schema-encoded eval suite JSON file.'),

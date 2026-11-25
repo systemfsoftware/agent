@@ -3,14 +3,14 @@ import type * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
-import type * as Agent from '../core/Agent.ts'
-import type { AgentPolicy } from '../core/AgentPolicy.ts'
-import type { Update } from '../core/AgentUpdates.ts'
-import type * as FailureDiagnostic from '../core/FailureDiagnostic.ts'
-import type { DelegationId, RunId, SettlementId, ThreadId } from '../core/Identifiers.ts'
-import type { MessageRef, MessageStatus } from '../core/Messaging.ts'
-import { type IdempotencyKey, type JoinedToHost, type Receipt } from '../core/Receipt.ts'
-import type { SubagentBudgetReservation, SubagentPolicy } from '../core/SubagentContract.ts'
+import type * as Agent from '../core/Agent'
+import type { AgentPolicy } from '../core/AgentPolicy'
+import type { Update } from '../core/AgentUpdates'
+import type * as FailureDiagnostic from '../core/FailureDiagnostic'
+import type { DelegationId, RunId, SettlementId, ThreadId } from '../core/Identifiers'
+import type { MessageRef, MessageStatus } from '../core/Messaging'
+import { type IdempotencyKey, type JoinedToHost, type Receipt } from '../core/Receipt'
+import type { SubagentBudgetReservation, SubagentPolicy } from '../core/SubagentContract'
 import {
   type WorkerBudgetScope,
   type WorkerCompletion,
@@ -24,7 +24,7 @@ import {
   type WorkerStop,
   type WorkerStopped,
   type WorkerSummary,
-} from '../core/Worker.ts'
+} from '../core/Worker'
 
 /** Prepared values cross this port only to be Schema-decoded before durable storage. */
 export interface StartWorkerRequest {

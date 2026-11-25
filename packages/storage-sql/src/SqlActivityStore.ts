@@ -16,8 +16,8 @@ import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 import * as SqlClientService from 'effect/sql/SqlClient'
 
-import { sqlStorageOwner } from './internal/SqlOwner.ts'
-import { makeRowDecoder, makeSqlQuery, SqlInteger, type SqlWriteTransaction } from './SqlStorage.ts'
+import { sqlStorageOwner } from './internal/SqlOwner'
+import { makeRowDecoder, makeSqlQuery, SqlInteger, type SqlWriteTransaction } from './SqlStorage'
 
 const STORAGE_VERSION = 2 as const
 const activeSessions = new WeakMap<object, Map<string, object>>()

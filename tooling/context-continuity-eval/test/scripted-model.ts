@@ -1,6 +1,6 @@
 import { Effect, Option, Schema } from 'effect'
 
-import { makeScenario } from '../src/scenario.ts'
+import { makeScenario } from '../src/scenario'
 
 /** Test-only deterministic provider, never bundled into the live worker. */
 export const scriptedResponse = Effect.fn('fixture.scriptedResponse')(function*(

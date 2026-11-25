@@ -1,6 +1,6 @@
 import { Clock, Context, Effect, Schema, Semaphore } from 'effect'
 
-import { LabError, PrivateEntry, Report, TraceArchive, TraceEvent } from './contract.ts'
+import { LabError, PrivateEntry, Report, TraceArchive, TraceEvent } from './contract'
 
 export interface TraceSink {
   readonly append: (event: TraceEvent) => void

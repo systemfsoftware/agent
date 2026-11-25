@@ -13,4 +13,4 @@ export {
   type ExecutableAgentBinding,
   type ReplayVersions,
   type ResolvedBinding,
-} from './internal/agent-registration.ts'
+} from './internal/agent-registration'

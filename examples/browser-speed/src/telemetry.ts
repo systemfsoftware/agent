@@ -15,8 +15,8 @@ import {
   type Report,
   type RunInput,
   type Span,
-} from './contract.ts'
-import { TraceStore } from './trace-store.ts'
+} from './contract'
+import { TraceStore } from './trace-store'
 
 type Details = Partial<
   Pick<

@@ -7,7 +7,7 @@ import { build } from 'esbuild'
 import { convertV4MiniflareOptions, Miniflare } from 'miniflare'
 import { afterAll, beforeAll, expect, it } from 'vitest'
 
-import { type TripApp } from '../src/domain.ts'
+import { type TripApp } from '../src/domain'
 
 const app: TripApp = {
   id: 'a'.repeat(32),
@@ -53,8 +53,8 @@ beforeAll(async () => {
     import { SqliteClient } from "@effect/sql-sqlite-do";
     import { Effect, Layer, Schema, Cause } from "effect";
     import { SqlClient } from "effect/sql/SqlClient";
-    import { AppRepository, AppRepositoryLive } from "../src/trip-app/repository.ts";
-    import { TripApp } from "../src/domain.ts";
+    import { AppRepository, AppRepositoryLive } from "../src/trip-app/repository";
+    import { TripApp } from "../src/domain";
     const Command = Schema.Struct({ kind: Schema.String, app: Schema.optionalKey(TripApp), expected: Schema.optionalKey(Schema.NullOr(Schema.Number)) });
     export class Apps extends DurableObject {
       async fetch(request) {

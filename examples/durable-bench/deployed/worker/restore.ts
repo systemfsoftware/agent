@@ -1,9 +1,9 @@
 /** Restore idle fixture bytes before acquiring the production runtime. */
 import { Effect, Schema } from 'effect'
 
-import { tables } from '../../src/serve.ts'
-import { BulkFixture, errorText, type Query, RESTORE_BYTES, RestoreChunk } from './protocol.ts'
-import { FixtureError, importRows, RestoreStorage, verifyFixture } from './storage.ts'
+import { tables } from '../../src/serve'
+import { BulkFixture, errorText, type Query, RESTORE_BYTES, RestoreChunk } from './protocol'
+import { FixtureError, importRows, RestoreStorage, verifyFixture } from './storage'
 
 const key = 'durable-bench/restore'
 const Session = Schema.Struct({ fixture: BulkFixture, next: Schema.Natural })

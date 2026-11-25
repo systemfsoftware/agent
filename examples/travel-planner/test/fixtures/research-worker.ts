@@ -8,12 +8,12 @@ import { Effect, Layer, Option, Schema, Stream } from 'effect'
 import { DurableObject, WorkerEnvironment } from 'effect-cf'
 import { LanguageModel, Model, type Prompt, type Response as AiResponse, Toolkit } from 'effect/ai'
 
-import { PlannerError, PlannerInput, TripSiteStore } from '../../src/domain.ts'
-import { ReadTravelPage } from '../../src/research.ts'
-import { ScoutInput } from '../../src/research/contracts.ts'
-import { makeTravelPlannerThread, plannerApplication } from '../../src/server/cloudflare.ts'
-import { ownerOfThread } from '../../src/server/tenancy.ts'
-import fixtureWorker from './worker.ts'
+import { PlannerError, PlannerInput, TripSiteStore } from '../../src/domain'
+import { ReadTravelPage } from '../../src/research'
+import { ScoutInput } from '../../src/research/contracts'
+import { makeTravelPlannerThread, plannerApplication } from '../../src/server/cloudflare'
+import { ownerOfThread } from '../../src/server/tenancy'
+import fixtureWorker from './worker'
 
 const call = (
   name: string,

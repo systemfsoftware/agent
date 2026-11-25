@@ -7,4 +7,4 @@ export {
   ReviewSearchMatch,
   ReviewSearchResult,
   ReviewSource,
-} from './internal/repository.ts'
+} from './internal/repository'

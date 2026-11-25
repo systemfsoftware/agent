@@ -4,8 +4,8 @@ import * as Option from 'effect/Option'
 import type * as Scope from 'effect/Scope'
 import * as Semaphore from 'effect/Semaphore'
 
-import type { ThreadId } from '../../core/Identifiers.ts'
-import { type Claim, LedgerError, OwnershipLost } from '../SubmissionLedger.ts'
+import type { ThreadId } from '../../core/Identifiers'
+import { type Claim, LedgerError, OwnershipLost } from '../SubmissionLedger'
 
 export type MutationGate = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>
 

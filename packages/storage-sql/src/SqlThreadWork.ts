@@ -41,12 +41,12 @@ import * as Schema from 'effect/Schema'
 import * as SqlClient from 'effect/sql/SqlClient'
 import type * as Statement from 'effect/sql/Statement'
 
-import { sqliteJsonText } from './internal/sql-json.ts'
-import { makeCanonicalStorage, RECORD_TAGS, recordBatchId } from './SqlCanonicalStorage.ts'
-import { makeSqlQuery, SqlInteger } from './SqlStorage.ts'
-import { SqlStorageProgress } from './SqlStorageProgress.ts'
-import { canonicalRecordJson } from './SqlThreadArchiveRange.ts'
-import { canonicalRecordMetadata, canonicalRecordPointers } from './SqlThreadNativeReads.ts'
+import { sqliteJsonText } from './internal/sql-json'
+import { makeCanonicalStorage, RECORD_TAGS, recordBatchId } from './SqlCanonicalStorage'
+import { makeSqlQuery, SqlInteger } from './SqlStorage'
+import { SqlStorageProgress } from './SqlStorageProgress'
+import { canonicalRecordJson } from './SqlThreadArchiveRange'
+import { canonicalRecordMetadata, canonicalRecordPointers } from './SqlThreadNativeReads'
 
 const failure = (operation: string, cause?: unknown) =>
   ThreadStoreError.make({

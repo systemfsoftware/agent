@@ -5,9 +5,9 @@ import * as Layer from 'effect/Layer'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
-import { type RunId, type ThreadId } from '../core/Identifiers.ts'
-import { type RunCompleted as RunCompletedEvent } from '../core/RunEvent.ts'
-import { ThreadHistory, ThreadHistoryError, type ThreadHistoryRun } from '../engine/ThreadHistory.ts'
+import { type RunId, type ThreadId } from '../core/Identifiers'
+import { type RunCompleted as RunCompletedEvent } from '../core/RunEvent'
+import { ThreadHistory, ThreadHistoryError, type ThreadHistoryRun } from '../engine/ThreadHistory'
 import {
   BatchId,
   CanonicalBatch,
@@ -19,9 +19,9 @@ import {
   RecordId,
   RunCompleted,
   UserInputRecorded,
-} from './Records.ts'
-import { promptFromCanonicalRecords } from './RunJournal.ts'
-import { StorageOwner } from './RunStorage.ts'
+} from './Records'
+import { promptFromCanonicalRecords } from './RunJournal'
+import { StorageOwner } from './RunStorage'
 import {
   AppendRequest,
   SelectedThreadRead,
@@ -30,7 +30,7 @@ import {
   ThreadMaterialization,
   ThreadStore,
   type ThreadStoreFailure,
-} from './ThreadStore.ts'
+} from './ThreadStore'
 
 const HISTORY_DEPLOYMENT = Schema.decodeSync(DeploymentId)('persistent-history')
 const batchId = Schema.decodeSync(BatchId)

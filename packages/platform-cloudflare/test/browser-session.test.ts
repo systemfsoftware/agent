@@ -18,18 +18,18 @@ import {
   CredentialForm,
   FillCredentialRequest,
   LoginCredential,
-} from '../src/BrowserCredentials.ts'
+} from '../src/BrowserCredentials'
 import {
   BrowserRunHandoffRequest,
   BrowserSessionError,
   BrowserSessionOptions,
   BrowserSessions,
-} from '../src/BrowserSession.ts'
-import * as BrowserUse from '../src/BrowserUse.ts'
-import { BrowserRunBinding } from '../src/internal/browser-binding.ts'
-import { BrowserRunReadonlyLiveView } from '../src/internal/browser-readonly-live-view.ts'
-import { BrowserRunCleanupError, BrowserRunSessionLifecycle } from '../src/internal/browser-session-lifecycle.ts'
-import { browserResponse } from './browser-response.ts'
+} from '../src/BrowserSession'
+import * as BrowserUse from '../src/BrowserUse'
+import { BrowserRunBinding } from '../src/internal/browser-binding'
+import { BrowserRunReadonlyLiveView } from '../src/internal/browser-readonly-live-view'
+import { BrowserRunCleanupError, BrowserRunSessionLifecycle } from '../src/internal/browser-session-lifecycle'
+import { browserResponse } from './browser-response'
 
 const provider = vi.hoisted(() => ({
   alive: false,

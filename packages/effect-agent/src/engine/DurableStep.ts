@@ -3,13 +3,13 @@ import type * as Effect from 'effect/Effect'
 import type * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'
 
-import { ToolCallId } from '../core/Identifiers.ts'
+import { ToolCallId } from '../core/Identifiers'
 
 export {
   getToolExecutionClass,
   ToolExecutionClass,
   type ToolExecutionClassValue,
-} from '../core/internal/tool-execution.ts'
+} from '../core/internal/tool-execution'
 
 /** Stable identity of one Step within one Tool Call: `(toolCallId, stepName)`. */
 export interface RunStepKey {

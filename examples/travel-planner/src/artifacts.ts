@@ -2,8 +2,8 @@ import { Context, DateTime, Effect, Layer, Schema } from 'effect'
 import git, { type HttpClient } from 'isomorphic-git'
 import { memfs } from 'memfs'
 
-import { PlannerError, type PublishedSite, Revision, Trip, TripId, TripSiteStore } from './domain.ts'
-import { renderTripSite } from './trip-site.ts'
+import { PlannerError, type PublishedSite, Revision, Trip, TripId, TripSiteStore } from './domain'
+import { renderTripSite } from './trip-site'
 
 const MAX_FILE_BYTES = 512 * 1024
 const MAX_TRANSFER_BYTES = 4 * 1024 * 1024

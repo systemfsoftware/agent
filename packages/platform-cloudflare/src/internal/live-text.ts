@@ -7,8 +7,8 @@ import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import * as Schema from 'effect/Schema'
 
-import { HostProtocolError } from './host-protocol-error.ts'
-import { Observation } from './live-text-observation.ts'
+import { HostProtocolError } from './host-protocol-error'
+import { Observation } from './live-text-observation'
 import {
   BUFFER_SIZE,
   Frame,
@@ -19,7 +19,7 @@ import {
   MAX_FRAME_BYTES,
   MAX_ID_LENGTH,
   MAX_OBSERVERS,
-} from './live-text-protocol.ts'
+} from './live-text-protocol'
 
 class ObservationLifetime extends RpcTarget {
   readonly #close: () => void

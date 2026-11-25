@@ -23,7 +23,7 @@ import {
   decodeThreadId,
   makeCheckpointToolLayer,
   supplierCounts,
-} from './fixtures.ts'
+} from './fixtures'
 import {
   assertConvergence,
   expectKilled,
@@ -33,7 +33,7 @@ import {
   withCrashSite,
   withHost,
   withRuntime,
-} from './harness.ts'
+} from './harness'
 
 const crashPoints = [
   {

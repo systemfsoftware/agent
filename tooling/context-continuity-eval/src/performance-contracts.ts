@@ -3,9 +3,9 @@ import { CanonicalRecordEnvelope, DefinitionDigestInput } from '@systemfsoftware
 import { Schema } from 'effect'
 import { Tool, Toolkit } from 'effect/ai'
 
-import { ModelUsage } from './contracts.ts'
-import { ModelId } from './live-model.ts'
-import { RequestAudit } from './request-audit.ts'
+import { ModelUsage } from './contracts'
+import { ModelId } from './live-model'
+import { RequestAudit } from './request-audit'
 
 export const PERFORMANCE_FIXTURE = 'cloudflare-order-v1'
 export const PERFORMANCE_BUDGET = 2_000_000

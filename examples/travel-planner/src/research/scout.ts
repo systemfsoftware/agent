@@ -5,12 +5,12 @@ import { SubagentGrant } from '@systemfsoftware/agent/subagent-contract'
 import { Effect } from 'effect'
 import { Toolkit } from 'effect/ai'
 
-import { PlannerError } from '../domain.ts'
-import { ReadTravelPage } from '../research.ts'
-import { researchScoutLimit, scoutPolicy } from '../server/agent-limits.ts'
-import { PlannerAttempt } from '../server/progress.ts'
-import { CheckedFinishResearch } from './completion.ts'
-import { ScoutFindings, ScoutInput, ScoutProgress, ScoutRequest } from './contracts.ts'
+import { PlannerError } from '../domain'
+import { ReadTravelPage } from '../research'
+import { researchScoutLimit, scoutPolicy } from '../server/agent-limits'
+import { PlannerAttempt } from '../server/progress'
+import { CheckedFinishResearch } from './completion'
+import { ScoutFindings, ScoutInput, ScoutProgress, ScoutRequest } from './contracts'
 
 /** Typed findings and their parent delivery are retained together before acknowledgement. */
 export const updatingResearchScout = Agent.make('travel-research-scout-v4', {

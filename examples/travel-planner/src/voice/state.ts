@@ -3,8 +3,8 @@ import { Deferred, Effect, Exit, Option, Schema } from 'effect'
 import * as SecureRandom from 'effect/crypto/SecureRandom'
 import { AsyncResult, Atom, Reactivity } from 'effect/reactivity'
 
-import { speechContext } from '../conversation.ts'
-import { PlannerError } from '../domain.ts'
+import { speechContext } from '../conversation'
+import { PlannerError } from '../domain'
 import {
   activeTripAtom,
   conversationRequestAtom,
@@ -17,12 +17,12 @@ import {
   sessionAtom,
   settingsAtom,
   spokenConversationAtom,
-} from '../state.ts'
-import { connectBrowserVoice } from './browser.ts'
-import { VoiceRequest } from './delegation.ts'
-import { VoiceError } from './protocol.ts'
-import { runVoiceSession, VoiceBackend, VoiceConnection, type VoiceView } from './session.ts'
-import { type CaptionGroups, groupCaption } from './transcript.ts'
+} from '../state'
+import { connectBrowserVoice } from './browser'
+import { VoiceRequest } from './delegation'
+import { VoiceError } from './protocol'
+import { runVoiceSession, VoiceBackend, VoiceConnection, type VoiceView } from './session'
+import { type CaptionGroups, groupCaption } from './transcript'
 
 const randomUUID = SecureRandom.SecureRandom.use((crypto) => crypto.uuidV4()).pipe(
   Effect.provide(BrowserCrypto.layer),

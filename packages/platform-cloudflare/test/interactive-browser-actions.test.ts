@@ -14,8 +14,8 @@ import * as Layer from 'effect/Layer'
 import * as Logger from 'effect/Logger'
 import { afterEach, beforeEach, vi } from 'vitest'
 
-import { BrowserRunSessionLifecycle } from '../src/internal/browser-session-lifecycle.ts'
-import { browserResponse } from './browser-response.ts'
+import { BrowserRunSessionLifecycle } from '../src/internal/browser-session-lifecycle'
+import { browserResponse } from './browser-response'
 
 const sdk = vi.hoisted(() => ({
   connect: vi.fn<() => Promise<object>>(),

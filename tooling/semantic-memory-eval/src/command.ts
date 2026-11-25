@@ -1,8 +1,8 @@
 import { Console, Effect, FileSystem, Schema } from 'effect'
 import { Command, Flag } from 'effect/cli'
 
-import { EvaluationReport } from './contracts.ts'
-import { runEvaluation } from './evaluate.ts'
+import { EvaluationReport } from './contracts'
+import { runEvaluation } from './evaluate'
 
 const cachePath = Flag.Directory('cache').pipe(
   Flag.withDefault('/tmp/effect-agent-semantic-model'),

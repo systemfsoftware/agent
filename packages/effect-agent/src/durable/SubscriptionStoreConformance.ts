@@ -4,10 +4,10 @@ import * as Result from 'effect/Result'
 import * as Schema from 'effect/Schema'
 import * as TestClock from 'effect/testing/TestClock'
 
-import { AgentId, ReceiptId, SubmissionId, ThreadId } from '../core/Identifiers.ts'
-import { Receipt } from './DurableAgentRuntime.ts'
-import { DefinitionDigests, Digest } from './Records.ts'
-import { IdempotencyKey, Principal, QueueSequence } from './SubmissionLedger.ts'
+import { AgentId, ReceiptId, SubmissionId, ThreadId } from '../core/Identifiers'
+import { Receipt } from './DurableAgentRuntime'
+import { DefinitionDigests, Digest } from './Records'
+import { IdempotencyKey, Principal, QueueSequence } from './SubmissionLedger'
 import {
   type AcceptedEvent,
   defaultSubscriptionLimits,
@@ -16,7 +16,7 @@ import {
   type SubscriptionRecord,
   SubscriptionStore,
   type SubscriptionStoreFailure,
-} from './Subscription.ts'
+} from './Subscription'
 
 export class SubscriptionStoreConformanceViolation extends Schema.TaggedError<SubscriptionStoreConformanceViolation>()(
   'SubscriptionStoreConformanceViolation',

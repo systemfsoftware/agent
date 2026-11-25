@@ -25,8 +25,8 @@ import * as Schema from 'effect/Schema'
 import * as SqlClientService from 'effect/sql/SqlClient'
 import type * as SqlError from 'effect/sql/SqlError'
 
-import { sqliteJsonText } from './internal/sql-json.ts'
-import { makeRowDecoder, makeSqlQuery, SqlInteger } from './SqlStorage.ts'
+import { sqliteJsonText } from './internal/sql-json'
+import { makeRowDecoder, makeSqlQuery, SqlInteger } from './SqlStorage'
 
 const StoredDeadline = Schema.NullOr(SqlInteger.pipe(Schema.decodeTo(ScheduleInstant)))
 

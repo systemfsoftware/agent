@@ -5,7 +5,7 @@ import * as Layer from 'effect/Layer'
 import type * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
 
-import { type ThreadId } from '../core/Identifiers.ts'
+import { type ThreadId } from '../core/Identifiers'
 
 /**
  * Incarnation-local, thread-keyed wake registrations. A registration is installed before

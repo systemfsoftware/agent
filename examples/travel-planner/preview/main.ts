@@ -1,7 +1,7 @@
 import { NodeRuntime, NodeServices } from '@effect/platform-node'
 import { Config, Console, Effect, Schema } from 'effect'
 
-import { localPreview } from './runtime.ts'
+import { localPreview } from './runtime'
 
 Effect.gen(function*() {
   const port = yield* Config.schema(

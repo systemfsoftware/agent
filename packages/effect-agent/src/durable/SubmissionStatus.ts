@@ -1,6 +1,6 @@
 import * as Schema from 'effect/Schema'
 
-import { Settlement } from './SubmissionLedger.ts'
+import { Settlement } from './SubmissionLedger'
 
 /** A Submission still owes its canonical Settlement, including while suspended. */
 export class PendingSubmission extends Schema.TaggedClass<PendingSubmission>()('pending', {}) {}

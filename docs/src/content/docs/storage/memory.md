@@ -14,7 +14,7 @@ can end with the process. No storage package is required.
 import { AgentRuntime, InMemory } from '@systemfsoftware/agent'
 import { Effect } from 'effect'
 
-import { planner } from './node-agent.ts'
+import { planner } from './node-agent'
 
 const conversation = Effect.gen(function*() {
   const first = yield* AgentRuntime.run(planner, 'Plan a trip to Lisbon')

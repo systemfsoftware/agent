@@ -16,7 +16,7 @@ import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 import * as TestClock from 'effect/testing/TestClock'
 
-import { NodeWakeSchedulerConfig, nodeWakeSchedulerLayer } from '../src/NodeWakeScheduler.ts'
+import { NodeWakeSchedulerConfig, nodeWakeSchedulerLayer } from '../src/NodeWakeScheduler'
 
 const snapshot = (index: number) =>
   Schema.decodeSync(SubmissionSnapshot)({

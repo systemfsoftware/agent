@@ -6,7 +6,7 @@ import { MessageDeliveryStore, type MessageDeliveryStoreLimits } from '@systemfs
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 
-import { initializeSqliteJournal } from './internal/sqlite-journal.ts'
+import { initializeSqliteJournal } from './internal/sqlite-journal'
 
 /** Source-owned message obligations in the host's existing SQLite database. */
 export const messageDeliveryStoreLayer = (limits?: MessageDeliveryStoreLimits) =>

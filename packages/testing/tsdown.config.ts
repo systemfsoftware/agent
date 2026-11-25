@@ -8,6 +8,8 @@ export default defineConfig({
   entry: Object.values(manifest.exports),
   format: 'esm',
   dts: true,
+  // The solution root owns no files, so declaration emit reads the app role directly.
+  tsconfig: 'tsconfig.build.json',
   sourcemap: true,
   fixedExtension: true,
 })

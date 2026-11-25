@@ -2,7 +2,7 @@ import type { BrowserSelectFileRequest } from '@systemfsoftware/agent/interactiv
 import * as Base64 from 'effect/encoding/Base64'
 import type { Page } from 'puppeteer-core/lib/esm/puppeteer/puppeteer-core-browser.js'
 
-import { pageFunction } from './page-function.ts'
+import { pageFunction } from './page-function'
 
 type Element = NonNullable<Awaited<ReturnType<Page['$']>>>
 

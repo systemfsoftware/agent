@@ -5,8 +5,8 @@ import * as Clock from 'effect/Clock'
 import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 
-import { utf8ByteLength } from '../core/internal/utf8.ts'
-import { MemoryContent, MemorySourceReference } from '../core/MemoryReference.ts'
+import { utf8ByteLength } from '../core/internal/utf8'
+import { MemoryContent, MemorySourceReference } from '../core/MemoryReference'
 import {
   ActiveMemoryDocument,
   MemoryConflict,
@@ -19,8 +19,8 @@ import {
   MemoryWithdrawn,
   MemoryWrite,
   MemoryWriter,
-} from '../core/MemoryStore.ts'
-import { DurableStep, DurableStepError, ToolExecutionClass } from '../engine/DurableStep.ts'
+} from '../core/MemoryStore'
+import { DurableStep, DurableStepError, ToolExecutionClass } from '../engine/DurableStep'
 
 const NotesText = Schema.String.check(
   Schema.isMaxLength(20_000),

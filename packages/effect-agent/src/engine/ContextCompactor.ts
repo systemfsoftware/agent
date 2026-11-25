@@ -8,9 +8,9 @@ import * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
-import { type CompactionPolicy } from '../core/AgentPolicy.ts'
-import { type RunId, type ThreadId } from '../core/Identifiers.ts'
-import { ContextHandoff, type ContextRolloverRequest } from './ContextWindow.ts'
+import { type CompactionPolicy } from '../core/AgentPolicy'
+import { type RunId, type ThreadId } from '../core/Identifiers'
+import { ContextHandoff, type ContextRolloverRequest } from './ContextWindow'
 import {
   buildCompactedView,
   buildRolloverHandoff,
@@ -24,7 +24,7 @@ import {
   SUMMARY_MAX_LENGTH,
   SUMMARY_REQUEST_PREFIX,
   SUMMARY_REQUEST_SUFFIX,
-} from './internal/compaction.ts'
+} from './internal/compaction'
 
 /**
  * A proposed view change. Source indices are exclusive prefix bounds, never record sequences.

@@ -5,8 +5,8 @@ import type { ProcessOutput, SandboxCommand } from '@yielded/sandbox/cloudflare'
 import { Clock, Effect, Option, Result, Schema } from 'effect'
 import { Tool, Toolkit } from 'effect/ai'
 
-import { CommandOutput } from './contract.ts'
-import { Workspace } from './workspace.ts'
+import { CommandOutput } from './contract'
+import { Workspace } from './workspace'
 
 export const CODING_ROOT = '/workspace'
 const OUTPUT_BYTES = 16 * 1024

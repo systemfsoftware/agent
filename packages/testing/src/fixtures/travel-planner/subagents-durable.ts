@@ -18,8 +18,8 @@ import * as Ref from 'effect/Ref'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
-import { DeterministicIdGeneratorLayer } from './deterministic-layers.ts'
-import type { DestinationBrief, DestinationReport, DestinationResearcherToolkit } from './subagents.ts'
+import { DeterministicIdGeneratorLayer } from './deterministic-layers'
+import type { DestinationBrief, DestinationReport, DestinationResearcherToolkit } from './subagents'
 import {
   DestinationFacts,
   DestinationGuide,
@@ -35,7 +35,7 @@ import {
   mapResearchChildFailure,
   ResearchDispatchGate,
   TravelCoordinator,
-} from './subagents.ts'
+} from './subagents'
 
 /** Registered coordinator and researcher bindings for durable delegation tests. */
 export const s2TravelPlannerDeploymentId = Schema.decodeSync(DeploymentId)(

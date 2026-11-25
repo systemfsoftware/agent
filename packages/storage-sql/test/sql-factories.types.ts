@@ -8,9 +8,9 @@ import * as Schema from 'effect/Schema'
 import type * as Scope from 'effect/Scope'
 import type * as SqlClient from 'effect/sql/SqlClient'
 
-import type { makeSqlJournal, SqlJournal } from '../src/SqlJournal.ts'
-import type { makeSqlSubmissionLedger } from '../src/SqlSubmissionLedger.ts'
-import type { makeSqlThreadStore } from '../src/SqlThreadStore.ts'
+import type { makeSqlJournal, SqlJournal } from '../src/SqlJournal'
+import type { makeSqlSubmissionLedger } from '../src/SqlSubmissionLedger'
+import type { makeSqlThreadStore } from '../src/SqlThreadStore'
 
 class StorageFailure extends Schema.TaggedError<StorageFailure>()('StorageFailure', {}) {}
 class Corruption extends Schema.TaggedError<Corruption>()('Corruption', {}) {}

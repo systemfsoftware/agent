@@ -3,8 +3,8 @@ import { Effect } from 'effect'
 import { Command } from 'effect/cli'
 import { FetchHttpClient } from 'effect/http'
 
-import { Cloudflare } from './cloudflare.ts'
-import { command } from './measure.ts'
+import { Cloudflare } from './cloudflare'
+import { command } from './measure'
 
 NodeRuntime.runMain(
   Command.run(command.pipe(Command.provide(Cloudflare.layer)), { version: '1.0.0' }).pipe(

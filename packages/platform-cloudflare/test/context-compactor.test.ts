@@ -30,8 +30,8 @@ import {
   searchToolLayer,
   submitOptions,
   TEST_DIGESTS,
-} from './fixtures.ts'
-import { allSettled, drainAlarmsUntil, readCanonical, runClient, stubFor, type TestNamespace } from './harness.ts'
+} from './fixtures'
+import { allSettled, drainAlarmsUntil, readCanonical, runClient, stubFor, type TestNamespace } from './harness'
 
 let laneCounter = 0
 const lane = (label: string): string => `cf-context-compactor-${label}-${laneCounter++}`

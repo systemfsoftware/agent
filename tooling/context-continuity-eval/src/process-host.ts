@@ -1,9 +1,9 @@
 import { Config, Console, Effect, Exit, FileSystem, Path, Redacted, Schema } from 'effect'
 import { ChildProcess } from 'effect/process'
 
-import { EvaluationError, EvaluationReport, KillWitness, ResumeCheckpoint, ServiceTier } from './contracts.ts'
-import { ModelId, ReasoningEffort } from './live-model.ts'
-import { RESTARTS } from './scenario.ts'
+import { EvaluationError, EvaluationReport, KillWitness, ResumeCheckpoint, ServiceTier } from './contracts'
+import { ModelId, ReasoningEffort } from './live-model'
+import { RESTARTS } from './scenario'
 
 export const WorkerOptions = Schema.Struct({
   model: ModelId,

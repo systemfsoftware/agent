@@ -17,7 +17,7 @@
   },
   "scripts": {
     "build": "tsdown",
-    "typecheck": "effect-tsgo tsrs --noEmit -p tsconfig.json",
+    "typecheck": "tsc -b",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
@@ -43,5 +43,13 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwindcss": "^4.0.0"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      }
+    }
   }
 }

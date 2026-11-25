@@ -1,2 +1,2 @@
-export * as AutoModel from './AutoModel.ts'
-export * as LanguageModelDecisionModel from './LanguageModelDecisionModel.ts'
+export * as AutoModel from './AutoModel'
+export * as LanguageModelDecisionModel from './LanguageModelDecisionModel'

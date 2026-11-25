@@ -79,7 +79,7 @@ import {
   STALE_ANSWER,
   supplierCount,
   toolCallParts,
-} from './fixtures.ts'
+} from './fixtures'
 
 /**
  * Crash-harness child entrypoint (plan §Crash matrix). One process = one host "lifetime": it

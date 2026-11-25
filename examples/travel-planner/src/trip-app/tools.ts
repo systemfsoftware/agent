@@ -2,21 +2,11 @@ import { ThreadObjectIdentity } from '@systemfsoftware/agent-platform-cloudflare
 import { Schema } from 'effect'
 import { Tool, Toolkit } from 'effect/ai'
 
-import {
-  AppCommit,
-  AppFile,
-  AppFilePath,
-  PlannerError,
-  ShortText,
-  Trip,
-  TripApp,
-  TripId,
-  TripPlace,
-} from '../domain.ts'
-import { TripRepository } from '../server/trips.ts'
-import { AppBuildBucket } from './bucket.ts'
-import { AppRepository } from './repository.ts'
-import { AppSourceStore } from './source.ts'
+import { AppCommit, AppFile, AppFilePath, PlannerError, ShortText, Trip, TripApp, TripId, TripPlace } from '../domain'
+import { TripRepository } from '../server/trips'
+import { AppBuildBucket } from './bucket'
+import { AppRepository } from './repository'
+import { AppSourceStore } from './source'
 
 const dependencies = [
   TripRepository,

@@ -5,8 +5,8 @@ import { type ThreadExportCursor, ThreadExportRequest } from '@systemfsoftware/a
 import { Context, Effect, Schema } from 'effect'
 import { Prompt } from 'effect/ai'
 
-import { fingerprint, type Message } from '../../src/plan.ts'
-import { tables } from '../../src/serve.ts'
+import { fingerprint, type Message } from '../../src/plan'
+import { tables } from '../../src/serve'
 import {
   type BulkFixture,
   expectedRestoredTables,
@@ -15,7 +15,7 @@ import {
   type SqlDump,
   StorageFormat,
   type Target,
-} from './protocol.ts'
+} from './protocol'
 
 /** Native storage is supplied only by the Durable Object request boundary. */
 export class RestoreStorage extends Context.Service<RestoreStorage, DurableObjectStorage>()(

@@ -2,7 +2,7 @@ import type * as Tool from 'effect/ai/Tool'
 import * as Context from 'effect/Context'
 import type * as Effect from 'effect/Effect'
 
-import type { RunId, ThreadId } from '../core/Identifiers.ts'
+import type { RunId, ThreadId } from '../core/Identifiers'
 
 export type CatalogEntry =
   | {

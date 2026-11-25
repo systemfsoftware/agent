@@ -2,9 +2,9 @@ import { Config, Context, Effect, FileSystem, Path, Redacted, Schema, Stream } f
 import { HttpClient, HttpClientRequest } from 'effect/http'
 import { ChildProcess, ChildProcessSpawner } from 'effect/process'
 
-import { type PerformanceBuild } from './build-performance-cloudflare.ts'
-import { EvaluationError } from './contracts.ts'
-import { type ModelId } from './live-model.ts'
+import { type PerformanceBuild } from './build-performance-cloudflare'
+import { EvaluationError } from './contracts'
+import { type ModelId } from './live-model'
 
 export const PerformanceTarget = Schema.Struct({
   label: Schema.Literals(['candidate', 'reference']),

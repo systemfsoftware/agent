@@ -36,8 +36,8 @@ import * as SqlClientService from 'effect/sql/SqlClient'
 import * as Stream from 'effect/Stream'
 import { describe, expect, it } from 'vitest'
 
-import { instrumentedStorage } from '../../../test/fixtures/instrumented-storage.ts'
-import { admission, id, TEST_PRINCIPAL, thread, threadStub, toolCall, withThreadStorage } from './harness.ts'
+import { instrumentedStorage } from '../../../test/fixtures/instrumented-storage'
+import { admission, id, TEST_PRINCIPAL, thread, threadStub, toolCall, withThreadStorage } from './harness'
 
 const isLedgerError = Schema.is(LedgerError)
 

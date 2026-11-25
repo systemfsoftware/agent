@@ -1,12 +1,12 @@
 import * as Schema from 'effect/Schema'
 
-import { AgentPolicy } from './AgentPolicy.ts'
-import { Update } from './AgentUpdates.ts'
-import * as FailureDiagnostic from './FailureDiagnostic.ts'
-import { AgentId, DelegationId, RunId, SettlementId, ThreadId, ToolCallId } from './Identifiers.ts'
-import { MessageStatus } from './internal/message-status.ts'
-import { IdempotencyKey, Receipt } from './Receipt.ts'
-import { SubagentExecutionFailure, SubagentGrant } from './SubagentContract.ts'
+import { AgentPolicy } from './AgentPolicy'
+import { Update } from './AgentUpdates'
+import * as FailureDiagnostic from './FailureDiagnostic'
+import { AgentId, DelegationId, RunId, SettlementId, ThreadId, ToolCallId } from './Identifiers'
+import { MessageStatus } from './internal/message-status'
+import { IdempotencyKey, Receipt } from './Receipt'
+import { SubagentExecutionFailure, SubagentGrant } from './SubagentContract'
 
 /** Assignment output selected through the Definition's runDisposition declaration. */
 export const AssignmentDisposition = Schema.Literals(['completed', 'waiting'])
@@ -180,7 +180,7 @@ export class WorkerError extends Schema.TaggedError<WorkerError>()('WorkerError'
   ]),
 }) {}
 
-export { WorkerOperationTool } from './SubagentContract.ts'
+export { WorkerOperationTool } from './SubagentContract'
 
 /** One projected canonical Run outcome. Joined receipts share this identity. */
 export const WorkerReport = <Success extends Schema.Top>(success: Success) => {

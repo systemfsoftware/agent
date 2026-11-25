@@ -3,9 +3,9 @@ import * as Predicate from 'effect/Predicate'
 import * as Result from 'effect/Result'
 import * as Schema from 'effect/Schema'
 
-import type { RunId } from '../../core/Identifiers.ts'
-import { utf8ByteLength } from '../../core/internal/utf8.ts'
-import { ExportedRecord } from '../RecordFormat.ts'
+import type { RunId } from '../../core/Identifiers'
+import { utf8ByteLength } from '../../core/internal/utf8'
+import { ExportedRecord } from '../RecordFormat'
 import {
   type CanonicalRecordPayload,
   MAX_CANONICAL_RECORD_BYTES,
@@ -15,14 +15,9 @@ import {
   RecordEnvelope,
   type RecordJson,
   type RunContinuation,
-} from '../Records.ts'
-import { boundedCanonicalJson, canonicalJson } from './canonical-json.ts'
-import {
-  executionRunIds,
-  isPreContinuationFact,
-  isTerminalBudgetFact,
-  terminalUsageCharge,
-} from './record-ownership.ts'
+} from '../Records'
+import { boundedCanonicalJson, canonicalJson } from './canonical-json'
+import { executionRunIds, isPreContinuationFact, isTerminalBudgetFact, terminalUsageCharge } from './record-ownership'
 
 const encodeRecord = Schema.encodeSync(RecordEnvelope)
 

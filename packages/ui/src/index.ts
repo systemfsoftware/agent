@@ -1,7 +1,7 @@
-export { Button } from './internal/button.tsx'
-export { Card, CardContent } from './internal/card.tsx'
+export { Button } from './internal/button'
+export { Card, CardContent } from './internal/card'
 
-export { Conversation, ConversationContent, ConversationScrollButton } from './internal/conversation.tsx'
+export { Conversation, ConversationContent, ConversationScrollButton } from './internal/conversation'
 
-export { Reasoning, Tool, type ToolStatus } from './internal/activity.tsx'
-export { Message, MessageResponse, type MessageResponseProps } from './internal/message.tsx'
+export { Reasoning, Tool, type ToolStatus } from './internal/activity'
+export { Message, MessageResponse, type MessageResponseProps } from './internal/message'

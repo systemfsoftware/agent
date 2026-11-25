@@ -5,21 +5,21 @@ import * as Schema from 'effect/Schema'
 import type * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
 
-import { InputMessage } from '../capabilities/Messaging.ts'
-import type { RunId } from '../core/Identifiers.ts'
-import { SubmissionId, ThreadId, ToolCallId } from '../core/Identifiers.ts'
-import { WorkerRef } from '../core/Worker.ts'
-import { canonicalJson, digestJson, utf8ByteLength } from './Digest.ts'
-import { readRunContext, validateContextBoundary } from './internal/run-context.ts'
-import { ThreadImportReader } from './internal/thread-import-reader.ts'
-import { ImportSourcePhase } from './internal/thread-transfer-source.ts'
-import { toolOperationStates } from './internal/tool-operations.ts'
+import { InputMessage } from '../capabilities/Messaging'
+import type { RunId } from '../core/Identifiers'
+import { SubmissionId, ThreadId, ToolCallId } from '../core/Identifiers'
+import { WorkerRef } from '../core/Worker'
+import { canonicalJson, digestJson, utf8ByteLength } from './Digest'
+import { readRunContext, validateContextBoundary } from './internal/run-context'
+import { ThreadImportReader } from './internal/thread-import-reader'
+import { ImportSourcePhase } from './internal/thread-transfer-source'
+import { toolOperationStates } from './internal/tool-operations'
 import {
   MessageDeliveryRecord,
   prepareCanonicalMessageDeliveries,
   sameMessageDeliveryIdentity,
-} from './MessageDelivery.ts'
-import { decodeExportRecord } from './RecordFormat.ts'
+} from './MessageDelivery'
+import { decodeExportRecord } from './RecordFormat'
 import {
   CanonicalBatch,
   CanonicalRecordEnvelope,
@@ -28,10 +28,10 @@ import {
   RecordEnvelope,
   RecordJson,
   SubtreeBudgetReserved,
-} from './Records.ts'
-import { executionRunIds, isOperationalRecord, isPreContinuationFact, validateSuffix } from './RunContinuation.ts'
-import { runIdForSubmission } from './RunJournal.ts'
-import { validateCanonicalSettlement, validateJoinedSettlement } from './SettlementPublisher.ts'
+} from './Records'
+import { executionRunIds, isOperationalRecord, isPreContinuationFact, validateSuffix } from './RunContinuation'
+import { runIdForSubmission } from './RunJournal'
+import { validateCanonicalSettlement, validateJoinedSettlement } from './SettlementPublisher'
 import {
   AbortIntent,
   ApprovalDecisionIntent,
@@ -44,7 +44,7 @@ import {
   SuspensionSnapshot,
   UnknownResolutionIntent,
   unknownResolutionKind,
-} from './SubmissionLedger.ts'
+} from './SubmissionLedger'
 import {
   type ExecutionCheckpoint,
   makeTransferFactCheck,
@@ -57,11 +57,11 @@ import {
   ThreadResolutionFact,
   type ThreadStoreError,
   transferPageFits,
-} from './ThreadStore.ts'
-import { sameTransferManifest, transferDependencies, transferSections } from './ThreadTransfer.ts'
-import { workIndexChanges } from './ThreadWork.ts'
+} from './ThreadStore'
+import { sameTransferManifest, transferDependencies, transferSections } from './ThreadTransfer'
+import { workIndexChanges } from './ThreadWork'
 
-export { ThreadDeliveryImportReader, ThreadImportReader } from './internal/thread-import-reader.ts'
+export { ThreadDeliveryImportReader, ThreadImportReader } from './internal/thread-import-reader'
 
 const sameInputMessage = Schema.toEquivalence(InputMessage)
 

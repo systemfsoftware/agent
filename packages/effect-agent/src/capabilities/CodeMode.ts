@@ -10,8 +10,8 @@ import * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'
 import type * as Scope from 'effect/Scope'
 
-import { utf8ByteLength } from '../core/internal/utf8.ts'
-import { AdditionalToolCatalog, IncludesCatalogDocumentation } from '../core/ToolExposure.ts'
+import { utf8ByteLength } from '../core/internal/utf8'
+import { AdditionalToolCatalog, IncludesCatalogDocumentation } from '../core/ToolExposure'
 import {
   type ProgrammaticCallOutcome,
   ProgrammaticCallRecord,
@@ -19,8 +19,8 @@ import {
   type ToolBrokerConfigurationError,
   type ToolBrokerPass,
   type ToolBrokerUnavailableError,
-} from '../engine/ToolBroker.ts'
-import { CurrentToolCatalog } from '../engine/ToolExposure.ts'
+} from '../engine/ToolBroker'
+import { CurrentToolCatalog } from '../engine/ToolExposure'
 import {
   type CodeExecutionError,
   CodeExecutionHost,
@@ -32,8 +32,8 @@ import {
   type CodeHostCall,
   type CodeHostCallResult,
   JsIdentifier,
-} from '../sandbox/CodeExecutor.ts'
-import { NetworkDisabled } from '../sandbox/Sandbox.ts'
+} from '../sandbox/CodeExecutor'
+import { NetworkDisabled } from '../sandbox/Sandbox'
 
 /**
  * Code Mode (D-035, ADR-0017; capability spec §9.1): one native Effect AI
@@ -1123,7 +1123,7 @@ const brokerProtocolEnvelope: Schema.Json = {
 
 // The engine annotation is imported under a local alias to keep the builder
 // readable next to Effect AI's own `Tool.Readonly` annotation.
-import { ToolExecutionClass as ToolExecutionClassAnnotation } from '../engine/DurableStep.ts'
+import { ToolExecutionClass as ToolExecutionClassAnnotation } from '../engine/DurableStep'
 
 /** Code Mode builder namespace (capability spec §9.1). */
 export { make }

@@ -1,7 +1,7 @@
 import { Clock, Effect, Option, type Redacted, Schedule, Schema } from 'effect'
 import { HttpClient, HttpClientRequest } from 'effect/http'
 
-import { Evidence, workerRunHeader } from '../src/proof.ts'
+import { Evidence, workerRunHeader } from '../src/proof'
 
 const ResponseDiagnostic = Schema.Struct({
   status: Schema.Int,

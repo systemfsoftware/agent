@@ -5,9 +5,9 @@ import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import * as Schema from 'effect/Schema'
 
-import type { AnyDefinition } from '../../core/Agent.ts'
-import type { AgentPolicy } from '../../core/AgentPolicy.ts'
-import type { Update, UpdateError } from '../../core/AgentUpdates.ts'
+import type { AnyDefinition } from '../../core/Agent'
+import type { AgentPolicy } from '../../core/AgentPolicy'
+import type { Update, UpdateError } from '../../core/AgentUpdates'
 import type {
   AgentId,
   DelegationId,
@@ -17,21 +17,21 @@ import type {
   ThreadId,
   ToolCallId,
   TurnId,
-} from '../../core/Identifiers.ts'
-import type { CompletionMetadata } from '../../core/internal/completion.ts'
-import { RunPolicyUsage } from '../../core/RunPolicyUsage.ts'
+} from '../../core/Identifiers'
+import type { CompletionMetadata } from '../../core/internal/completion'
+import { RunPolicyUsage } from '../../core/RunPolicyUsage'
 import type {
   DelegationDepth,
   SubagentBudgetReservation,
   SubagentGrant,
   SubagentParentLink,
-} from '../../core/SubagentContract.ts'
-import { Selection, type Snapshot } from '../../core/ToolExposure.ts'
-import type { ToolParameterRejection } from '../../core/ToolResult.ts'
-import { ChildRunUsage, type ModelCallUsage, type RunTotals, UsageCompleteness } from '../../core/Usage.ts'
-import type { FrameworkMessage, WorkerBudgetScope } from '../../core/Worker.ts'
-import type { RunStepHook } from '../DurableStep.ts'
-import type { RunOptions, RunToolCallDescriptor } from '../RunOptions.ts'
+} from '../../core/SubagentContract'
+import { Selection, type Snapshot } from '../../core/ToolExposure'
+import type { ToolParameterRejection } from '../../core/ToolResult'
+import { ChildRunUsage, type ModelCallUsage, type RunTotals, UsageCompleteness } from '../../core/Usage'
+import type { FrameworkMessage, WorkerBudgetScope } from '../../core/Worker'
+import type { RunStepHook } from '../DurableStep'
+import type { RunOptions, RunToolCallDescriptor } from '../RunOptions'
 
 /**
  * Validated response facts supplied by the interpreter. Messages include only this

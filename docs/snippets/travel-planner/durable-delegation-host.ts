@@ -3,10 +3,10 @@ import { NodeDurableHost } from '@systemfsoftware/agent-platform-node'
 import { SubagentReservationsMemoryLive } from '@systemfsoftware/agent/subagent-reservations'
 import { Layer } from 'effect'
 
-import { Coordinator } from './coordinator.ts'
-import { Research } from './delegation.ts'
-import { definitions, ModelLive, OpenAiLive } from './node-agent.ts'
-import { TravelToolsLive } from './tools.ts'
+import { Coordinator } from './coordinator'
+import { Research } from './delegation'
+import { definitions, ModelLive, OpenAiLive } from './node-agent'
+import { TravelToolsLive } from './tools'
 
 const ResearchLive = Subagent.layer(Research).pipe(
   Layer.provide(ModelLive),

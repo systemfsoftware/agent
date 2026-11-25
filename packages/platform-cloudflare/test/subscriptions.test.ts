@@ -11,7 +11,7 @@ import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import { expect, it } from 'vitest'
 
-import { laneRows } from './harness.ts'
+import { laneRows } from './harness'
 import {
   armSubscriptionEviction,
   subscriptionAgentId,
@@ -21,8 +21,8 @@ import {
   subscriptionPrincipal,
   SubscriptionTestSourceVersion,
   subscriptionThreadId,
-} from './subscription-fixtures.ts'
-import type { TestSubscriptionPartitionObject } from './worker.ts'
+} from './subscription-fixtures'
+import type { TestSubscriptionPartitionObject } from './worker'
 
 const partitionName = sourcePartitionName(subscriptionPartition)
 const stubFor = () => env.SUBSCRIPTIONS.get(env.SUBSCRIPTIONS.idFromName(partitionName))

@@ -5,8 +5,8 @@ import * as Context from 'effect/Context'
 import type * as Layer from 'effect/Layer'
 import * as Schema from 'effect/Schema'
 
-import type { ThreadMutationGate } from '../src/Alarm.ts'
-import * as ThreadObject from '../src/ThreadObject.ts'
+import type { ThreadMutationGate } from '../src/Alarm'
+import * as ThreadObject from '../src/ThreadObject'
 
 class PublicationDependency extends Context.Service<
   PublicationDependency,

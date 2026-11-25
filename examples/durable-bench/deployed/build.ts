@@ -6,8 +6,8 @@ import { Effect, FileSystem, Schema } from 'effect'
 import { ChildProcess } from 'effect/process'
 import { build as bundle, type Plugin } from 'esbuild'
 
-import { BenchError, directory, execute, git, hash, read, redact, repository, save, workspace } from './platform.ts'
-import type { Target } from './worker/protocol.ts'
+import { BenchError, directory, execute, git, hash, read, redact, repository, save, workspace } from './platform'
+import type { Target } from './worker/protocol'
 
 const Package = Schema.Struct({ name: Schema.String })
 const Catalog = Schema.Struct({ catalog: Schema.Record(Schema.String, Schema.String) })

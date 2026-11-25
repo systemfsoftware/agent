@@ -22,8 +22,8 @@ import type * as Layer from 'effect/Layer'
 import * as Schema from 'effect/Schema'
 import type { expectTypeOf as ExpectTypeOf } from 'vitest'
 
-import * as ContextTools from '../../src/capabilities/ContextTools.ts'
-import * as MemoryNotes from '../../src/capabilities/MemoryNotes.ts'
+import * as ContextTools from '../../src/capabilities/ContextTools'
+import * as MemoryNotes from '../../src/capabilities/MemoryNotes'
 
 const policy = AgentPolicy.make({
   maxTurns: 4,

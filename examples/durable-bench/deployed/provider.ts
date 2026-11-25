@@ -1,8 +1,8 @@
 import { Schema } from 'effect'
 
-import { fingerprint, history, MEASURED_TOOLS, next, turn } from '../src/plan.ts'
-import { PREAMBLE, responseText } from './text.ts'
-import { chatTranscript, decodeChat, type ProviderReceipt, readQuery, separateTextAndTools } from './worker/protocol.ts'
+import { fingerprint, history, MEASURED_TOOLS, next, turn } from '../src/plan'
+import { PREAMBLE, responseText } from './text'
+import { chatTranscript, decodeChat, type ProviderReceipt, readQuery, separateTextAndTools } from './worker/protocol'
 
 const encoder = new TextEncoder()
 const sleep = (ms: number) => new Promise<void>((done) => setTimeout(done, ms))

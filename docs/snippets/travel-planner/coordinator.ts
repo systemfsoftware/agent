@@ -2,7 +2,7 @@ import { Agent } from '@systemfsoftware/agent'
 import { Schema } from 'effect'
 import { Toolkit } from 'effect/ai'
 
-import { Research } from './delegation.ts'
+import { Research } from './delegation'
 
 export const Coordinator = Agent.make('trip-coordinator', {
   input: Schema.Struct({ city: Schema.String }),

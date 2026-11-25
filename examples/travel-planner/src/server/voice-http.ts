@@ -1,10 +1,10 @@
 import { Effect, Redacted, Schema, Stream } from 'effect'
 import { FetchHttpClient, HttpClient, HttpClientRequest } from 'effect/http'
 
-import type { AccountSession } from '../auth/account.ts'
-import { VoiceAnswer, VoiceError, VoiceOffer } from '../voice/protocol.ts'
-import { credentialForOwner } from './credentials.ts'
-import { plannerOwner } from './tenancy.ts'
+import type { AccountSession } from '../auth/account'
+import { VoiceAnswer, VoiceError, VoiceOffer } from '../voice/protocol'
+import { credentialForOwner } from './credentials'
+import { plannerOwner } from './tenancy'
 
 const unavailable = () =>
   VoiceError.make({

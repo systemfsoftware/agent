@@ -7,8 +7,8 @@ import * as Effect from 'effect/Effect'
 import * as Scheduler from 'effect/Scheduler'
 import { expect, it } from 'vitest'
 
-import { batch, inputRecord } from './canonical-fixtures.ts'
-import { sequence, thread, withThreadStorage } from './harness.ts'
+import { batch, inputRecord } from './canonical-fixtures'
+import { sequence, thread, withThreadStorage } from './harness'
 
 const unknown = (id: string) =>
   CanonicalRecord.make({

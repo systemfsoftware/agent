@@ -21,8 +21,8 @@ import {
   PostgresStorageCompatibilityError,
   PostgresStorageCorruptionError,
   PostgresStorageError,
-} from '../PostgresStorageError.ts'
-import { type LayoutExpression, matchesLayoutExpressions } from './layout-expression.ts'
+} from '../PostgresStorageError'
+import { type LayoutExpression, matchesLayoutExpressions } from './layout-expression'
 
 export const CurrentPostgresStorageVersion = 31
 

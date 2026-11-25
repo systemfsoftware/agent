@@ -4,14 +4,14 @@ import { Command, Flag } from 'effect/cli'
 import { FetchHttpClient } from 'effect/http'
 import { ChildProcess, ChildProcessSpawner } from 'effect/process'
 
-import { runCloudflareEvaluation } from './cloudflare.ts'
-import { EvaluationError, EvaluationReport } from './contracts.ts'
-import { runEvaluation } from './evaluate.ts'
-import { MODEL_IDS, ModelId, productionCostPlan } from './live-model.ts'
-import { pressureScenario } from './pressure.ts'
-import { supervise } from './process-host.ts'
-import { DEFAULT_PROFILE, PROFILE_IDS, profilePlan } from './profiles.ts'
-import { makeScenario, REQUIRED_ROLLOVERS, RESTARTS, SCENARIO_VERSION, ScenarioPhase } from './scenario.ts'
+import { runCloudflareEvaluation } from './cloudflare'
+import { EvaluationError, EvaluationReport } from './contracts'
+import { runEvaluation } from './evaluate'
+import { MODEL_IDS, ModelId, productionCostPlan } from './live-model'
+import { pressureScenario } from './pressure'
+import { supervise } from './process-host'
+import { DEFAULT_PROFILE, PROFILE_IDS, profilePlan } from './profiles'
+import { makeScenario, REQUIRED_ROLLOVERS, RESTARTS, SCENARIO_VERSION, ScenarioPhase } from './scenario'
 
 const provider = OpenAiClient.layerConfig({ apiKey: Config.Redacted('OPENAI_API_KEY') }).pipe(
   Layer.provide(FetchHttpClient.layer),

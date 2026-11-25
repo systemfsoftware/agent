@@ -9,19 +9,19 @@ import * as Result from 'effect/Result'
 import * as Schema from 'effect/Schema'
 import * as Semaphore from 'effect/Semaphore'
 
-import { type AgentId, ThreadId } from '../core/Identifiers.ts'
-import { utf8ByteLength } from '../core/internal/utf8.ts'
-import { digestJson } from './Digest.ts'
-import type { DurableSubmitAgent } from './DurableAgentRuntime.ts'
+import { type AgentId, ThreadId } from '../core/Identifiers'
+import { utf8ByteLength } from '../core/internal/utf8'
+import { digestJson } from './Digest'
+import type { DurableSubmitAgent } from './DurableAgentRuntime'
 import {
   normalizeScheduleTiming,
   scheduleDueOccurrence,
   scheduleInitialCursor,
   scheduleNextAfter,
   scheduleResumeCursor,
-} from './internal/schedule-time.ts'
-import { admitPreparedInput, PreparedInputAdmission, type PreparedInputRetryReason } from './PreparedInputAdmission.ts'
-import { DefinitionDigests, type Digest, PersistedJson } from './Records.ts'
+} from './internal/schedule-time'
+import { admitPreparedInput, PreparedInputAdmission, type PreparedInputRetryReason } from './PreparedInputAdmission'
+import { DefinitionDigests, type Digest, PersistedJson } from './Records'
 import {
   defaultSchedulingLimits,
   type ScheduleAuthorizationError,
@@ -50,8 +50,8 @@ import {
   ScheduleValidationError,
   ScheduleWake,
   SchedulingLimits,
-} from './Schedule.ts'
-import { type AdmissionFence, IdempotencyKey, type Principal } from './SubmissionLedger.ts'
+} from './Schedule'
+import { type AdmissionFence, IdempotencyKey, type Principal } from './SubmissionLedger'
 
 export interface ScheduleCreateOptions {
   readonly scope: ScheduleScope

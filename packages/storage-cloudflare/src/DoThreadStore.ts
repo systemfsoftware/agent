@@ -40,21 +40,21 @@ import * as SqlClientService from 'effect/sql/SqlClient'
 import * as SqlError from 'effect/sql/SqlError'
 import * as Stream from 'effect/Stream'
 
-import { DEFAULT_MAX_STORED_VALUE_BYTES, DoStorageConfig, DoStorageConfigValue } from './DoStorageConfig.ts'
+import { DEFAULT_MAX_STORED_VALUE_BYTES, DoStorageConfig, DoStorageConfigValue } from './DoStorageConfig'
 import {
   DoAppendConflict,
   type DoStorageCompatibilityError,
   DoStorageCorruptionError,
   DoStorageError,
   type DoStorageFailpointLocation,
-} from './DoStorageError.ts'
-import { DoStorageFailpoint, type DoStorageFailpointHandler } from './DoStorageFailpoint.ts'
-import { DO_OFFSET_PREFIX, prepareCanonicalAppend } from './internal/canonical-append.ts'
-import { type DoJournal, initializeDoJournal, RawReadRequest } from './internal/do-journal.ts'
-import { readDoStorageHeader } from './internal/migrations.ts'
-import { invalidateOwnedState, ownedState } from './internal/owned-state.ts'
-import { makePromptCheckpoints, promptCheckpointPrefix } from './internal/prompt-checkpoint.ts'
-import { isAppendContention, withStorageSpan } from './internal/storage-span.ts'
+} from './DoStorageError'
+import { DoStorageFailpoint, type DoStorageFailpointHandler } from './DoStorageFailpoint'
+import { DO_OFFSET_PREFIX, prepareCanonicalAppend } from './internal/canonical-append'
+import { type DoJournal, initializeDoJournal, RawReadRequest } from './internal/do-journal'
+import { readDoStorageHeader } from './internal/migrations'
+import { invalidateOwnedState, ownedState } from './internal/owned-state'
+import { makePromptCheckpoints, promptCheckpointPrefix } from './internal/prompt-checkpoint'
+import { isAppendContention, withStorageSpan } from './internal/storage-span'
 
 /**
  * Convenience-layer construction options. `storage` is the Durable Object's own
@@ -486,7 +486,7 @@ export const threadStoreLayer: Layer.Layer<
  * this beneath both ports and above their common SQL, owner, configuration, failpoint,
  * progress and lifecycle providers. Standalone ports initialize their own journal.
  */
-export { initializedDoJournalLayer as journalLayer } from './internal/do-journal.ts'
+export { initializedDoJournalLayer as journalLayer } from './internal/do-journal'
 
 /**
  * Validated Durable Object storage configuration Layer with the documented defaults applied.

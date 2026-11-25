@@ -1,8 +1,8 @@
 import { Effect } from 'effect'
 
-import { request } from './cloudflare.ts'
-import { type Invocation } from './model.ts'
-import { TailPage } from './tail.ts'
+import { request } from './cloudflare'
+import { type Invocation } from './model'
+import { TailPage } from './tail'
 
 export const tailCpu = Effect.fnUntraced(function*(
   endpoint: string,

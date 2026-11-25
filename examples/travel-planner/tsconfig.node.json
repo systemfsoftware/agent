@@ -1,0 +1,67 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "types": [
+      "node",
+      "@cloudflare/workers-types"
+    ],
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ]
+    }
+  },
+  "include": [
+    "src/agent.ts",
+    "src/artifacts.ts",
+    "src/auth/worker.ts",
+    "src/research.ts",
+    "src/research/completion.ts",
+    "src/research/contracts.ts",
+    "src/research/runtime.ts",
+    "src/research/scout.ts",
+    "src/research/state.ts",
+    "src/response.ts",
+    "src/server/activity.ts",
+    "src/server/agent-limits.ts",
+    "src/server/application.ts",
+    "src/server/cloudflare.ts",
+    "src/server/conversation.ts",
+    "src/server/credentials.ts",
+    "src/server/diagnostics.ts",
+    "src/server/models.ts",
+    "src/server/planner.ts",
+    "src/server/progress-http.ts",
+    "src/server/progress.ts",
+    "src/server/public-output.ts",
+    "src/server/response-stream.ts",
+    "src/server/security.ts",
+    "src/server/settings.ts",
+    "src/server/tenancy.ts",
+    "src/server/trip-rpc.ts",
+    "src/server/trips.ts",
+    "src/server/voice-http.ts",
+    "src/server/worker-history.ts",
+    "src/server/worker-state.ts",
+    "src/trip-app/addresses.ts",
+    "src/trip-app/bindings.ts",
+    "src/trip-app/bucket.ts",
+    "src/trip-app/build.ts",
+    "src/trip-app/editor-runtime.ts",
+    "src/trip-app/editor-state.ts",
+    "src/trip-app/editor.ts",
+    "src/trip-app/gateway.ts",
+    "src/trip-app/remote.ts",
+    "src/trip-app/repository.ts",
+    "src/trip-app/scope.ts",
+    "src/trip-app/service.ts",
+    "src/trip-app/source.ts",
+    "src/trip-app/template.ts",
+    "src/trip-app/tools-live.ts",
+    "src/trip-app/tools.ts",
+    "src/trip-site.ts",
+    "src/worker.ts",
+    "vite.config.ts"
+  ]
+}

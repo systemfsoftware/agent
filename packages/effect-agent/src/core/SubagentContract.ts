@@ -2,7 +2,7 @@ import * as Context from 'effect/Context'
 import * as Duration from 'effect/Duration'
 import * as Schema from 'effect/Schema'
 
-import { AgentId, DelegationId, RunId, SubmissionId, ThreadId, ToolCallId } from './Identifiers.ts'
+import { AgentId, DelegationId, RunId, SubmissionId, ThreadId, ToolCallId } from './Identifiers'
 
 const Natural = Schema.Natural
 

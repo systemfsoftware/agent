@@ -1,8 +1,8 @@
 import { DurableObject } from 'cloudflare:workers'
 
-import { Host } from './host.ts'
-import { type Env, type Target } from './protocol.ts'
-import { installUsage } from './usage.ts'
+import { Host } from './host'
+import { type Env, type Target } from './protocol'
+import { installUsage } from './usage'
 
 /** No production constructor or alarm may mutate an unfinished SQLite restore. */
 export class RestoreDO extends DurableObject<Env> {

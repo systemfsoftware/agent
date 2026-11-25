@@ -10,11 +10,11 @@ import * as Layer from 'effect/Layer'
 import * as SqlClient from 'effect/sql/SqlClient'
 import { describe, it } from 'vitest'
 
-import { ledgerReadCases } from '../../../test/fixtures/ledger-read-contracts.ts'
-import { DoStorageFailpoint } from '../src/DoStorageFailpoint.ts'
-import { submissionLedgerLayer } from '../src/DoSubmissionLedger.ts'
-import { invalidate, storageConfigLayer, threadStoreLayer } from '../src/DoThreadStore.ts'
-import { withThreadStorage } from './harness.ts'
+import { ledgerReadCases } from '../../../test/fixtures/ledger-read-contracts'
+import { DoStorageFailpoint } from '../src/DoStorageFailpoint'
+import { submissionLedgerLayer } from '../src/DoSubmissionLedger'
+import { invalidate, storageConfigLayer, threadStoreLayer } from '../src/DoThreadStore'
+import { withThreadStorage } from './harness'
 
 let nextId = 0
 

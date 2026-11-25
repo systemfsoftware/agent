@@ -9,11 +9,11 @@ import {
   CanonicalSequence,
   type RecordEnvelope,
   type UserInputRecorded,
-} from '../Records.ts'
-import { RunJournalError, toolCallSettledRecordId } from '../RunJournal.ts'
-import { submissionSettlementRecordId } from '../SubmissionLedger.ts'
-import { getRecord, getRunInput, PROMPT_EVIDENCE_TAGS, ThreadReader } from '../ThreadStore.ts'
-import type { JournalRecordEnvelope } from './journal-metadata.ts'
+} from '../Records'
+import { RunJournalError, toolCallSettledRecordId } from '../RunJournal'
+import { submissionSettlementRecordId } from '../SubmissionLedger'
+import { getRecord, getRunInput, PROMPT_EVIDENCE_TAGS, ThreadReader } from '../ThreadStore'
+import type { JournalRecordEnvelope } from './journal-metadata'
 
 /** A captured original input can prepare context before its atomic publication. It carries
  * an expected position, never a committed observation cursor or dispatch authority. */

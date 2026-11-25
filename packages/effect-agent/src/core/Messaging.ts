@@ -1,10 +1,10 @@
 import * as Schema from 'effect/Schema'
 
-import { AgentId, ThreadId } from './Identifiers.ts'
-import { MessageRef } from './internal/message-status.ts'
-import { FrameworkMessage } from './Worker.ts'
+import { AgentId, ThreadId } from './Identifiers'
+import { MessageRef } from './internal/message-status'
+import { FrameworkMessage } from './Worker'
 
-export { MessageRef, MessageStatus } from './internal/message-status.ts'
+export { MessageRef, MessageStatus } from './internal/message-status'
 
 /** Application-chosen fixed route name; it never authorizes a destination by itself. */
 export const PeerName = Schema.NonEmptyString.check(

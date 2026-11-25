@@ -1,7 +1,7 @@
 import { Option, Schema } from 'effect'
 
-import { Invocation } from './model.ts'
-import { Target } from './worker/protocol.ts'
+import { Invocation } from './model'
+import { Target } from './worker/protocol'
 
 const Marker = Schema.Struct({
   kind: Schema.NonEmptyString,

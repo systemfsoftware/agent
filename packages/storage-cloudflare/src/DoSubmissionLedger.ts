@@ -138,23 +138,23 @@ import * as SqlClientService from 'effect/sql/SqlClient'
 import type * as SqlError from 'effect/sql/SqlError'
 import * as Stream from 'effect/Stream'
 
-import { DoStorageConfig } from './DoStorageConfig.ts'
+import { DoStorageConfig } from './DoStorageConfig'
 import {
   DoLedgerError,
   DoStorageCorruptionError,
   DoStorageError,
   type DoStorageFailpointLocation,
-} from './DoStorageError.ts'
-import { DoStorageFailpoint } from './DoStorageFailpoint.ts'
+} from './DoStorageError'
+import { DoStorageFailpoint } from './DoStorageFailpoint'
 import {
   type DoStorageInitializationError,
   type DoStorageOptions,
   storageConfigLayer,
   storageFailpointLayer,
-} from './DoThreadStore.ts'
-import { prepareCanonicalAppend } from './internal/canonical-append.ts'
-import { decodeRows, initializeDoJournal } from './internal/do-journal.ts'
-import { ownedRows } from './internal/owned-state.ts'
+} from './DoThreadStore'
+import { prepareCanonicalAppend } from './internal/canonical-append'
+import { decodeRows, initializeDoJournal } from './internal/do-journal'
+import { ownedRows } from './internal/owned-state'
 
 type SubmissionId = SubmissionSnapshot['submissionId']
 

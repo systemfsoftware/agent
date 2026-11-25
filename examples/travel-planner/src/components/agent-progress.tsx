@@ -1,8 +1,8 @@
 import { ArrowUpRight } from 'lucide-react'
 
-import type { PlannerProgress } from '../domain.ts'
-import { ElapsedTime } from './activity-panel.tsx'
-import { MessageText } from './message-text.tsx'
+import type { PlannerProgress } from '../domain'
+import { ElapsedTime } from './activity-panel'
+import { MessageText } from './message-text'
 
 export function AgentProgress({
   progress,

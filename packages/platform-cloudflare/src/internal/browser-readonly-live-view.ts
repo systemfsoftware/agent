@@ -8,9 +8,9 @@ import * as Redacted from 'effect/Redacted'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
-import { BrowserRunLiveViewRequest, BrowserRunLiveViewResult } from '../InteractiveBrowser.ts'
-import { browserFailure, BrowserRunFailure } from './browser-failure.ts'
-import type { BrowserRunLifecycleOptions } from './browser-session-lifecycle.ts'
+import { BrowserRunLiveViewRequest, BrowserRunLiveViewResult } from '../InteractiveBrowser'
+import { browserFailure, BrowserRunFailure } from './browser-failure'
+import type { BrowserRunLifecycleOptions } from './browser-session-lifecycle'
 
 const Identity = Schema.Struct({
   sessionId: Schema.String.check(Schema.isUUID()),

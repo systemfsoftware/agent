@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "prove:live": "vitest run --config vite.live.config.ts",
-    "typecheck": "effect-tsgo tsrs --noEmit -p tsconfig.json"
+    "typecheck": "tsc -b"
   },
   "dependencies": {
     "@effect/ai-openai": "catalog:",

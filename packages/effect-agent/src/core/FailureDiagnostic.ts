@@ -5,7 +5,7 @@ import * as Redacted from 'effect/Redacted'
 import * as Schema from 'effect/Schema'
 import * as SchemaTransformation from 'effect/SchemaTransformation'
 
-import { strictSchema } from './internal/strict-schema.ts'
+import { strictSchema } from './internal/strict-schema'
 
 const PrivateCause = Symbol.for('@systemfsoftware/agent/FailureDiagnostic/PrivateCause')
 

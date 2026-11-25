@@ -29,7 +29,7 @@ import * as Option from 'effect/Option'
 import * as Queue from 'effect/Queue'
 import * as Schema from 'effect/Schema'
 
-import { safeCauseDiagnostic, safeCauseMessage } from './internal/boundary.ts'
+import { safeCauseDiagnostic, safeCauseMessage } from './internal/boundary'
 
 /**
  * The Cloudflare Dynamic Worker `CodeExecutor` adapter (C4 of ADR-0017;

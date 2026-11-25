@@ -1,7 +1,7 @@
 import { Subagent } from '@systemfsoftware/agent'
 import { Effect, Schema } from 'effect'
 
-import { Researcher } from './researcher.ts'
+import { Researcher } from './researcher'
 
 export class ResearchFailed extends Schema.TaggedError<ResearchFailed>()('ResearchFailed', {
   reason: Schema.String,

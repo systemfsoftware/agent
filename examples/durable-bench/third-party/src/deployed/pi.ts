@@ -1,9 +1,9 @@
 import { DurableObject } from 'cloudflare:workers'
-import { TEXT_OUTPUT_INSTRUCTIONS } from '../../../deployed/text.ts'
+import { TEXT_OUTPUT_INSTRUCTIONS } from '../../../deployed/text'
 import { Schema } from '../../../node_modules/effect/dist/index.js'
 
-import { Host } from '../../../deployed/worker/host.ts'
-import { type Observation } from '../../../deployed/worker/observe.ts'
+import { Host } from '../../../deployed/worker/host'
+import { type Observation } from '../../../deployed/worker/observe'
 import {
   type Env,
   errorText,
@@ -12,8 +12,8 @@ import {
   readQuery,
   type TextObservation,
   transientObjectTransport,
-} from '../../../deployed/worker/protocol.ts'
-import { payload, type Turn } from '../../../src/plan.ts'
+} from '../../../deployed/worker/protocol'
+import { payload, type Turn } from '../../../src/plan'
 import {
   BACKGROUND_CONTEXT as context,
   withCancel,

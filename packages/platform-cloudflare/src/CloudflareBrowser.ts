@@ -6,4 +6,4 @@ export {
   type BrowserQuickActionClient,
   BrowserQuickActionRpcError,
   browserQuickActionScreenshotLayer,
-} from './internal/browser-quick-action.ts'
+} from './internal/browser-quick-action'

@@ -11,27 +11,20 @@ import { Duration, Effect, Layer, Option, Schema } from 'effect'
 import { WorkerEnvironment } from 'effect-cf'
 import { Toolkit } from 'effect/ai'
 
-import { DeliverResponse } from '../agent.ts'
-import { PlannerError } from '../domain.ts'
-import { researchCoordinatorId } from '../research/contracts.ts'
-import { UpdatingResearchScout, updatingResearchScout } from '../research/scout.ts'
-import { activeWorkerLimit, editorPolicy, scoutPolicy } from '../server/agent-limits.ts'
-import { PlannerAttempt, ProgressStore, trackTool } from '../server/progress.ts'
-import { ownerOfThread, StorageOwner } from '../server/tenancy.ts'
-import { tripRepositoryForOwner } from '../server/trip-rpc.ts'
-import { TripRepository } from '../server/trips.ts'
-import { AppEditor, appEditor, EditorInput, EditorReadTrip } from './editor.ts'
-import { appRepositoryForOwner } from './remote.ts'
-import { AppRepository } from './repository.ts'
-import {
-  addTripAppMap,
-  createTripApp,
-  editTripApp,
-  readTripAppFiles,
-  requireAppTrip,
-  restoreTripApp,
-} from './service.ts'
-import { AppTools } from './tools.ts'
+import { DeliverResponse } from '../agent'
+import { PlannerError } from '../domain'
+import { researchCoordinatorId } from '../research/contracts'
+import { UpdatingResearchScout, updatingResearchScout } from '../research/scout'
+import { activeWorkerLimit, editorPolicy, scoutPolicy } from '../server/agent-limits'
+import { PlannerAttempt, ProgressStore, trackTool } from '../server/progress'
+import { ownerOfThread, StorageOwner } from '../server/tenancy'
+import { tripRepositoryForOwner } from '../server/trip-rpc'
+import { TripRepository } from '../server/trips'
+import { AppEditor, appEditor, EditorInput, EditorReadTrip } from './editor'
+import { appRepositoryForOwner } from './remote'
+import { AppRepository } from './repository'
+import { addTripAppMap, createTripApp, editTripApp, readTripAppFiles, requireAppTrip, restoreTripApp } from './service'
+import { AppTools } from './tools'
 
 const unavailable = () =>
   PlannerError.make({

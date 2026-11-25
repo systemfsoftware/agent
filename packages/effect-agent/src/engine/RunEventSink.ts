@@ -2,10 +2,10 @@ import * as Context from 'effect/Context'
 import type * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 
-import { type AgentId, type DelegationId, type RunId, type ThreadId, type ToolCallId } from '../core/Identifiers.ts'
-import type { CompletionMetadata } from '../core/internal/completion.ts'
-import { type DelegationDepth } from '../core/SubagentContract.ts'
-import { type RunTotals } from '../core/Usage.ts'
+import { type AgentId, type DelegationId, type RunId, type ThreadId, type ToolCallId } from '../core/Identifiers'
+import type { CompletionMetadata } from '../core/internal/completion'
+import { type DelegationDepth } from '../core/SubagentContract'
+import { type RunTotals } from '../core/Usage'
 
 /**
  * Shared identity carried by every pre-base Subagent event payload. The

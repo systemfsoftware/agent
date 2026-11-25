@@ -10,7 +10,7 @@ import { ScheduleStorageError } from '@systemfsoftware/agent/schedule'
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 
-import { CloudflareThreadClient, type ThreadClientError } from '../CloudflareThreadClient.ts'
+import { CloudflareThreadClient, type ThreadClientError } from '../CloudflareThreadClient'
 
 const passthroughAgent = (agentId: AgentId): DurableSubmitAgent<typeof PersistedJson> => ({
   definition: { id: agentId, input: PersistedJson },

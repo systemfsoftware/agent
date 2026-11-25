@@ -41,7 +41,7 @@ import {
   makeCrashSubagentBindings,
   PROJECTED_SUMMARY,
   RESEARCH_TOPIC,
-} from './fixtures.ts'
+} from './fixtures'
 import {
   assertConvergence,
   type CrashSite,
@@ -56,7 +56,7 @@ import {
   withCrashSite,
   withHost,
   withRuntime,
-} from './harness.ts'
+} from './harness'
 
 /**
  * S2 durable attached Subagents — process-kill crash matrix.

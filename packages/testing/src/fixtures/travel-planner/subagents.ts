@@ -16,8 +16,8 @@ import * as Ref from 'effect/Ref'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
-import type { ScriptedTurnInput } from '../../ScriptedModel.ts'
-import { AirportCode } from './definition.ts'
+import type { ScriptedTurnInput } from '../../ScriptedModel'
+import { AirportCode } from './definition'
 
 // ---------------------------------------------------------------------------
 // Destination Researcher: the S1 specialist child Agent.

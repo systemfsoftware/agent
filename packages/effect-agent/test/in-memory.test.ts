@@ -14,12 +14,12 @@ import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 import type { expectTypeOf as ExpectTypeOf } from 'vitest'
 
-import * as Agent from '../src/core/Agent.ts'
-import { RunId, ThreadId } from '../src/core/Identifiers.ts'
-import * as Thread from '../src/core/Thread.ts'
-import * as AgentRuntime from '../src/engine/AgentRuntime.ts'
-import { ThreadHistory } from '../src/engine/ThreadHistory.ts'
-import * as InMemory from '../src/InMemory.ts'
+import * as Agent from '../src/core/Agent'
+import { RunId, ThreadId } from '../src/core/Identifiers'
+import * as Thread from '../src/core/Thread'
+import * as AgentRuntime from '../src/engine/AgentRuntime'
+import { ThreadHistory } from '../src/engine/ThreadHistory'
+import * as InMemory from '../src/InMemory'
 
 const answer: ReadonlyArray<Response.StreamPartEncoded> = [
   { type: 'text-start', id: 'answer' },

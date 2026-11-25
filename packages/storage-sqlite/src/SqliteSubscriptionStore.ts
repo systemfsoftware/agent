@@ -5,10 +5,10 @@ import * as Layer from 'effect/Layer'
 import * as Schema from 'effect/Schema'
 import type * as SqlClientService from 'effect/sql/SqlClient'
 
-import { initializeSqliteStorage } from './internal/sqlite-journal.ts'
-import type { SqliteStorageConfig } from './SqliteStorageConfig.ts'
-import type { SqliteStorageFailpoint } from './SqliteStorageFailpoint.ts'
-import type { SqliteStorageInitializationError } from './SqliteThreadStore.ts'
+import { initializeSqliteStorage } from './internal/sqlite-journal'
+import type { SqliteStorageConfig } from './SqliteStorageConfig'
+import type { SqliteStorageFailpoint } from './SqliteStorageFailpoint'
+import type { SqliteStorageInitializationError } from './SqliteThreadStore'
 
 const makeSubscriptionStore = Effect.fnUntraced(function*(owned: SourcePartition) {
   const partition = yield* Schema.decodeEffect(SourcePartition)(owned).pipe(

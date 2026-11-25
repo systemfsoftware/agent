@@ -2,7 +2,7 @@ import * as Duration from 'effect/Duration'
 import * as Schema from 'effect/Schema'
 import * as SchemaTransformation from 'effect/SchemaTransformation'
 
-import { ToolResultBounds } from './ToolResult.ts'
+import { ToolResultBounds } from './ToolResult'
 
 const PositiveInt = Schema.Int.check(Schema.isGreaterThan(0))
 

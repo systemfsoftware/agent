@@ -1,9 +1,9 @@
 import { Effect, FileSystem, Schema } from 'effect'
 
-import { EvalDataError, type EvalObservation } from './contracts.ts'
-import { decodeObservationLines } from './corpus.ts'
-import { EvalJudgmentSet } from './judgments.ts'
-import { EvalQualityReport } from './report.ts'
+import { EvalDataError, type EvalObservation } from './contracts'
+import { decodeObservationLines } from './corpus'
+import { EvalJudgmentSet } from './judgments'
+import { EvalQualityReport } from './report'
 
 const MAX_OBSERVATION_BYTES = 256n * 1_024n * 1_024n
 const MAX_JUDGMENT_BYTES = 64n * 1_024n * 1_024n

@@ -1,7 +1,7 @@
 import { Agent } from '@systemfsoftware/agent'
 import { Schema } from 'effect'
 
-import { TravelTools } from './tools.ts'
+import { TravelTools } from './tools'
 
 export const Researcher = Agent.make('activity-researcher', {
   input: Schema.Struct({ city: Schema.String, focus: Schema.String }),

@@ -4,7 +4,7 @@ import { RpcTracing } from 'effect-cf'
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 
-import { callThreadObject, ThreadObjectNamespace } from '../CloudflareBindings.ts'
+import { callThreadObject, ThreadObjectNamespace } from '../CloudflareBindings'
 
 /**
  * `ThreadPortTransport` over native Durable Object JS RPC (decision D-P6-3): one

@@ -26,10 +26,10 @@ import * as Layer from 'effect/Layer'
 import * as Option from 'effect/Option'
 import * as SqlClient from 'effect/sql/SqlClient'
 
-import { messageDeliveryStoreLayer } from '../src/SqliteMessageDeliveryStore.ts'
-import { SqliteStorageFailpoint } from '../src/SqliteStorageFailpoint.ts'
-import { submissionLedgerLayer } from '../src/SqliteSubmissionLedger.ts'
-import { storageConfigLayer, threadStoreLayer } from '../src/SqliteThreadStore.ts'
+import { messageDeliveryStoreLayer } from '../src/SqliteMessageDeliveryStore'
+import { SqliteStorageFailpoint } from '../src/SqliteStorageFailpoint'
+import { submissionLedgerLayer } from '../src/SqliteSubmissionLedger'
+import { storageConfigLayer, threadStoreLayer } from '../src/SqliteThreadStore'
 
 const storeLayer = (filename: string) =>
   messageDeliveryStoreLayer().pipe(

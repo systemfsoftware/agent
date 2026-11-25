@@ -97,7 +97,7 @@ import type * as Statement from 'effect/sql/Statement'
 import * as Stream from 'effect/Stream'
 import * as Struct from 'effect/Struct'
 
-import { decodeAbortFact, decodeAdmissionFact, decodeApprovalFact, decodeResolutionFact } from './SqlAdmissionFacts.ts'
+import { decodeAbortFact, decodeAdmissionFact, decodeApprovalFact, decodeResolutionFact } from './SqlAdmissionFacts'
 import {
   captureRecordStorage,
   definitionJson,
@@ -106,19 +106,19 @@ import {
   runIdentity,
   runKey,
   storedBatchHeader,
-} from './SqlCanonicalStorage.ts'
-import { BatchRow, RecordRow, ThreadRow } from './SqlJournal.ts'
-import { messageDeliveryMetadata } from './SqlMessageDeliveryStore.ts'
-import { makeSqlQuery, SqlInteger } from './SqlStorage.ts'
+} from './SqlCanonicalStorage'
+import { BatchRow, RecordRow, ThreadRow } from './SqlJournal'
+import { messageDeliveryMetadata } from './SqlMessageDeliveryStore'
+import { makeSqlQuery, SqlInteger } from './SqlStorage'
 import {
   canonicalBatchBytes,
   canonicalBatchHeaderJson,
   canonicalBatchJson,
   canonicalRecordJson,
   makeSqlThreadArchiveRange,
-} from './SqlThreadArchiveRange.ts'
-import { canonicalRecordMetadata, makeSelectedReads, SelectedReadOwner } from './SqlThreadNativeReads.ts'
-import { makeSqlThreadWork } from './SqlThreadWork.ts'
+} from './SqlThreadArchiveRange'
+import { canonicalRecordMetadata, makeSelectedReads, SelectedReadOwner } from './SqlThreadNativeReads'
+import { makeSqlThreadWork } from './SqlThreadWork'
 
 export interface SqlThreadImportOptions<E extends { readonly message: string }> {
   readonly namespace?: string

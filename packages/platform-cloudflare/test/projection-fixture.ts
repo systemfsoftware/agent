@@ -13,9 +13,9 @@ import * as Schema from 'effect/Schema'
 import * as SqlClient from 'effect/sql/SqlClient'
 import * as Stream from 'effect/Stream'
 
-import { ThreadHostMaintenance, type ThreadHostMaintenanceLane } from '../src/Alarm.ts'
-import { ThreadObjectIdentity } from '../src/CloudflareBindings.ts'
-import type { ThreadHostMutation } from '../src/ThreadObject.ts'
+import { ThreadHostMaintenance, type ThreadHostMaintenanceLane } from '../src/Alarm'
+import { ThreadObjectIdentity } from '../src/CloudflareBindings'
+import type { ThreadHostMutation } from '../src/ThreadObject'
 
 interface ProjectionControl {
   readonly operation?: 'live' | 'drain'

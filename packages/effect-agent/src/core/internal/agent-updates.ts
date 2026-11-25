@@ -2,9 +2,9 @@ import * as Tool from 'effect/ai/Tool'
 import * as Toolkit from 'effect/ai/Toolkit'
 import * as Schema from 'effect/Schema'
 
-import { Emitter, UpdateError } from '../AgentUpdates.ts'
-import type { RunId } from '../Identifiers.ts'
-import { ToolExecutionClass } from './tool-execution.ts'
+import { Emitter, UpdateError } from '../AgentUpdates'
+import type { RunId } from '../Identifiers'
+import { ToolExecutionClass } from './tool-execution'
 
 /** Stable native acceptance identity, shared by execution and recovery. */
 export const nativeUpdateId = (runId: RunId, toolCallId: string): string => `tool:${runId}:${toolCallId}`

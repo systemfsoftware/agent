@@ -26,9 +26,9 @@ import * as SchemaGetter from 'effect/SchemaGetter'
 import * as Stream from 'effect/Stream'
 import * as TestClock from 'effect/testing/TestClock'
 
-import * as AgentRuntime from '../../src/engine/internal/agent-runtime.ts'
-import { type RunTurnResume } from '../../src/engine/internal/interpreter-options.ts'
-import { ThreadHistory } from '../../src/engine/ThreadHistory.ts'
+import * as AgentRuntime from '../../src/engine/internal/agent-runtime'
+import { type RunTurnResume } from '../../src/engine/internal/interpreter-options'
+import { ThreadHistory } from '../../src/engine/ThreadHistory'
 
 let threadSequence = 0
 

@@ -1,7 +1,7 @@
 import * as DateTime from 'effect/DateTime'
 import * as Redacted from 'effect/Redacted'
 
-import { utf8ByteLength } from '../../core/internal/utf8.ts'
+import { utf8ByteLength } from '../../core/internal/utf8'
 
 const DEFAULT_MAX_DEPTH = 128
 const OBJECT_OVERHEAD_BYTES = 32

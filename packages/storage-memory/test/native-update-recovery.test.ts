@@ -50,8 +50,8 @@ import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 import * as TestClock from 'effect/testing/TestClock'
 
-import { MemorySubmissionLedgerLive } from '../src/MemorySubmissionLedger.ts'
-import { MemoryThreadStoreLive } from '../src/MemoryThreadStore.ts'
+import { MemorySubmissionLedgerLive } from '../src/MemorySubmissionLedger'
+import { MemoryThreadStoreLive } from '../src/MemoryThreadStore'
 
 const digest = Schema.decodeSync(Digest)('a'.repeat(64))
 const definitions = DefinitionDigests.make({ agent: digest, model: digest, tools: digest })

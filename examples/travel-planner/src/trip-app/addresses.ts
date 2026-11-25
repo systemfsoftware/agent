@@ -1,8 +1,8 @@
 import { Effect, Option, Schema } from 'effect'
 
-import { AppSiteName, AppSiteRegistration, PlannerError, type TripApp } from '../domain.ts'
-import { TripFailpoint } from '../server/trips.ts'
-import { AppBuildBucket } from './bucket.ts'
+import { AppSiteName, AppSiteRegistration, PlannerError, type TripApp } from '../domain'
+import { TripFailpoint } from '../server/trips'
+import { AppBuildBucket } from './bucket'
 
 const unavailable = () => PlannerError.make({ code: 'unavailable', message: 'The trip app address is unavailable.' })
 

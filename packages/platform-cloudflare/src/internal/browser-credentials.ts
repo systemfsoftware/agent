@@ -20,7 +20,7 @@ import {
   CredentialTarget,
   FillCredentialRequest,
   LoginCredential,
-} from '../BrowserCredentials.ts'
+} from '../BrowserCredentials'
 
 /** Supplied only under the attachment lock, with the remaining command/session budget. */
 export class BrowserSessionPage extends Context.Service<

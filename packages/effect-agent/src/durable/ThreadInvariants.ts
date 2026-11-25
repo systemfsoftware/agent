@@ -2,17 +2,17 @@ import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
-import type { RunId, ThreadId } from '../core/Identifiers.ts'
-import { IntegrityCheck, type IntegrityCheckName, IntegrityReport } from './Admin.ts'
-import { recordEncoding } from './internal/record-encoding.ts'
-import { type CanonicalRecordEnvelope, CanonicalSequence, type RecordId } from './Records.ts'
-import { canonicalRunIds, verifyRunContinuations } from './RunContinuation.ts'
+import type { RunId, ThreadId } from '../core/Identifiers'
+import { IntegrityCheck, type IntegrityCheckName, IntegrityReport } from './Admin'
+import { recordEncoding } from './internal/record-encoding'
+import { type CanonicalRecordEnvelope, CanonicalSequence, type RecordId } from './Records'
+import { canonicalRunIds, verifyRunContinuations } from './RunContinuation'
 import {
   submissionInputRecordId,
   submissionSettlementRecordId,
   type SubmissionSnapshot,
   workerTerminalFromRecord,
-} from './SubmissionLedger.ts'
+} from './SubmissionLedger'
 import {
   finishThreadImport,
   makeThreadImportProgress,
@@ -25,8 +25,8 @@ import {
   validateImportedRunExecution,
   verifyImportedInputOrder,
   verifyImportedReferences,
-} from './ThreadImport.ts'
-import { type ExecutionCheckpoint, ThreadExport, ThreadStoreError } from './ThreadStore.ts'
+} from './ThreadImport'
+import { type ExecutionCheckpoint, ThreadExport, ThreadStoreError } from './ThreadStore'
 
 /** All reads share the export snapshot. No lifetime identity sets or materialization. */
 export interface ThreadInvariantInput<E = ThreadStoreError, R = never> {

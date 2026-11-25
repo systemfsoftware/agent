@@ -12,8 +12,8 @@ import {
   PageNavigationOptions,
   PageResourcePolicy,
   PageViewport,
-} from './PageCapture.ts'
-import { SandboxImplementation } from './Sandbox.ts'
+} from './PageCapture'
+import { SandboxImplementation } from './Sandbox'
 
 const MAX_SCREENSHOT_BYTES = 8 * 1024 * 1024
 const PositiveInt = Schema.Int.check(Schema.isGreaterThan(0))

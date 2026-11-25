@@ -1,7 +1,7 @@
 import { Context, Effect, Layer, Schema } from 'effect'
 import { SqlClient } from 'effect/sql/SqlClient'
 
-import { defaultPlannerSettings, PlannerError, PlannerSettings } from '../domain.ts'
+import { defaultPlannerSettings, PlannerError, PlannerSettings } from '../domain'
 
 const StoredSettings = Schema.Struct({
   version: Schema.Literal(1),
