@@ -34,6 +34,18 @@ const READY = 'database server ready'
 const FAILED = 'database server failed'
 const STATUS = `${RAM}/boot-status`
 
+/** The most databases a test in this process may hold checked out at once. */
+export const MAX_CHECKED_OUT_DATABASES = 16
+
+// Once the pool reaches its maximum with fewer than its initial size ready or recreating, IntegreSQL
+// recreates the oldest checked-out database even while it is in use. The pool keeps room above every
+// database a test may hold so that never happens.
+const INITIAL_POOL_SIZE = 2
+const MAX_POOL_SIZE = MAX_CHECKED_OUT_DATABASES + 2 * INITIAL_POOL_SIZE
+// A handed-back database briefly counts as neither ready nor recreating, so headroom alone leaves a
+// window. Auto-clean also waits out this lifetime, which outlasts the longest test timeout here.
+const DATABASE_MINIMAL_LIFETIME_MS = 300_000
+
 const bootScript = (binaries: string) =>
   `#!/bin/bash
 set -eu
@@ -46,7 +58,8 @@ as ${binaries}/pg_ctl -D ${RAM}/data -l ${RAM}/postgres.log -w -t 60 -o "-c list
 cp ${GUEST}/integresql /tmp/integresql
 chmod +x /tmp/integresql
 INTEGRESQL_PORT=${INTEGRESQL_PORT} INTEGRESQL_PGHOST=127.0.0.1 INTEGRESQL_PGPORT=${POSTGRES_PORT} INTEGRESQL_PGUSER=postgres \\
-  INTEGRESQL_TEST_INITIAL_POOL_SIZE=2 INTEGRESQL_TEST_MAX_POOL_SIZE=8 /tmp/integresql > ${RAM}/integresql.log 2>&1 &
+  INTEGRESQL_TEST_INITIAL_POOL_SIZE=${INITIAL_POOL_SIZE} INTEGRESQL_TEST_MAX_POOL_SIZE=${MAX_POOL_SIZE} \\
+  INTEGRESQL_TEST_DB_MINIMAL_LIFETIME_MS=${DATABASE_MINIMAL_LIFETIME_MS} /tmp/integresql > ${RAM}/integresql.log 2>&1 &
 server=$!
 until ( exec 3<>/dev/tcp/127.0.0.1/${INTEGRESQL_PORT} ) 2>/dev/null; do
   kill -0 "$server" || { printf 'integresql exited' > ${STATUS}; exit 1; }

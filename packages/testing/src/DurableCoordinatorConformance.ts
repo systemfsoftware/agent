@@ -816,112 +816,152 @@ const runSweepCell = Effect.fnUntraced(function*(
 
 const caseName = 'coordinator recovery converges after injected faults'
 
-/**
- * Exercise six deterministic scenarios over disposable, pristine storage. Discover each clean
- * path, arm every reached or unaccounted-for failpoint once, and require bounded recovery to
- * settled, natively verified history. The final never-fired set must match the known paths
- * outside these scenarios; every scenario must exercise at least one injected fault.
- *
- * Provide one combined adapter Layer with SubmissionLedger, ThreadStore, SettlementPublisher,
- * StorageOwner and Digest in a TestClock-backed environment. The helper owns its runtime Scope
- * and supplies a no-op WakeScheduler because it re-drives lanes explicitly. Injected failures
- * do not establish recovery after actual process loss or eviction.
- */
-export const durableCoordinatorConformance: Effect.Effect<
-  void,
-  DurableCoordinatorConformanceViolation | ThreadStoreError,
-  SubmissionLedger | ThreadStore | SettlementPublisher | StorageOwner | CryptoDigest.Digest
-> = Effect.gen(function*() {
-  const discoveries: Array<{
-    readonly scenario: CoordinatorScenario
-    readonly outcome: SweepOutcome
-    readonly reached: Set<DurableRuntimeFailpointLocation>
-  }> = []
+/** The storage services one sweep cell runs over. */
+export type DurableCoordinatorStorage =
+  | SubmissionLedger
+  | ThreadStore
+  | SettlementPublisher
+  | StorageOwner
+  | CryptoDigest.Digest
 
-  for (const scenario of SCENARIOS) {
-    const reached = new Set<DurableRuntimeFailpointLocation>()
-    const outcome = yield* runSweepCell(scenario, undefined, reached)
+export interface DurableCoordinatorConformanceOptions {
+  /**
+   * Runs one cell over its own pristine storage and releases it afterwards. Cells run
+   * concurrently and recovery passes scan every Thread in storage, so no two cells may share it.
+   */
+  readonly withStorage: <A, E>(cell: Effect.Effect<A, E, DurableCoordinatorStorage>) => Effect.Effect<A, E>
+  /** The most cells holding storage at once. */
+  readonly concurrency: number
+}
 
-    discoveries.push({ scenario, outcome, reached })
-  }
-  const observed = new Set(discoveries.flatMap(({ reached }) => [...reached]))
-
-  // Never silently omit a new location: arm it in every shape if neither clean discovery
-  // nor the known never-fired set accounts for it. Recovery can expose further routes.
-  const unaccounted = new Set(
-    DurableRuntimeFailpointLocation.literals.filter(
-      (location) => !observed.has(location) && !UNREACHED_LOCATIONS.includes(location),
-    ),
-  )
-
-  const fired = new Set<DurableRuntimeFailpointLocation>()
-
-  for (const { scenario, outcome, reached } of discoveries) {
-    if (outcome.status === 'failed') {
-      return yield* DurableCoordinatorConformanceViolation.make({
-        caseName,
-        message: `${scenario} discovery failed: ${outcome.detail}`,
-      })
-    }
-    const outcomes = new Map<DurableRuntimeFailpointLocation, SweepOutcome>()
-
-    while (true) {
-      // Schema order bounds this to one drive per location in each scenario.
-      const location = DurableRuntimeFailpointLocation.literals.find(
-        (candidate) => !outcomes.has(candidate) && (reached.has(candidate) || unaccounted.has(candidate)),
-      )
-
-      if (location === undefined) break
-      const result = yield* runSweepCell(scenario, location, reached)
-
-      outcomes.set(location, result)
-      if (result.status === 'failed') {
-        return yield* DurableCoordinatorConformanceViolation.make({
-          caseName,
-          message: `${scenario} at ${location} failed: ${result.detail}`,
-        })
-      }
-      if (result.failpointFired) fired.add(location)
-    }
-    if (![...outcomes.values()].some((result) => result.failpointFired)) {
-      return yield* DurableCoordinatorConformanceViolation.make({
-        caseName,
-        message: `${scenario} did not fire any injected fault`,
-      })
-    }
-  }
-
-  const neverFired = DurableRuntimeFailpointLocation.literals
-    .filter((location) => !fired.has(location))
-    .sort()
-
-  const expected = [...UNREACHED_LOCATIONS].sort()
-
-  if (
-    neverFired.length !== expected.length ||
-    neverFired.some((location, index) => location !== expected[index])
-  ) {
-    return yield* DurableCoordinatorConformanceViolation.make({
-      caseName,
-      message: `expected never-fired locations [${expected.join(', ')}], got [${neverFired.join(', ')}]`,
-    })
-  }
-}).pipe(
-  Effect.provide(
-    Layer.mergeAll(runStorageLayer, ThreadReader.layer()).pipe(
-      Layer.provideMerge(
-        Layer.mergeAll(
-          WakeScheduler.layerNoop,
-          DurableRuntimeFailpointTestControl.layer,
-          ToolReconciler.uncertain,
-          DurableRuntimeConfig.layer({
-            deploymentId: Schema.decodeSync(DeploymentId)('deployment-certification'),
-            producerId: Schema.decodeSync(ProducerId)('producer-certification'),
-            settlementPollInterval: Duration.millis(50),
-            abortPollInterval: Duration.millis(50),
-          }),
-        ),
-      ),
+// The runtime, its failpoint control and its config are built afresh for every cell.
+const cellLayer = Layer.mergeAll(runStorageLayer, ThreadReader.layer()).pipe(
+  Layer.provideMerge(
+    Layer.mergeAll(
+      WakeScheduler.layerNoop,
+      DurableRuntimeFailpointTestControl.layer,
+      ToolReconciler.uncertain,
+      DurableRuntimeConfig.layer({
+        deploymentId: Schema.decodeSync(DeploymentId)('deployment-certification'),
+        producerId: Schema.decodeSync(ProducerId)('producer-certification'),
+        settlementPollInterval: Duration.millis(50),
+        abortPollInterval: Duration.millis(50),
+      }),
     ),
   ),
 )
+
+/**
+ * Exercise six deterministic scenarios, each cell over its own pristine storage. Discover each
+ * clean path, arm every reached or unaccounted-for failpoint once, and require bounded recovery
+ * to settled, natively verified history. Cells run in waves until no cell reaches a location its
+ * scenario has not yet armed. The final never-fired set must match the known paths outside these
+ * scenarios; every scenario must exercise at least one injected fault.
+ *
+ * `withStorage` supplies SubmissionLedger, ThreadStore, SettlementPublisher, StorageOwner and
+ * Digest per cell in a TestClock-backed environment. Each cell owns its runtime Scope and a no-op
+ * WakeScheduler because it re-drives lanes explicitly. Injected failures do not establish
+ * recovery after actual process loss or eviction.
+ */
+export const durableCoordinatorConformance = (
+  options: DurableCoordinatorConformanceOptions,
+): Effect.Effect<void, DurableCoordinatorConformanceViolation | ThreadStoreError> =>
+  Effect.gen(function*() {
+    const runCell = Effect.fnUntraced(
+      function*(scenario: CoordinatorScenario, location: DurableRuntimeFailpointLocation | undefined) {
+        const reached = new Set<DurableRuntimeFailpointLocation>()
+        const outcome = yield* runSweepCell(scenario, location, reached)
+
+        return { outcome, reached }
+      },
+      Effect.provide(cellLayer),
+      options.withStorage,
+    )
+
+    const discoveries = yield* Effect.forEach(SCENARIOS, (scenario) => runCell(scenario, undefined), {
+      concurrency: options.concurrency,
+    })
+
+    const sweeps = SCENARIOS.map((scenario, index) => ({
+      scenario,
+      discovery: discoveries[index],
+      reached: new Set(discoveries[index]?.reached),
+      outcomes: new Map<DurableRuntimeFailpointLocation, SweepOutcome>(),
+    }))
+
+    for (const { scenario, discovery } of sweeps) {
+      if (discovery === undefined || discovery.outcome.status === 'failed') {
+        return yield* DurableCoordinatorConformanceViolation.make({
+          caseName,
+          message: `${scenario} discovery failed: ${discovery?.outcome.detail}`,
+        })
+      }
+    }
+    const observed = new Set(discoveries.flatMap(({ reached }) => [...reached]))
+
+    // Never silently omit a new location: arm it in every shape if neither clean discovery
+    // nor the known never-fired set accounts for it. Recovery can expose further routes.
+    const unaccounted = new Set(
+      DurableRuntimeFailpointLocation.literals.filter(
+        (location) => !observed.has(location) && !UNREACHED_LOCATIONS.includes(location),
+      ),
+    )
+
+    const fired = new Set<DurableRuntimeFailpointLocation>()
+
+    while (true) {
+      // Each wave arms every reached location not yet driven, so each location drives once per scenario.
+      const wave = sweeps.flatMap((sweep) =>
+        DurableRuntimeFailpointLocation.literals
+          .filter((candidate) =>
+            !sweep.outcomes.has(candidate) && (sweep.reached.has(candidate) || unaccounted.has(candidate))
+          )
+          .map((location) => ({ sweep, location }))
+      )
+
+      if (wave.length === 0) break
+      const results = yield* Effect.forEach(
+        wave,
+        ({ sweep, location }) =>
+          runCell(sweep.scenario, location).pipe(Effect.map((result) => ({ sweep, location, ...result }))),
+        { concurrency: options.concurrency },
+      )
+
+      for (const { sweep, location, outcome, reached } of results) {
+        if (outcome.status === 'failed') {
+          return yield* DurableCoordinatorConformanceViolation.make({
+            caseName,
+            message: `${sweep.scenario} at ${location} failed: ${outcome.detail}`,
+          })
+        }
+        sweep.outcomes.set(location, outcome)
+        for (const hit of reached) sweep.reached.add(hit)
+        if (outcome.failpointFired) fired.add(location)
+      }
+    }
+
+    for (const { scenario, outcomes } of sweeps) {
+      if (![...outcomes.values()].some((result) => result.failpointFired)) {
+        return yield* DurableCoordinatorConformanceViolation.make({
+          caseName,
+          message: `${scenario} did not fire any injected fault`,
+        })
+      }
+    }
+
+    const neverFired = DurableRuntimeFailpointLocation.literals
+      .filter((location) => !fired.has(location))
+      .sort()
+
+    const expected = [...UNREACHED_LOCATIONS].sort()
+
+    if (
+      neverFired.length !== expected.length ||
+      neverFired.some((location, index) => location !== expected[index])
+    ) {
+      return yield* DurableCoordinatorConformanceViolation.make({
+        caseName,
+        message: `expected never-fired locations [${expected.join(', ')}], got [${neverFired.join(', ')}]`,
+      })
+    }
+  })
