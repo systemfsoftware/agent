@@ -68,6 +68,19 @@ jobs:
       fail-fast: false
       matrix:
         node: [22, 24]
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: effect_agent
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -78,8 +91,9 @@ jobs:
           node-version: ${{ matrix.node }}
       - uses: ./.github/actions/pnpm-store
       - run: pnpm install --frozen-lockfile
-      # The Postgres suites need a live server and run in their own job.
-      - run: pnpm -r --filter '!@systemfsoftware/agent-storage-postgres' run test
+      - run: pnpm test
+        env:
+          EFFECT_AGENT_TEST_POSTGRES_URL: postgres://postgres:postgres@localhost:55432/effect_agent
 
   # Transaction rollback and connection cleanup cannot be proven against an in-process double, so the Postgres
   # storage suite runs against real servers on each supported major.
