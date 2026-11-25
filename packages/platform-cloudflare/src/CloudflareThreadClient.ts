@@ -29,6 +29,7 @@ import {
   LedgerError,
   OwnershipLost,
   Principal,
+  RunSettings,
   Settlement,
   SettlementConflict,
   UnknownResolutionCommand,
@@ -104,6 +105,7 @@ export class SubmitRequest extends Schema.Class<SubmitRequest>(
   admissionFence: Schema.optionalKey(AdmissionFence),
   workerAdmission: Schema.optionalKey(WorkerAdmission),
   messageAdmission: Schema.optionalKey(InputMessage),
+  runSettings: Schema.optionalKey(RunSettings),
   definitions: DefinitionDigests,
   inputPayload: PersistedJson,
 }) {}
@@ -791,6 +793,7 @@ export class CloudflareThreadClient extends Context.Service<
             ...(options.messageAdmission === undefined
               ? {}
               : { messageAdmission: options.messageAdmission }),
+            ...(options.runSettings === undefined ? {} : { runSettings: options.runSettings }),
             definitions: options.definitions,
             inputPayload,
           }

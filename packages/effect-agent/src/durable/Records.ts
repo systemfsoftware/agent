@@ -708,6 +708,7 @@ const RawSubmissionSettled = Schema.Struct({
    * before the limit became durable (additive, schemaVersion 1).
    */
   policyLimit: Schema.optionalKey(PolicyLimit),
+  hostFailure: Schema.optionalKey(PersistedJson),
   /** Canonical aggregate of all priced model calls made by this Run. */
   usageSummary: Schema.optionalKey(RunUsageSummary),
   /** Calls included in usageSummary but not in any ModelResponseRecorded, retained on failure. */
@@ -736,6 +737,7 @@ const hasValidSettlementFamily = (settled: typeof RawSubmissionSettled.Type): bo
   (settled.outcome !== 'failed' ||
     Option.isSome(decodeSettlementFailureDiagnostic(settled.result))) &&
   (settled.outcome !== 'aborted' || settled.result === undefined) &&
+  (settled.hostFailure === undefined || settled.outcome === 'failed') &&
   (settled.policyLimit === undefined ||
     (settled.outcome === 'failed' && isPolicyFailureProjection(settled.result)))
 

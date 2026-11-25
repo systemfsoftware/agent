@@ -31,7 +31,7 @@ import {
   type ResolvedBinding,
 } from '@systemfsoftware/agent/agent-registration'
 import { type DigestError } from '@systemfsoftware/agent/digest'
-import { DurableAgentRuntime, DurableRuntimeConfig } from '@systemfsoftware/agent/durable-agent-runtime'
+import { DurableAgentRuntime, DurableRuntimeConfig, RunHostControl } from '@systemfsoftware/agent/durable-agent-runtime'
 import { DurableRuntimeFailpoint, type DurableRuntimeFailpointHandler } from '@systemfsoftware/agent/durable-failpoint'
 import { type SubmissionId, ThreadId } from '@systemfsoftware/agent/identifiers'
 import type { LifecyclePublicationHandler } from '@systemfsoftware/agent/lifecycle-publication'
@@ -153,6 +153,7 @@ export interface CloudflareDurableRuntimeOptions {
   readonly estimateCostMicrousd?: RunCostEstimator | undefined
   /** Closed trusted Tool failure reporting. Omission masks ambient observers at construction. */
   readonly toolFailureObserver?: RunToolFailureObserver | undefined
+  readonly runHostControl?: RunHostControl['Service'] | undefined
   /** Milliseconds; default 25. */
   readonly observationPollInterval?: number | undefined
   /** Whole disposable projection wave in milliseconds, 1..300000; default 30000. */
@@ -204,6 +205,7 @@ export type CloudflareBootstrapServices =
   | ThreadMaintenanceFailpoint
   | RunContextPreparation
   | RunToolAuthorization
+  | RunHostControl
   | ToolReconciler
   | LiveTextHub
 
@@ -366,6 +368,7 @@ const runtimeConfigLayer = (
         options.toolFailureObserver === undefined
           ? Layer.succeed(CurrentToolFailureObserver, undefined)
           : toolFailureObserverLayer(options.toolFailureObserver),
+        Layer.succeed(RunHostControl, options.runHostControl ?? {}),
         RunContextPreparationPassthrough,
         RunToolAuthorization.allowAll,
       )

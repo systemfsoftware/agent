@@ -24,7 +24,7 @@ import {
 } from '../PostgresStorageError'
 import { type LayoutExpression, matchesLayoutExpressions } from './layout-expression'
 
-export const CurrentPostgresStorageVersion = 31
+export const CurrentPostgresStorageVersion = 32
 
 /** The released layout 25 already has observe_settlement; only these indexes are new. */
 const layout26IndexStatements = {
@@ -90,7 +90,7 @@ const layoutStatements = [
   'CREATE INDEX effect_agent_tool_declarations_sequence ON __NAMESPACE__.effect_agent_tool_declarations(thread_id, sequence)',
   'CREATE TABLE __NAMESPACE__.effect_agent_record_refusals (thread_id TEXT COLLATE "C" NOT NULL, reservation_record_id TEXT COLLATE "C" NOT NULL, sequence BIGINT NOT NULL, PRIMARY KEY (thread_id, reservation_record_id, sequence), FOREIGN KEY (thread_id, sequence) REFERENCES __NAMESPACE__.effect_agent_canonical_records(thread_id, sequence) ON DELETE RESTRICT)',
   'CREATE INDEX effect_agent_record_refusals_sequence ON __NAMESPACE__.effect_agent_record_refusals(thread_id, sequence)',
-  'CREATE TABLE __NAMESPACE__."effect_agent_submissions" ( submission_id TEXT COLLATE "C" PRIMARY KEY NOT NULL, thread_id TEXT COLLATE "C" NOT NULL, queue_sequence BIGINT NOT NULL, principal TEXT COLLATE "C" NOT NULL, idempotency_key TEXT COLLATE "C" NOT NULL, agent_id TEXT COLLATE "C" NOT NULL, definition_key BIGINT NOT NULL, deployment_id TEXT COLLATE "C" NOT NULL, input_json TEXT COLLATE "C" NOT NULL, input_digest TEXT COLLATE "C" NOT NULL, receipt_id TEXT COLLATE "C" NOT NULL, state TEXT COLLATE "C" NOT NULL, settled_outcome TEXT COLLATE "C", settled_record_id TEXT COLLATE "C", finalized_at TEXT COLLATE "C", created_at TEXT COLLATE "C" NOT NULL, ready_at TEXT COLLATE "C", input_applied_record_id TEXT COLLATE "C", input_applied_sequence BIGINT, joined_host_submission_id TEXT COLLATE "C", suspended_reason_json TEXT COLLATE "C", suspended_at TEXT COLLATE "C", unknown_reason TEXT COLLATE "C", unknown_tool_call_ids_json TEXT COLLATE "C", parent_submission_id TEXT COLLATE "C", parent_tool_call_id TEXT COLLATE "C", admission_group TEXT COLLATE "C", admission_fence_json TEXT COLLATE "C", worker_admission_json TEXT COLLATE "C", message_admission_json TEXT COLLATE "C", UNIQUE (thread_id, principal, idempotency_key), UNIQUE (thread_id, queue_sequence) )',
+  'CREATE TABLE __NAMESPACE__."effect_agent_submissions" ( submission_id TEXT COLLATE "C" PRIMARY KEY NOT NULL, thread_id TEXT COLLATE "C" NOT NULL, queue_sequence BIGINT NOT NULL, principal TEXT COLLATE "C" NOT NULL, idempotency_key TEXT COLLATE "C" NOT NULL, agent_id TEXT COLLATE "C" NOT NULL, definition_key BIGINT NOT NULL, deployment_id TEXT COLLATE "C" NOT NULL, input_json TEXT COLLATE "C" NOT NULL, input_digest TEXT COLLATE "C" NOT NULL, receipt_id TEXT COLLATE "C" NOT NULL, state TEXT COLLATE "C" NOT NULL, settled_outcome TEXT COLLATE "C", settled_record_id TEXT COLLATE "C", finalized_at TEXT COLLATE "C", created_at TEXT COLLATE "C" NOT NULL, ready_at TEXT COLLATE "C", input_applied_record_id TEXT COLLATE "C", input_applied_sequence BIGINT, joined_host_submission_id TEXT COLLATE "C", suspended_reason_json TEXT COLLATE "C", suspended_at TEXT COLLATE "C", unknown_reason TEXT COLLATE "C", unknown_tool_call_ids_json TEXT COLLATE "C", parent_submission_id TEXT COLLATE "C", parent_tool_call_id TEXT COLLATE "C", admission_group TEXT COLLATE "C", admission_fence_json TEXT COLLATE "C", worker_admission_json TEXT COLLATE "C", message_admission_json TEXT COLLATE "C", run_settings_json TEXT COLLATE "C", UNIQUE (thread_id, principal, idempotency_key), UNIQUE (thread_id, queue_sequence) )',
   'CREATE INDEX effect_agent_submissions_group ON __NAMESPACE__."effect_agent_submissions" (thread_id, admission_group) WHERE admission_group IS NOT NULL AND state <> \'settled\'',
   'CREATE TABLE __NAMESPACE__."effect_agent_abort_intents" ( submission_id TEXT COLLATE "C" PRIMARY KEY NOT NULL, author TEXT COLLATE "C" NOT NULL, reason TEXT COLLATE "C" NOT NULL, requested_at TEXT COLLATE "C" NOT NULL, canonical_record_id TEXT COLLATE "C", FOREIGN KEY (submission_id) REFERENCES __NAMESPACE__."effect_agent_submissions"(submission_id) ON DELETE RESTRICT )',
   'CREATE INDEX effect_agent_submissions_joined_host ON __NAMESPACE__."effect_agent_submissions" (joined_host_submission_id) WHERE joined_host_submission_id IS NOT NULL',
@@ -551,6 +551,7 @@ const layoutShape: Readonly<
       'admission_fence_json:text:false',
       'worker_admission_json:text:false',
       'message_admission_json:text:false',
+      'run_settings_json:text:false',
     ],
     constraints: {
       effect_agent_submissions_pkey: ['p', ['submission_id']],
@@ -1125,7 +1126,8 @@ export const inspectPostgresStorage = Effect.fnUntraced(function*(
         legacy.version === 27 ||
         legacy.version === 28 ||
         legacy.version === 29 ||
-        legacy.version === 30)
+        legacy.version === 30 ||
+        legacy.version === 31)
     )
   ) {
     return yield* incompatible(legacy.version, `Unsupported storage version ${legacy.version}.`)
@@ -1283,6 +1285,8 @@ export const inspectPostgresStorage = Effect.fnUntraced(function*(
 
     const expectedColumns = legacy.version === 25 && name === 'effect_agent_message_deliveries'
       ? expected.columns.filter((column) => column !== 'peer_retained_until_millis:bigint:false')
+      : legacy.version < CurrentPostgresStorageVersion && name === 'effect_agent_submissions'
+      ? expected.columns.filter((column) => column !== 'run_settings_json:text:false')
       : expected.columns
 
     if (
@@ -1476,7 +1480,8 @@ export const applyPostgresLayout = Effect.fnUntraced(function*(
       header.layoutVersion !== 27 &&
       header.layoutVersion !== 28 &&
       header.layoutVersion !== 29 &&
-      header.layoutVersion !== 30
+      header.layoutVersion !== 30 &&
+      header.layoutVersion !== 31
     ) {
       return yield* incompatible(header.layoutVersion, 'Unsupported layout upgrade.')
     }
@@ -1498,11 +1503,17 @@ export const applyPostgresLayout = Effect.fnUntraced(function*(
       )
     }
 
-    yield* upgradeSqlThreadWorkIndex(namespace).pipe(
-      Effect.mapError((cause) =>
-        PostgresStorageError.make({ operation: cause.operation, message: cause.message, cause })
-      ),
+    yield* execute(
+      sql`ALTER TABLE ${table('effect_agent_submissions')} ADD COLUMN run_settings_json TEXT COLLATE "C"`,
     )
+
+    if (header.layoutVersion < 31) {
+      yield* upgradeSqlThreadWorkIndex(namespace).pipe(
+        Effect.mapError((cause) =>
+          PostgresStorageError.make({ operation: cause.operation, message: cause.message, cause })
+        ),
+      )
+    }
 
     // READ COMMITTED must observe in-flight writers before reading checkpoints for conversion.
     if (header.layoutVersion < 27) {

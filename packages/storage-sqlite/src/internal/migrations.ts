@@ -25,7 +25,7 @@ import {
   SqliteStorageError,
 } from '../SqliteStorageError'
 
-export const CurrentSqliteStorageVersion = 31
+export const CurrentSqliteStorageVersion = 32
 
 /** Exact released layout, retained for predecessor validation. */
 const layout27Statements = [
@@ -112,8 +112,17 @@ const layout28Statements = layout27Statements.filter(
   (statement) => !statement.startsWith('CREATE INDEX effect_agent_canonical_batches_last '),
 )
 
-const layoutStatements = layout28Statements.filter(
+const layout31Statements = layout28Statements.filter(
   (statement) => !statement.startsWith('CREATE TABLE "effect_agent_checkpoints" '),
+)
+
+const layoutStatements = layout31Statements.map((statement) =>
+  statement.startsWith('CREATE TABLE "effect_agent_submissions" ')
+    ? statement.replace(
+      'message_admission_json TEXT, UNIQUE',
+      'message_admission_json TEXT, run_settings_json TEXT, UNIQUE',
+    )
+    : statement
 )
 
 const headerStatement =
@@ -195,8 +204,9 @@ const layout25 = inspection(25, layout25Statements)
 const layout26 = inspection(26, layout27Statements)
 const layout27 = inspection(27, layout27Statements)
 const layout28 = inspection(28, layout28Statements)
-const layout29 = inspection(29, layoutStatements)
-const layout30 = inspection(30, layoutStatements)
+const layout29 = inspection(29, layout31Statements)
+const layout30 = inspection(30, layout31Statements)
+const layout31 = inspection(31, layout31Statements)
 
 const inspectStorage = Effect.fnUntraced(function*(
   allowUpgrade = false,
@@ -233,7 +243,8 @@ const inspectStorage = Effect.fnUntraced(function*(
       version === 27 ||
       version === 28 ||
       version === 29 ||
-      version === 30)
+      version === 30 ||
+      version === 31)
   ) {
     if (version === 25 && objects.some(({ name }) => addedIndexes.has(name))) {
       return yield* incompatible(version, 'Mixed layout 25 and 26 objects.')
@@ -249,7 +260,9 @@ const inspectStorage = Effect.fnUntraced(function*(
       ? layout28
       : version === 29
       ? layout29
-      : layout30
+      : version === 30
+      ? layout30
+      : layout31
 
     const header = yield* predecessor.readHeader(objects, version)
 
@@ -279,7 +292,7 @@ export const readSqliteStorageHeader = Effect.fnUntraced(function*() {
   return header
 })
 
-/** Initialize fresh storage or atomically upgrade the exact released layouts 25–30. */
+/** Initialize fresh storage or atomically upgrade the exact released layouts 25–31. */
 export const ensureSqliteStorageLayout = Effect.fn('SqliteStorage.initializeLayout')(function*() {
   const sql = (yield* SqlClient.SqlClient).withoutTransforms()
 
@@ -349,6 +362,9 @@ export const ensureSqliteStorageLayout = Effect.fn('SqliteStorage.initializeLayo
         )
       }
       if (header !== undefined && header.layoutVersion < CurrentSqliteStorageVersion) {
+        yield* sql`ALTER TABLE effect_agent_submissions ADD COLUMN run_settings_json TEXT`
+      }
+      if (header !== undefined && header.layoutVersion < 31) {
         yield* upgradeSqlThreadWorkIndex().pipe(
           Effect.mapError((cause) =>
             SqliteStorageError.make({ operation: cause.operation, message: cause.message, cause })
@@ -374,6 +390,8 @@ export const ensureSqliteStorageLayout = Effect.fn('SqliteStorage.initializeLayo
             ),
           )
         }
+      }
+      if (header !== undefined && header.layoutVersion < CurrentSqliteStorageVersion) {
         yield* sql`UPDATE effect_agent_schema SET layout_version=${CurrentSqliteStorageVersion} WHERE singleton=1`
         yield* sql.unsafe(`PRAGMA user_version = ${CurrentSqliteStorageVersion}`).withoutTransform
 

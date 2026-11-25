@@ -21,7 +21,7 @@ import type * as SqlError from 'effect/sql/SqlError'
 
 import { DoStorageCompatibilityError, DoStorageCorruptionError, DoStorageError } from '../DoStorageError'
 
-export const CurrentDoStorageVersion = 31
+export const CurrentDoStorageVersion = 32
 
 /** Exact released layout, retained for predecessor validation. */
 const layout28Statements = [
@@ -88,8 +88,17 @@ const layout28Statements = [
   "CREATE INDEX effect_agent_message_deliveries_capacity ON effect_agent_message_deliveries(owner_thread_id, (COALESCE(json_extract(record_json, '$.envelope.messageAdmission._tag'), '') = 'WorkerUpdate'), message_id) WHERE state IN ('pending', 'accepted', 'parked')",
 ] as const
 
-const layoutStatements = layout28Statements.filter(
+const layout31Statements = layout28Statements.filter(
   (statement) => !statement.startsWith('CREATE TABLE effect_agent_checkpoints '),
+)
+
+const layoutStatements = layout31Statements.map((statement) =>
+  statement.startsWith('CREATE TABLE effect_agent_submissions ')
+    ? statement.replace(
+      'message_admission_json TEXT, UNIQUE',
+      'message_admission_json TEXT, run_settings_json TEXT, UNIQUE',
+    )
+    : statement
 )
 
 const headerStatement =
@@ -170,8 +179,9 @@ const layout25 = inspection(25, layout25Statements)
 const layout26 = inspection(26, layout27Statements)
 const layout27 = inspection(27, layout27Statements)
 const layout28 = inspection(28, layout28Statements)
-const layout29 = inspection(29, layoutStatements)
-const layout30 = inspection(30, layoutStatements)
+const layout29 = inspection(29, layout31Statements)
+const layout30 = inspection(30, layout31Statements)
+const layout31 = inspection(31, layout31Statements)
 
 const inspectStorage = Effect.fnUntraced(function*(
   allowUpgrade = false,
@@ -216,7 +226,8 @@ const inspectStorage = Effect.fnUntraced(function*(
       version === 27 ||
       version === 28 ||
       version === 29 ||
-      version === 30)
+      version === 30 ||
+      version === 31)
   ) {
     if (version === 25 && objects.some(({ name }) => addedIndexes.has(name))) {
       return yield* incompatible(version, 'Mixed layout 25 and 26 objects.')
@@ -232,7 +243,9 @@ const inspectStorage = Effect.fnUntraced(function*(
       ? layout28
       : version === 29
       ? layout29
-      : layout30
+      : version === 30
+      ? layout30
+      : layout31
 
     const header = yield* predecessor.readHeader(objects, version)
 
@@ -255,7 +268,7 @@ export const readDoStorageHeader = Effect.fnUntraced(function*() {
   return header
 })
 
-/** Initialize fresh storage or atomically upgrade the exact released layouts 25–30. */
+/** Initialize fresh storage or atomically upgrade the exact released layouts 25–31. */
 const initializeDoStorageLayout = Effect.fn('DoStorage.initializeLayout')(function*() {
   const sql = (yield* SqlClient.SqlClient).withoutTransforms()
 
@@ -311,6 +324,9 @@ const initializeDoStorageLayout = Effect.fn('DoStorage.initializeLayout')(functi
           )
         }
         if (header !== undefined && header.layoutVersion < CurrentDoStorageVersion) {
+          yield* sql`ALTER TABLE effect_agent_submissions ADD COLUMN run_settings_json TEXT`
+        }
+        if (header !== undefined && header.layoutVersion < 31) {
           yield* upgradeSqlThreadWorkIndex().pipe(
             Effect.mapError((cause) =>
               DoStorageError.make({ operation: cause.operation, message: cause.message, cause })
@@ -332,6 +348,8 @@ const initializeDoStorageLayout = Effect.fn('DoStorage.initializeLayout')(functi
               ),
             )
           }
+        }
+        if (header !== undefined && header.layoutVersion < CurrentDoStorageVersion) {
           yield* sql`UPDATE effect_agent_schema SET layout_version=${CurrentDoStorageVersion} WHERE singleton=1`
           yield* sql`UPDATE effect_agent_meta SET value=${String(CurrentDoStorageVersion)} WHERE key='storage_version'`
 
