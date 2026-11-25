@@ -93,8 +93,8 @@ attach before navigation, so errors during load are included. `browserSessionIns
   `urlPrefix`, and optionally by `resourceType` and `status`.
 - `viewports` are named; the first applies before navigation and later ones resize the same page.
   Each has its own `PageScreenshotPng` or `PageScreenshotJpeg` format.
-- Navigation that lands outside `allowedOrigins` (default: the target's origin) fails with
-  `PageInspectionOriginRefusedError` before the script runs or anything is captured.
+- Navigation that lands outside `allowedOrigins` (default: the target's origin), checked after load and again after readiness, fails with
+  `PageInspectionOriginRefusedError` before readiness functions or the script run there.
 - A pass that never reaches the page returns `PageInspectionNotRun` with `BrowserUnavailable`,
   `ConcurrencyLimited`, `OriginUnreachable` or `NavigationTimedOut`, not an error.
 

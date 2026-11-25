@@ -393,26 +393,28 @@ interface PassClock {
   readonly navigationStarted: number
 }
 
-const afterNavigation = Effect.fnUntraced(function*(
-  steps: PassSteps,
-  request: PageInspectionRequest,
-  facts: DocumentFacts,
-  clock: PassClock,
-) {
-  const readiness = yield* steps.readiness
-  const readyAt = yield* Clock.currentTimeMillis
-  const landedUrl = clipUrl(yield* steps.landedUrl)
-
-  yield* Effect.filterOrFail(
-    Effect.succeed(originOf(landedUrl)),
-    (origin) => Option.exists(origin, (value) => allowedOrigins(request).includes(value)),
-    () =>
+const refuseOutsideOrigins = (request: PageInspectionRequest, url: string) =>
+  Effect.filterOrFail(
+    Effect.succeed(clipUrl(url)),
+    (landedUrl) => Option.exists(originOf(landedUrl), (origin) => allowedOrigins(request).includes(origin)),
+    (landedUrl) =>
       PageInspectionOriginRefusedError.make({
         implementation,
         landedUrl,
         message: 'Navigation landed outside the allowed origins',
       }),
   )
+
+const afterNavigation = Effect.fnUntraced(function*(
+  steps: PassSteps,
+  request: PageInspectionRequest,
+  facts: DocumentFacts,
+  clock: PassClock,
+) {
+  yield* steps.landedUrl.pipe(Effect.flatMap((url) => refuseOutsideOrigins(request, url)))
+  const readiness = yield* steps.readiness
+  const readyAt = yield* Clock.currentTimeMillis
+  const landedUrl = yield* steps.landedUrl.pipe(Effect.flatMap((url) => refuseOutsideOrigins(request, url)))
   const evaluated = yield* steps.script
   const screenshots = yield* Effect.forEach(request.viewports, steps.screenshot)
   const finished = yield* Clock.currentTimeMillis
