@@ -14,4 +14,4 @@
 
 Add JPEG screenshots with a quality setting to `PageScreenshot`, and export `BrowserSessionPage`, the page type `BrowserSession.run` hands its action.
 
-BEHAVIOR CHANGE: `PageScreenshotRequest` now requires `format`; pass `PageScreenshotPng.make({})` to keep PNG output, or `PageScreenshotJpeg.make({ quality })`.
+BEHAVIOR CHANGE (breaking): `PageScreenshotRequest` now requires `format`, so a request without one fails to typecheck and to decode; pass `PageScreenshotPng.make({})` to keep PNG output, or `PageScreenshotJpeg.make({ quality })`.
