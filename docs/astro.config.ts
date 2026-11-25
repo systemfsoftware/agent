@@ -59,6 +59,7 @@ export default defineConfig({
             { label: 'Run and stream', link: '/guide/run-agents/' },
             { label: 'Threads', link: '/guide/threads/' },
             { label: 'Context management', link: '/guide/context-management/' },
+            { label: 'Per-Run host control', link: '/guide/per-run-control/' },
             { label: 'Budgets and limits', link: '/concepts/budgets/' },
           ],
         },
