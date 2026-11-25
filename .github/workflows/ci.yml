@@ -64,7 +64,7 @@ jobs:
       contents: read
       pull-requests: read
 
-  # Each heavy suite gets its own runner; the rest of the workspace shares one. `rest` excludes the heavy packages.
+  # Each heavy suite splits across two runners by test file; the rest of the workspace shares one.
   test:
     name: test ${{ matrix.lane.name }}
     runs-on: ubuntu-latest
@@ -73,13 +73,14 @@ jobs:
       fail-fast: false
       matrix:
         lane:
-          - name: postgres
-            filter: "--filter @systemfsoftware/agent-storage-postgres"
-          - name: cloudflare
-            filter: "--filter @systemfsoftware/agent-platform-cloudflare"
-          - name: agent-testing
-            filter: "--filter @systemfsoftware/agent-testing"
+          - { name: postgres 1/2, shard: 1/2, filter: "--filter @systemfsoftware/agent-storage-postgres" }
+          - { name: postgres 2/2, shard: 2/2, filter: "--filter @systemfsoftware/agent-storage-postgres" }
+          - { name: cloudflare 1/2, shard: 1/2, filter: "--filter @systemfsoftware/agent-platform-cloudflare" }
+          - { name: cloudflare 2/2, shard: 2/2, filter: "--filter @systemfsoftware/agent-platform-cloudflare" }
+          - { name: agent-testing 1/2, shard: 1/2, filter: "--filter @systemfsoftware/agent-testing" }
+          - { name: agent-testing 2/2, shard: 2/2, filter: "--filter @systemfsoftware/agent-testing" }
           - name: rest
+            shard: ""
             filter: "--workspace-concurrency=4 --filter !@systemfsoftware/agent-storage-postgres --filter !@systemfsoftware/agent-platform-cloudflare --filter !@systemfsoftware/agent-testing"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -102,9 +103,12 @@ jobs:
       - name: Run the suites
         env:
           FILTER: ${{ matrix.lane.filter }}
+          SHARD: ${{ matrix.lane.shard }}
         run: |
           read -ra filter <<< "$FILTER"
-          pnpm -r "${filter[@]}" run test
+          shard=()
+          if [ -n "$SHARD" ]; then shard=("--shard=$SHARD"); fi
+          pnpm -r "${filter[@]}" run test "${shard[@]}"
 
   gritlint:
     name: gritlint
