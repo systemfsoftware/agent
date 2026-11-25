@@ -32,7 +32,7 @@ jobs:
             extra-trusted-public-keys = nix-cache-1:wXA8I4DayNW9q6enUyQA/P/nT38pGSTLt374t3gsn7M=
 
       - name: Put Node.js on the PATH
-        run: echo "$(nix build --no-link --print-out-paths nixpkgs#nodejs_24)/bin" >> "$GITHUB_PATH"
+        run: echo "$(nix build --no-link --print-out-paths nixpkgs#nodejs_26)/bin" >> "$GITHUB_PATH"
 
       # Same contract as the shared release workflow: upload every version npm lacks, one wait
       # afterwards so a partial upload is visible before the job reports success.
