@@ -189,8 +189,10 @@ export class CheckoutRun extends DurableObject<Env> {
   private get services() {
     return BrowserSessions.layer({
       browser: this.env.BROWSER,
-      accountId: this.env.CLOUDFLARE_ACCOUNT_ID,
-      apiToken: Redacted.make(this.env.BROWSER_RENDERING_API_TOKEN),
+      lifecycle: {
+        accountId: this.env.CLOUDFLARE_ACCOUNT_ID,
+        apiToken: Redacted.make(this.env.BROWSER_RENDERING_API_TOKEN),
+      },
     }).pipe(Layer.provide(FetchHttpClient.layer))
   }
   private close = Effect.fnUntraced(function*(this: CheckoutRun) {

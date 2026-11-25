@@ -9,6 +9,7 @@ import * as Effect from 'effect/Effect'
 import * as Exit from 'effect/Exit'
 import * as Fiber from 'effect/Fiber'
 import * as Layer from 'effect/Layer'
+import * as Option from 'effect/Option'
 import * as Redacted from 'effect/Redacted'
 import * as Schema from 'effect/Schema'
 import * as Scope from 'effect/Scope'
@@ -91,6 +92,7 @@ export class BrowserSessionError extends Schema.TaggedError<BrowserSessionError>
       'provider',
       'timeout',
       'cleanup',
+      'live-view-requires-rest-credentials',
     ]),
     dispatch: Schema.Literals(['not-dispatched', 'possibly-dispatched']),
     cleanup: Schema.Literals(['not-requested', 'confirmed', 'unconfirmed']),
@@ -365,9 +367,19 @@ const targetId = (page: Page, commandTimeoutMillis: number) =>
       async () => (await cdp.send('Target.getTargetInfo')).targetInfo.targetId,
     ))
 
-export interface BrowserSessionsOptions extends BrowserRunLifecycleOptions {
+export interface BrowserSessionsOptions {
   readonly browser: Pick<BrowserRun, 'fetch'>
+  /**
+   * Browser Run REST credentials. With them, `close` confirms termination through the REST API
+   * and read-only Live View is available. Without them, sessions run on the binding alone:
+   * `close` sends the browser's own close command and reports `unconfirmed`, and
+   * `getReadOnlyLiveView` fails with `live-view-requires-rest-credentials`.
+   */
+  readonly lifecycle?: BrowserRunLifecycleOptions | undefined
 }
+
+/** `confirmed` only when the REST API reported the exact session closed. */
+export type BrowserSessionCleanup = 'confirmed' | 'unconfirmed'
 
 /** Native Cloudflare sessions; no framework browser workflow, checkpoint transfer, or observation policy. */
 export class BrowserSessions extends Context.Service<
@@ -401,34 +413,21 @@ export class BrowserSessions extends Context.Service<
     readonly keepAlive: (
       sessionId: Redacted.Redacted<string>,
     ) => Effect.Effect<void, BrowserSessionError>
+    /**
+     * End the session. Without lifecycle credentials the browser's own close command is sent
+     * and the result is `unconfirmed`: the provider may keep the session until its idle expiry.
+     */
     readonly close: (
       sessionId: Redacted.Redacted<string>,
-    ) => Effect.Effect<void, BrowserSessionError>
+    ) => Effect.Effect<BrowserSessionCleanup, BrowserSessionError>
   }
 >()('@effect-agent/platform-cloudflare/BrowserSessions') {
   static readonly layerNoDeps = Layer.effect(
     this,
     Effect.gen(function*() {
       const binding = yield* BrowserRunBinding
-      const lifecycle = yield* BrowserRunSessionLifecycle
-      const readonlyLiveView = yield* BrowserRunReadonlyLiveView
-
-      const close = (sessionId: Redacted.Redacted<string>) =>
-        decode(SessionId, sessionId).pipe(
-          Effect.flatMap((id) =>
-            lifecycle
-              .close(id)
-              .pipe(
-                mapBrowserError((error) => failure('cleanup', 'not-dispatched', 'unconfirmed', error)),
-              )
-          ),
-        )
-
-      const cleanup = (sessionId: Redacted.Redacted<string>) =>
-        close(sessionId).pipe(
-          Effect.as('confirmed' as const),
-          Effect.tapCause((cause) => reportBrowserCause('session.close', cause)),
-        )
+      const lifecycle = yield* Effect.serviceOption(BrowserRunSessionLifecycle)
+      const readonlyLiveView = yield* Effect.serviceOption(BrowserRunReadonlyLiveView)
 
       const connect = Effect.fnUntraced(function*(sessionId: Redacted.Redacted<string>) {
         let attachment: BrowserRunAttachment | undefined
@@ -458,6 +457,41 @@ export class BrowserSessions extends Context.Service<
 
         return { browser, retire }
       })
+
+      // Without REST credentials, connect to the exact session and send the browser's own close.
+      // Nothing confirms that the provider ended it, so success is reported as unconfirmed.
+      const closeOverBinding = (sessionId: Redacted.Redacted<string>) =>
+        Effect.scoped(
+          Effect.gen(function*() {
+            const { browser } = yield* connect(sessionId)
+
+            yield* native('session.close', () => browser.close())
+          }),
+        ).pipe(
+          timeout({
+            duration: '10 seconds',
+            orElse: () => Effect.fail(failure('timeout')),
+          }),
+          mapBrowserError((error) => failure('cleanup', 'possibly-dispatched', 'unconfirmed', error)),
+          Effect.as('unconfirmed' as const),
+        )
+
+      const close = (sessionId: Redacted.Redacted<string>) =>
+        decode(SessionId, sessionId).pipe(
+          Effect.flatMap((id): Effect.Effect<BrowserSessionCleanup, BrowserSessionError> =>
+            Option.isSome(lifecycle)
+              ? lifecycle.value.close(id).pipe(
+                Effect.as('confirmed' as const),
+                mapBrowserError((error) => failure('cleanup', 'not-dispatched', 'unconfirmed', error)),
+              )
+              : closeOverBinding(id)
+          ),
+        )
+
+      const cleanup = (sessionId: Redacted.Redacted<string>) =>
+        close(sessionId).pipe(
+          Effect.tapCause((cause) => reportBrowserCause('session.close', cause)),
+        )
 
       const allocate = Effect.fnUntraced(function*<E, R>(
         input: BrowserSessionOptions,
@@ -840,24 +874,27 @@ export class BrowserSessions extends Context.Service<
           getReadOnlyLiveView: (authorize, request) =>
             decode(BrowserRunLiveViewRequest, request).pipe(
               Effect.flatMap((value) =>
-                runEffect((commandTimeoutMillis) =>
-                  authorize.pipe(
-                    Effect.andThen(() =>
-                      readonlyLiveView.mint(reference.sessionId, reference.targetId, value).pipe(
-                        Effect.tapCause((cause) => reportBrowserCause('session.readonlyLiveView', cause)),
-                        mapBrowserError((error) =>
-                          reportedBrowserError(
-                            failure('provider', 'not-dispatched', 'not-requested', error),
-                          )
-                        ),
-                      )
-                    ),
-                    timeout({
-                      duration: commandTimeoutMillis,
-                      orElse: () => Effect.fail(failure('timeout')),
-                    }),
+                Option.isNone(readonlyLiveView)
+                  // Fail closed before dispatch: only REST mints provider-enforced read-only views.
+                  ? Effect.fail(failure('live-view-requires-rest-credentials'))
+                  : runEffect((commandTimeoutMillis) =>
+                    authorize.pipe(
+                      Effect.andThen(() =>
+                        readonlyLiveView.value.mint(reference.sessionId, reference.targetId, value).pipe(
+                          Effect.tapCause((cause) => reportBrowserCause('session.readonlyLiveView', cause)),
+                          mapBrowserError((error) =>
+                            reportedBrowserError(
+                              failure('provider', 'not-dispatched', 'not-requested', error),
+                            )
+                          ),
+                        )
+                      ),
+                      timeout({
+                        duration: commandTimeoutMillis,
+                        orElse: () => Effect.fail(failure('timeout')),
+                      }),
+                    )
                   )
-                )
               ),
             ),
           getHandoffState: (authorize) =>
@@ -991,10 +1028,11 @@ export class BrowserSessions extends Context.Service<
   )
 
   static layer(options: BrowserSessionsOptions) {
-    return this.layerNoDeps.pipe(
-      Layer.provide(BrowserRunBinding.layer(options.browser)),
-      Layer.provide(BrowserRunSessionLifecycle.layer(options)),
-      Layer.provide(BrowserRunReadonlyLiveView.layer(options)),
+    const binding = this.layerNoDeps.pipe(Layer.provide(BrowserRunBinding.layer(options.browser)))
+
+    return options.lifecycle === undefined ? binding : binding.pipe(
+      Layer.provide(BrowserRunSessionLifecycle.layer(options.lifecycle)),
+      Layer.provide(BrowserRunReadonlyLiveView.layer(options.lifecycle)),
     )
   }
 }
