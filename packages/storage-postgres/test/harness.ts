@@ -6,24 +6,25 @@ import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import * as Redacted from 'effect/Redacted'
 
+import { withIntegresqlDatabase } from './postgres-server.js'
+
 /**
  * A live Postgres is required for transaction rollback and connection cleanup;
- * an in-process double cannot establish those properties. `EFFECT_AGENT_TEST_POSTGRES_URL` points CI at its own service.
+ * an in-process double cannot establish those properties. Unset, the suite boots
+ * Postgres in a microVM and checks a database out of IntegreSQL; set
+ * `EFFECT_AGENT_TEST_POSTGRES_URL` to point it at a server you already run.
  */
-const adminUrl = process.env.EFFECT_AGENT_TEST_POSTGRES_URL ??
-  'postgres://postgres:postgres@localhost:55432/effect_agent'
+const configuredUrl = process.env.EFFECT_AGENT_TEST_POSTGRES_URL
 
 let databaseCounter = 0
 
-const admin = <A, E>(effect: Effect.Effect<A, E, PgClient.PgClient>) =>
+const admin = <A, E>(url: string, effect: Effect.Effect<A, E, PgClient.PgClient>) =>
   effect.pipe(
-    Effect.provide(PgClient.layer({ url: Redacted.make(adminUrl), maxConnections: 1 })),
+    Effect.provide(PgClient.layer({ url: Redacted.make(url), maxConnections: 1 })),
     Effect.catchTag('SqlError', (error) =>
       Effect.die(
         new Error(
-          'The storage-postgres tests need a reachable configured Postgres server ' +
-            '(set EFFECT_AGENT_TEST_POSTGRES_URL, or run one with ' +
-            '`docker run -d -p 55432:5432 -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=effect_agent postgres:17-alpine`).',
+          'The configured Postgres server (EFFECT_AGENT_TEST_POSTGRES_URL) is unreachable.',
           { cause: error },
         ),
       )),
@@ -36,6 +37,14 @@ const admin = <A, E>(effect: Effect.Effect<A, E, PgClient.PgClient>) =>
 export const withTemporaryDatabase = <A, E>(
   use: (url: string) => Effect.Effect<A, E>,
 ): Effect.Effect<A, E> =>
+  configuredUrl === undefined
+    ? withIntegresqlDatabase(use).pipe(Effect.orDie)
+    : withOwnedDatabase(configuredUrl, use)
+
+const withOwnedDatabase = <A, E>(
+  adminUrl: string,
+  use: (url: string) => Effect.Effect<A, E>,
+): Effect.Effect<A, E> =>
   Effect.acquireUseRelease(
     Effect.sync(() => {
       databaseCounter = databaseCounter + 1
@@ -44,6 +53,7 @@ export const withTemporaryDatabase = <A, E>(
     }).pipe(
       Effect.tap((database) =>
         admin(
+          adminUrl,
           Effect.flatMap(PgClient.PgClient, (sql) => sql.unsafe(`CREATE DATABASE ${database}`)),
         )
       ),
@@ -57,6 +67,7 @@ export const withTemporaryDatabase = <A, E>(
     },
     (database) =>
       admin(
+        adminUrl,
         Effect.flatMap(PgClient.PgClient, (sql) => sql.unsafe(`DROP DATABASE IF EXISTS ${database} WITH (FORCE)`)),
       ).pipe(Effect.ignore),
   )

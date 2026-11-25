@@ -27,8 +27,10 @@
     "packages/platform-cloudflare/test/scheduling.test.ts",
     "packages/platform-cloudflare/test/subagent-harness.ts",
     "packages/pr-review-action/src/github.ts",
+    "packages/storage-postgres/test/integresql-binary.ts",
     "packages/storage-sql/src/SqlStorage.ts",
-    "packages/testing/src/DurableCoordinatorConformance.ts"
+    "packages/testing/src/DurableCoordinatorConformance.ts",
+    "packages/testing/test/integresql-binary.ts"
   ],
   "@systemfsoftware/cell-architecture/ban-unknown": [
     "packages/ai-decision/src/AutoModel.ts",
@@ -183,6 +185,8 @@
     "packages/storage-memory/src/MemoryThreadStore.ts",
     "packages/storage-memory/test/durable-thread-head.test.ts",
     "packages/storage-postgres/src/internal/storage-layout.ts",
+    "packages/storage-postgres/test/integresql-binary.ts",
+    "packages/storage-postgres/test/postgres-server.ts",
     "packages/storage-postgres/test/postgres-submission-ledger-faults.test.ts",
     "packages/storage-postgres/test/postgres-thread-store-faults.test.ts",
     "packages/storage-sql/src/SqlActivityStore.ts",
@@ -217,6 +221,8 @@
     "packages/testing/test/durable-runtime.test.ts",
     "packages/testing/test/durable-subagents.test.ts",
     "packages/testing/test/durable-tools.test.ts",
+    "packages/testing/test/integresql-binary.ts",
+    "packages/testing/test/postgres-server.ts",
     "packages/testing/test/travel-planner-subagents-durable.test.ts",
     "scripts/verify-record-format.ts",
     "test/fixtures/instrumented-storage.ts"
