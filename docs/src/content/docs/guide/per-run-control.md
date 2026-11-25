@@ -36,6 +36,30 @@ const stop = AgentRunStopped.make({ value: { code: 'quota' }, message: 'Quota sp
 A durable Run settles `failed`. The Settlement's `failure` keeps the bounded diagnostic, and its
 `hostFailure` keeps `value`. The canonical `SubmissionSettled` record keeps it too.
 
+## Stop a Run with an answer
+
+When the stop is a result rather than an error, for example the Run has questions for the user,
+fail the hook with `AgentRunHalted` instead. Its `value` is your own encoded JSON:
+
+```ts
+import { AgentRunHalted } from '@systemfsoftware/agent/agent-error'
+
+const halt = AgentRunHalted.make({
+  value: { outcome: 'QuestionsAsked', questions: ['Which account?'] },
+  message: 'Waiting for answers',
+})
+```
+
+A durable root Run then settles `stopped`, not `failed`. The canonical `SubmissionSettled` record,
+returned by `awaitSettlementRecord`, has `outcome: "stopped"` and `hostStop` set to `value` (over
+64 KiB, `{ omitted: "host-failure-too-large" }`); it has no `result`. Decode `hostStop` with your
+own Schema. The next Submission on the Thread runs normally. `finalize` receives
+`outcome: "stopped"`.
+
+Raise it from `beforeTurn`, `beforeModelCall`, `resolveModel` or context preparation. A child or
+worker Run reports to its parent Run, so there `AgentRunHalted` settles `failed` with `hostFailure`,
+exactly like `AgentRunStopped`.
+
 ## Durable submissions
 
 `DurableSubmitOptions.runSettings` is stored on the Submission ledger row. It holds only

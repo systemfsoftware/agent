@@ -648,7 +648,7 @@ export class RepairAnnotated extends Schema.TaggedClass<RepairAnnotated>(
 }) {}
 
 /** Terminal outcome family for one accepted Submission (DUR-002). */
-export const SettlementOutcome = Schema.Literals(['completed', 'failed', 'aborted'])
+export const SettlementOutcome = Schema.Literals(['completed', 'failed', 'aborted', 'stopped'])
 
 export type SettlementOutcome = typeof SettlementOutcome.Type
 
@@ -709,6 +709,8 @@ const RawSubmissionSettled = Schema.Struct({
    */
   policyLimit: Schema.optionalKey(PolicyLimit),
   hostFailure: Schema.optionalKey(PersistedJson),
+  /** The host's `AgentRunHalted` value; present exactly on a `stopped` settlement. */
+  hostStop: Schema.optionalKey(PersistedJson),
   /** Canonical aggregate of all priced model calls made by this Run. */
   usageSummary: Schema.optionalKey(RunUsageSummary),
   /** Calls included in usageSummary but not in any ModelResponseRecorded, retained on failure. */
@@ -737,6 +739,8 @@ const hasValidSettlementFamily = (settled: typeof RawSubmissionSettled.Type): bo
   (settled.outcome !== 'failed' ||
     Option.isSome(decodeSettlementFailureDiagnostic(settled.result))) &&
   (settled.outcome !== 'aborted' || settled.result === undefined) &&
+  (settled.outcome !== 'stopped' || settled.result === undefined) &&
+  (settled.hostStop === undefined) === (settled.outcome !== 'stopped') &&
   (settled.hostFailure === undefined || settled.outcome === 'failed') &&
   (settled.policyLimit === undefined ||
     (settled.outcome === 'failed' && isPolicyFailureProjection(settled.result)))
@@ -744,7 +748,7 @@ const hasValidSettlementFamily = (settled: typeof RawSubmissionSettled.Type): bo
 const SubmissionSettledFields = RawSubmissionSettled.check(
   Schema.makeFilter(hasValidSettlementFamily, {
     title:
-      'failed settlements require a bounded diagnostic; aborted settlements carry no result; budget metadata must match its settlement family',
+      'failed settlements require a bounded diagnostic; aborted and stopped settlements carry no result; hostStop occurs exactly on stopped settlements; budget metadata must match its settlement family',
   }),
 )
 
@@ -769,10 +773,18 @@ export type AbortedSubmissionSettled = SubmissionSettled & {
   readonly result?: never
 }
 
+/** Canonical host-halted settlement: an answer from the host, not a failure. */
+export type StoppedSubmissionSettled = SubmissionSettled & {
+  readonly outcome: 'stopped'
+  readonly hostStop: PersistedJson
+  readonly result?: never
+}
+
 export type SubmissionSettledRecord =
   | CompletedSubmissionSettled
   | FailedSubmissionSettled
   | AbortedSubmissionSettled
+  | StoppedSubmissionSettled
 
 /**
  * Canonical-boundary view of `SubmissionSettled`: `finishReason` is valid
@@ -791,7 +803,7 @@ export const SubmissionSettledRecord = SubmissionSettled.pipe(
     (settled): settled is SubmissionSettledRecord => hasValidSettlementFamily(settled),
     {
       expected:
-        'failed settlements require a bounded diagnostic, aborted settlements carry no result, finishReason only occurs on completed settlements, exhausted only occurs with finishReason budget-exhausted, runDisposition only occurs on an ordinary completed settlement with a Run result, and policyLimit only occurs on a failed AgentPolicyError settlement',
+        'failed settlements require a bounded diagnostic, aborted and stopped settlements carry no result, hostStop occurs exactly on stopped settlements, finishReason only occurs on completed settlements, exhausted only occurs with finishReason budget-exhausted, runDisposition only occurs on an ordinary completed settlement with a Run result, and policyLimit only occurs on a failed AgentPolicyError settlement',
     },
   ),
 )

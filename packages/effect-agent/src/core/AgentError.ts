@@ -34,7 +34,17 @@ export class AgentRunDispositionError extends Schema.TaggedError<AgentRunDisposi
   },
 ) {}
 
+/** A host stop that settles the Run `failed`; `value` becomes the settlement's `hostFailure`. */
 export class AgentRunStopped extends Schema.TaggedError<AgentRunStopped>()('AgentRunStopped', {
+  value: Schema.Json,
+  message: Schema.String.check(Schema.isMaxLength(4_096)),
+}) {}
+
+/**
+ * A host stop that is an answer, not an error: the Run settles `stopped` and `value` becomes the
+ * settlement's `hostStop`. Decode it with the host's own Schema.
+ */
+export class AgentRunHalted extends Schema.TaggedError<AgentRunHalted>()('AgentRunHalted', {
   value: Schema.Json,
   message: Schema.String.check(Schema.isMaxLength(4_096)),
 }) {}

@@ -28,6 +28,7 @@ import {
   AgentInputDecodeError,
   AgentInputError,
   AgentPersistenceCapacityError,
+  AgentRunHalted,
   AgentRunStopped,
   type AgentToolAuthorizationCheckError,
   AgentToolAuthorizationDenied,
@@ -894,17 +895,17 @@ export interface RunSettlementNotice {
   readonly threadId: ThreadId
   readonly submissionId: SubmissionId
   readonly runId: RunId
-  readonly outcome: 'completed' | 'failed' | 'aborted' | 'released'
+  readonly outcome: 'completed' | 'failed' | 'aborted' | 'stopped' | 'released'
 }
 
 export class RunHostControl extends Context.Service<
   RunHostControl,
   {
     readonly resolveModel?:
-      | ((request: RunModelRequest) => Effect.Effect<ResolvedModelCall, AgentRunStopped>)
+      | ((request: RunModelRequest) => Effect.Effect<ResolvedModelCall, AgentRunStopped | AgentRunHalted>)
       | undefined
     readonly beforeTurn?:
-      | ((request: RunTurnRequest) => Effect.Effect<void, AgentRunStopped>)
+      | ((request: RunTurnRequest) => Effect.Effect<void, AgentRunStopped | AgentRunHalted>)
       | undefined
     /**
      * Runs after context preparation and before every provider request of the Run, including
@@ -912,7 +913,7 @@ export class RunHostControl extends Context.Service<
      * host value without sending that request.
      */
     readonly beforeModelCall?:
-      | ((request: RunModelCallRequest) => Effect.Effect<void, AgentRunStopped>)
+      | ((request: RunModelCallRequest) => Effect.Effect<void, AgentRunStopped | AgentRunHalted>)
       | undefined
     readonly encodeFailure?: ((error: unknown) => Option.Option<Schema.Json>) | undefined
     readonly exemptToolResult?:
@@ -1151,6 +1152,7 @@ type AttemptOutcome =
       readonly usageSummary?: RunUsageSummary
     }
     | { readonly _tag: 'aborted'; readonly usageSummary?: RunUsageSummary }
+    | { readonly _tag: 'stopped'; readonly hostStop: PersistedJson; readonly usageSummary?: RunUsageSummary }
   )
 
 /**
@@ -3727,7 +3729,8 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
         receiptId: submission.receiptId,
         outcome: outcome._tag,
         ...(includeRunId ? { runId: runIdForSubmission(submissionId) } : {}),
-        ...(outcome._tag === 'aborted' ? {} : { result: outcome.result }),
+        ...(outcome._tag === 'aborted' || outcome._tag === 'stopped' ? {} : { result: outcome.result }),
+        ...(outcome._tag === 'stopped' ? { hostStop: outcome.hostStop } : {}),
         ...(includeRunId &&
             outcome._tag === 'completed' &&
             outcome.finishReason === undefined &&
@@ -4961,7 +4964,7 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
   })
 
   const hostFailureOf = (error: unknown): Option.Option<PersistedJson> =>
-    Schema.is(AgentRunStopped)(error)
+    Schema.is(AgentRunStopped)(error) || Schema.is(AgentRunHalted)(error)
       ? boundedHostFailure(error.value)
       : Option.flatten(encodeHostFailure(error))
 
@@ -7701,11 +7704,17 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
             if (verification._tag === 'mismatch') {
               return denied('SubagentVerificationFailed', verification.message)
             }
+            const childOutcome = verification.value.outcome
+
+            // A host halt settles only root Runs; a child Run never settles `stopped`.
+            if (childOutcome === 'stopped') {
+              return denied('SubagentVerificationFailed', 'A child Run settled stopped, which only root Runs can')
+            }
 
             return {
               _tag: 'settled' as const,
               ...identity,
-              outcome: verification.value.outcome,
+              outcome: childOutcome,
               encodedResult: verification.value.encodedResult,
               ...(yield* verifiedChildUsage(verification.value, startedPayload.childRunId)),
               // The child Settlement's honest exhaustion marker (RUN-018)
@@ -7875,8 +7884,9 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
       const runModel = runSettings?.model
       const resolveRunModel = runHostControl.resolveModel
 
-      const modelContext: RunContextHook<RunContextPreparationError | AgentRunStopped, never> | undefined =
-        runModel === undefined
+      const modelContext:
+        | RunContextHook<RunContextPreparationError | AgentRunStopped | AgentRunHalted, never>
+        | undefined = runModel === undefined
           ? preparedContext
           : {
             prepare: Effect.fnUntraced(function*(request) {
@@ -7927,6 +7937,7 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
       const options: RunOptions<
         | CoordinatorHalt
         | AgentRunStopped
+        | AgentRunHalted
         | AgentPersistenceCapacityError
         | AgentToolAuthorizationCheckError
         | CompactionError
@@ -8335,6 +8346,26 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
                   yield* appendAbortRecord(ctx, intent)
 
                   return { _tag: 'aborted' as const }
+                }
+              }
+
+              // A halt is an answer to the host that owns a root Run. Child and worker Runs report
+              // to a parent Run instead, so there it settles failed like AgentRunStopped.
+              if (
+                Schema.is(AgentRunHalted)(error) &&
+                submission.parentLinkage === undefined &&
+                submission.workerAdmission === undefined
+              ) {
+                return {
+                  _tag: 'failedRun' as const,
+                  outcome: {
+                    _tag: 'stopped' as const,
+                    hostStop: yield* Option.match(boundedHostFailure(error.value), {
+                      onNone: () =>
+                        Schema.decodeEffect(PersistedJson)({ omitted: 'host-stop-invalid' }).pipe(Effect.orDie),
+                      onSome: Effect.succeed,
+                    }),
+                  },
                 }
               }
 
