@@ -1,5 +1,9 @@
 # @yielded/agent-pr-review
 
+## 0.1.0
+
+Updated dependency @systemfsoftware/agent to 0.1.0
+
 ## 0.1.0-beta.192
 
 ### Patch Changes
