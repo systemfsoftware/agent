@@ -113,6 +113,7 @@ import {
   type RunCostEstimator,
   type RunInputCommand,
   type RunInputHook,
+  type RunModelRequestInfo,
   RunToolAuthorization,
   type RunToolAuthorizationHook,
   type RunToolAuthorizationRequest,
@@ -879,7 +880,12 @@ export interface RunTurnRequest {
   readonly threadId: ThreadId
   readonly submissionId: SubmissionId
   readonly runId: RunId
+  /** Epoch milliseconds of the canonical `RunStarted` record; the same in every Attempt. */
+  readonly runStartedAtMillis: number
 }
+
+/** One provider request a durable Run is about to send; see RunOptions.beforeModelRequest. */
+export interface RunModelCallRequest extends RunTurnRequest, RunModelRequestInfo {}
 
 export interface RunSettlementNotice {
   readonly threadId: ThreadId
@@ -896,6 +902,14 @@ export class RunHostControl extends Context.Service<
       | undefined
     readonly beforeTurn?:
       | ((request: RunTurnRequest) => Effect.Effect<void, AgentRunStopped>)
+      | undefined
+    /**
+     * Runs after context preparation and before every provider request of the Run, including
+     * compaction summaries and overflow retries. AgentRunStopped settles the Run failed with the
+     * host value without sending that request.
+     */
+    readonly beforeModelCall?:
+      | ((request: RunModelCallRequest) => Effect.Effect<void, AgentRunStopped>)
       | undefined
     readonly encodeFailure?: ((error: unknown) => Option.Option<Schema.Json>) | undefined
     readonly exemptToolResult?:
@@ -7887,6 +7901,13 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
           }
 
       const hostBeforeTurn = runHostControl.beforeTurn
+      const hostBeforeModelCall = runHostControl.beforeModelCall
+      const hostRequest: RunTurnRequest = {
+        threadId: submission.threadId,
+        submissionId: submission.submissionId,
+        runId,
+        runStartedAtMillis: DateTime.toEpochMillis(runTiming.startedAt),
+      }
 
       const settledToolCallAllowance = submission.parentLinkage !== undefined &&
           childLineage?._tag === 'SubagentLineageRecorded'
@@ -7991,19 +8012,16 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
             exempt: (request) =>
               exemptToolResult({
                 ...request,
-                threadId: submission.threadId,
-                submissionId: submission.submissionId,
-                runId,
+                ...hostRequest,
               }),
           },
         }),
+        ...(hostBeforeModelCall === undefined ? {} : {
+          beforeModelRequest: (request) => hostBeforeModelCall({ ...hostRequest, ...request }),
+        }),
         beforeTurn: Effect.fnUntraced(function*() {
           if (hostBeforeTurn !== undefined) {
-            yield* hostBeforeTurn({
-              threadId: submission.threadId,
-              submissionId: submission.submissionId,
-              runId,
-            })
+            yield* hostBeforeTurn(hostRequest)
           }
           if (
             yieldAfter !== undefined &&

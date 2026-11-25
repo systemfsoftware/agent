@@ -358,19 +358,39 @@ describe('Cloudflare Schedule Owner', () => {
 
   it('keeps recovery wakes through repeated processing failures', async () => {
     const data = fixture('retry-exhaustion')
+    const stub = scheduleStubFor(data.owner)
     const idle = observeScheduleIdle(data.owner)
     const authorizationFailures = holdScheduleAuthorizationFailures(data.owner)
 
-    await manage(data, Date.now(), 'recover beyond bounded native retries')
-    expect(await authorizationFailures.reached(6)).toBeGreaterThanOrEqual(6)
+    // The schedule and every retry wake are made due on demand, so each native alarm turn runs
+    // now instead of after the retry delay it stored.
+    const runDueAlarm = async () => {
+      await runInDurableObject(stub, (_instance, state) => {
+        state.storage.sql.exec(
+          "UPDATE effect_agent_schedules SET deadline_at_millis = 0, record_json = json_set(record_json, '$.nextAtMillis', 0)",
+        )
+        state.storage.sql.exec(
+          'UPDATE effect_cf_scheduled_alarms SET run_at = 0, wake_at = 0, retry_at = CASE WHEN retry_at IS NULL THEN NULL ELSE 0 END',
+        )
+      })
+      // A missing native alarm means the failure dropped its recovery wake.
+      expect(await runDurableObjectAlarm(stub)).toBe(true)
+    }
+
+    await manage(data, Date.now() + 86_400_000, 'recover beyond bounded native retries')
+    for (let failures = 1; failures <= 6; failures++) {
+      await runDueAlarm()
+      expect(await authorizationFailures.reached(failures)).toBeGreaterThanOrEqual(failures)
+    }
     expect(await alarmRows(data.owner)).toHaveLength(1)
 
     authorizationFailures.release()
+    await runDueAlarm()
     await idle
     const recovered = await snapshotFor(data)
 
     expect(recovered.lastReceipt).not.toBeNull()
     expect(await laneRows(data.thread)).toHaveLength(1)
     expect(await alarmRows(data.owner)).toEqual([])
-  }, 100_000)
+  })
 })
