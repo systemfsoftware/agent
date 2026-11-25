@@ -25,13 +25,26 @@ export class PageScreenshotLimits extends Schema.Class<PageScreenshotLimits>(
   maxOutputBytes: PositiveInt.check(Schema.isLessThanOrEqualTo(MAX_SCREENSHOT_BYTES)),
 }) {}
 
-/** Schema-first request for exactly one PNG screenshot. */
+/** Lossless PNG encoding. */
+export class PageScreenshotPng extends Schema.TaggedClass<PageScreenshotPng>()('PageScreenshotPng', {}) {}
+
+/** Lossy JPEG encoding at a quality from 0 (smallest) to 100 (best). */
+export class PageScreenshotJpeg extends Schema.TaggedClass<PageScreenshotJpeg>()('PageScreenshotJpeg', {
+  quality: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(100)),
+}) {}
+
+/** The image encoding. Only JPEG carries a quality. */
+export const PageScreenshotFormat = Schema.Union([PageScreenshotPng, PageScreenshotJpeg])
+export type PageScreenshotFormat = typeof PageScreenshotFormat.Type
+
+/** Schema-first request for exactly one screenshot in the requested format. */
 export class PageScreenshotRequest extends Schema.Class<PageScreenshotRequest>(
   'PageScreenshotRequest',
 )({
   target: PageCaptureTarget,
   engine: PageCaptureEngine,
   limits: PageScreenshotLimits,
+  format: PageScreenshotFormat,
   fullPage: Schema.Boolean,
   navigation: Schema.optionalKey(PageNavigationOptions),
   viewport: Schema.optionalKey(PageViewport),
@@ -43,11 +56,11 @@ export class PageScreenshotResult extends Schema.Class<PageScreenshotResult>(
   'PageScreenshotResult',
 )({
   implementation: SandboxImplementation,
-  mediaType: Schema.Literal('image/png'),
+  mediaType: Schema.Literals(['image/png', 'image/jpeg']),
   bytes: Schema.Uint8Array.check(Schema.isMaxLength(MAX_SCREENSHOT_BYTES)),
 }) {}
 
-/** The response crossed the request's PNG byte limit. */
+/** The response crossed the request's screenshot byte limit. */
 export class PageScreenshotOutputLimitError extends Schema.TaggedError<PageScreenshotOutputLimitError>()(
   'PageScreenshotOutputLimitError',
   {
@@ -68,7 +81,7 @@ export const PageScreenshotError = Schema.Union([
 
 export type PageScreenshotError = typeof PageScreenshotError.Type
 
-/** Stateless, one-output PNG capture port. It owns neither persistence nor later byte handoff. */
+/** Stateless, one-output screenshot port. It owns neither persistence nor later byte handoff. */
 export class PageScreenshot extends Context.Service<
   PageScreenshot,
   {

@@ -9,6 +9,7 @@ import {
   PageScreenshot,
   type PageScreenshotError,
   PageScreenshotLimits,
+  PageScreenshotPng,
   PageScreenshotRequest,
 } from '@systemfsoftware/agent/page-screenshot'
 import * as Effect from 'effect/Effect'
@@ -27,6 +28,7 @@ const request = (overrides: RequestOverrides = {}) =>
     target: overrides.target ?? PageUrlTarget.make({ url: 'https://example.com/screenshot-source' }),
     engine: overrides.engine ?? 'chromium',
     limits: PageScreenshotLimits.make({ maxOutputBytes: overrides.maxOutputBytes ?? 1_024 }),
+    format: PageScreenshotPng.make({}),
     fullPage: overrides.fullPage ?? true,
     navigation: {
       waitUntil: 'networkidle0',
