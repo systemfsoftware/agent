@@ -1,6 +1,6 @@
 {
   "name": "@systemfsoftware/agent-storage-sql",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Shared SQL persistence implementations for Effect Agent storage adapters.",
   "license": "MIT",
   "repository": {

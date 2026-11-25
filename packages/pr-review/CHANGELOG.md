@@ -1,5 +1,9 @@
 # @yielded/agent-pr-review
 
+## 0.1.2
+
+Updated dependency @systemfsoftware/agent to 0.3.0
+
 ## 0.1.1
 
 Updated dependency @systemfsoftware/agent to 0.2.0

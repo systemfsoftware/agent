@@ -1,5 +1,9 @@
 # @yielded/agent-storage-sqlite
 
+## 0.2.1
+
+Updated dependency @systemfsoftware/agent to 0.3.0
+
 ## 0.2.0
 
 Add per-Run host control: `RunOptions.completion`, `contextTokenLimit` and `toolResultExemption`, durable `runSettings` that every Attempt reapplies, and a `RunHostControl` service that resolves the Run's model, stops it with `AgentRunStopped`, exempts chosen tool results from offloading, and is notified on settlement. A replay with different `runSettings` fails with `AdmissionConflict`.
