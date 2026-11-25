@@ -77,6 +77,8 @@
     "@systemfsoftware/agent-storage-memory": "workspace:*",
     "@systemfsoftware/agent-storage-postgres": "workspace:*",
     "@systemfsoftware/agent-storage-sqlite": "workspace:*",
+    "@systemfsoftware/effect-microsandbox": "catalog:",
+    "@systemfsoftware/effect-readiness": "catalog:",
     "effect": "catalog:",
     "tsdown": "catalog:",
     "typescript": "catalog:",

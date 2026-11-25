@@ -7,20 +7,32 @@ import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import * as Redacted from 'effect/Redacted'
 
-/** Keep coordinator checks outside the adapter package to avoid a storage-postgres -> testing cycle. */
-const adminUrl = process.env.EFFECT_AGENT_TEST_POSTGRES_URL ??
-  'postgres://postgres:postgres@localhost:55432/effect_agent'
+import { withIntegresqlDatabase } from './postgres-server.js'
+
+/**
+ * Keep coordinator checks outside the adapter package to avoid a storage-postgres -> testing cycle.
+ * Unset, the suite boots Postgres in the house microVM and checks a database out of IntegreSQL.
+ */
+const configuredUrl = process.env.EFFECT_AGENT_TEST_POSTGRES_URL
 
 let databaseCounter = 0
 
-const admin = (statement: string) =>
+const admin = (url: string, statement: string) =>
   Effect.flatMap(PgClient.PgClient, (sql) => sql.unsafe(statement)).pipe(
-    Effect.provide(PgClient.layer({ url: Redacted.make(adminUrl), maxConnections: 1 })),
+    Effect.provide(PgClient.layer({ url: Redacted.make(url), maxConnections: 1 })),
     Effect.orDie,
   )
 
-/** A database per run; `WITH (FORCE)` ends any pooled connection the run left open. */
+/** A database per run from IntegreSQL, or one this suite owns when a server is configured. */
 const withTemporaryDatabase = <A, E>(
+  use: (url: string) => Effect.Effect<A, E>,
+): Effect.Effect<A, E> =>
+  configuredUrl === undefined
+    ? withIntegresqlDatabase(use).pipe(Effect.orDie)
+    : withOwnedDatabase(configuredUrl, use)
+
+const withOwnedDatabase = <A, E>(
+  adminUrl: string,
   use: (url: string) => Effect.Effect<A, E>,
 ): Effect.Effect<A, E> =>
   Effect.acquireUseRelease(
@@ -28,7 +40,7 @@ const withTemporaryDatabase = <A, E>(
       databaseCounter = databaseCounter + 1
 
       return `effect_agent_certification_${process.pid}_${databaseCounter}`
-    }).pipe(Effect.tap((database) => admin(`CREATE DATABASE ${database}`))),
+    }).pipe(Effect.tap((database) => admin(adminUrl, `CREATE DATABASE ${database}`))),
     (database) => {
       const url = new URL(adminUrl)
 
@@ -36,7 +48,7 @@ const withTemporaryDatabase = <A, E>(
 
       return use(url.toString())
     },
-    (database) => admin(`DROP DATABASE IF EXISTS ${database} WITH (FORCE)`).pipe(Effect.ignore),
+    (database) => admin(adminUrl, `DROP DATABASE IF EXISTS ${database} WITH (FORCE)`).pipe(Effect.ignore),
   )
 
 const combinedAdapters = (url: string) =>

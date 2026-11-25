@@ -203,6 +203,12 @@ catalogs:
     '@effect/tsgo':
       specifier: 0.70.0
       version: 0.70.0
+    '@systemfsoftware/effect-microsandbox':
+      specifier: ^6.1.0
+      version: 6.1.0
+    '@systemfsoftware/effect-readiness':
+      specifier: ^1.1.4
+      version: 1.1.4
     '@types/node':
       specifier: 26.1.2
       version: 26.1.2
@@ -645,6 +651,12 @@ importers:
       '@effect/vitest':
         specifier: 4.1.2
         version: 4.1.2(effect@4.1.2)(vitest@5.0.3(@types/node@26.1.2)(vite@8.3.8(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.1)))
+      '@systemfsoftware/effect-microsandbox':
+        specifier: 'catalog:'
+        version: 6.1.0(effect@4.1.2)(redis@6.3.1)(typescript@7.0.2)
+      '@systemfsoftware/effect-readiness':
+        specifier: 'catalog:'
+        version: 1.1.4(effect@4.1.2)(redis@6.3.1)(typescript@7.0.2)
       effect:
         specifier: 4.1.2
         version: 4.1.2
@@ -756,6 +768,12 @@ importers:
       '@systemfsoftware/agent-storage-sqlite':
         specifier: workspace:*
         version: link:../storage-sqlite
+      '@systemfsoftware/effect-microsandbox':
+        specifier: 'catalog:'
+        version: 6.1.0(effect@4.1.2)(redis@6.3.1)(typescript@7.0.2)
+      '@systemfsoftware/effect-readiness':
+        specifier: 'catalog:'
+        version: 1.1.4(effect@4.1.2)(redis@6.3.1)(typescript@7.0.2)
       effect:
         specifier: 4.1.2
         version: 4.1.2
@@ -1961,6 +1979,9 @@ packages:
   '@mermaid-js/parser@1.2.1':
     resolution: {integrity: sha512-n12NohV3mrUyUL2o93IgG/ifeW9FTyeJn3zDxkhwa8MJ9Fxg3HQMlA3RiGmD/3UnJvheztkjjQAjA2T4LmUcpw==}
 
+  '@microsandbox/types@0.7.8':
+    resolution: {integrity: sha512-GCLuiSbTXU/5s8/VhyQzRc8AtDyz4uaIk3fP0GbWAPvj2xJfR7rpUr51UYZIFd9ONwAqa7XEfpyr8jnlFInkhA==}
+
   '@napi-rs/wasm-runtime@1.2.6':
     resolution: {integrity: sha512-mRyDmEw9/fCDXCGfL1sbgIw/GUK0PVxRW4YwgPN61F3LQ+fSyoBFarJVzgGyhF6kRzEQZ0FejDqm4WLXSeqQmw==}
     engines: {node: ^20.19.0 || ^22.13.0 || >=23.5.0}
@@ -2710,6 +2731,55 @@ packages:
 
   '@speed-highlight/core@1.2.24':
     resolution: {integrity: sha512-qeW2e1l78afw8VhRPfPQ1Gjj+KU5XFQ/OFV5ti6eTa9bruO7mJyZtA4vw0ofqmA3tKCkROE9xLk3VZoeRc98nw==}
+
+  '@superradcompany/microsandbox-darwin-arm64@0.7.8':
+    resolution: {integrity: sha512-WoTlB2b06o32AXW3D3Xp6GLiSoAXGNqNikbakA/RP2Uqj2Z8mfoDZ7mYKONLG7PXUAWu/vTTqJkOtVt8JFEWvA==}
+    engines: {node: '>= 22'}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@superradcompany/microsandbox-linux-arm64-gnu@0.7.8':
+    resolution: {integrity: sha512-NRm8GVXlgoPsLYX8BovMTwg4oNWiT0EZp34+6zM7s7slhCbv3TItebbg6urKj8yqKoLP1T+OHH/7Y/RnD9omZw==}
+    engines: {node: '>= 22'}
+    cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
+  '@superradcompany/microsandbox-linux-x64-gnu@0.7.8':
+    resolution: {integrity: sha512-4AnLhlDSvgzQPTrKcd6kCpCpgPWq275sGWTy7tg1deo42lU0PXKtwnaUlBx7uBdQO4YFIGfIx0T8lgsGO9h5EA==}
+    engines: {node: '>= 22'}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
+  '@superradcompany/microsandbox-win32-arm64-msvc@0.7.8':
+    resolution: {integrity: sha512-wwXD/B9JwmyDAhrkX2V4L4VHVumDK1JbMnUFTOuNCoozyeNV4fogL+BziINp3HeInBTbKOJrAI7+A8kTawKfPA==}
+    engines: {node: '>= 22'}
+    cpu: [arm64]
+    os: [win32]
+
+  '@superradcompany/microsandbox-win32-x64-msvc@0.7.8':
+    resolution: {integrity: sha512-m11kPzyaid/DMXK5kJRvDZEGkdlvndmOzfjNjfhqpL+LFQssnJgQ2WSyYfBQMrHj17pRfDkDxqwZPr9iXZoSMw==}
+    engines: {node: '>= 22'}
+    cpu: [x64]
+    os: [win32]
+
+  '@systemfsoftware/effect-cell-types@12.2.4':
+    resolution: {integrity: sha512-ZOQEB320yvtbJ4bw9+4q6MsDNotZPyDW+cD7RnAjVyAEKUv+RDt89wW5DtmHg4EhywV5VdAsUaBQdd/ochpjBw==}
+    peerDependencies:
+      effect: 4.1.2
+
+  '@systemfsoftware/effect-microsandbox@6.1.0':
+    resolution: {integrity: sha512-YTeMvbwzVdz0FyKXRKo0IqXIWz7P5NKLVu9fMTEiE69sKyh1qvC20ZOd42QWGOBaxAvuE4rp3BNVR2TkZnOBwQ==}
+    peerDependencies:
+      effect: 4.1.2
+      typescript: '>=7.0.0'
+
+  '@systemfsoftware/effect-readiness@1.1.4':
+    resolution: {integrity: sha512-DVoty5PIXkr6ez5jE9a2Wu3kuK+mUlCNyTxBohPxtSPrncdTal6+syvrr2b7ssq0jMus/vqRynwAJr8GglKO9A==}
+    peerDependencies:
+      effect: 4.1.2
+      typescript: '>=7.0.0'
 
   '@systemfsoftware/oxlint-config-cell-architecture@6.0.5':
     resolution: {integrity: sha512-rju0BG6XXU81WZrfzeOIHYEAkLGFKNf3AoeM7xaq3/b59DrGFQWFUlpDu8W9IcrjbKCiE2f2lOdELJvjwhoVMQ==}
@@ -4309,6 +4379,11 @@ packages:
   micromatch@4.0.8:
     resolution: {integrity: sha512-PXwfBhYu0hBCPw8Dn0E+WDYb7af3dSLVWKi3HGv84IdF4TyFoC0ysxFd0Goxw7nSv4T/PzEJQxsYsEiFCKo2BA==}
     engines: {node: '>=8.6'}
+
+  microsandbox@0.7.8:
+    resolution: {integrity: sha512-bUll2JNeVhAdvtlemsD5rNkVpLU0KQSXVpuSjXFmkG6Z52Z2ZL9sP8hAdFT8pIGoEPLj+OB9ohgFEPsJgBVkFg==}
+    engines: {node: '>= 22'}
+    hasBin: true
 
   mimic-function@5.0.1:
     resolution: {integrity: sha512-VP79XUPxV2CigYP3jWwAUFSku2aKqBH7uTAapFWCBqutsbmDo96KY5o8uh6U+/YSIn5OxJnXp73beVkpqMIGhA==}
@@ -6045,6 +6120,8 @@ snapshots:
     dependencies:
       '@chevrotain/types': 11.1.2
 
+  '@microsandbox/types@0.7.8': {}
+
   '@napi-rs/wasm-runtime@1.2.6(@emnapi/core@2.0.0-beta.2)(@emnapi/runtime@2.0.0-beta.2)':
     dependencies:
       '@emnapi/core': 2.0.0-beta.2
@@ -6631,6 +6708,49 @@ snapshots:
   '@sindresorhus/merge-streams@4.0.0': {}
 
   '@speed-highlight/core@1.2.24': {}
+
+  '@superradcompany/microsandbox-darwin-arm64@0.7.8':
+    optional: true
+
+  '@superradcompany/microsandbox-linux-arm64-gnu@0.7.8':
+    optional: true
+
+  '@superradcompany/microsandbox-linux-x64-gnu@0.7.8':
+    optional: true
+
+  '@superradcompany/microsandbox-win32-arm64-msvc@0.7.8':
+    optional: true
+
+  '@superradcompany/microsandbox-win32-x64-msvc@0.7.8':
+    optional: true
+
+  '@systemfsoftware/effect-cell-types@12.2.4(effect@4.1.2)':
+    dependencies:
+      effect: 4.1.2
+
+  '@systemfsoftware/effect-microsandbox@6.1.0(effect@4.1.2)(redis@6.3.1)(typescript@7.0.2)':
+    dependencies:
+      '@effect/platform-node': 4.1.2(effect@4.1.2)(redis@6.3.1)
+      '@systemfsoftware/effect-cell-types': 12.2.4(effect@4.1.2)
+      '@systemfsoftware/effect-readiness': 1.1.4(effect@4.1.2)(redis@6.3.1)(typescript@7.0.2)
+      effect: 4.1.2
+      microsandbox: 0.7.8
+      typescript: 7.0.2
+    transitivePeerDependencies:
+      - bufferutil
+      - redis
+      - utf-8-validate
+
+  '@systemfsoftware/effect-readiness@1.1.4(effect@4.1.2)(redis@6.3.1)(typescript@7.0.2)':
+    dependencies:
+      '@effect/platform-node': 4.1.2(effect@4.1.2)(redis@6.3.1)
+      '@systemfsoftware/effect-cell-types': 12.2.4(effect@4.1.2)
+      effect: 4.1.2
+      typescript: 7.0.2
+    transitivePeerDependencies:
+      - bufferutil
+      - redis
+      - utf-8-validate
 
   '@systemfsoftware/oxlint-config-cell-architecture@6.0.5(effect@4.1.2)(oxlint@1.93.0(oxlint-tsgolint@7.0.2007))(typescript@7.0.2)':
     dependencies:
@@ -8436,6 +8556,16 @@ snapshots:
     dependencies:
       braces: 3.0.3
       picomatch: 2.3.2
+
+  microsandbox@0.7.8:
+    dependencies:
+      '@microsandbox/types': 0.7.8
+    optionalDependencies:
+      '@superradcompany/microsandbox-darwin-arm64': 0.7.8
+      '@superradcompany/microsandbox-linux-arm64-gnu': 0.7.8
+      '@superradcompany/microsandbox-linux-x64-gnu': 0.7.8
+      '@superradcompany/microsandbox-win32-arm64-msvc': 0.7.8
+      '@superradcompany/microsandbox-win32-x64-msvc': 0.7.8
 
   mimic-function@5.0.1: {}
 

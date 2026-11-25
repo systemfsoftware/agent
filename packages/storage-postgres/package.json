@@ -51,6 +51,8 @@
     "@effect/platform-node": "catalog:",
     "@effect/sql-pg": "catalog:",
     "@effect/vitest": "catalog:",
+    "@systemfsoftware/effect-microsandbox": "catalog:",
+    "@systemfsoftware/effect-readiness": "catalog:",
     "effect": "catalog:",
     "tsdown": "catalog:",
     "typescript": "catalog:",
