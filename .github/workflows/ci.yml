@@ -61,13 +61,9 @@ jobs:
       pull-requests: read
 
   test:
-    name: test (node ${{ matrix.node }})
+    name: test
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        node: [22, 24]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -81,7 +77,7 @@ jobs:
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: ${{ matrix.node }}
+          node-version: 26
       - uses: ./.github/actions/pnpm-store
       # The fixtures pull the digest-pinned IntegreSQL layer from ghcr.io once and keep it here.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -89,7 +85,51 @@ jobs:
           path: ~/.cache/agent/integresql-layers
           key: integresql-${{ runner.arch }}-${{ hashFiles('packages/storage-postgres/test/integresql-binary.ts') }}
       - run: pnpm install --frozen-lockfile
-      - run: pnpm test
+      # The workspace graph orders these three one after another when pnpm recurses, whatever the slot count:
+      # in the measured run storage-postgres, testing and platform-cloudflare ran back to back and set the
+      # job's wall time. They are independent suites, so they run alongside the rest of the workspace instead.
+      - name: Run the suites
+        env:
+          HEAVY: "@systemfsoftware/agent-storage-postgres @systemfsoftware/agent-platform-cloudflare @systemfsoftware/agent-testing"
+        run: |
+          set -uo pipefail
+          pids=()
+          status=0
+          for pkg in $HEAVY; do
+            pnpm --filter "$pkg" test &
+            pids+=("$!")
+          done
+          pnpm -r --workspace-concurrency=4 \
+            --filter '!@systemfsoftware/agent-storage-postgres' \
+            --filter '!@systemfsoftware/agent-platform-cloudflare' \
+            --filter '!@systemfsoftware/agent-testing' \
+            run test || status=1
+          for pid in "${pids[@]}"; do
+            wait "$pid" || status=1
+          done
+          exit "$status"
+
+  gritlint:
+    name: gritlint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086 # v31
+        with:
+          extra_nix_config: |
+            extra-substituters = https://nix.systemfsoftware.com
+            extra-trusted-public-keys = nix-cache-1:wXA8I4DayNW9q6enUyQA/P/nT38pGSTLt374t3gsn7M=
+      # ubuntu-24.04 ships AppArmor refusing unprivileged user namespaces, which bubblewrap needs.
+      - name: Let bubblewrap create user namespaces
+        run: |
+          if [ -e /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+      - name: The house conventions pass over the tree
+        run: "$(nix build --no-link --print-out-paths .#gritlint)/bin/gritlint check . --format github"
 
   # The one check the ruleset requires and the merge queue gates on; the name matches the shared CI of the other
   # systemfsoftware repositories. List every other job in `needs`: a job left out is not gated. The job always runs,
@@ -99,19 +139,20 @@ jobs:
     name: checks / check
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [static-checks, changeset, test]
+    needs: [static-checks, changeset, test, gritlint]
     if: ${{ always() }}
     steps:
       - name: Require every job to succeed
         env:
           STATIC_CHECKS: ${{ needs.static-checks.result }}
           TEST: ${{ needs.test.result }}
+          GRITLINT: ${{ needs.gritlint.result }}
           CHANGESET: ${{ needs.changeset.result }}
           EVENT: ${{ github.event_name }}
           HEAD_REF: ${{ github.head_ref }}
         run: |
           status=0
-          for pair in "static-checks:$STATIC_CHECKS" "test:$TEST"; do
+          for pair in "static-checks:$STATIC_CHECKS" "test:$TEST" "gritlint:$GRITLINT"; do
             case "$pair" in
               *:success) ;;
               *) echo "A required job finished as: $pair"; status=1 ;;

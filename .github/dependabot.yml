@@ -15,6 +15,10 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 3
+    ignore:
+      # @effect/tsgo 0.70.0 refuses @oxlint-tsgolint 7.0.2008 during `prepare`, so the bump cannot install.
+      # Remove this once @effect/tsgo accepts it.
+      - dependency-name: "oxlint-tsgolint"
     groups:
       effect:
         patterns: ["effect", "@effect/*"]

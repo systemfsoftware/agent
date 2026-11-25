@@ -5,7 +5,7 @@
   "type": "module",
   "packageManager": "pnpm@12.9.0",
   "engines": {
-    "node": "^22.18.0 || ^24.11.0 || >=26.0.0"
+    "node": "^26.0.0"
   },
   "scripts": {
     "prepare": "effect-tsgo patch --oxlint --no-typescript",
@@ -36,7 +36,7 @@
     "dprint": "catalog:",
     "effect": "catalog:",
     "esbuild": "catalog:",
-    "oxlint": "~1.93.0",
+    "oxlint": "~1.94.0",
     "oxlint-tsgolint": "7.0.2007",
     "tsrs": "catalog:",
     "typescript": "catalog:",
