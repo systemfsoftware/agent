@@ -101,10 +101,10 @@ Round 1 of the design came from an outside reviewer. One of its items is refuted
 - **Refuted: remove the bot identity from the ruleset bypass.** In this organization, admin merges by the maintainer
   bot are an allowed path once the bot has read the checks itself. The queue becomes the default path (D4) without
   removing that ability.
-- **Open: heavy suites only in the queue.** The requirement was to run slow, low-value suites such as the Postgres one
-  only in the merge queue. The reviewer ruled for affected-only runs on pull request heads instead (D1), because a
-  Postgres break first found in a batch of up to 3 forces a bisection that boots the microVMs again. Round 2 settles
-  this.
+- **Open: heavy suites only in the queue.** One option runs the slow suites (storage-postgres, platform-cloudflare,
+  agent-testing) only on queue drafts. The reviewer ruled for affected-only runs on pull request heads instead (D1),
+  because a Postgres break first found in a batch of up to 3 forces a bisection that boots the microVMs again. Round 2
+  settles this.
 
 ## Questions round 2 must settle
 
