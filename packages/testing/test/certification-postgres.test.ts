@@ -2,12 +2,15 @@ import * as NodeCrypto from '@effect/platform-node/NodeCrypto'
 import * as PgClient from '@effect/sql-pg/PgClient'
 import { it } from '@effect/vitest'
 import * as PostgresStorage from '@systemfsoftware/agent-storage-postgres/postgres-storage'
-import { durableCoordinatorConformance } from '@systemfsoftware/agent-testing/durable-coordinator-conformance'
+import {
+  durableCoordinatorConformance,
+  type DurableCoordinatorStorage,
+} from '@systemfsoftware/agent-testing/durable-coordinator-conformance'
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import * as Redacted from 'effect/Redacted'
 
-import { withIntegresqlDatabase } from './postgres-server.js'
+import { MAX_CHECKED_OUT_DATABASES, withIntegresqlDatabase } from './postgres-server.js'
 
 /**
  * Keep coordinator checks outside the adapter package to avoid a storage-postgres -> testing cycle.
@@ -54,11 +57,16 @@ const withOwnedDatabase = <A, E>(
 const combinedAdapters = (url: string) =>
   PostgresStorage.layerWith({ observationPollInterval: 1 }).pipe(
     Layer.provideMerge(NodeCrypto.layer),
-    Layer.provideMerge(PgClient.layer({ url: Redacted.make(url) })),
+    Layer.provideMerge(PgClient.layer({ url: Redacted.make(url), maxConnections: 4 })),
   )
+
+// Each cell checks out its own database; adapter connection failures are defects of the fixture.
+const withStorage = <A, E>(cell: Effect.Effect<A, E, DurableCoordinatorStorage>): Effect.Effect<A, E> =>
+  withTemporaryDatabase((url) => cell.pipe(Effect.provide(Layer.orDie(combinedAdapters(url)))))
 
 it.effect(
   'converges PostgreSQL coordinator recovery after injected faults',
-  () => withTemporaryDatabase((url) => durableCoordinatorConformance.pipe(Effect.provide(combinedAdapters(url)))),
+  // At four connections a cell, every held database together stays under max_connections of 200.
+  () => durableCoordinatorConformance({ withStorage, concurrency: MAX_CHECKED_OUT_DATABASES }),
   300_000,
 )
