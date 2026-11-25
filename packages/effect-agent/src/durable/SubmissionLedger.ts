@@ -395,6 +395,12 @@ const SettlementFields = Schema.Struct({
     { title: 'failure exactly on a failed Settlement' },
   ),
 )
+  .check(
+    Schema.makeFilter(
+      (settlement) => settlement.hostFailure === undefined || settlement.outcome === 'failed',
+      { title: 'hostFailure only on a failed Settlement' },
+    ),
+  )
 
 /** The single durable terminal outcome recorded for one accepted Submission (DUR-002). */
 export class Settlement extends Schema.Class<Settlement>('@effect-agent/thread/Settlement')(

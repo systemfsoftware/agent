@@ -12,11 +12,11 @@ Attempt, including recovery after an eviction.
 
 `AgentRuntime.run`, `stream` and `start` accept these per-Run options:
 
-| Option                | Effect                                                                                                                                                                                                           |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `completion`          | `"text"` drops the Definition's completion Tool for this Run. The final text is decoded through the Definition's output Schema, as for a Definition without a completion Tool. `"definition"` keeps the default. |
-| `contextTokenLimit`   | Replaces the policy's `contextTokenLimit` for this Run. The compaction pressure check then also counts the largest tool result of the most recent Tool batch, so the next Turn has room for a result that size.  |
-| `toolResultExemption` | `exempt(request)` returns `true` to keep one oversized result inline instead of truncating and offloading it. An exempted result is still bounded by `maxBytes` and, for durable Runs, by the record limit.      |
+| Option                | Effect                                                                                                                                                                                                                                                                      |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `completion`          | `"text"` drops the Definition's completion Tool for this Run. The final text is decoded through the Definition's output Schema, as for a Definition without a completion Tool. `"definition"` keeps the default.                                                            |
+| `contextTokenLimit`   | Replaces the policy's `contextTokenLimit` for this Run; it must be a positive integer. Whenever a context limit applies, the compaction pressure check also counts the largest tool result of the most recent Tool batch, so the next Turn has room for a result that size. |
+| `toolResultExemption` | `exempt(request)` returns `true` to keep one oversized result inline instead of truncating and offloading it. An exempted result is still bounded by `maxBytes` (a positive integer) and, for durable Runs, by the record limit.                                            |
 
 The exemption request carries `toolName`, `toolCallId`, `turn`, `isFailure` and the encoded byte
 length. It is called only for results larger than `toolResultBounds.maxBytes`.
@@ -49,8 +49,8 @@ non-secret values:
 | `toolSelection`                      | the initial tool selection until a discovery receipt replaces it |
 | `turnAllowance`, `toolCallAllowance` | tightening-only allowances below the Definition's policy         |
 
-The first admission of an idempotency key wins; a replay returns the original Receipt and keeps the
-original settings.
+A replay of an idempotency key must repeat the same settings. A replay with different settings
+fails with `AdmissionConflict`, as a replay with different input does.
 
 ## RunHostControl
 
@@ -63,6 +63,7 @@ const hostControl = Layer.succeed(RunHostControl, {
   resolveModel: (request) => models.resolve(request.submissionId, request.model),
   beforeTurn: (request) => quota.check(request.submissionId),
   encodeFailure: (error) => encodeToolFailure(error),
+  exemptToolResult: (request) => request.toolName === 'read_file',
   finalize: (notice) => models.release(notice.submissionId),
 })
 ```
@@ -73,11 +74,16 @@ const hostControl = Layer.succeed(RunHostControl, {
   `model` settings and no resolver stops with `{ reason: "model-resolver-missing" }`.
 - `beforeTurn` runs before each new model call.
 - `encodeFailure` maps any other terminal failure, such as a Tool with `failureMode: "error"`, to
-  the `hostFailure` value. Return `Option.none()` to keep only the diagnostic.
-- `finalize` runs after every settlement (`completed`, `failed`, `aborted`) and with `released`
-  when an Attempt is interrupted, for example when its Durable Object event scope closes. A
-  released Run is not settled; its next Attempt calls `resolveModel` again. Failures and defects in
-  `finalize` are ignored.
+  the `hostFailure` value. Return `Option.none()` to keep only the diagnostic. A `hostFailure` value
+  (from `AgentRunStopped` or `encodeFailure`) over 64 KiB is stored as `{ omitted: "host-failure-too-large" }`; a throwing encoder stores nothing.
+- `exemptToolResult` is the durable form of `toolResultExemption`. It receives the exemption request
+  with the Thread, Submission and Run ids, and an exempted result is bounded by the record limit.
+- `finalize` runs once per runtime after a settlement commits (`completed`, `failed`, `aborted`),
+  including settlements an `abort` or `resolveUnknown` request causes and settlements recovered
+  from history. It runs with `released` when an Attempt is interrupted before its settlement, for
+  example when its Durable Object event scope closes. A released Run is not settled; its next
+  Attempt calls `resolveModel` again. A hard isolate eviction runs no hooks, so treat `released` as
+  best effort and keep `resolveModel` idempotent. Failures and defects in `finalize` are ignored.
 
 On Cloudflare, pass the same value as `runHostControl` in the `ThreadObject.make` options, and send
 `runSettings` with `CloudflareThreadClient` submits. `ThreadObject.submit` forwards them to the

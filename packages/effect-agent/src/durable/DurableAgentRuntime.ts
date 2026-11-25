@@ -116,6 +116,7 @@ import {
   RunToolAuthorization,
   type RunToolAuthorizationHook,
   type RunToolAuthorizationRequest,
+  type RunToolResultExemptionRequest,
   RunToolScheduling,
 } from '../engine/RunOptions'
 import { SubagentHost } from '../engine/SubagentHost'
@@ -458,6 +459,8 @@ const APPROVAL_POLICY_RESOLVER = 'approval-policy'
 const RECOVERY_RESOLVER = 'recovery'
 /** Upper bound of one `drain("all")` joining pass (`claimJoining.maxCount` must be positive). */
 const MAX_JOIN_DRAIN = 32
+const MAX_HOST_FAILURE_BYTES = 64 * 1024
+const MAX_SETTLED_HOST_NOTICES = 4_096
 
 /** Bound a hook-supplied approval reason to the canonical `BoundedText` persistence limits. */
 const boundedApprovalReason = (reason: string | undefined, fallback: string): string => {
@@ -895,6 +898,9 @@ export class RunHostControl extends Context.Service<
       | ((request: RunTurnRequest) => Effect.Effect<void, AgentRunStopped>)
       | undefined
     readonly encodeFailure?: ((error: unknown) => Option.Option<Schema.Json>) | undefined
+    readonly exemptToolResult?:
+      | ((request: RunToolResultExemptionRequest & RunTurnRequest) => boolean)
+      | undefined
     readonly finalize?: ((notice: RunSettlementNotice) => Effect.Effect<void>) | undefined
   }
 >()('@effect-agent/durable/RunHostControl') {}
@@ -3766,7 +3772,7 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
     yield* notifyHostSettled({
       threadId: submission.threadId,
       submissionId,
-      runId: runIdForSubmission(submissionId),
+      runId: canonicalSettlement.runId ?? runIdForSubmission(submissionId),
       outcome: canonicalSettlement.outcome,
     })
 
@@ -3794,7 +3800,7 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
     yield* notifyHostSettled({
       threadId: submission.threadId,
       submissionId: submission.submissionId,
-      runId: runIdForSubmission(submission.submissionId),
+      runId: canonicalSettlement.runId ?? runIdForSubmission(submission.submissionId),
       outcome: canonicalSettlement.outcome,
     })
 
@@ -4922,26 +4928,38 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
 
   const decodeHostFailure = Schema.decodeUnknownOption(PersistedJson)
 
-  const hostFailureOf = (error: unknown): Option.Option<PersistedJson> => {
-    const encodeFailure = runHostControl.encodeFailure
-    const value = Schema.is(AgentRunStopped)(error)
-      ? Option.some(error.value)
-      : encodeFailure === undefined
-      ? Option.none()
-      : encodeFailure(error)
-
-    return Option.flatMap(
-      value,
-      (json) => utf8ByteLength(JSON.stringify(json)) <= 64 * 1024 ? decodeHostFailure(json) : Option.none(),
+  const boundedHostFailure = (json: Schema.Json): Option.Option<PersistedJson> =>
+    Option.flatMap(
+      decodeHostFailure(json),
+      (decoded) =>
+        utf8ByteLength(JSON.stringify(decoded)) <= MAX_HOST_FAILURE_BYTES
+          ? Option.some(decoded)
+          : decodeHostFailure({ omitted: 'host-failure-too-large' }),
     )
-  }
+
+  const encodeHostFailure = Option.liftThrowable((error: unknown): Option.Option<PersistedJson> => {
+    const encodeFailure = runHostControl.encodeFailure
+
+    return encodeFailure === undefined ? Option.none() : Option.flatMap(encodeFailure(error), boundedHostFailure)
+  })
+
+  const hostFailureOf = (error: unknown): Option.Option<PersistedJson> =>
+    Schema.is(AgentRunStopped)(error)
+      ? boundedHostFailure(error.value)
+      : Option.flatten(encodeHostFailure(error))
+
+  const settledHostNotices = new Set<SubmissionId>()
 
   const notifyHostSettled = (notice: RunSettlementNotice): Effect.Effect<void> => {
     const finalize = runHostControl.finalize
 
-    return finalize === undefined
-      ? Effect.void
-      : finalize(notice).pipe(Effect.ignoreCause)
+    if (finalize === undefined || settledHostNotices.has(notice.submissionId)) return Effect.void
+    if (notice.outcome !== 'released') {
+      if (settledHostNotices.size >= MAX_SETTLED_HOST_NOTICES) settledHostNotices.clear()
+      settledHostNotices.add(notice.submissionId)
+    }
+
+    return finalize(notice).pipe(Effect.ignoreCause)
   }
 
   const halt = <A, R>(
@@ -7880,6 +7898,7 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
         : Math.min(runSettings.toolCallAllowance, settledToolCallAllowance ?? Infinity)
 
       const initialToolSelection = journal.toolSelection ?? runSettings?.toolSelection
+      const exemptToolResult = runHostControl.exemptToolResult
 
       const options: RunOptions<
         | CoordinatorHalt
@@ -7966,6 +7985,18 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
             },
           }),
         ...(modelContext === undefined ? {} : { context: modelContext }),
+        ...(exemptToolResult === undefined ? {} : {
+          toolResultExemption: {
+            maxBytes: MAX_PERSISTED_JSON_BYTES,
+            exempt: (request) =>
+              exemptToolResult({
+                ...request,
+                threadId: submission.threadId,
+                submissionId: submission.submissionId,
+                runId,
+              }),
+          },
+        }),
         beforeTurn: Effect.fnUntraced(function*() {
           if (hostBeforeTurn !== undefined) {
             yield* hostBeforeTurn({
@@ -11756,6 +11787,14 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
       return yield* LedgerError.make({
         operation: 'awaitSettlement',
         message: 'Canonical Settlement disagrees with the receipt or finalized outcome',
+      })
+    }
+    if (!retainedFinalization) {
+      yield* notifyHostSettled({
+        threadId: finalized.threadId,
+        submissionId: receipt.submissionId,
+        runId: record.runId ?? runIdForSubmission(receipt.submissionId),
+        outcome: record.outcome,
       })
     }
 
