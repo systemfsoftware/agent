@@ -82,7 +82,6 @@ import {
   BudgetWarning,
   CompactionPerformed,
   ModelRestarted,
-  SteeringApplied,
   ModelStarted,
   ReasoningDelta,
   RunCompleted,
@@ -90,6 +89,7 @@ import {
   RunFailed,
   RunStarted,
   RunSuspended,
+  SteeringApplied,
   SubagentCompleted,
   SubagentFailed,
   SubagentInterrupted,
@@ -3150,20 +3150,27 @@ const appendInputs = <HookError, HookRequirements>(
     return history
   })
 
-/** Appends drained steering, then reports its ids once the inputs are in history. */
-const appendSteering = <HookError, HookRequirements>(
+/** Appends drained inputs, then reports steering ids once they are in history. */
+const appendDrainedInputs = <HookError, HookRequirements>(
   context: RunContext,
   source: Prompt.Prompt,
-  steering: DrainedSteering,
+  drained: DrainedSteering,
   options: RunOptions<HookError, HookRequirements>,
 ): Effect.Effect<Prompt.Prompt, HookError | AgentInputError | ModelProtocolError, HookRequirements> => {
-  const appended = appendInputs(context, source, steering.inputs, options)
-  const inputIds = steering.inputIds
+  const inputIds = drained.inputIds
+  const appended = appendInputs(context, source, drained.inputs, options)
 
-  return Arr.isReadonlyArrayNonEmpty(inputIds)
-    ? Effect.tap(appended, () =>
-      publishEvent(context, () => Effect.map(eventBase(context), (base) => SteeringApplied.make({ ...base, inputIds }))))
-    : appended
+  if (context.publish === undefined || !Arr.isReadonlyArrayNonEmpty(inputIds)) return appended
+
+  // Build the event before history changes, so nothing can fail between the append and publish.
+  return Effect.flatMap(
+    eventBase(context),
+    (base) => {
+      const event = SteeringApplied.make({ ...base, inputIds })
+
+      return Effect.tap(appended, () => publishEvents(context, [event]))
+    },
+  )
 }
 
 /**
@@ -7137,7 +7144,7 @@ const makeTurn = <
             yield* advanceHistory(context, history, options)
             yield* settleTurn(context, trace, turn, turnId, options)
             const steering = yield* drainInputs(context, options)
-            const nextPrompt = yield* appendSteering(context, history, steering, options)
+            const nextPrompt = yield* appendDrainedInputs(context, history, steering, options)
 
             return yield* Effect.succeed(nextTurn(nextPrompt, turn + 1, toolCalls))
           })
@@ -7195,7 +7202,7 @@ const makeTurn = <
                 agent.definition.policy.repeatedFailureLimit,
               )
               yield* settleTurn(context, trace, turn, turnId, options)
-              const nextPrompt = yield* appendSteering(context, history, queued, options)
+              const nextPrompt = yield* appendDrainedInputs(context, history, queued, options)
 
               return yield* Effect.succeed(nextTurn(nextPrompt, turn + 1, toolCalls))
             }
@@ -7354,7 +7361,7 @@ const makeTurn = <
                   )
 
                   const steering = yield* drainInputs(context, options)
-                  const nextPrompt = yield* appendSteering(context, history, steering, options)
+                  const nextPrompt = yield* appendDrainedInputs(context, history, steering, options)
 
                   return yield* Effect.succeed(nextTurn(nextPrompt, turn + 1, toolCalls))
                 }),
@@ -7552,7 +7559,7 @@ const makeTurn = <
                     return yield* Effect.failCause(failedUsageCause)
                   }
                   const inputs = yield* drainInputs(context, options)
-                  const nextPrompt = yield* appendSteering(context, prompt, inputs, options)
+                  const nextPrompt = yield* appendDrainedInputs(context, prompt, inputs, options)
 
                   return yield* Effect.succeed(
                     Effect.succeed<TurnOutput>({
@@ -7812,7 +7819,7 @@ const toolBatchContinuation = <
             })).pipe(Effect.tap((event) => settleTurn(context, trace, turn, turnId, options, event))),
         )
       }
-      const nextPrompt = yield* appendSteering(context, history, steering, options)
+      const nextPrompt = yield* appendDrainedInputs(context, history, steering, options)
 
       return yield* Effect.succeed(nextTurn(nextPrompt, turn + 1, toolCalls))
     }),
@@ -9021,7 +9028,7 @@ function executeWithCompletion<
                 }
               } else {
                 const steering = yield* drainInputs(context, options)
-                const initialPrompt = yield* appendSteering(context, prompt, steering, options)
+                const initialPrompt = yield* appendDrainedInputs(context, prompt, steering, options)
 
                 pending = {
                   prompt: initialPrompt,

@@ -47,10 +47,10 @@ export class ModelRestarted extends Schema.TaggedClass<ModelRestarted>()('ModelR
   reason: Schema.Literal('joined-input'),
 }) {}
 
-/** Joined steering inputs entered the model's history at a Turn seam, in drain order. */
+/** Live only: joined steering inputs entered the model's history at a Turn seam, in drain order. */
 export class SteeringApplied extends Schema.TaggedClass<SteeringApplied>()('SteeringApplied', {
   ...RunEventBase,
-  inputIds: Schema.NonEmptyArray(Schema.NonEmptyString),
+  inputIds: Schema.NonEmptyArray(Schema.String),
 }) {}
 
 /** Carries one live assistant text delta. */

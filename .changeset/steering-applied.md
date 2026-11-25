@@ -12,6 +12,6 @@
 "@systemfsoftware/agent-pr-review": none
 ---
 
-Runs now emit `SteeringApplied` with the drained `inputIds`, in drain order, once joined steering input enters the model's history at a Turn seam. Durable hosts read the same point from the canonical `UserInputRecorded` steering record.
+Runs now emit the live event `SteeringApplied` with the drained `inputIds`, in drain order, once joined steering input enters the model's history at a Turn seam. Durable hosts read the canonical `UserInputRecorded` steering record, which the durable drain appends as it hands the input to the engine.
 
-BEHAVIOR CHANGE (breaking): `RunInputCommand` requires `inputId`. A custom `RunInputHook` must return an identity for each drained command; the durable runtime uses the input's `SubmissionId`.
+BEHAVIOR CHANGE (breaking): `RunInputCommand` is a union, and a `steering` command requires `inputId`. A custom `RunInputHook` must return an identity for each steering command; the durable runtime uses the input's `SubmissionId`. Follow-up commands are unchanged.
