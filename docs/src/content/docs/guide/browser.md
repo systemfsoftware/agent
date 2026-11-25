@@ -11,12 +11,12 @@ for navigation and input. Your application owns destination access, credentials,
 
 ## Choose an adapter
 
-| Need                                             | Capability                                | Host setup                                                    |
-| ------------------------------------------------ | ----------------------------------------- | ------------------------------------------------------------- |
-| Render content, links, or selector groups        | PageCapture with Quick Actions            | Cloudflare browser binding                                    |
-| Capture a page from Node or a Worker             | PageCapture with REST                     | Account ID, redacted token, Effect HttpClient                 |
-| Take an ephemeral PNG or JPEG screenshot         | PageScreenshot with Quick Actions         | Cloudflare browser binding                                    |
-| Let an agent navigate and interact with websites | BrowserUse + Code Mode + Browser Sessions | Worker Loader, browser binding, private lifecycle credentials |
+| Need                                             | Capability                                | Host setup                                                     |
+| ------------------------------------------------ | ----------------------------------------- | -------------------------------------------------------------- |
+| Render content, links, or selector groups        | PageCapture with Quick Actions            | Cloudflare browser binding                                     |
+| Capture a page from Node or a Worker             | PageCapture with REST                     | Account ID, redacted token, Effect HttpClient                  |
+| Take an ephemeral PNG or JPEG screenshot         | PageScreenshot with Quick Actions         | Cloudflare browser binding                                     |
+| Let an agent navigate and interact with websites | BrowserUse + Code Mode + Browser Sessions | Worker Loader, browser binding, optional lifecycle credentials |
 
 ## Capture a page
 
@@ -162,6 +162,12 @@ session; a reference cannot recreate an expired page. `session.run` hands its ac
 | `maxElapsedMillis`     | Required positive safe integer | Fixed session expiry                                      |
 | `keepAliveMillis`      | `600_000`                      | Provider idle allowance; maximum `600_000`                |
 | `commandTimeoutMillis` | `30_000`                       | Command limit, also bounded by remaining session lifetime |
+
+`BrowserSessions.layer({ browser, lifecycle: { accountId, apiToken } })` confirms `close` through
+the Browser Run REST API and can mint read-only Live Views. Omit `lifecycle` to run on the binding
+alone: `close` then sends the browser's own close command and returns `"unconfirmed"`, because
+nothing confirms that the provider ended the session before its idle expiry, and
+`getReadOnlyLiveView` fails with reason `live-view-requires-rest-credentials`.
 
 Keep session references and Live View URLs private. Human takeover requires exclusive control;
 read-only viewers can still see page data. Expiry of a viewing URL limits new connections, not
