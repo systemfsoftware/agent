@@ -48,7 +48,7 @@ const model = (name: string, streamText: Parameters<typeof LanguageModel.make>[0
     ),
   )
 
-// Regression: https://github.com/systemfsoftware/agent/blob/36a411fc3f468fa87d4dd91234988a716d4ebbc5/packages/effect-agent/src/durable/internal/worker-host.ts#L3058-L3075
+// Regression: https://github.com/yielded-dev/agent/blob/36a411fc3f468fa87d4dd91234988a716d4ebbc5/packages/effect-agent/src/durable/internal/worker-host.ts#L3058-L3075
 it.effect(
   'authorizes successor completion reports as the current source principal',
   () =>

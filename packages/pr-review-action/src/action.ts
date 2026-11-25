@@ -1,0 +1,1805 @@
+import * as OpenAiClient from '@effect/ai-openai/OpenAiClient'
+import * as OpenAiLanguageModel from '@effect/ai-openai/OpenAiLanguageModel'
+import * as OpenAiTool from '@effect/ai-openai/OpenAiTool'
+import {
+  isCommentableLine,
+  makeReviewer,
+  MAX_REVIEW_FILES,
+  MAX_REVIEW_PATCH_CHARS,
+  MAX_REVIEW_TOTAL_PATCH_CHARS,
+  ReviewChange,
+  ReviewFinding,
+  type ReviewOutcome,
+  ReviewReport,
+  ReviewRequest,
+  type ReviewResolution,
+} from '@systemfsoftware/agent-pr-review/review'
+import {
+  ReviewContextError,
+  ReviewFileList,
+  ReviewRepository,
+  ReviewSearchMatch,
+  ReviewSearchResult,
+  ReviewSource,
+} from '@systemfsoftware/agent-pr-review/review-repository'
+import * as Cause from 'effect/Cause'
+import * as Config from 'effect/Config'
+import * as ConfigProvider from 'effect/ConfigProvider'
+import * as Console from 'effect/Console'
+import * as Context from 'effect/Context'
+import * as Effect from 'effect/Effect'
+import * as Exit from 'effect/Exit'
+import * as FileSystem from 'effect/FileSystem'
+import * as Option from 'effect/Option'
+import * as Redacted from 'effect/Redacted'
+import * as Result from 'effect/Result'
+import * as Schema from 'effect/Schema'
+
+import { type DependencySnapshot, DependencySources, loadDependencySources } from './dependency-sources.ts'
+import { type GeneratedContentOmission, omitGeneratedSourceMaps } from './generated-content.ts'
+import {
+  type ChangedFile,
+  GitHubApiFailure,
+  GitHubClient,
+  isBinaryAssetPath,
+  makeExactPatch,
+  makeGitHubClient,
+  type PullRequestView,
+  type RepositorySnapshot,
+  type ReviewCheckCompletion,
+  StaleReviewHead,
+} from './github.ts'
+import {
+  renderDismissalHelp,
+  renderFindingBody,
+  renderReviewBody,
+  renderReviewFailureBody,
+  renderReviewPauseBody,
+  type ReviewCostEstimate,
+  ReviewExclusion,
+  withReviewMarker,
+  withReviewPauseMarker,
+} from './presentation.ts'
+import {
+  makeReviewOpenAi,
+  REVIEW_WEB_SEARCH_MAX_TOOL_CALLS,
+  reviewBaseCostUsd,
+  reviewCostLimitMicrousd,
+  reviewMaxCostUsd,
+  reviewModel,
+  reviewModelPricing,
+  reviewPriority,
+  reviewReasoningEffort,
+  reviewWebSearch,
+} from './review-openai.ts'
+import {
+  dismissalFromCommand,
+  reviewModeFromCommand,
+  type ReviewSelection,
+  selectReview,
+  unresolvedChangeRequests as selectUnresolvedChangeRequests,
+} from './selection.ts'
+
+const MAX_GENERATED_CLASSIFICATIONS = 100
+const MAX_HYDRATED_SOURCE_BYTES = 16_000_000
+
+const ACTION_INPUT_BY_CONFIG: Readonly<Record<string, string>> = {
+  OPENAI_API_KEY: 'INPUT_OPENAI-API-KEY',
+  GITHUB_TOKEN: 'INPUT_GITHUB-TOKEN',
+  PR_REVIEW_DEPENDENCY_SOURCES: 'INPUT_DEPENDENCY-SOURCES',
+  PR_REVIEW_DEPENDENCY_TOKEN: 'INPUT_DEPENDENCY-TOKEN',
+  PR_REVIEW_PULL_REQUEST: 'INPUT_PULL-REQUEST',
+  PR_REVIEW_AUTHOR: 'INPUT_REVIEW-AUTHOR',
+  PR_REVIEW_MODE: 'INPUT_MODE',
+  PR_REVIEW_COMMAND: 'INPUT_COMMAND',
+  PR_REVIEW_COMMENT_ID: 'INPUT_COMMENT-ID',
+  PR_REVIEW_AUTOMATIC_LIMIT: 'INPUT_AUTOMATIC-REVIEW-LIMIT',
+  PR_REVIEW_EXPECTED_HEAD: 'INPUT_EXPECTED-HEAD',
+  PR_REVIEW_MODEL: 'INPUT_MODEL',
+  PR_REVIEW_EFFORT: 'INPUT_EFFORT',
+  PR_REVIEW_WEB_SEARCH: 'INPUT_WEB-SEARCH',
+  PR_REVIEW_PRIORITY: 'INPUT_PRIORITY',
+  PR_REVIEW_MAX_COST_USD: 'INPUT_MAX-COST-USD',
+  PR_REVIEW_BASE_COST_USD: 'INPUT_BASE-COST-USD',
+  PR_REVIEW_GUIDANCE_FILE: 'INPUT_GUIDANCE-FILE',
+  PR_REVIEW_IGNORE: 'INPUT_IGNORE',
+  PR_REVIEW_CHECK_NAME: 'INPUT_CHECK-NAME',
+  PR_REVIEW_CHECKS_TOKEN: 'INPUT_CHECKS-TOKEN',
+}
+
+/** Prefer local environment configuration, then read the matching GitHub Action input. */
+export const withActionInputs = (
+  provider: ConfigProvider.ConfigProvider,
+): ConfigProvider.ConfigProvider =>
+  ConfigProvider.orElse(
+    provider,
+    ConfigProvider.mapInput(provider, (path) =>
+      path.map((segment) =>
+        typeof segment === 'string' ? (ACTION_INPUT_BY_CONFIG[segment] ?? segment) : segment
+      )),
+  )
+
+export class ActionConfigurationError extends Schema.TaggedError<ActionConfigurationError>()(
+  'ActionConfigurationError',
+  { message: Schema.String },
+) {}
+
+export class BlockingFindings extends Schema.TaggedError<BlockingFindings>()('BlockingFindings', {
+  count: Schema.Int,
+}) {}
+
+export class UnresolvedChangeRequests extends Schema.TaggedError<UnresolvedChangeRequests>()(
+  'UnresolvedChangeRequests',
+  { count: Schema.Int },
+) {}
+
+export class IncompleteReview extends Schema.TaggedError<IncompleteReview>()('IncompleteReview', {
+  unreviewedPaths: Schema.Int,
+  summary: Schema.optionalKey(ReviewReport.fields.summary),
+}) {}
+
+export class ReviewAttemptIncomplete extends Schema.TaggedError<ReviewAttemptIncomplete>()(
+  'ReviewAttemptIncomplete',
+  { summary: Schema.optionalKey(ReviewReport.fields.summary) },
+) {}
+
+export class ReviewRequired extends Schema.TaggedError<ReviewRequired>()('ReviewRequired', {}) {}
+
+export class IncrementalScopeUnavailable extends Schema.TaggedError<IncrementalScopeUnavailable>()(
+  'IncrementalScopeUnavailable',
+  {
+    priorMergeBase: Schema.String,
+    currentMergeBase: Schema.String,
+  },
+) {}
+
+const isReviewResult = Schema.is(
+  Schema.Union([
+    BlockingFindings,
+    UnresolvedChangeRequests,
+    IncompleteReview,
+    ReviewAttemptIncomplete,
+    ReviewRequired,
+    IncrementalScopeUnavailable,
+  ]),
+)
+
+const reviewCheckCompletion = (
+  exit: Exit.Exit<unknown, unknown>,
+  selection: ReviewSelection,
+  reviewUrl: string | undefined,
+  failureSummary: string | undefined,
+): ReviewCheckCompletion => {
+  const result = (
+    conclusion: ReviewCheckCompletion['conclusion'],
+    title: string,
+    summary = 'See the linked review. Request @effect-agent review full to review this commit again.',
+  ): ReviewCheckCompletion => ({
+    status: 'completed',
+    conclusion,
+    output: { title, summary },
+    ...(reviewUrl === undefined ? {} : { details_url: reviewUrl }),
+  })
+
+  if (Exit.isFailure(exit)) {
+    if (Cause.hasInterruptsOnly(exit.cause)) {
+      return result(
+        'cancelled',
+        'Review cancelled',
+        'The review was interrupted before it completed. Request another review to retry.',
+      )
+    }
+    if (!Cause.hasDies(exit.cause)) {
+      for (const reason of exit.cause.reasons) {
+        if (!Cause.isFailReason(reason)) continue
+        const error = reason.error
+
+        if (isReviewResult(error)) {
+          switch (error._tag) {
+            case 'BlockingFindings':
+              return result(
+                'failure',
+                `${String(error.count)} blocking finding(s)`,
+                renderDismissalHelp(reviewUrl),
+              )
+            case 'UnresolvedChangeRequests':
+              return result(
+                'failure',
+                `${String(error.count)} earlier change request(s) unresolved`,
+                renderDismissalHelp(),
+              )
+            case 'IncompleteReview':
+            case 'ReviewAttemptIncomplete':
+              return result(
+                'failure',
+                'Review incomplete',
+                error.summary === undefined
+                  ? undefined
+                  : `${error.summary}\n\nRequest @effect-agent review full after addressing this cause.`,
+              )
+            case 'IncrementalScopeUnavailable':
+              return result('action_required', 'Full review required')
+            case 'ReviewRequired':
+              return result('action_required', 'Review required')
+          }
+        }
+        if (Schema.is(StaleReviewHead)(error)) {
+          return result(
+            'cancelled',
+            'Pull request changed during review',
+            'This attempt reviewed an older commit. The new commit needs its own review.',
+          )
+        }
+      }
+    }
+
+    return result(
+      'failure',
+      'Review execution failed',
+      `${
+        failureSummary ?? 'The review could not finish.'
+      } See the workflow logs for diagnostics and request another review to retry.`,
+    )
+  }
+  if (selection._tag === 'skip' && selection.reason === 'generated-changeset-release') {
+    return result(
+      'success',
+      'Generated Changesets release',
+      'Only package versions, consumed changesets, and configured ignored files changed. No model review was needed.',
+    )
+  }
+  if (selection._tag !== 'review' && selection.reason !== 'head-already-reviewed') {
+    return result('action_required', 'Review required')
+  }
+
+  return result(
+    'success',
+    selection._tag === 'reconcile' ? 'Review status refreshed' : 'Review complete',
+    selection._tag === 'reconcile'
+      ? 'This commit has a completed review and no unresolved blocking findings. No new model review was run.'
+      : 'The reviewed commit has no unresolved blocking findings.',
+  )
+}
+
+export const reviewPublicationFailure = (input: {
+  readonly blockingFindings: number
+  readonly unreviewedPaths: number
+  readonly unresolvedChangeRequests: number
+  readonly exhausted?: ReviewOutcome['exhausted']
+  readonly incomplete?: boolean
+  readonly summary?: string
+}):
+  | BlockingFindings
+  | IncompleteReview
+  | UnresolvedChangeRequests
+  | ReviewAttemptIncomplete
+  | undefined =>
+{
+  if (input.blockingFindings > 0) return BlockingFindings.make({ count: input.blockingFindings })
+  if (input.unreviewedPaths > 0) {
+    return IncompleteReview.make({
+      unreviewedPaths: input.unreviewedPaths,
+      ...(input.summary === undefined ? {} : { summary: input.summary }),
+    })
+  }
+  if (input.exhausted !== undefined || input.incomplete === true) {
+    return ReviewAttemptIncomplete.make(
+      input.summary === undefined ? {} : { summary: input.summary },
+    )
+  }
+  if (input.unresolvedChangeRequests > 0) {
+    return UnresolvedChangeRequests.make({ count: input.unresolvedChangeRequests })
+  }
+
+  return undefined
+}
+
+const writeOutputs = Effect.fnUntraced(function*(
+  entries: ReadonlyArray<readonly [string, string | number]>,
+) {
+  const outputPath = yield* Config.String('GITHUB_OUTPUT').pipe(Config.withDefault(''))
+
+  if (outputPath.length === 0) return
+  const fs = yield* FileSystem.FileSystem
+
+  yield* fs.writeFileString(
+    outputPath,
+    `${entries.map(([key, value]) => `${key}=${String(value)}`).join('\n')}\n`,
+    { flag: 'a' },
+  )
+})
+
+/** Count stale attempts only against the inspected commit, without publishing their findings. */
+export const publishHeadBoundReview = (
+  publish: Effect.Effect<string, GitHubApiFailure | StaleReviewHead>,
+  staleAttempt: {
+    readonly publish: (input: {
+      readonly commitId: string
+      readonly body: string
+    }) => Effect.Effect<string, GitHubApiFailure>
+    readonly automatic: boolean
+    readonly failureSummary?: string | undefined
+  },
+) =>
+  publish.pipe(
+    Effect.tapErrorTag(
+      'StaleReviewHead',
+      Effect.fnUntraced(function*(failure) {
+        yield* Console.log(
+          `PR review publication stopped: inspected ${failure.inspectedHead}, current head ${failure.currentHead}. Recording an incomplete attempt on the inspected commit only.`,
+        )
+
+        const reviewUrl = yield* staleAttempt.publish({
+          commitId: failure.inspectedHead,
+          body: withReviewMarker(
+            [
+              '## Effect Agent review',
+              '> [!CAUTION]\n> This attempt is incomplete because the pull request moved to a newer commit.',
+              staleAttempt.failureSummary ?? 'No findings were published from this attempt.',
+              'This notice records the attempt on the inspected commit. The newer commit still needs its own review.',
+            ].join('\n\n'),
+            staleAttempt.automatic,
+            false,
+          ),
+        })
+
+        yield* writeOutputs([
+          ['skipped', 'false'],
+          ['reason', 'stale-review-head'],
+          ['review-url', reviewUrl],
+        ])
+      }),
+    ),
+  )
+
+const skip = Effect.fnUntraced(function*(
+  reason: string,
+  reviewUrl?: string,
+  unresolvedChangeRequests = 0,
+) {
+  yield* Console.log(
+    reviewUrl === undefined ? `PR review skipped: ${reason}` : `Posted PR review: ${reviewUrl}`,
+  )
+  yield* writeOutputs([
+    ['skipped', 'true'],
+    ['reason', reason],
+    ['input-tokens', 0],
+    ['uncached-input-tokens', 0],
+    ['cached-input-tokens', 0],
+    ['cache-write-input-tokens', 0],
+    ['output-tokens', 0],
+    ['estimated-cost-usd', '0.000000'],
+    ['reserved-cost-usd', '0.000000'],
+    ['cost-limit-usd', '0.000000'],
+    ['blocking-findings', 0],
+    ['unresolved-change-requests', unresolvedChangeRequests],
+    ...(reviewUrl === undefined ? [] : [['review-url', reviewUrl] as const]),
+  ])
+})
+
+const matchesIgnore = (path: string, rawPattern: string): boolean => {
+  const pattern = rawPattern.trim().replace(/^\.\//, '')
+
+  if (pattern.length === 0) return false
+  if (path === pattern) return true
+  if (pattern.endsWith('/**')) {
+    const prefix = pattern.slice(0, -3).replace(/\/$/, '')
+
+    return path === prefix || path.startsWith(`${prefix}/`)
+  }
+  const nested = pattern.indexOf('/**/')
+
+  if (nested > 0) {
+    const prefix = pattern.slice(0, nested)
+    const suffix = pattern.slice(nested + 4)
+
+    return (
+      suffix.length > 0 &&
+      !prefix.includes('*') &&
+      !suffix.includes('*') &&
+      path.startsWith(`${prefix}/`) &&
+      path.endsWith(`/${suffix}`)
+    )
+  }
+  if (pattern.startsWith('**/')) {
+    const suffix = pattern.slice(3)
+
+    return suffix.startsWith('*.')
+      ? path.endsWith(suffix.slice(1))
+      : path === suffix || path.endsWith(`/${suffix}`)
+  }
+
+  return false
+}
+
+const ReleaseManifest = Schema.fromJsonString(
+  Schema.Struct({
+    version: Schema.String.check(
+      Schema.isPattern(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/),
+    ),
+  }),
+)
+
+/**
+ * Recognize release metadata from complete immutable trees, independently of
+ * the review quota. Only the root version value may change in a manifest;
+ * archived changesets must retain their original blob. Configured ignores
+ * keep their usual meaning. Unknown paths, modes or formats need review.
+ */
+const isGeneratedChangesetRelease = Effect.fnUntraced(
+  function*(pull: PullRequestView, ignore: ReadonlyArray<string>) {
+    const github = yield* GitHubClient
+    const mergeBase = yield* github.getMergeBase(pull.baseRevision, pull.headRevision)
+    const { base, head, changedPaths } = yield* github.compareTrees(mergeBase, pull.headRevision)
+
+    if (
+      base.entry('.changeset/config.json')?.mode !== '100644' ||
+      changedPaths.length > MAX_GENERATED_CLASSIFICATIONS
+    ) {
+      return false
+    }
+    let versionChanged = false
+    let changesetConsumed = false
+    let bytes = 0
+
+    for (const path of changedPaths) {
+      if (ignore.some((pattern) => matchesIgnore(path, pattern))) continue
+      const before = base.entry(path)
+      const after = head.entry(path)
+
+      if (
+        (before !== undefined && before.mode !== '100644') ||
+        (after !== undefined && after.mode !== '100644')
+      ) {
+        return false
+      }
+
+      if (/(^|\/)package\.json$/.test(path) && before !== undefined && after !== undefined) {
+        bytes += (before.size ?? MAX_HYDRATED_SOURCE_BYTES) + (after.size ?? MAX_HYDRATED_SOURCE_BYTES)
+        if (bytes > MAX_HYDRATED_SOURCE_BYTES) return false
+
+        const [oldText, newText] = yield* Effect.all(
+          [base.readTextFile(path), head.readTextFile(path)],
+          { concurrency: 2 },
+        )
+
+        const oldManifest = Schema.decodeOption(ReleaseManifest)(oldText)
+        const newManifest = Schema.decodeOption(ReleaseManifest)(newText)
+
+        if (
+          Option.isNone(oldManifest) ||
+          Option.isNone(newManifest) ||
+          oldManifest.value.version === newManifest.value.version ||
+          oldText.replace(
+              /("version"\s*:\s*)"(?:[^"\\]|\\.)*"/,
+              `$1"${newManifest.value.version}"`,
+            ) !== newText
+        ) {
+          return false
+        }
+        versionChanged = true
+      } else if (
+        /^\.changeset\/(?!README\.md$)[^/]+\.md$/.test(path) &&
+        before !== undefined &&
+        after === undefined
+      ) {
+        changesetConsumed = true
+      } else if (
+        /^\.changeset\/pre\/[^/]+\.md$/.test(path) &&
+        before === undefined &&
+        after !== undefined
+      ) {
+        const source = path.replace('.changeset/pre/', '.changeset/')
+
+        if (
+          base.entry(source)?.mode !== '100644' ||
+          base.entry(source)?.sha !== after.sha ||
+          head.entry(source) !== undefined
+        ) {
+          return false
+        }
+      } else return false
+    }
+
+    return versionChanged && changesetConsumed
+  },
+  Effect.catchTags({
+    BinaryBlob: () => Effect.succeed(false),
+    GitHubApiFailure: (error) =>
+      Effect.logWarning('Release classification unavailable; applying normal review policy', {
+        operation: error.operation,
+      }).pipe(Effect.as(false)),
+  }),
+)
+
+// Spend limited review capacity on implementation and configuration before prose
+// and documentation assets. Preserve alphabetical order within each group.
+const documentationPath = (path: string): boolean =>
+  /(^|\/)(docs?|\.changeset)(\/|$)|\.(md|mdx|rst|txt|adoc)$/i.test(path)
+
+/** The host classifies paths at a trusted revision, never at a PR-controlled head. */
+export class GeneratedFileClassification extends Context.Service<
+  GeneratedFileClassification,
+  { readonly isGenerated: (path: string) => Effect.Effect<boolean, GitHubApiFailure> }
+>()('@effect-agent/pr-review-action/GeneratedFileClassification') {}
+
+/** Hydrate exact patches in implementation-first order for one navigable review. */
+export const hydrateExactChanges = Effect.fnUntraced(function*(input: {
+  readonly files: ReadonlyArray<ChangedFile>
+  readonly changedPaths: ReadonlyArray<string>
+  readonly base: RepositorySnapshot
+  readonly head: RepositorySnapshot
+  readonly ignore: ReadonlyArray<string>
+}) {
+  const classification = yield* GeneratedFileClassification
+  const metadata = new Map(input.files.map((file) => [file.path, file] as const))
+  const activeRenames = new Map<string, ChangedFile>()
+
+  for (const file of input.files) {
+    const previousPath = file.previousPath
+
+    if (
+      file.status === 'renamed' &&
+      previousPath !== undefined &&
+      // A rename across binary/text formats is a textual addition or deletion,
+      // not one ignored change. Leave its two tree paths as separate candidates.
+      (isBinaryAssetPath(previousPath) === isBinaryAssetPath(file.path) ||
+        [previousPath, file.path].some((path) => input.ignore.some((pattern) => matchesIgnore(path, pattern)))) &&
+      input.base.entry(previousPath) !== undefined &&
+      input.base.entry(file.path) === undefined &&
+      input.head.entry(previousPath) === undefined &&
+      input.head.entry(file.path) !== undefined
+    ) {
+      activeRenames.set(previousPath, file)
+      activeRenames.set(file.path, file)
+    }
+  }
+  const candidates = new Map<string, { readonly file: ChangedFile; readonly basePath: string }>()
+
+  for (const changedPath of [...new Set(input.changedPaths)].sort()) {
+    const renamed = activeRenames.get(changedPath)
+    const path = renamed?.path ?? changedPath
+
+    const file = renamed ??
+      metadata.get(path) ??
+      ({
+        path,
+        status: 'modified',
+        additions: 0,
+        deletions: 0,
+        patch: undefined,
+      } satisfies ChangedFile)
+
+    candidates.set(path, { file, basePath: renamed?.previousPath ?? path })
+  }
+
+  const changes: Array<ReviewChange> = []
+  const unreviewedPaths: Array<string> = []
+  const ignoredPaths: Array<string> = []
+  const exclusions: Array<ReviewExclusion> = []
+  const generatedContent: Array<GeneratedContentOmission> = []
+  const unavailablePaths = new Set<string>()
+
+  const exclude = (
+    paths: Array<string>,
+    file: ChangedFile,
+    basePath: string,
+    reason?: ReviewExclusion['reason'],
+  ) => {
+    paths.push(file.path)
+    if (reason !== undefined) exclusions.push(ReviewExclusion.make({ path: file.path, reason }))
+    // Input capacity does not revoke source access. Ignore rules and genuinely
+    // unreadable entries still exclude both sides of a rename from source tools.
+    if (reason === undefined || reason === 'unsupported-entry' || reason === 'source-read-failed') {
+      unavailablePaths.add(file.path).add(basePath)
+    }
+  }
+
+  let admittedPaths = 0
+  let classificationAttempts = 0
+  let hydratedSourceBytes = 0
+  let patchCharacters = 0
+
+  for (
+    const { file, basePath } of [...candidates.values()].sort(
+      (left, right) =>
+        Number(documentationPath(left.file.path)) - Number(documentationPath(right.file.path)) ||
+        (left.file.path < right.file.path ? -1 : left.file.path > right.file.path ? 1 : 0),
+    )
+  ) {
+    const beforeEntry = input.base.entry(basePath)
+    const afterEntry = input.head.entry(file.path)
+    const hasSymlink = beforeEntry?.mode === '120000' || afterEntry?.mode === '120000'
+
+    const ignored = [file.path, ...(basePath === file.path ? [] : [basePath])].some(
+      (path) =>
+        (!hasSymlink && isBinaryAssetPath(path)) ||
+        input.ignore.some((pattern) => matchesIgnore(path, pattern)),
+    )
+
+    if (ignored) {
+      exclude(ignoredPaths, file, basePath)
+      continue
+    }
+    if (file.path.length > 512 || admittedPaths >= MAX_REVIEW_FILES) {
+      exclude(
+        unreviewedPaths,
+        file,
+        basePath,
+        file.path.length > 512 ? 'path-limit' : 'file-limit',
+      )
+      continue
+    }
+    if (
+      (beforeEntry !== undefined && beforeEntry.type !== 'blob') ||
+      (afterEntry !== undefined && afterEntry.type !== 'blob')
+    ) {
+      exclude(unreviewedPaths, file, basePath, 'unsupported-entry')
+      continue
+    }
+    if (
+      basePath === file.path &&
+      !hasSymlink &&
+      beforeEntry !== undefined &&
+      (afterEntry === undefined || beforeEntry.mode === afterEntry.mode) &&
+      classificationAttempts < MAX_GENERATED_CLASSIFICATIONS
+    ) {
+      classificationAttempts += 1
+      if (yield* classification.isGenerated(file.path)) {
+        exclude(ignoredPaths, file, basePath)
+        continue
+      }
+    }
+
+    const sourceSizesKnown = (beforeEntry === undefined || beforeEntry.size !== undefined) &&
+      (afterEntry === undefined || afterEntry.size !== undefined)
+
+    const estimatedSourceBytes = (beforeEntry?.size ?? 0) + (afterEntry?.size ?? 0)
+
+    if (
+      hydratedSourceBytes >= MAX_HYDRATED_SOURCE_BYTES ||
+      (sourceSizesKnown && hydratedSourceBytes + estimatedSourceBytes > MAX_HYDRATED_SOURCE_BYTES)
+    ) {
+      exclude(unreviewedPaths, file, basePath, 'source-limit')
+      continue
+    }
+
+    const readBefore = beforeEntry === undefined
+      ? Effect.succeed('')
+      : input.base.readTextFile(basePath).pipe(Effect.catchTag('BinaryBlob', () => Effect.void))
+
+    const readAfter = afterEntry === undefined
+      ? Effect.succeed('')
+      : input.head.readTextFile(file.path).pipe(Effect.catchTag('BinaryBlob', () => Effect.void))
+
+    const contents = yield* Effect.all(
+      { before: readBefore, after: readAfter },
+      { concurrency: 2 },
+    ).pipe(Effect.result)
+
+    if (Result.isFailure(contents)) {
+      yield* Effect.logWarning('Review source read failed', {
+        path: file.path,
+        basePath,
+        baseRevision: input.base.revision,
+        headRevision: input.head.revision,
+        operation: contents.failure.operation,
+        reason: contents.failure.reason,
+        attempts: contents.failure.attempts,
+        status: contents.failure.status,
+        requestId: contents.failure.requestId,
+      })
+      hydratedSourceBytes += estimatedSourceBytes
+      exclude(unreviewedPaths, file, basePath, 'source-read-failed')
+      continue
+    }
+    // Both reads have settled, so a binary side cannot hide a real read failure.
+    // Preserve any textual side as an addition/deletion instead of dropping it.
+    const beforeBinary = contents.success.before === undefined
+    const afterBinary = contents.success.after === undefined
+
+    if (
+      (beforeBinary || afterBinary) &&
+      (beforeBinary || beforeEntry === undefined) &&
+      (afterBinary || afterEntry === undefined)
+    ) {
+      hydratedSourceBytes += estimatedSourceBytes
+      exclude(ignoredPaths, file, basePath)
+      continue
+    }
+    const before = contents.success.before ?? ''
+    const after = contents.success.after ?? ''
+    const path = afterBinary ? basePath : file.path
+
+    if (basePath !== file.path) {
+      if (beforeBinary) unavailablePaths.add(basePath)
+      if (afterBinary) unavailablePaths.add(file.path)
+    }
+    hydratedSourceBytes += sourceSizesKnown ? estimatedSourceBytes : before.length + after.length
+    if (hydratedSourceBytes > MAX_HYDRATED_SOURCE_BYTES) {
+      exclude(unreviewedPaths, file, basePath, 'source-limit')
+      continue
+    }
+
+    // Snapshot reads fetch the committed blob by SHA. For a symlink this is
+    // its target text, never the contents of the target path.
+    const modeChanged = !beforeBinary &&
+      !afterBinary &&
+      beforeEntry !== undefined &&
+      afterEntry !== undefined &&
+      beforeEntry.mode !== afterEntry.mode
+
+    const headers: Array<string> = []
+
+    if (modeChanged) {
+      headers.push(`old mode ${beforeEntry.mode}`, `new mode ${afterEntry.mode}`)
+    } else if (hasSymlink) {
+      if (beforeEntry === undefined || beforeBinary) headers.push('new file mode 120000')
+      else if (afterEntry === undefined || afterBinary) headers.push('deleted file mode 120000')
+      else headers.push(`index ${beforeEntry.sha}..${afterEntry.sha} 120000`)
+    }
+    if (basePath !== file.path && !beforeBinary && !afterBinary) {
+      headers.push(`rename from ${basePath}`, `rename to ${file.path}`)
+    }
+
+    const patch = modeChanged && before === after
+      ? ''
+      : makeExactPatch({
+        path,
+        basePath: beforeBinary || afterBinary ? path : basePath,
+        headPath: path,
+        baseRevision: input.base.revision,
+        headRevision: input.head.revision,
+        before,
+        after,
+      })
+
+    const originalPatch = patch !== undefined && headers.length > 0
+      ? [
+        `diff --git a/${beforeBinary || afterBinary ? path : basePath} b/${path}`,
+        ...headers,
+        ...(patch === '' ? [] : [patch]),
+      ].join('\n')
+      : patch
+
+    const filtered = originalPatch === undefined
+      ? undefined
+      : omitGeneratedSourceMaps({
+        path,
+        basePath,
+        before,
+        after,
+        patch: originalPatch,
+      })
+
+    const exactPatch = filtered?.patch
+
+    if (
+      path.length > 512 ||
+      exactPatch === undefined ||
+      exactPatch.length === 0 ||
+      exactPatch.length > MAX_REVIEW_PATCH_CHARS
+    ) {
+      exclude(
+        unreviewedPaths,
+        file,
+        basePath,
+        path.length > 512
+          ? 'path-limit'
+          : exactPatch !== undefined && exactPatch.length > MAX_REVIEW_PATCH_CHARS
+          ? 'patch-limit'
+          : 'patch-unavailable',
+      )
+      continue
+    }
+    if (patchCharacters + exactPatch.length > MAX_REVIEW_TOTAL_PATCH_CHARS) {
+      exclude(unreviewedPaths, file, basePath, 'patch-total-limit')
+      continue
+    }
+    changes.push(ReviewChange.make({ path, patch: exactPatch }))
+    if (filtered?.omission !== undefined) generatedContent.push(filtered.omission)
+    admittedPaths += 1
+    patchCharacters += exactPatch.length
+  }
+
+  return { changes, unreviewedPaths, ignoredPaths, unavailablePaths, exclusions, generatedContent }
+})
+
+const reviewContextFailure = (message: string): ReviewContextError => ReviewContextError.make({ message })
+
+type ReviewReadFileInput = Parameters<ReviewRepository['Service']['readFile']>[0]
+type ReviewFindFilesInput = Parameters<ReviewRepository['Service']['findFiles']>[0]
+type ReviewSearchCodeInput = Parameters<ReviewRepository['Service']['searchCode']>[0]
+
+/** Bind model context reads to the exact verified base and head trees. */
+export const makeReviewRepository = (input: {
+  readonly base: RepositorySnapshot
+  readonly head: RepositorySnapshot
+  readonly ignore: ReadonlyArray<string>
+  readonly unavailablePaths: ReadonlySet<string>
+  readonly dependencies?: ReadonlyArray<DependencySnapshot>
+}): ReviewRepository['Service'] => {
+  const snapshot = (request: { readonly revision: 'base' | 'head'; readonly source?: string }) => {
+    if (request.source === undefined) {
+      return Effect.succeed(request.revision === 'base' ? input.base : input.head)
+    }
+
+    const dependency = input.dependencies?.find(
+      ({ scope }) => scope.source === request.source && scope.revision === request.revision,
+    )
+
+    return dependency?.snapshot === undefined
+      ? Effect.fail(
+        reviewContextFailure(
+          'Dependency source is unavailable. Consult list_sources once; do not retry guessed paths or public searches for private source.',
+        ),
+      )
+      : Effect.succeed(dependency.snapshot)
+  }
+
+  const outsideScope = (path: string, source?: string) =>
+    path
+      .split('/')
+      .some((part) => part === '' || part === '.' || part === '..' || part === 'node_modules') ||
+    path.includes('\\') ||
+    isBinaryAssetPath(path) ||
+    (source === undefined &&
+      (input.unavailablePaths.has(path) ||
+        input.ignore.some((pattern) => matchesIgnore(path, pattern))))
+
+  const isReadableEntry = (entry: ReturnType<RepositorySnapshot['entry']>) =>
+    entry?.type === 'blob' && entry.mode !== '120000'
+
+  const readFile = Effect.fnUntraced(function*(request: ReviewReadFileInput) {
+    if (outsideScope(request.path, request.source)) {
+      return yield* reviewContextFailure(
+        "The requested path is outside this review's source scope.",
+      )
+    }
+    const selected = yield* snapshot(request)
+
+    if (!isReadableEntry(selected.entry(request.path))) {
+      return yield* reviewContextFailure(
+        'Text source is unavailable for the requested path and revision.',
+      )
+    }
+
+    const content = yield* selected
+      .readTextFile(request.path)
+      .pipe(
+        Effect.mapError(() =>
+          reviewContextFailure(
+            'Text source could not be read for the requested path and revision.',
+          )
+        ),
+      )
+
+    return yield* ReviewSource.fromText(request, content)
+  })
+
+  const findFiles = Effect.fnUntraced(function*(request: ReviewFindFilesInput) {
+    const selected = yield* snapshot(request)
+
+    const matches = selected.paths
+      .filter(
+        (path) =>
+          path.length <= 512 &&
+          !outsideScope(path, request.source) &&
+          isReadableEntry(selected.entry(path)) &&
+          path.includes(request.query),
+      )
+      .sort()
+
+    return ReviewFileList.make({ paths: matches.slice(0, 100), truncated: matches.length > 100 })
+  })
+
+  const searchCode = Effect.fnUntraced(function*(request: ReviewSearchCodeInput) {
+    const selected = yield* snapshot(request)
+
+    const paths = selected.paths
+      .filter(
+        (path) =>
+          path.length <= 512 &&
+          !outsideScope(path, request.source) &&
+          isReadableEntry(selected.entry(path)) &&
+          path.includes(request.path),
+      )
+      .sort()
+
+    const page = paths.slice(request.cursor, request.cursor + 20)
+
+    const sources = yield* Effect.forEach(
+      page,
+      (path) => selected.readTextFile(path).pipe(Effect.result),
+      { concurrency: 4 },
+    )
+
+    const matches: Array<ReviewSearchMatch> = []
+    const unreadablePaths: Array<string> = []
+    let truncated = false
+
+    for (const [index, path] of page.entries()) {
+      const source = sources[index]
+
+      if (source === undefined || Result.isFailure(source)) {
+        unreadablePaths.push(path)
+        continue
+      }
+      let matchedLines = 0
+
+      for (const [lineIndex, line] of source.success.split('\n').entries()) {
+        const position = line.indexOf(request.query)
+
+        if (position < 0) continue
+        if (matchedLines === 5) {
+          truncated = true
+          break
+        }
+        matches.push(
+          ReviewSearchMatch.make({
+            path,
+            line: lineIndex + 1,
+            content: line.slice(position, position + 200),
+          }),
+        )
+        matchedLines += 1
+      }
+    }
+
+    const nextCursor = request.cursor + page.length
+
+    return ReviewSearchResult.make({
+      matches,
+      ...(nextCursor < paths.length ? { nextCursor } : {}),
+      truncated,
+      unreadablePaths,
+    })
+  })
+
+  return ReviewRepository.of({
+    dependencySources: input.dependencies?.map(({ scope }) => scope) ?? [],
+    readFile,
+    findFiles,
+    searchCode,
+  })
+}
+
+export const reviewEventFor = (blockingFindings: number): 'COMMENT' | 'REQUEST_CHANGES' =>
+  blockingFindings > 0 ? 'REQUEST_CHANGES' : 'COMMENT'
+
+const reanchorToFullPullRequest = (
+  files: ReadonlyArray<ChangedFile>,
+  report: ReviewReport,
+): ReviewReport => {
+  const patches = new Map(files.map((file) => [file.path, file.patch] as const))
+
+  return ReviewReport.make({
+    summary: report.summary,
+    findings: report.findings.flatMap((finding) => {
+      const patch = patches.get(finding.path)
+
+      const line = finding.line !== undefined && patch !== undefined && isCommentableLine(patch, finding.line)
+        ? finding.line
+        : undefined
+
+      return [
+        ReviewFinding.make({
+          path: finding.path,
+          ...(line === undefined ? {} : { line }),
+          severity: finding.severity,
+          category: finding.category,
+          title: finding.title,
+          body: finding.body,
+        }),
+      ]
+    }),
+  })
+}
+
+const prepareReview = Effect.gen(function*() {
+  const repository = yield* Config.NonEmptyString('GITHUB_REPOSITORY')
+
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository)) {
+    return yield* ActionConfigurationError.make({
+      message: `Invalid GITHUB_REPOSITORY: ${repository}`,
+    })
+  }
+
+  const pullRequestNumber = yield* Config.schema(
+    Schema.Int.check(Schema.isGreaterThan(0)),
+    'PR_REVIEW_PULL_REQUEST',
+  )
+
+  const token = yield* Config.Redacted('GITHUB_TOKEN')
+
+  const dependencyConfiguration = yield* Config.String('PR_REVIEW_DEPENDENCY_SOURCES').pipe(
+    Config.withDefault('[]'),
+    Effect.flatMap(Schema.decodeEffect(Schema.fromJsonString(DependencySources))),
+    Effect.mapError(() =>
+      ActionConfigurationError.make({
+        message:
+          'Invalid dependency-sources: supply at most eight unique aliases, owner/repository names and allowlisted full 40-character lowercase commit SHAs.',
+      })
+    ),
+  )
+
+  if (
+    new Set(dependencyConfiguration.map(({ alias }) => alias)).size !==
+      dependencyConfiguration.length
+  ) {
+    return yield* ActionConfigurationError.make({
+      message: 'dependency-sources aliases must be unique.',
+    })
+  }
+
+  const dependencyToken = yield* Config.Redacted('PR_REVIEW_DEPENDENCY_TOKEN').pipe(
+    Config.option,
+    Effect.map(Option.filter((value) => Redacted.value(value).length > 0)),
+  )
+
+  const reviewAuthor = yield* Config.NonEmptyString('PR_REVIEW_AUTHOR').pipe(
+    Config.withDefault('github-actions[bot]'),
+  )
+
+  const configuredMode = yield* Config.Literals(
+    ['auto', 'incremental', 'full'],
+    'PR_REVIEW_MODE',
+  ).pipe(Config.withDefault('auto'))
+
+  const command = yield* Config.String('PR_REVIEW_COMMAND').pipe(Config.withDefault(''))
+  const dismissal = dismissalFromCommand(command)
+
+  const mode = dismissal !== undefined
+    ? 'reconcile'
+    : command.trim().length === 0
+    ? configuredMode
+    : reviewModeFromCommand(command)
+
+  if (mode === undefined) {
+    if (/^@effect-agent[ \t]+dismiss(?:\s|$)/i.test(command.trimStart())) {
+      return yield* ActionConfigurationError.make({
+        message:
+          'Use @effect-agent dismiss <review-id-or-url> on the first line and a reason (1–1000 characters) on subsequent lines.',
+      })
+    }
+
+    return yield* skip('unsupported-review-command')
+  }
+
+  const commentId = yield* Config.schema(Schema.Natural, 'PR_REVIEW_COMMENT_ID').pipe(
+    Config.withDefault(0),
+  )
+
+  if (command.trim().length > 0 && commentId === 0) {
+    return yield* ActionConfigurationError.make({
+      message: 'comment-id is required for a manual review command',
+    })
+  }
+
+  const automaticReviewLimit = yield* Config.schema(
+    Schema.Natural,
+    'PR_REVIEW_AUTOMATIC_LIMIT',
+  ).pipe(Config.withDefault(2))
+
+  const expectedHead = yield* Config.String('PR_REVIEW_EXPECTED_HEAD').pipe(Config.withDefault(''))
+
+  const modelName = yield* reviewModel
+  const effort = yield* reviewReasoningEffort
+  const webSearch = yield* reviewWebSearch
+  const priority = yield* reviewPriority
+
+  const maxCostUsd = yield* reviewMaxCostUsd
+  const baseCostUsd = yield* reviewBaseCostUsd
+
+  const guidanceFile = yield* Config.String('PR_REVIEW_GUIDANCE_FILE').pipe(Config.withDefault(''))
+
+  const ignore = (yield* Config.String('PR_REVIEW_IGNORE').pipe(Config.withDefault('')))
+    .split(',')
+    .map((pattern) => pattern.trim())
+    .filter((pattern) => pattern.length > 0)
+
+  const apiUrl = yield* Config.NonEmptyString('GITHUB_API_URL').pipe(
+    Config.withDefault('https://api.github.com'),
+  )
+
+  const graphqlUrl = yield* Config.NonEmptyString('GITHUB_GRAPHQL_URL').pipe(Config.option)
+
+  const checkName = yield* Config.schema(
+    Schema.String.check(Schema.isMaxLength(100)),
+    'PR_REVIEW_CHECK_NAME',
+  ).pipe(Config.withDefault(''))
+
+  const checksToken = checkName.length === 0
+    ? undefined
+    : Option.getOrUndefined(yield* Config.Redacted('PR_REVIEW_CHECKS_TOKEN').pipe(Config.option))
+
+  const github = yield* makeGitHubClient({
+    repository,
+    pullRequest: pullRequestNumber,
+    token,
+    checksToken,
+    apiUrl,
+    graphqlUrl: Option.getOrUndefined(graphqlUrl),
+  })
+
+  if (commentId > 0) yield* github.acknowledgeComment(commentId)
+  const pull = yield* github.getPullRequest
+
+  if (pull.draft) return yield* skip('draft-pull-request')
+  if (expectedHead.length > 0 && pull.headRevision !== expectedHead) {
+    return yield* skip('stale-event-head')
+  }
+
+  let history = yield* github.listReviews
+
+  if (dismissal !== undefined) {
+    const review = history.find(({ id }) => id === dismissal.reviewId)
+
+    if (
+      review === undefined ||
+      (dismissal.reviewUrl !== undefined &&
+        dismissal.reviewUrl !== `${pull.url}#pullrequestreview-${String(review.id)}`)
+    ) {
+      return yield* ActionConfigurationError.make({
+        message: 'The dismissal must link to a review on this pull request.',
+      })
+    }
+    yield* github
+      .dismissReview({
+        review,
+        reviewAuthor,
+        commitId: pull.headRevision,
+        decision: { _tag: 'maintainer', commentId, command, reason: dismissal.reason },
+      })
+      .pipe(
+        Effect.tapErrorTag(
+          'GitHubApiFailure',
+          (error) => Effect.logError('Review dismissal failed', { operation: error.operation }),
+        ),
+      )
+    history = yield* github.listReviews
+    const current = yield* github.getPullRequest
+
+    if (current.headRevision !== pull.headRevision) {
+      return yield* StaleReviewHead.make({
+        inspectedHead: pull.headRevision,
+        currentHead: current.headRevision,
+      })
+    }
+    yield* Effect.logInfo('Review dismissal accepted; refreshing status', {
+      reviewId: review.id,
+      headRevision: pull.headRevision,
+    })
+  }
+
+  const generatedRelease = mode === 'auto' &&
+    pull.changesetReleaseCandidate &&
+    selectUnresolvedChangeRequests({ reviewAuthor, history }).length === 0 &&
+    (yield* isGeneratedChangesetRelease(pull, ignore).pipe(
+      Effect.provideService(GitHubClient, github),
+    ))
+
+  const selection: ReviewSelection = generatedRelease
+    ? { _tag: 'skip', reason: 'generated-changeset-release' }
+    : selectReview({
+      mode,
+      currentHead: pull.headRevision,
+      reviewAuthor,
+      automaticReviewLimit,
+      history,
+    })
+
+  return {
+    repository,
+    checkName,
+    github,
+    pull,
+    selection,
+    reviewAuthor,
+    history,
+    modelName,
+    effort,
+    webSearch,
+    priority,
+    maxCostUsd,
+    baseCostUsd,
+    guidanceFile,
+    ignore,
+    dependencyConfiguration,
+    dependencyToken: Option.getOrElse(dependencyToken, () => token),
+    apiUrl,
+  }
+})
+
+const reviewPullRequest = Effect.fnUntraced(function*(
+  prepared: Omit<Exclude<Effect.Success<typeof prepareReview>, void>, 'github'>,
+  publication: { url?: string; failureSummary?: string },
+) {
+  const github = yield* GitHubClient
+
+  const {
+    pull,
+    selection,
+    reviewAuthor,
+    history,
+    modelName,
+    effort,
+    webSearch,
+    priority,
+    maxCostUsd,
+    baseCostUsd,
+    guidanceFile,
+    ignore,
+    dependencyConfiguration,
+    dependencyToken,
+    apiUrl,
+  } = prepared
+
+  let unresolvedReviews = selectUnresolvedChangeRequests({ reviewAuthor, history })
+
+  if (selection._tag === 'skip' || selection._tag === 'reconcile') {
+    if (selection.reason === 'generated-changeset-release') {
+      const current = yield* github.getPullRequest
+
+      if (current.headRevision !== pull.headRevision) {
+        return yield* StaleReviewHead.make({
+          inspectedHead: pull.headRevision,
+          currentHead: current.headRevision,
+        })
+      }
+      if (!current.changesetReleaseCandidate) return yield* ReviewRequired.make({})
+    }
+    yield* skip(selection.reason, undefined, unresolvedReviews.length)
+    if (selection.reason === 'head-review-incomplete') {
+      return yield* ReviewAttemptIncomplete.make({})
+    }
+    if (selection.reason === 'head-not-reviewed') {
+      return yield* ReviewRequired.make({})
+    }
+    if (unresolvedReviews.length > 0) {
+      return yield* UnresolvedChangeRequests.make({ count: unresolvedReviews.length })
+    }
+
+    return
+  }
+  if (selection._tag === 'pause') {
+    const reviewUrl = yield* github.publishReview({
+      commitId: pull.headRevision,
+      event: 'COMMENT',
+      body: withReviewPauseMarker(
+        renderReviewPauseBody({
+          automaticReviewLimit: selection.automaticReviewLimit,
+          automaticAttempts: selection.automaticAttempts,
+          lastCompletedRevision: selection.lastCompletedRevision,
+          headRevision: pull.headRevision,
+          unresolvedChangeRequests: unresolvedReviews.length,
+          priorReviews: { pullRequestUrl: pull.url, reviews: unresolvedReviews },
+        }),
+        selection.automaticReviewLimit,
+      ),
+      comments: [],
+    })
+
+    publication.url = reviewUrl
+
+    yield* skip(selection.reason, reviewUrl, unresolvedReviews.length)
+    if (unresolvedReviews.length > 0) {
+      return yield* UnresolvedChangeRequests.make({ count: unresolvedReviews.length })
+    }
+
+    return
+  }
+
+  let scope = selection.scope
+
+  const attemptExit = yield* Effect.gen(function*() {
+    const fullFiles = yield* github.listFiles
+    const currentMergeBase = yield* github.getMergeBase(pull.baseRevision, pull.headRevision)
+
+    let reviewBase = scope === 'incremental' && selection.baseRevision !== undefined
+      ? selection.baseRevision
+      : currentMergeBase
+
+    if (scope === 'incremental') {
+      const priorMergeBase = yield* github.getMergeBase(pull.baseRevision, reviewBase)
+
+      if (priorMergeBase !== currentMergeBase) {
+        if (!selection.automatic) {
+          return yield* IncrementalScopeUnavailable.make({
+            priorMergeBase,
+            currentMergeBase,
+          })
+        }
+        scope = 'full'
+        reviewBase = currentMergeBase
+        yield* Effect.logInfo('Reviewing the full diff after the merge base changed')
+      }
+    }
+    const comparison = yield* github.compareTrees(reviewBase, pull.headRevision)
+
+    // A completed incremental baseline is still PR-controlled. Only the merge
+    // base with the target branch may authorize automatic generated exclusions.
+    const generatedAt = yield* Effect.cached(
+      reviewBase === currentMergeBase
+        ? Effect.succeed(comparison.base)
+        : github.readTreeSnapshot(currentMergeBase),
+    )
+
+    const surface = yield* hydrateExactChanges({
+      files: fullFiles,
+      changedPaths: comparison.changedPaths,
+      base: comparison.base,
+      head: comparison.head,
+      ignore,
+    }).pipe(
+      Effect.provideService(GeneratedFileClassification, {
+        isGenerated: (path) => generatedAt.pipe(Effect.flatMap((snapshot) => github.isGenerated(snapshot, path))),
+      }),
+    )
+
+    for (const omission of surface.generatedContent) {
+      yield* Effect.logInfo('Generated source-map payloads omitted', { ...omission })
+    }
+
+    const dependencies = yield* loadDependencySources({
+      configuration: dependencyConfiguration,
+      base: comparison.base,
+      head: comparison.head,
+      token: dependencyToken,
+      apiUrl,
+    })
+
+    const reviewRepository = makeReviewRepository({
+      dependencies,
+      base: comparison.base,
+      head: comparison.head,
+      ignore,
+      unavailablePaths: surface.unavailablePaths,
+    })
+
+    const fs = yield* FileSystem.FileSystem
+
+    const guidance = guidanceFile.length === 0
+      ? undefined
+      : (yield* fs.readFileString(guidanceFile)).slice(0, 20_000)
+
+    if (surface.changes.length === 0) {
+      const resolutions: ReadonlyArray<ReviewResolution> = []
+
+      return {
+        resolutions,
+        followUps: [],
+        surface,
+        modelTurns: 0,
+        exhausted: undefined,
+        incomplete: false,
+        inputTokens: 0,
+        uncachedInputTokens: 0,
+        cachedInputTokens: 0,
+        cacheWriteInputTokens: 0,
+        outputTokens: 0,
+        webSearchCalls: 0,
+        estimatedCostMicrousd: undefined,
+        reservedCostMicrousd: 0,
+        costLimitMicrousd: 0,
+        report: ReviewReport.make({
+          summary: scope === 'incremental' &&
+              surface.ignoredPaths.length === 0 &&
+              surface.unreviewedPaths.length === 0
+            ? 'No pull-request files changed since the last completed review.'
+            : surface.ignoredPaths.length > 0 && surface.unreviewedPaths.length === 0
+            ? 'No changed files matched the configured review scope.'
+            : 'No textual patch fit within the review input bound.',
+          findings: [],
+        }),
+      }
+    }
+
+    const followUps = yield* github.loadReviewFollowUps({
+      reviewAuthor,
+      history,
+    })
+
+    const discussion = yield* github.loadReviewDiscussion({
+      reviewAuthor,
+      history,
+      pullRequestUrl: pull.url,
+    })
+
+    const request = ReviewRequest.make({
+      title: pull.title.slice(0, 1_000),
+      description: pull.description.slice(0, 20_000),
+      baseRevision: reviewBase,
+      headRevision: pull.headRevision,
+      scope,
+      changes: surface.changes,
+      unreviewedPaths: surface.unreviewedPaths.filter((path) => path.length <= 512).slice(0, 300),
+      followUps,
+      discussion,
+    })
+
+    const costLimitMicrousd = reviewCostLimitMicrousd(request, maxCostUsd, baseCostUsd)
+
+    const provider = yield* makeReviewOpenAi({
+      model: modelName,
+      serviceTier: priority === '' ? 'auto' : priority,
+      cacheKey: `pr-review:${pull.headRevision}`,
+      costLimitMicrousd,
+    }).pipe(
+      Effect.provideServiceEffect(
+        OpenAiClient.OpenAiClient,
+        OpenAiClient.make({ apiKey: yield* Config.Redacted('OPENAI_API_KEY') }),
+      ),
+    )
+
+    const reviewer = makeReviewer({
+      model: OpenAiLanguageModel.model(modelName, {
+        max_output_tokens: 32_000,
+        store: false,
+        ...(priority === '' ? {} : { service_tier: priority }),
+        strictJsonSchema: true,
+        reasoning: { effort },
+        ...(webSearch ? { max_tool_calls: REVIEW_WEB_SEARCH_MAX_TOOL_CALLS } : {}),
+      }),
+      ...(webSearch ? { webSearch: OpenAiTool.WebSearch({ search_context_size: 'medium' }) } : {}),
+      costControl: provider.costControl,
+      contextTokenLimit: 128_000,
+      ...(guidance === undefined ? {} : { guidance }),
+    })
+
+    const result = yield* reviewer.review(request).pipe(
+      Effect.provideService(ReviewRepository, reviewRepository),
+      Effect.provideService(OpenAiClient.OpenAiClient, provider.client),
+      Effect.onExit(() =>
+        provider.costControl.snapshot.pipe(
+          Effect.flatMap((snapshot) => {
+            if (snapshot.stopReason !== undefined) publication.failureSummary = snapshot.stopReason
+
+            return Effect.logInfo('Review accounting totals', {
+              modelCalls: snapshot.modelCalls,
+              costLimited: snapshot.stopped,
+              inputLimited: snapshot.inputLimitExceeded === true,
+              ...snapshot.usage,
+              costLimitMicrousd,
+            })
+          }),
+        )
+      ),
+    )
+
+    const pending = new Set(result.pendingPaths ?? [])
+
+    surface.unreviewedPaths.push(...pending)
+    surface.exclusions.push(
+      ...[...pending].map((path) => ReviewExclusion.make({ path, reason: 'review-stopped' })),
+    )
+
+    return {
+      resolutions: result.resolutions ?? [],
+      followUps,
+      surface: {
+        ...surface,
+        changes: surface.changes.filter((change) => !pending.has(change.path)),
+      },
+      modelTurns: result.turns,
+      exhausted: result.exhausted,
+      incomplete: result.incomplete === true,
+      inputTokens: result.usage.inputTokens,
+      uncachedInputTokens: result.usage.uncachedInputTokens,
+      cachedInputTokens: result.usage.cachedInputTokens,
+      cacheWriteInputTokens: result.usage.cacheWriteInputTokens,
+      outputTokens: result.usage.outputTokens,
+      webSearchCalls: result.usage.webSearchCalls ?? 0,
+      estimatedCostMicrousd: result.usage.estimatedCostMicrousd,
+      reservedCostMicrousd: result.usage.reservedCostMicrousd ?? 0,
+      costLimitMicrousd,
+      report: reanchorToFullPullRequest(fullFiles, result.report),
+    }
+  }).pipe(Effect.exit)
+
+  if (Exit.isFailure(attemptExit)) {
+    const failureSummary = publication.failureSummary ??
+      attemptExit.cause.reasons
+        .flatMap((reason) => {
+          if (!Cause.isFailReason(reason)) return []
+          const failure = reason.error
+
+          switch (failure._tag) {
+            case 'BudgetExceeded':
+              return [
+                `Review budget exceeded (${failure.limit}): observed ${String(failure.observedValue)}, limit ${
+                  String(failure.limitValue)
+                }.`,
+              ]
+            case 'IncrementalScopeUnavailable':
+              return [
+                'The merge base changed. Request a full review before incremental reviews can resume.',
+              ]
+            case 'GitHubApiFailure':
+              return ['A GitHub repository request failed.']
+            default:
+              return []
+          }
+        })
+        .at(0)
+
+    yield* Console.error(
+      `PR review attempt failed${failureSummary === undefined ? '' : `: ${failureSummary}`}`,
+    )
+    yield* Effect.logError('Review failure', {
+      failureTypes: attemptExit.cause.reasons.flatMap((reason) =>
+        Cause.isFailReason(reason) ? [reason.error._tag] : [reason._tag]
+      ),
+    })
+
+    const reviewUrl = yield* publishHeadBoundReview(
+      github.publishReview({
+        commitId: pull.headRevision,
+        event: 'COMMENT',
+        body: withReviewMarker(
+          renderReviewFailureBody({
+            automaticReviewsRemaining: selection.automaticReviewsRemaining,
+            failureSummary,
+          }),
+          selection.automatic,
+          false,
+        ),
+        comments: [],
+      }),
+      { publish: github.publishAttemptMarker, automatic: selection.automatic, failureSummary },
+    ).pipe(Effect.catchTag('StaleReviewHead', () => Effect.failCause(attemptExit.cause)))
+
+    publication.url = reviewUrl
+
+    yield* writeOutputs([
+      ['skipped', 'false'],
+      ['reason', 'review-failed'],
+      ['blocking-findings', 0],
+      ['unresolved-change-requests', unresolvedReviews.length],
+      ['review-url', reviewUrl],
+    ])
+
+    return yield* Effect.failCause(attemptExit.cause)
+  }
+
+  const {
+    surface,
+    modelTurns,
+    inputTokens,
+    uncachedInputTokens,
+    cachedInputTokens,
+    cacheWriteInputTokens,
+    outputTokens,
+    webSearchCalls,
+    estimatedCostMicrousd,
+    reservedCostMicrousd,
+    costLimitMicrousd,
+    report,
+    exhausted,
+    incomplete,
+    resolutions,
+    followUps,
+  } = attemptExit.value
+
+  const complete = surface.unreviewedPaths.length === 0 && exhausted === undefined && !incomplete
+
+  const pricing = reviewModelPricing(modelName)
+
+  const estimatedCost: ReviewCostEstimate | undefined = estimatedCostMicrousd === undefined || pricing === undefined
+    ? undefined
+    : {
+      microusd: estimatedCostMicrousd,
+      label: pricing.label,
+      url: 'https://developers.openai.com/api/docs/pricing',
+    }
+
+  const blocking = report.findings.filter((finding) => finding.severity === 'blocking').length
+
+  // Only positive verification from a complete, nonblocking pass can retire prior feedback.
+  // Dismissals retain the inspected commit and evidence even if later publication fails.
+  if (complete && blocking === 0 && resolutions.length > 0) {
+    const owned = selectUnresolvedChangeRequests({ reviewAuthor, history })
+
+    yield* publishHeadBoundReview(
+      Effect.gen(function*() {
+        for (const resolution of resolutions) {
+          const review = owned.find(({ id }) => String(id) === resolution.id)
+          const followUp = followUps.find(({ id }) => id === resolution.id)
+
+          if (review === undefined || followUp === undefined) {
+            return yield* GitHubApiFailure.make({
+              operation: 'dismiss review',
+              reason: 'Resolution identified an unowned review',
+            })
+          }
+          yield* github.dismissReview({
+            review,
+            reviewAuthor,
+            commitId: pull.headRevision,
+            decision: { _tag: 'verified', followUp, evidence: resolution.evidence },
+          })
+          yield* Effect.logInfo('Dismissed verified review', {
+            reviewId: review.id,
+            headRevision: pull.headRevision,
+          })
+        }
+        unresolvedReviews = selectUnresolvedChangeRequests({
+          reviewAuthor,
+          history: yield* github.listReviews,
+        })
+
+        return ''
+      }).pipe(
+        Effect.tapErrorTag('GitHubApiFailure', () =>
+          github.publishAttemptMarker({
+            commitId: pull.headRevision,
+            body: withReviewMarker(
+              renderReviewFailureBody({
+                automaticReviewsRemaining: selection.automaticReviewsRemaining,
+                failureSummary:
+                  'GitHub could not confirm dismissal of the verified reviews. Check the review timeline and request a full review to retry.',
+              }),
+              selection.automatic,
+              false,
+            ),
+          })),
+      ),
+      { publish: github.publishAttemptMarker, automatic: selection.automatic },
+    )
+  }
+
+  const body = withReviewMarker(
+    renderReviewBody({
+      report,
+      automaticReviewsRemaining: selection.automaticReviewsRemaining,
+      scope,
+      reviewedFiles: surface.changes.length,
+      unreviewedFiles: surface.unreviewedPaths.length,
+      exclusions: surface.exclusions,
+      generatedContent: surface.generatedContent,
+      ignoredFiles: surface.ignoredPaths.length,
+      modelTurns,
+      complete,
+      exhausted,
+      unresolvedChangeRequests: unresolvedReviews.length,
+      priorReviews: { pullRequestUrl: pull.url, reviews: unresolvedReviews },
+      inputTokens,
+      uncachedInputTokens,
+      cachedInputTokens,
+      cacheWriteInputTokens,
+      outputTokens,
+      webSearchCalls,
+      estimatedCost,
+      reservedCostMicrousd,
+      costLimitMicrousd,
+      headRevision: pull.headRevision,
+    }),
+    selection.automatic,
+    complete,
+  )
+
+  const reviewUrl = yield* publishHeadBoundReview(
+    github.publishReview({
+      commitId: pull.headRevision,
+      event: reviewEventFor(blocking),
+      body,
+      comments: report.findings.flatMap((finding) =>
+        finding.line === undefined
+          ? []
+          : [
+            {
+              path: finding.path,
+              line: finding.line,
+              body: renderFindingBody(finding),
+            },
+          ]
+      ),
+    }),
+    { publish: github.publishAttemptMarker, automatic: selection.automatic },
+  )
+
+  publication.url = reviewUrl
+
+  yield* writeOutputs([
+    ['skipped', 'false'],
+    [
+      'reason',
+      scope === selection.scope
+        ? selection.reason
+        : 'automatic full review after merge-base change',
+    ],
+    ['input-tokens', inputTokens],
+    ['uncached-input-tokens', uncachedInputTokens],
+    ['cached-input-tokens', cachedInputTokens],
+    ['cache-write-input-tokens', cacheWriteInputTokens],
+    ['output-tokens', outputTokens],
+    ['web-search-calls', webSearchCalls],
+    ['reserved-cost-usd', (reservedCostMicrousd / 1_000_000).toFixed(6)],
+    ['cost-limit-usd', (costLimitMicrousd / 1_000_000).toFixed(6)],
+    [
+      'estimated-cost-usd',
+      estimatedCost === undefined ? '' : (estimatedCost.microusd / 1_000_000).toFixed(6),
+    ],
+    ['blocking-findings', blocking],
+    ['unresolved-change-requests', unresolvedReviews.length],
+    ['review-url', reviewUrl],
+  ])
+  yield* Console.log(`Posted PR review: ${reviewUrl}`)
+  for (const exclusion of surface.exclusions) {
+    yield* Effect.logInfo('Review input excluded', {
+      path: exclusion.path,
+      reason: exclusion.reason,
+    })
+  }
+
+  const publicationFailure = reviewPublicationFailure({
+    blockingFindings: blocking,
+    unreviewedPaths: surface.unreviewedPaths.length,
+    unresolvedChangeRequests: unresolvedReviews.length,
+    exhausted,
+    incomplete,
+    summary: report.summary,
+  })
+
+  if (publicationFailure !== undefined) return yield* publicationFailure
+})
+
+export const reviewActionProgram = Effect.gen(function*() {
+  const setup = yield* prepareReview.pipe(
+    Effect.tapErrorTag('ConfigError', (error) => Effect.logError(error.message)),
+    Effect.tapErrorTag('ActionConfigurationError', (error) => Effect.logError(error.message)),
+  )
+
+  if (setup === undefined) return
+  const { github, ...prepared } = setup
+  const { repository, checkName, pull, selection } = prepared
+  const publication: { url?: string; failureSummary?: string } = {}
+
+  const review = reviewPullRequest(prepared, publication).pipe(
+    Effect.provideService(GitHubClient, github),
+  )
+
+  if (checkName.length === 0) return yield* review
+
+  const identity = { name: checkName, headRevision: pull.headRevision }
+
+  const runId = yield* Config.schema(Schema.Natural, 'GITHUB_RUN_ID').pipe(Config.option)
+
+  const serverUrl = yield* Config.NonEmptyString('GITHUB_SERVER_URL').pipe(
+    Config.withDefault('https://github.com'),
+  )
+
+  const detailsUrl = Option.isSome(runId)
+    ? `${serverUrl}/${repository}/actions/runs/${String(runId.value)}`
+    : undefined
+
+  // The acquire/release boundary closes the exact attempt on success, failure,
+  // defect, or interruption. Check writes are bounded and are never retried.
+  // Capture the review Exit so a failed completion write cannot be swallowed
+  // while translating a published review result into workflow success.
+  // Refresh skipped events too: a check from another App must not suppress the
+  // current publisher's result. Trusted history avoids another model call.
+  const reviewExit = yield* Effect.acquireUseRelease(
+    github.startReviewCheck({ ...identity, detailsUrl }),
+    () => Effect.exit(review),
+    (check, exit) =>
+      github.completeReviewCheck(
+        check,
+        reviewCheckCompletion(
+          Exit.isSuccess(exit) ? exit.value : exit,
+          selection,
+          publication.url,
+          publication.failureSummary,
+        ),
+      ),
+  )
+
+  if (
+    Exit.isFailure(reviewExit) &&
+    !reviewExit.cause.reasons.every(
+      (reason) => Cause.isFailReason(reason) && isReviewResult(reason.error),
+    )
+  ) {
+    return yield* Effect.failCause(reviewExit.cause)
+  }
+})

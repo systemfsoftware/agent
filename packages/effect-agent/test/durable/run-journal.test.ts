@@ -714,7 +714,7 @@ describe('engine compaction records and projection (RUN-026)', () => {
 
   layer(NodeCrypto.layer)((it) => {
     // Independent Runs can both resume, so neither continuation nor compaction may absorb the other:
-    // https://github.com/systemfsoftware/agent/commit/8fc53ad9eb6b110ca6faaaebbb6dbba08e3c292f
+    // https://github.com/yielded-dev/agent/commit/8fc53ad9eb6b110ca6faaaebbb6dbba08e3c292f
     it.effect('preserves both interleaved Run contexts and their complete Thread history', () =>
       Effect.gen(function*() {
         const first = yield* turnCanonicalBatch({
@@ -799,7 +799,7 @@ describe('engine compaction records and projection (RUN-026)', () => {
       }))
 
     // The same interleaving must retain each independently compacted context:
-    // https://github.com/systemfsoftware/agent/commit/8fc53ad9eb6b110ca6faaaebbb6dbba08e3c292f
+    // https://github.com/yielded-dev/agent/commit/8fc53ad9eb6b110ca6faaaebbb6dbba08e3c292f
     it.effect('does not restore retired exchanges when independent Runs both compact', () =>
       Effect.gen(function*() {
         const first = yield* turnCanonicalBatch(turnInput(toolTurnAppended))
@@ -935,7 +935,7 @@ describe('engine compaction records and projection (RUN-026)', () => {
       )
     }
 
-    // Regression: https://github.com/systemfsoftware/agent/commit/afcdd64bbdd23c9985902a0192d8e2ed3a48c295
+    // Regression: https://github.com/yielded-dev/agent/commit/afcdd64bbdd23c9985902a0192d8e2ed3a48c295
     // Saved ranges must retain the facts that keep compaction validation stable.
     const inputAt = (sequence: number, runId: typeof RUN_ID) =>
       envelopeAt(
@@ -1145,7 +1145,7 @@ describe('engine compaction records and projection (RUN-026)', () => {
               expect(otherView.policyUsage).toEqual(otherBaseline.policyUsage)
               if (projectionOwner === RUN_ID) {
                 // A later independent Run cannot rewrite this Run's resume context:
-                // https://github.com/systemfsoftware/agent/commit/8fc53ad9eb6b110ca6faaaebbb6dbba08e3c292f
+                // https://github.com/yielded-dev/agent/commit/8fc53ad9eb6b110ca6faaaebbb6dbba08e3c292f
                 expect(otherView).toEqual(otherBaseline)
                 expect(otherBaseline.usage).toMatchObject({
                   inputTokens: 100,

@@ -343,7 +343,7 @@ layer(testLayer)('context economics — bounding, tracking, status, exhaustion',
       }),
   )
 
-  // Regression: https://github.com/systemfsoftware/agent/commit/2259fc0
+  // Regression: https://github.com/yielded-dev/agent/commit/2259fc0
   // KOM-125: a transformed Class retains provider definitions that Schema.toEncoded removes.
   it.effect('admits original Tool schemas exactly as native OpenAI serializes them', () =>
     Effect.gen(function*() {

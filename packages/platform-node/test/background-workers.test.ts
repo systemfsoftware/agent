@@ -235,7 +235,7 @@ it.effect('reports an unknown worker without replaying its uncertain operation',
     }),
   ).pipe(Effect.provide(NodeFileSystem.layer)))
 
-// Regression: https://github.com/systemfsoftware/agent/commit/6ceda1d221d990d4959f21596eedad84e742c95f
+// Regression: https://github.com/yielded-dev/agent/commit/6ceda1d221d990d4959f21596eedad84e742c95f
 it.effect(
   'keeps launching Run evidence unchanged across independently funded worker follow-ups',
   () =>
@@ -552,7 +552,7 @@ it.effect(
   15_000,
 )
 
-// Regression: https://github.com/systemfsoftware/agent/blob/4c417d98e8cc790c42ab4200a54a0548fe32e6e3/packages/effect-agent/src/durable/internal/worker-host.ts#L1645-L1691
+// Regression: https://github.com/yielded-dev/agent/blob/4c417d98e8cc790c42ab4200a54a0548fe32e6e3/packages/effect-agent/src/durable/internal/worker-host.ts#L1645-L1691
 for (const completion of ['interrupted'] as const) {
   it.effect(
     `tracks one retained delivery through acceptance and completion after its ${completion} claim`,
@@ -1869,7 +1869,7 @@ it.effect(
   15_000,
 )
 
-// Regression: https://github.com/systemfsoftware/agent/blob/c721a292205e06185f0136c3ed05dcf53e29ca66/packages/effect-agent/src/durable/internal/worker-host.ts#L2189-L2210
+// Regression: https://github.com/yielded-dev/agent/blob/c721a292205e06185f0136c3ed05dcf53e29ca66/packages/effect-agent/src/durable/internal/worker-host.ts#L2189-L2210
 for (const point of ['worker:after-source-append', 'worker:after-origin-append'] as const) {
   it.effect(
     `recovers a successor after interruption at ${point}`,

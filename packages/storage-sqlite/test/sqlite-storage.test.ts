@@ -398,7 +398,7 @@ describe('SqliteThreadStore', () => {
     }
   })
 
-  // Regression: https://github.com/systemfsoftware/agent/commit/8b88036d879da7bbab88bb9918ac6f1f87f2930a
+  // Regression: https://github.com/yielded-dev/agent/commit/8b88036d879da7bbab88bb9918ac6f1f87f2930a
   it.effect('rejects undeclared schema-header triggers before opening storage', () =>
     withTemporaryDatabase((filename) =>
       Effect.gen(function*() {

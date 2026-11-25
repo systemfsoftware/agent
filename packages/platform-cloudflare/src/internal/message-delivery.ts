@@ -1,0 +1,149 @@
+import { type ThreadId } from '@systemfsoftware/agent/identifiers'
+import {
+  MessageDeliveryDriver,
+  MessageDeliveryError,
+  MessageDeliveryStore,
+} from '@systemfsoftware/agent/message-delivery'
+import { WakeScheduler } from '@systemfsoftware/agent/wake-scheduler'
+import * as Clock from 'effect/Clock'
+import * as Context from 'effect/Context'
+import * as Duration from 'effect/Duration'
+import * as Effect from 'effect/Effect'
+import * as Exit from 'effect/Exit'
+import * as Layer from 'effect/Layer'
+import * as Option from 'effect/Option'
+
+import { DurableAlarmError, ThreadMessageDelivery, ThreadMutationGate } from '../Alarm.ts'
+import { ThreadObjectPlacement } from '../CloudflareBindings.ts'
+import * as DueQueue from './due-queue.ts'
+
+/** Every write prearms its owner; the delivery due index owns its recovery deadline. */
+export const guardedMessageDeliveryStoreLayer = Layer.effect(
+  MessageDeliveryStore,
+  Effect.gen(function*() {
+    const store = yield* MessageDeliveryStore
+    const mutations = yield* ThreadMutationGate
+    const wakes = yield* WakeScheduler
+    const { ownsThread } = yield* ThreadObjectPlacement
+
+    const local = <A, E>(
+      owner: ThreadId | undefined,
+      body: Effect.Effect<A, E>,
+    ): Effect.Effect<A, E | MessageDeliveryError> =>
+      owner === undefined || ownsThread(owner)
+        ? body
+        : Effect.fail(
+          MessageDeliveryError.make({ reason: 'validation', operation: 'message owner' }),
+        )
+
+    const mutate = <A, E>(body: Effect.Effect<A, E>) =>
+      mutations
+        .withMutation(body, {
+          invalidatesRecovery: false,
+          lanes: [
+            DueQueue.Messages,
+            ...(store.lifecyclePublications === undefined ? [] : [DueQueue.Lifecycle]),
+          ],
+        })
+        .pipe(
+          Effect.catchTag('DurableAlarmError', (cause) =>
+            MessageDeliveryError.make({
+              reason: 'storage',
+              operation: 'prearm message delivery',
+              cause,
+            })),
+        )
+
+    return MessageDeliveryStore.of({
+      limits: store.limits,
+      maxStoredValueBytes: store.maxStoredValueBytes,
+      insert: (record) =>
+        local(
+          record.key.ownerThreadId,
+          mutate(store.insert(record)).pipe(
+            Effect.tap(() => wakes.notify(record.key.ownerThreadId)),
+          ),
+        ),
+      get: (key) => local(key.ownerThreadId, store.get(key)),
+      list: (request) => local(request.ownerThreadId, store.list(request)),
+      change: (key, change) => local(key.ownerThreadId, mutate(store.change(key, change))),
+      // Only the trusted physical-owner selection omits an owner. All returned keys still
+      // pass placement validation before the driver may dispatch any of the wave.
+      due: (nowMillis, limit, owner) =>
+        local(owner, store.due(nowMillis, limit, owner)).pipe(
+          Effect.filterOrFail(
+            (keys) => keys.every((key) => ownsThread(key.ownerThreadId)),
+            () => MessageDeliveryError.make({ reason: 'validation', operation: 'message owner' }),
+          ),
+        ),
+      nextDeadline: (owner) => local(owner, store.nextDeadline(owner)),
+    })
+  }),
+)
+
+/** Build the driver in the Object's Scope only when retained delivery work is due. */
+export const lazyThreadMessageDeliveryLayer = <E, R>(
+  driver: Layer.Layer<MessageDeliveryDriver, E, R>,
+) =>
+  Layer.fromBuildMemo((memoMap, scope) =>
+    Effect.gen(function*() {
+      const context = yield* Effect.context<R>()
+      const store = yield* MessageDeliveryStore
+
+      // Failed builds release their Layer scopes; let a later wave build again.
+      const service = yield* Effect.cachedWithTTL(
+        Layer.buildWithMemoMap(driver, memoMap, scope).pipe(
+          Effect.provide(context),
+          Effect.map(Context.get(MessageDeliveryDriver)),
+          Effect.mapError((cause) =>
+            DurableAlarmError.make({
+              operation: 'prepare message delivery',
+              message: 'Durable message recovery remains pending',
+              cause,
+            })
+          ),
+        ),
+        (exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero),
+      )
+
+      const failure = (operation: string) => () =>
+        DurableAlarmError.make({
+          operation,
+          message: 'Durable message recovery remains pending',
+        })
+
+      const prepare = Effect.gen(function*() {
+        const deadline = yield* store.nextDeadline()
+
+        if (deadline === null || deadline > (yield* Clock.currentTimeMillis)) {
+          return { timeoutMillis: 1, run: Effect.succeed(Option.fromNullishOr(deadline)) }
+        }
+        // The assembled driver has four permits: a wave is one parallel attempt window.
+        const keys = yield* store.due(yield* Clock.currentTimeMillis, 4)
+        const records = yield* Effect.forEach(keys, (key) => store.get(key))
+
+        return {
+          timeoutMillis: Math.max(
+            1,
+            ...records.map((record) => record?.policy.attemptTimeoutMillis ?? 1),
+          ),
+          run: Effect.flatMap(service, (driver) =>
+            Effect.forEach(keys, (key) => driver.process(key), {
+              concurrency: 4,
+              discard: true,
+            })).pipe(
+              Effect.andThen(store.nextDeadline()),
+              Effect.map(Option.fromNullishOr),
+              Effect.mapError(failure('dispatch message delivery')),
+            ),
+        }
+      }).pipe(Effect.mapError(failure('prepare message delivery')))
+
+      return Context.make(ThreadMessageDelivery, { prepare })
+    })
+  )
+
+/** Message progress shares the native alarm slot without blocking source runtime work. */
+export const threadMessageDeliveryLayer = lazyThreadMessageDeliveryLayer(
+  Layer.effect(MessageDeliveryDriver, MessageDeliveryDriver),
+)

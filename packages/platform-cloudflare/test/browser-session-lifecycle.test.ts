@@ -1,0 +1,119 @@
+import { expect, it } from '@effect/vitest'
+import * as FailureDiagnostic from '@systemfsoftware/agent/failure-diagnostic'
+import * as Effect from 'effect/Effect'
+import * as FetchHttpClient from 'effect/http/FetchHttpClient'
+import * as HttpClient from 'effect/http/HttpClient'
+import * as HttpClientResponse from 'effect/http/HttpClientResponse'
+import * as Layer from 'effect/Layer'
+import * as Redacted from 'effect/Redacted'
+import * as Schema from 'effect/Schema'
+
+import { BrowserRunCleanupError, BrowserRunSessionLifecycle } from '../src/internal/browser-session-lifecycle.ts'
+
+const sessionId = 'c8b9c4b1-d1bf-4663-b4d8-a0b009cc8b99'
+const accountId = '1234567890abcdef1234567890abcdef'
+
+it.effect('keeps original cleanup transport causes private when encoding the public error', () =>
+  Effect.gen(function*() {
+    const error = yield* Effect.flatMap(
+      BrowserRunSessionLifecycle,
+      (lifecycle) => lifecycle.close(Redacted.make(sessionId)),
+    ).pipe(
+      Effect.provide(
+        BrowserRunSessionLifecycle.layer({
+          accountId,
+          apiToken: Redacted.make('fixture-token'),
+        }).pipe(Layer.provide(FetchHttpClient.layer)),
+      ),
+      Effect.provideService(FetchHttpClient.Fetch, async () => {
+        throw new Error('PRIVATE transport failure')
+      }),
+      Effect.flip,
+    )
+
+    const encoded = yield* Schema.encodeEffect(Schema.toCodecJson(BrowserRunCleanupError))(error)
+
+    expect(JSON.stringify(FailureDiagnostic.capture(error))).toContain('PRIVATE transport failure')
+    expect(JSON.stringify(encoded)).not.toContain('PRIVATE transport failure')
+  }))
+
+it.effect(
+  'confirms exact-session termination without treating pending or untrusted responses as absence',
+  () =>
+    Effect.gen(function*() {
+      for (
+        const scenario of [
+          { responses: [[404, '{"error":"Session not found"}']], terminal: true, requests: 1 },
+          {
+            responses: [
+              [200, '{"status":"closing"}'],
+              [200, `{"sessionId":"${sessionId}"}`],
+              [404, '{"error":"Session not found"}'],
+            ],
+            terminal: true,
+            requests: 3,
+          },
+          {
+            responses: [
+              [200, '{"status":"closing"}'],
+              [200, `{"sessionId":"${sessionId}"}`],
+              [200, `{"sessionId":"${sessionId}"}`],
+            ],
+            terminal: false,
+            requests: 3,
+          },
+          { responses: [[404, '{"error":"Route not found"}']], terminal: false, requests: 1 },
+          {
+            responses: [
+              [200, '{"status":"closing"}'],
+              [200, '{"sessionId":"b8b9c4b1-d1bf-4663-b4d8-a0b009cc8b99","endTime":1}'],
+            ],
+            terminal: false,
+            requests: 2,
+          },
+        ] as const
+      ) {
+        const calls: Array<string> = []
+
+        const client = HttpClient.make((request, url) =>
+          Effect.sync(() => {
+            const response = scenario.responses[calls.length]
+
+            calls.push(request.method)
+            expect(url.origin).toBe('https://api.cloudflare.com')
+            expect(url.pathname).toBe(
+              `/client/v4/accounts/${accountId}/browser-rendering/devtools/${
+                request.method === 'DELETE' ? 'browser' : 'session'
+              }/${sessionId}`,
+            )
+            if (response === undefined) throw new Error('Exceeded cleanup request budget')
+
+            return HttpClientResponse.fromWeb(
+              request,
+              new Response(response[1], {
+                status: response[0],
+                headers: { 'content-type': 'application/json' },
+              }),
+            )
+          })
+        )
+
+        const result = yield* Effect.gen(function*() {
+          return yield* (yield* BrowserRunSessionLifecycle).close(Redacted.make(sessionId))
+        }).pipe(
+          Effect.provide(
+            BrowserRunSessionLifecycle.layer({
+              accountId,
+              apiToken: Redacted.make('fixture-token'),
+            }),
+          ),
+          Effect.provideService(HttpClient.HttpClient, client),
+          Effect.exit,
+        )
+
+        expect(result._tag === 'Success').toBe(scenario.terminal)
+        expect(calls.length).toBe(scenario.requests)
+        expect(calls.filter((method) => method === 'DELETE')).toHaveLength(1)
+      }
+    }),
+)

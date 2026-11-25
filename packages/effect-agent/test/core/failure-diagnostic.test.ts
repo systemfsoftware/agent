@@ -16,7 +16,7 @@ class DependencyFailure extends Schema.TaggedError<DependencyFailure>()('Depende
 }) {}
 
 describe('causal failure diagnostics', () => {
-  // https://github.com/systemfsoftware/agent/commit/992d062a09
+  // https://github.com/yielded-dev/agent/commit/992d062a09
   it('retains validated HTTP diagnostics through capture and JSON recapture', () => {
     const original = {
       name: 'ProviderFailure',

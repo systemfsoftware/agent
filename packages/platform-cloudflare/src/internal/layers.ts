@@ -1,0 +1,1181 @@
+import * as SqliteClient from '@effect/sql-sqlite-do/SqliteClient'
+import { doMessageDeliveryStoreLayer } from '@systemfsoftware/agent-storage-cloudflare/do-message-delivery-store'
+import {
+  type DoStorageFailpoint,
+  type DoStorageFailpointHandler,
+} from '@systemfsoftware/agent-storage-cloudflare/do-storage-failpoint'
+import { submissionLedgerLayer } from '@systemfsoftware/agent-storage-cloudflare/do-submission-ledger'
+import {
+  type DoStorageInitializationError,
+  type DoStorageOptions,
+  journalLayer,
+  sqlOwnerLayer,
+  storageConfigLayer,
+  storageFailpointLayer,
+  threadStoreLayer,
+} from '@systemfsoftware/agent-storage-cloudflare/do-thread-store'
+import { type PortRequest, type PortResponse } from '@systemfsoftware/agent-storage-cloudflare/port-protocol'
+import {
+  executePortRequest,
+  makeLocalSubmissionLookup,
+  routedMessageDeliveryStoreLayer,
+  routedSettlementPublisherLayer,
+  routedSubmissionLedgerLayer,
+  routedThreadStoreLayer,
+  routedWorkerAdmissionLayer,
+} from '@systemfsoftware/agent-storage-cloudflare/port-routing'
+import { SqlStorageProgress, SqlStorageProgressError } from '@systemfsoftware/agent-storage-sql/sql-storage-progress'
+import {
+  type AgentRegistration,
+  compileRegistrations,
+  type ResolvedBinding,
+} from '@systemfsoftware/agent/agent-registration'
+import { type DigestError } from '@systemfsoftware/agent/digest'
+import { DurableAgentRuntime, DurableRuntimeConfig } from '@systemfsoftware/agent/durable-agent-runtime'
+import { DurableRuntimeFailpoint, type DurableRuntimeFailpointHandler } from '@systemfsoftware/agent/durable-failpoint'
+import { type SubmissionId, ThreadId } from '@systemfsoftware/agent/identifiers'
+import type { LifecyclePublicationHandler } from '@systemfsoftware/agent/lifecycle-publication'
+import {
+  drainLifecyclePublications,
+  LifecyclePublicationError,
+  LifecyclePublicationFact,
+  lifecyclePublicationLayer,
+} from '@systemfsoftware/agent/lifecycle-publication'
+import {
+  MessageDeliveryDriver,
+  type MessageDeliveryError,
+  type MessageDeliveryStore,
+} from '@systemfsoftware/agent/message-delivery'
+import { operationAuthorizerLayer, type OperationAuthorizerService } from '@systemfsoftware/agent/operation-authorizer'
+import { ProducerId } from '@systemfsoftware/agent/records'
+import {
+  type RunContextPreparation,
+  type RunCostEstimator,
+  type RunToolFailureObserver,
+} from '@systemfsoftware/agent/run-options'
+import {
+  CurrentToolFailureObserver,
+  RunContextPreparationPassthrough,
+  RunToolAuthorization,
+  toolFailureObserverLayer,
+} from '@systemfsoftware/agent/run-options'
+import type { RunStorage } from '@systemfsoftware/agent/run-storage'
+import { layer as runStorageLayer, StorageOwner } from '@systemfsoftware/agent/run-storage'
+import { SettlementPublisher, validatePublication } from '@systemfsoftware/agent/settlement-publisher'
+import { SqlStorageOwner } from '@systemfsoftware/agent/sql-storage-owner'
+import {
+  type AdmissionRequest,
+  LedgerError,
+  type SettlementFinalization,
+  SubmissionLedger,
+  type SubmissionSnapshot,
+  type WorkerStopCommand,
+} from '@systemfsoftware/agent/submission-ledger'
+import { ThreadProjectionMaintenance } from '@systemfsoftware/agent/thread-projection-maintenance'
+import {
+  type AppendRequest,
+  AppendResult,
+  PreparedAppend,
+  type ThreadReader,
+  ThreadStore,
+  ThreadStoreError,
+  type ThreadStoreFailure,
+} from '@systemfsoftware/agent/thread-store'
+import { ToolReconciler } from '@systemfsoftware/agent/tool-reconciler'
+import { type WakeScheduler } from '@systemfsoftware/agent/wake-scheduler'
+import { DurableObjectAlarm } from 'effect-cf'
+import * as Cause from 'effect/Cause'
+import * as Clock from 'effect/Clock'
+import * as Context from 'effect/Context'
+import type * as CryptoDigest from 'effect/crypto/Digest'
+import type * as SecureRandom from 'effect/crypto/SecureRandom'
+import * as Duration from 'effect/Duration'
+import * as Effect from 'effect/Effect'
+import * as ErrorReporter from 'effect/ErrorReporter'
+import * as Exit from 'effect/Exit'
+import * as Layer from 'effect/Layer'
+import * as Match from 'effect/Match'
+import * as Option from 'effect/Option'
+import * as Schema from 'effect/Schema'
+import * as Semaphore from 'effect/Semaphore'
+import * as SqlClient from 'effect/sql/SqlClient'
+
+import {
+  DurableAlarmError,
+  DurableAlarmService,
+  publishCommitted,
+  ThreadMaintenance,
+  ThreadMaintenanceFailpoint,
+  type ThreadMaintenanceFailpointHandler,
+  ThreadMutationGate,
+  ThreadNativeMaintenance,
+  ThreadPublication,
+  type ThreadRecoveryEvents,
+} from '../Alarm.ts'
+import { DurableObjectContext, ThreadObjectIdentity, ThreadObjectPlacement } from '../CloudflareBindings.ts'
+import {
+  CLOUDFLARE_RUNTIME_DEFAULTS,
+  CloudflareDurableRuntimeConfig,
+  CloudflareDurableRuntimeConfigValue,
+  CloudflarePlatformConfigError,
+} from '../CloudflareConfig.ts'
+import { CloudflareThreadClient } from '../CloudflareThreadClient.ts'
+import { cloudflareWakeSchedulerLayer } from '../WakeScheduler.ts'
+import { cloudflareCryptoLayer } from './crypto.ts'
+import * as DueQueue from './due-queue.ts'
+import { LiveTextHub } from './live-text.ts'
+import { guardedMessageDeliveryStoreLayer, lazyThreadMessageDeliveryLayer } from './message-delivery.ts'
+import { cloudflarePreparedInputAdmissionLayer } from './prepared-admission.ts'
+import { ProgressWaitRegistry } from './progress-wait.ts'
+import { threadPortTransportLayer } from './transport.ts'
+
+/**
+ * Raw (unvalidated) construction options for `ThreadObject.make`, mirroring
+ * `NodeDurableAgentRuntimeOptions`. Optional fields default to the documented production values
+ * (`CLOUDFLARE_RUNTIME_DEFAULTS`); everything is schema-decoded into
+ * `CloudflareDurableRuntimeConfigValue` before any resource opens (deployment §5 gate 1).
+ */
+export interface CloudflareDurableRuntimeOptions {
+  readonly deploymentId: string
+  /** Head of the minted producer identity `{producerPrefix}:{threadId}`. */
+  readonly producerPrefix: string
+  /** Recovery-only window in milliseconds; default 60000. Zero disables idle retention. */
+  readonly recoveryWindowMillis?: number | undefined
+  /** Milliseconds; default 100. */
+  readonly alarmBackoffBase?: number | undefined
+  /** Failed/no-progress exponential backoff ceiling in milliseconds; default 5000. */
+  readonly alarmBackoffCap?: number | undefined
+  /** Milliseconds; default 500. */
+  readonly settlementPollInterval?: number | undefined
+  /** Milliseconds; default 500. */
+  readonly abortPollInterval?: number | undefined
+  /** Deployment-owned pricing authority used by durable cost budgets and settlements. */
+  readonly estimateCostMicrousd?: RunCostEstimator | undefined
+  /** Closed trusted Tool failure reporting. Omission masks ambient observers at construction. */
+  readonly toolFailureObserver?: RunToolFailureObserver | undefined
+  /** Milliseconds; default 25. */
+  readonly observationPollInterval?: number | undefined
+  /** Whole disposable projection wave in milliseconds, 1..300000; default 30000. */
+  readonly projectionDispatchTimeoutMillis?: number | undefined
+  /** Bytes; default just under the 2 MB platform value limit. */
+  readonly maxStoredValueBytes?: number | undefined
+  /** Default false. */
+  readonly verifyOnOpen?: boolean | undefined
+  /** Nonterminal Submissions per lane before admission refuses; default 256. */
+  readonly maxQueueDepthPerLane?: number | undefined
+  /** Encoded input bytes per Submission; default = the stored-value bound. */
+  readonly maxInputBytes?: number | undefined
+  /** `ctx.storage.sql.databaseSize` ceiling at admission; default 9 GB (10 GB platform cap). */
+  readonly maxDatabaseBytes?: number | undefined
+  /**
+   * Durable Object storage fault injection (`ledger:*` / `append:*` locations). Handlers are
+   * constructed per incarnation WITH the live `DurableObjectState`, so eviction harnesses can
+   * map an armed hit to `ctx.abort()` — the platform's real failure mode. Default none.
+   */
+  readonly storageFailpoint?: ((ctx: DurableObjectState) => DoStorageFailpointHandler) | undefined
+  /** Coordinator fault injection (`submit:*` / `terminalize:*` locations); default none. */
+  readonly runtimeFailpoint?:
+    | ((ctx: DurableObjectState) => DurableRuntimeFailpointHandler)
+    | undefined
+  /** Thread-maintenance generation/alarm fault injection; default none. */
+  readonly maintenanceFailpoint?:
+    | ((ctx: DurableObjectState) => ThreadMaintenanceFailpointHandler)
+    | undefined
+  /** Host-supplied fail-closed authorization policy; defaults to service possession. */
+  readonly operationAuthorizer?: OperationAuthorizerService | undefined
+  /**
+   * Reconciliation policy consulted for open ordinary Tool Calls before an Unknown Outcome
+   * is recorded (durability §10, DUR-009). Defaults to the fail-closed
+   * `ToolReconciler.uncertain`.
+   */
+  readonly toolReconciler?: Layer.Layer<ToolReconciler> | undefined
+}
+
+/** Services supplied before the application graph is built, including its dependencies. */
+export type CloudflareBootstrapServices =
+  | CloudflareDurableRuntimeConfig
+  | ThreadObjectIdentity
+  | ThreadObjectPlacement
+  | DurableRuntimeConfig
+  | CryptoDigest.Digest
+  | SecureRandom.SecureRandom
+  | DoStorageFailpoint
+  | DurableRuntimeFailpoint
+  | ThreadMaintenanceFailpoint
+  | RunContextPreparation
+  | RunToolAuthorization
+  | ToolReconciler
+  | LiveTextHub
+
+/** Every construction failure of the assembled Cloudflare durable runtime stack. */
+export type CloudflareDurableRuntimeInitializationError =
+  | CloudflarePlatformConfigError
+  | DigestError
+  | MessageDeliveryError
+  | DoStorageInitializationError
+
+/**
+ * The services `ThreadObject.layer` provides, including its single owner SQL client.
+ * Its Context also supplies the defaulted ThreadMessageDelivery and ThreadHostMaintenance
+ * references so rebuilt maintenance retains message recovery and lifecycle publication lanes.
+ */
+export type CloudflareDurableRuntimeServices =
+  | DurableAgentRuntime
+  | SubmissionLedger
+  | ThreadStore
+  | ThreadReader
+  | RunStorage
+  | StorageOwner
+  | SettlementPublisher
+  | MessageDeliveryStore
+  | WakeScheduler
+  | DurableAlarmService
+  | ThreadMaintenance
+  | ThreadMutationGate
+  | ThreadPublication
+  | ThreadProjectionMaintenance
+  | ThreadObjectPorts
+  | ProgressWaitRegistry
+  | SqlClient.SqlClient
+
+/**
+ * Owner-side execution port for a `portCall` request the wire endpoint has already decoded.
+ * It executes against THIS Object's LOCAL port facets — never the routed decorators, so a
+ * request cannot bounce between Objects — and returns the typed response for the endpoint to
+ * encode.
+ */
+export class ThreadObjectPorts extends Context.Service<
+  ThreadObjectPorts,
+  {
+    readonly handle: (request: PortRequest) => Effect.Effect<PortResponse>
+    /**
+     * Local-only lookup: encoded identities and returned rows must belong to this physical
+     * owner. Addressed RPCs additionally validate the exact logical Thread.
+     */
+    readonly lookupSubmission: (
+      submissionId: SubmissionId,
+    ) => Effect.Effect<Option.Option<SubmissionSnapshot>, LedgerError>
+  }
+>()('@effect-agent/platform-cloudflare/ThreadObjectPorts') {}
+
+const decodeConfigValue = Schema.decodeUnknownEffect(CloudflareDurableRuntimeConfigValue)
+const decodeThreadId = Schema.decodeUnknownEffect(ThreadId)
+const decodeProducerId = Schema.decodeUnknownEffect(ProducerId)
+
+const configFromOptions = (
+  options: CloudflareDurableRuntimeOptions,
+): Effect.Effect<CloudflareDurableRuntimeConfigValue, CloudflarePlatformConfigError> =>
+  decodeConfigValue({
+    deploymentId: options.deploymentId,
+    producerPrefix: options.producerPrefix,
+    recoveryWindowMillis: options.recoveryWindowMillis ?? CLOUDFLARE_RUNTIME_DEFAULTS.recoveryWindowMillis,
+    alarmBackoffBase: options.alarmBackoffBase ?? CLOUDFLARE_RUNTIME_DEFAULTS.alarmBackoffBase,
+    alarmBackoffCap: options.alarmBackoffCap ?? CLOUDFLARE_RUNTIME_DEFAULTS.alarmBackoffCap,
+    settlementPollInterval: options.settlementPollInterval ?? CLOUDFLARE_RUNTIME_DEFAULTS.settlementPollInterval,
+    abortPollInterval: options.abortPollInterval ?? CLOUDFLARE_RUNTIME_DEFAULTS.abortPollInterval,
+    observationPollInterval: options.observationPollInterval ?? CLOUDFLARE_RUNTIME_DEFAULTS.observationPollInterval,
+    projectionDispatchTimeoutMillis: options.projectionDispatchTimeoutMillis ??
+      CLOUDFLARE_RUNTIME_DEFAULTS.projectionDispatchTimeoutMillis,
+    maxStoredValueBytes: options.maxStoredValueBytes ?? CLOUDFLARE_RUNTIME_DEFAULTS.maxStoredValueBytes,
+    verifyOnOpen: options.verifyOnOpen ?? CLOUDFLARE_RUNTIME_DEFAULTS.verifyOnOpen,
+    limits: {
+      maxQueueDepthPerLane: options.maxQueueDepthPerLane ?? CLOUDFLARE_RUNTIME_DEFAULTS.maxQueueDepthPerLane,
+      maxInputBytes: Math.min(
+        options.maxInputBytes ?? CLOUDFLARE_RUNTIME_DEFAULTS.maxInputBytes,
+        options.maxStoredValueBytes ?? CLOUDFLARE_RUNTIME_DEFAULTS.maxStoredValueBytes,
+      ),
+      maxDatabaseBytes: options.maxDatabaseBytes ?? CLOUDFLARE_RUNTIME_DEFAULTS.maxDatabaseBytes,
+    },
+  }).pipe(
+    Effect.mapError((error) =>
+      CloudflarePlatformConfigError.make({
+        message: `Invalid Cloudflare durable runtime configuration: ${error.message}`,
+        cause: error,
+      })
+    ),
+  )
+
+/**
+ * The Thread this Object owns, from the Object identity rule (plan §1.2): Thread
+ * Objects are addressed exclusively by `idFromName(threadId)`, so `ctx.id.name` IS the
+ * Thread ID. An unnamed Object (from `newUniqueId`) is a deployment error, not a lane.
+ */
+const threadIdFromState = (
+  ctx: DurableObjectState,
+): Effect.Effect<ThreadId, CloudflarePlatformConfigError> =>
+  ctx.id.name === undefined
+    ? Effect.fail(
+      CloudflarePlatformConfigError.make({
+        message: 'This Durable Object was not created via idFromName(threadId); Thread ' +
+          'Objects must be addressed by their Thread identity (plan §1.2).',
+      }),
+    )
+    : decodeThreadId(ctx.id.name).pipe(
+      Effect.mapError((error) =>
+        CloudflarePlatformConfigError.make({
+          message: `The Durable Object name is not a valid ThreadId: ${error.message}`,
+          cause: error,
+        })
+      ),
+    )
+
+/**
+ * Validate deployment settings and derive services before building application dependencies.
+ * The native class factory builds this Layer inside its constructor gate. Custom Effect hosts
+ * can provide it around the complete application Layer with the native context already supplied.
+ */
+const runtimeConfigLayer = (
+  options: CloudflareDurableRuntimeOptions,
+  producerId: ProducerId,
+): Layer.Layer<
+  Exclude<CloudflareBootstrapServices, ThreadObjectIdentity | ThreadObjectPlacement>,
+  CloudflarePlatformConfigError,
+  DurableObjectContext
+> =>
+  Layer.unwrap(
+    Effect.gen(function*() {
+      const { ctx } = yield* DurableObjectContext
+      const config = yield* configFromOptions(options)
+
+      return Layer.mergeAll(
+        Layer.succeed(CloudflareDurableRuntimeConfig, config),
+        DurableRuntimeConfig.layer({
+          deploymentId: config.deploymentId,
+          producerId,
+          settlementPollInterval: Duration.millis(config.settlementPollInterval),
+          abortPollInterval: Duration.millis(config.abortPollInterval),
+          ...(options.estimateCostMicrousd === undefined
+            ? {}
+            : { estimateCostMicrousd: options.estimateCostMicrousd }),
+        }),
+        cloudflareCryptoLayer,
+        LiveTextHub.layer,
+        storageFailpointLayer({ storage: ctx.storage, failpoint: options.storageFailpoint?.(ctx) }),
+        options.runtimeFailpoint === undefined
+          ? DurableRuntimeFailpoint.layer
+          : Layer.succeed(DurableRuntimeFailpoint, { hit: options.runtimeFailpoint(ctx) }),
+        options.maintenanceFailpoint === undefined
+          ? ThreadMaintenanceFailpoint.layer
+          : Layer.succeed(ThreadMaintenanceFailpoint, {
+            hit: options.maintenanceFailpoint(ctx),
+          }),
+        options.toolReconciler ?? ToolReconciler.uncertain,
+        options.operationAuthorizer === undefined
+          ? Layer.empty
+          : operationAuthorizerLayer(options.operationAuthorizer),
+        options.toolFailureObserver === undefined
+          ? Layer.succeed(CurrentToolFailureObserver, undefined)
+          : toolFailureObserverLayer(options.toolFailureObserver),
+        RunContextPreparationPassthrough,
+        RunToolAuthorization.allowAll,
+      )
+    }),
+  )
+
+const producerIdentity = (prefix: string, owner: string) =>
+  decodeProducerId(`${prefix}:${owner}`).pipe(
+    Effect.mapError((error) =>
+      CloudflarePlatformConfigError.make({
+        message: `The minted producer identity is invalid: ${error.message}`,
+        cause: error,
+      })
+    ),
+  )
+
+/** Native one-Thread configuration; retains its existing producer and logical identities. */
+export const layerConfig = (
+  options: CloudflareDurableRuntimeOptions,
+): Layer.Layer<CloudflareBootstrapServices, CloudflarePlatformConfigError, DurableObjectContext> =>
+  Layer.unwrap(
+    Effect.gen(function*() {
+      const { ctx } = yield* DurableObjectContext
+      const threadId = yield* threadIdFromState(ctx)
+      const producerId = yield* producerIdentity(options.producerPrefix, threadId)
+
+      return Layer.mergeAll(
+        runtimeConfigLayer(options, producerId),
+        Layer.succeed(ThreadObjectIdentity, { threadId, producerId }),
+        Layer.succeed(ThreadObjectPlacement, {
+          threadId,
+          ownsThread: (target) => target === threadId,
+        }),
+      )
+    }),
+  )
+
+/**
+ * Configuration for an application Object owning several logical Threads. The producer is
+ * the stable physical Object. No logical identity is installed globally: handleRpc binds and
+ * validates it per request using the placement guard and this actual runtime producer.
+ */
+export const layerHostConfig = (
+  options: CloudflareDurableRuntimeOptions,
+  ownsThread: (threadId: ThreadId) => boolean,
+): Layer.Layer<
+  Exclude<CloudflareBootstrapServices, ThreadObjectIdentity>,
+  CloudflarePlatformConfigError,
+  DurableObjectContext
+> =>
+  Layer.unwrap(
+    Effect.gen(function*() {
+      const { ctx } = yield* DurableObjectContext
+      const producerId = yield* producerIdentity(options.producerPrefix, ctx.id.toString())
+
+      return Layer.merge(
+        runtimeConfigLayer(options, producerId),
+        Layer.succeed(ThreadObjectPlacement, { ownsThread }),
+      )
+    }),
+  )
+
+/** Native source mutations which can create independently retained application obligations. */
+export type ThreadHostMutation =
+  | { readonly _tag: 'Admission'; readonly request: AdmissionRequest }
+  | { readonly _tag: 'Settlement'; readonly request: SettlementFinalization }
+  | { readonly _tag: 'WorkerStop'; readonly request: WorkerStopCommand }
+
+export interface ThreadPublicationOptions<E = never, R = never, P = never> {
+  /** Pure, bounded selection of affected host lane IDs. The native owner prearms and guards
+   * these lanes through the source mutation, including replay and recovery-only finalization.
+   * Return only registered host IDs; do not perform I/O or acquire maintenance services here.
+   * Delivery is independent of lifecycle publication and remains at least once.
+   */
+  readonly hostLanesForMutation?: (mutation: ThreadHostMutation) => ReadonlyArray<string>
+  /** Per-Submission recovery fault transitions. Capture host services once per incarnation;
+   * acknowledge only after durable application or outbox retention. Delivery runs in a
+   * separate bounded maintenance lane and does not gate native execution.
+   */
+  readonly recoveryEvents?: Layer.Layer<ThreadRecoveryEvents, E, R>
+  /** Typed native facts, retained atomically and published asynchronously in owner batches.
+   * The handler returns after the application batch and its receipts commit. No journal
+   * scan is needed. The handler receives private native evidence, not pre-authorized UI data.
+   */
+  readonly lifecyclePublication?: Layer.Layer<LifecyclePublicationHandler, E, R>
+  /**
+   * Optional host outbox consumer, built once per incarnation with RAW LOCAL ThreadStore and
+   * SubmissionLedger services. Yield DurableObjectContext and ThreadObjectIdentity for native
+   * bindings and identity. Initialization is local-only, inside the constructor gate; setup
+   * errors and additional requirements remain in the returned Layer. Layer.effect owns Scope.
+   * Canonical appends and durable approval, abort and unknown-resolution intents invalidate
+   * publication after commit. Custom host facts must use ThreadMaintenance.withMutation.
+   */
+  readonly publication?: Layer.Layer<ThreadPublication, E, R>
+  /**
+   * Disposable index maintenance, built once with the raw local ThreadStore and owner
+   * SqlClient. Additional services P are exposed by the returned Layer, allowing Tool
+   * handlers and maintenance to share one index instance. Construction is local-only.
+   * Live committed batches run before append returns; bounded backfill uses the native
+   * alarm without delaying execution behind projection backlog.
+   */
+  readonly projection?: Layer.Layer<ThreadProjectionMaintenance | P, E, R>
+}
+
+/**
+ * Register typed Agents and version declarations. Hashing and dependency capture happen in
+ * this Layer's Scope, after application Layers have been provided. Every Agent's instruction,
+ * Tool, Schema, and model requirements remain visible until satisfied by Layer composition.
+ * Use Layer.unwrap for registration values that need effectful application setup.
+ */
+const registeredLayer = <
+  const Entries extends ReadonlyArray<AgentRegistration>,
+  E = never,
+  R = never,
+>(
+  registrations: Entries,
+  options: ThreadPublicationOptions<E, R> = {},
+) =>
+  Layer.unwrap(
+    Effect.map(compileRegistrations(registrations), (bindings) => boundLayer(bindings, options)),
+  )
+
+/** Preserve additional index services only when a projection Layer is actually supplied. */
+export function layer<
+  const Entries extends ReadonlyArray<AgentRegistration>,
+  E = never,
+  R = never,
+  P = never,
+  PE = never,
+  PR = never,
+>(
+  registrations: Entries,
+  options: Omit<ThreadPublicationOptions<E, R>, 'projection'> & {
+    readonly projection: Layer.Layer<ThreadProjectionMaintenance | P, PE, PR>
+  },
+): Layer.Layer<
+  Layer.Success<ReturnType<typeof registeredLayer<Entries, E | PE, R | PR>>> | P,
+  Layer.Error<ReturnType<typeof registeredLayer<Entries, E | PE, R | PR>>>,
+  Layer.Services<ReturnType<typeof registeredLayer<Entries, E | PE, R | PR>>>
+>
+
+export function layer<const Entries extends ReadonlyArray<AgentRegistration>, E = never, R = never>(
+  registrations: Entries,
+  options?: ThreadPublicationOptions<E, R>,
+): ReturnType<typeof registeredLayer<Entries, E, R>>
+
+export function layer<const Entries extends ReadonlyArray<AgentRegistration>, E = never, R = never>(
+  registrations: Entries,
+  options: ThreadPublicationOptions<E, R> = {},
+) {
+  return registeredLayer(registrations, options)
+}
+
+export function layerFromBindings<E = never, R = never, P = never, PE = never, PR = never>(
+  bindings: ReadonlyArray<ResolvedBinding>,
+  options: Omit<ThreadPublicationOptions<E, R>, 'projection'> & {
+    readonly projection: Layer.Layer<ThreadProjectionMaintenance | P, PE, PR>
+  },
+): Layer.Layer<
+  CloudflareDurableRuntimeServices | P,
+  Layer.Error<ReturnType<typeof boundLayer<E | PE, R | PR>>>,
+  Layer.Services<ReturnType<typeof boundLayer<E | PE, R | PR>>>
+>
+
+export function layerFromBindings<E = never, R = never>(
+  bindings: ReadonlyArray<ResolvedBinding>,
+  options?: ThreadPublicationOptions<E, R>,
+): ReturnType<typeof boundLayer<E, R>>
+
+export function layerFromBindings(
+  bindings: ReadonlyArray<ResolvedBinding>,
+): ReturnType<typeof boundLayer<never, never>>
+
+export function layerFromBindings<E = never, R = never>(
+  bindings: ReadonlyArray<ResolvedBinding>,
+  options: ThreadPublicationOptions<E, R> = {},
+) {
+  return boundLayer(bindings, options)
+}
+
+/**
+ * Assemble the durable runtime from already-resolved Agent Bindings.
+ * Use `ThreadObject.layer` to compile typed Agent registrations instead.
+ * Supply host services through `ThreadObject.make` or `ThreadObject.layerConfig` and
+ * the Durable Object context and namespace Layers when composing a custom host.
+ */
+const boundLayer = <E = never, R = never>(
+  bindings: ReadonlyArray<ResolvedBinding>,
+  options: ThreadPublicationOptions<E, R> = {},
+) =>
+  Layer.unwrap(
+    Effect.map(DurableObjectContext, ({ ctx }) =>
+      sharedLayer(DurableAgentRuntime.layerWithBindings(bindings), options).pipe(
+        Layer.provideMerge(SqliteClient.layer({ storage: ctx.storage })),
+      )),
+  )
+
+/**
+ * Build the application runtime over the existing owner SqlClient and native ports, then
+ * assemble its one maintenance coordinator. The application may acquire its Bindings from
+ * those ports and expose extra services, including ThreadHostMaintenance. It must not acquire
+ * another runtime stack or require ThreadMaintenance while constructing this Layer.
+ * Supply layerHostConfig and deterministic placement; dispatch addressed ingress with handleRpc.
+ */
+export function layerInHost<A, E, R, P = never, PE = never, PR = never>(
+  application: Layer.Layer<DurableAgentRuntime | A, E, R>,
+  options: Omit<ThreadPublicationOptions<PE, PR>, 'projection'> & {
+    readonly projection: Layer.Layer<ThreadProjectionMaintenance | P, PE, PR>
+  },
+): Layer.Layer<
+  CloudflareDurableRuntimeServices | A | P,
+  Layer.Error<ReturnType<typeof sharedLayer<A, E, R, PE, PR>>>,
+  Layer.Services<ReturnType<typeof sharedLayer<A, E, Exclude<R, P>, PE, PR>>>
+>
+
+export function layerInHost<A, E, R, PE = never, PR = never>(
+  application: Layer.Layer<DurableAgentRuntime | A, E, R>,
+  options?: ThreadPublicationOptions<PE, PR>,
+): ReturnType<typeof sharedLayer<A, E, R, PE, PR>>
+
+export function layerInHost<A, E, R, PE = never, PR = never>(
+  application: Layer.Layer<DurableAgentRuntime | A, E, R>,
+  options: ThreadPublicationOptions<PE, PR> = {},
+) {
+  return sharedLayer(application, options)
+}
+
+const sharedLayer = <A, E, R, PE = never, PR = never>(
+  application: Layer.Layer<DurableAgentRuntime | A, E, R>,
+  options: ThreadPublicationOptions<PE, PR> = {},
+) =>
+  Layer.unwrap(
+    Effect.gen(function*() {
+      const { ctx } = yield* DurableObjectContext
+      const config = yield* CloudflareDurableRuntimeConfig
+      const placement = yield* ThreadObjectPlacement
+      const scheduling = yield* DurableObjectAlarm.ScheduleConfiguration
+      const { ownsThread } = placement
+
+      const storageOptions: DoStorageOptions = {
+        storage: ctx.storage,
+        observationPollInterval: config.observationPollInterval,
+        maxStoredValueBytes: config.maxStoredValueBytes,
+        verifyOnOpen: config.verifyOnOpen,
+      }
+
+      // Memoize these shared compositions within this Object's build, so repeated
+      // consumers reuse their contexts as well as the scoped leaf services.
+      const infrastructure = Layer.suspend(() =>
+        Layer.mergeAll(
+          options.lifecyclePublication === undefined ? Layer.empty : lifecyclePublicationLayer,
+          storageConfigLayer(storageOptions),
+          Layer.effect(SqlClient.SqlClient)(SqlClient.SqlClient),
+        )
+      )
+
+      // Preserve the database owner's reader gate and rollback invalidators, while
+      // making source transactions explicitly own the due-queue flush.
+      const sourceOwner = Layer.effect(SqlStorageOwner)(
+        Effect.gen(function*() {
+          const owner = yield* SqlStorageOwner
+          const mutations = yield* ThreadMutationGate
+
+          // oxlint-disable-next-line effect/no-native-error -- Missing host SQL ownership is an assembly defect, not a recoverable workflow failure.
+          if (owner === undefined) return yield* Effect.die(new Error('SQL owner unavailable'))
+
+          return {
+            identity: owner.identity ?? owner,
+            read: owner.read,
+            invalidators: owner.invalidators,
+            transaction: <A, E, R>(body: Effect.Effect<A, E, R>) =>
+              owner.read(
+                mutations.withTransaction(body).pipe(
+                  Effect.onExit((exit) =>
+                    Exit.isFailure(exit)
+                      ? Effect.sync(() => {
+                        for (const invalidate of owner.invalidators) invalidate()
+                      })
+                      : Effect.void
+                  ),
+                ),
+              ),
+          }
+        }),
+      ).pipe(Layer.provide(sqlOwnerLayer))
+
+      const localInfrastructure = Layer.suspend(() => Layer.mergeAll(infrastructure, sourceOwner))
+
+      const sourceProgress = Layer.effect(SqlStorageProgress)(
+        Effect.gen(function*() {
+          const mutations = yield* ThreadMutationGate
+
+          return {
+            committed: (kind) => {
+              const lanes = Match.value(kind).pipe(
+                Match.when('canonical', () => [
+                  DueQueue.Native,
+                  DueQueue.Publication,
+                  ...(options.projection === undefined ? [] : [DueQueue.Projection]),
+                ]),
+                Match.whenOr('submission', 'control', () => [
+                  DueQueue.Native,
+                  DueQueue.Publication,
+                ]),
+                Match.when('work-index', () => [DueQueue.Native]),
+                Match.when('delivery', () => [
+                  DueQueue.Messages,
+                  ...(options.lifecyclePublication === undefined ? [] : [DueQueue.Lifecycle]),
+                ]),
+                Match.whenOr('lifecycle', 'lifecycle-ack', () =>
+                  options.lifecyclePublication === undefined ? [] : [DueQueue.Lifecycle]),
+                Match.exhaustive,
+              )
+
+              return mutations.recordProgress(lanes).pipe(
+                Effect.catchCause((cause) =>
+                  Effect.failCause(
+                    Cause.map(cause, (failure) =>
+                      SqlStorageProgressError.make({
+                        operation: 'record maintenance progress',
+                        message: 'Committed source work could not enroll maintenance',
+                        cause: failure,
+                      })),
+                  )
+                ),
+              )
+            },
+          }
+        }),
+      )
+
+      // The same local ports serve routed decorators and owner-side RPC execution.
+      // The RPC executor must never receive routed ports and bounce requests between Objects.
+      const rawLocalPorts = Layer.suspend(() =>
+        Layer.mergeAll(threadStoreLayer, submissionLedgerLayer).pipe(
+          Layer.provide(journalLayer),
+          Layer.provide(localInfrastructure),
+          Layer.provide(sourceProgress),
+        )
+      )
+
+      const base = Layer.suspend(() =>
+        Layer.mergeAll(DurableAlarmService.layer, ProgressWaitRegistry.layer)
+      )
+
+      const wakes = cloudflareWakeSchedulerLayer.pipe(Layer.provide(base))
+
+      const messageStore = Layer.suspend(() =>
+        guardedMessageDeliveryStoreLayer.pipe(
+          Layer.provide(
+            doMessageDeliveryStoreLayer().pipe(
+              Layer.provide(localInfrastructure),
+              Layer.provide(sourceProgress),
+            ),
+          ),
+          Layer.provide(wakes),
+        )
+      )
+
+      const messageRecovery = Layer.suspend(() =>
+        lazyThreadMessageDeliveryLayer(
+          // Four parallel attempts per wave. Native completion stops new wake-driven waves;
+          // retained retry deadlines schedule future alarms.
+          MessageDeliveryDriver.layer({ batchSize: 4, concurrency: 4 }).pipe(
+            Layer.provide(cloudflarePreparedInputAdmissionLayer),
+            Layer.provide(CloudflareThreadClient.layer),
+            Layer.provide(messageStore),
+            Layer.provide(wakes),
+          ),
+        ).pipe(Layer.provide(messageStore))
+      )
+
+      const publication = options.publication === undefined
+        ? ThreadPublication.layer
+        : options.publication.pipe(
+          Layer.provide(
+            Layer.mergeAll(
+              rawLocalPorts,
+              Layer.effect(SqlClient.SqlClient)(SqlClient.SqlClient),
+            ),
+          ),
+        )
+
+      const projection = options.projection === undefined
+        ? ThreadProjectionMaintenance.layer
+        : options.projection.pipe(
+          Layer.provide(
+            Layer.mergeAll(
+              rawLocalPorts,
+              Layer.effect(SqlClient.SqlClient)(SqlClient.SqlClient),
+            ),
+          ),
+        )
+
+      const localPorts = options.publication === undefined &&
+          options.projection === undefined &&
+          options.hostLanesForMutation === undefined &&
+          options.lifecyclePublication === undefined
+        ? rawLocalPorts
+        : Layer.effectContext(
+          Effect.gen(function*() {
+            const store = yield* ThreadStore
+            const ledger = yield* SubmissionLedger
+            const storageOwner = yield* StorageOwner
+            const settlementPublisher = yield* SettlementPublisher
+            const mutations = yield* ThreadMutationGate
+            const index = yield* ThreadProjectionMaintenance
+            const publish = yield* Effect.context<ThreadPublication>()
+            const afterCommit = publishCommitted.pipe(Effect.provide(publish))
+            // A later append cannot mistake its still-projecting predecessor for old backlog.
+            // Publication remains outside this local source/index critical section.
+            const sourceCommits = yield* Semaphore.make(1)
+
+            const observeAppend = (
+              request: AppendRequest,
+              body: Effect.Effect<AppendResult, ThreadStoreFailure>,
+            ) =>
+              mutations
+                .withMutation(
+                  sourceCommits
+                    .withPermit(
+                      body.pipe(
+                        Effect.tap((result) =>
+                          index
+                            .applyCommitted(request, result)
+                            .pipe(
+                              Effect.catchCause((cause) =>
+                                Cause.hasInterrupts(cause)
+                                  ? Effect.interrupt
+                                  : Effect.logError(
+                                    'Thread projection deferred after source commit',
+                                    cause,
+                                  )
+                              ),
+                            )
+                        ),
+                      ),
+                    )
+                    .pipe(Effect.tap(() => afterCommit)),
+                  {
+                    lanes: [
+                      ...(options.projection === undefined ? [] : [DueQueue.Projection]),
+                      ...(options.lifecyclePublication === undefined ||
+                          !request.batch.records.some((record) =>
+                            Schema.is(Schema.toType(LifecyclePublicationFact))(record.payload)
+                          )
+                        ? []
+                        : [DueQueue.Lifecycle]),
+                    ],
+                  },
+                )
+                .pipe(
+                  Effect.catchTag('DurableAlarmError', (cause) =>
+                    ThreadStoreError.make({
+                      operation: 'prearm publication append',
+                      message: cause.message,
+                      cause,
+                    })),
+                )
+
+            // Every runtime-owned producer prearms too: a crash between commit and invalidation
+            // leaves a NEW, uncertified generation. Source errors keep their native port types.
+            const observedStore = ThreadStore.of({
+              ...store,
+              ...(store.lifecyclePublications === undefined
+                ? {}
+                : {
+                  lifecyclePublications: {
+                    ...store.lifecyclePublications,
+                    retryParked: (ownerThreadId, nowMillis) =>
+                      mutations
+                        .withMutation(
+                          store.lifecyclePublications!.retryParked(ownerThreadId, nowMillis),
+                          { invalidatesRecovery: false, lanes: [DueQueue.Lifecycle] },
+                        )
+                        .pipe(
+                          Effect.catchTag('DurableAlarmError', (cause) =>
+                            LifecyclePublicationError.make({ reason: 'unavailable', cause })),
+                        ),
+                  },
+                }),
+              append: (request) => observeAppend(request, store.append(request)),
+            })
+
+            const observeIntent = <A, Failure>(
+              body: Effect.Effect<A, Failure>,
+              invalidatesRecovery = true,
+              hostLanes: ReadonlyArray<string> = [],
+            ) =>
+              mutations
+                .withMutation(
+                  body.pipe(
+                    Effect.tap(() => (invalidatesRecovery ? afterCommit : Effect.void)),
+                  ),
+                  {
+                    invalidatesRecovery,
+                    lanes: [
+                      ...hostLanes,
+                      ...(options.lifecyclePublication === undefined
+                        ? []
+                        : [DueQueue.Lifecycle]),
+                    ],
+                  },
+                )
+                .pipe(
+                  Effect.catchTag('DurableAlarmError', (cause) =>
+                    LedgerError.make({
+                      operation: 'prearm publication intent',
+                      message: 'The publication generation could not be armed',
+                      cause,
+                    })),
+                )
+
+            const observeMutation = <A, Failure>(
+              mutation: ThreadHostMutation,
+              body: Effect.Effect<A, Failure>,
+              invalidatesRecovery: boolean,
+            ) =>
+              Effect.suspend(() =>
+                Schema.decodeEffect(Schema.Array(DueQueue.HostLaneId))([
+                  ...new Set(options.hostLanesForMutation?.(mutation) ?? []),
+                ])
+              ).pipe(
+                Effect.mapError((cause) =>
+                  LedgerError.make({
+                    operation: 'select host maintenance lanes',
+                    message: 'Native mutation selected an invalid host lane ID',
+                    cause,
+                  })
+                ),
+                Effect.flatMap((lanes) => observeIntent(body, invalidatesRecovery, lanes)),
+              )
+
+            const stopWorker = ledger.stopWorker
+            const appendInput = ledger.appendInput
+
+            return Context.make(ThreadStore, observedStore).pipe(
+              Context.add(StorageOwner, storageOwner),
+              Context.add(SettlementPublisher, {
+                publish: Effect.fnUntraced(function*(input) {
+                  const { request } = yield* validatePublication(input)
+
+                  return yield* mutations
+                    .withMutation(
+                      sourceCommits
+                        .withPermit(
+                          settlementPublisher.publish(request).pipe(
+                            Effect.tap((result) =>
+                              result.replayed
+                                ? Effect.void
+                                : index
+                                  .applyCommitted(
+                                    request.append,
+                                    AppendResult.make({
+                                      firstSequence: result.tailSequence,
+                                      lastSequence: result.tailSequence,
+
+                                      replayed: false,
+                                    }),
+                                  )
+                                  .pipe(
+                                    Effect.catchCause((cause) =>
+                                      Cause.hasInterrupts(cause)
+                                        ? Effect.interrupt
+                                        : Effect.logError(
+                                          'Thread projection deferred after settlement publication',
+                                          cause,
+                                        )
+                                    ),
+                                  )
+                            ),
+                          ),
+                        )
+                        .pipe(Effect.tap(() => afterCommit)),
+                      {
+                        lanes: [
+                          ...(options.projection === undefined ? [] : [DueQueue.Projection]),
+                          ...(options.lifecyclePublication === undefined
+                            ? []
+                            : [DueQueue.Lifecycle]),
+                        ],
+                      },
+                    )
+                    .pipe(
+                      Effect.catchTag('DurableAlarmError', (cause) =>
+                        ThreadStoreError.make({
+                          operation: 'prearm settlement publication',
+                          message: cause.message,
+                          cause,
+                        })),
+                    )
+                }),
+              }),
+              Context.add(SubmissionLedger, {
+                ...ledger,
+                ...(appendInput === undefined
+                  ? {}
+                  : {
+                    appendInput: (submissionId, input) =>
+                      Effect.flatMap(PreparedAppend.capture(input), (request) =>
+                        observeAppend(request, appendInput(submissionId, request))),
+                  }),
+                ...(options.hostLanesForMutation === undefined &&
+                    options.lifecyclePublication === undefined
+                  ? {}
+                  : {
+                    admit: (...args: Parameters<SubmissionLedger['Service']['admit']>) =>
+                      observeMutation(
+                        { _tag: 'Admission', request: args[0] },
+                        ledger.admit(...args),
+                        false,
+                      ),
+                  }),
+                ...(options.lifecyclePublication === undefined
+                  ? {}
+                  : {
+                    markReady: (request) =>
+                      observeIntent(ledger.markReady(request), false),
+                    suspend: (request) =>
+                      observeIntent(ledger.suspend(request), false),
+                    markUnknown: (request) => observeIntent(ledger.markUnknown(request), false),
+                    recordChildSettled: (request) => observeIntent(ledger.recordChildSettled(request), false),
+                  }),
+                ...(options.lifecyclePublication === undefined &&
+                    options.hostLanesForMutation === undefined
+                  ? {}
+                  : {
+                    finalizeSettlement: (request: SettlementFinalization) =>
+                      observeMutation(
+                        { _tag: 'Settlement', request },
+                        ledger.finalizeSettlement(request),
+                        false,
+                      ),
+                  }),
+                recordApprovalDecision: (request) => observeIntent(ledger.recordApprovalDecision(request)),
+                ...(stopWorker === undefined
+                  ? {}
+                  : {
+                    stopWorker: (request: Parameters<NonNullable<typeof stopWorker>>[0]) =>
+                      observeMutation(
+                        { _tag: 'WorkerStop', request },
+                        stopWorker(request),
+                        true,
+                      ),
+                  }),
+                requestAbort: (request) => observeIntent(ledger.requestAbort(request)),
+                recordUnknownResolution: (request) => observeIntent(ledger.recordUnknownResolution(request)),
+              }),
+            )
+          }),
+        ).pipe(Layer.provide(rawLocalPorts))
+
+      const portsEndpointLayer = Layer.effect(ThreadObjectPorts)(
+        Effect.gen(function*() {
+          const local = yield* Effect.context<
+            | SubmissionLedger
+            | SettlementPublisher
+            | ThreadStore
+            | MessageDeliveryStore
+            | WakeScheduler
+            | DurableRuntimeFailpoint
+          >().pipe(
+            // The request's effective scheduling policy is installed after the ports build.
+            Effect.map(Context.omit(DurableObjectAlarm.ScheduleConfiguration)),
+          )
+
+          const lookupSubmission = makeLocalSubmissionLookup({ ownsThread })
+
+          return ThreadObjectPorts.of({
+            handle: (request) => executePortRequest(request).pipe(Effect.provide(local)),
+            lookupSubmission: (submissionId) => lookupSubmission(submissionId).pipe(Effect.provide(local)),
+          })
+        }),
+      ).pipe(Layer.provide(localPorts), Layer.provide(messageStore), Layer.provide(wakes))
+
+      const routedPorts = Layer.mergeAll(
+        Layer.effect(StorageOwner, StorageOwner),
+        routedSubmissionLedgerLayer({ ownsThread }),
+        routedSettlementPublisherLayer({ ownsThread }),
+        routedThreadStoreLayer({ ownsThread }),
+        routedWorkerAdmissionLayer({ ownsThread }),
+      ).pipe(Layer.provide(localPorts), Layer.provide(threadPortTransportLayer))
+
+      const routedMessages = routedMessageDeliveryStoreLayer({ ownsThread }).pipe(
+        Layer.provide(messageStore),
+        Layer.provide(threadPortTransportLayer),
+      )
+
+      // Application and maintenance share this composition, including its intermediate contexts.
+      // The Object's MemoMap owns the build; services and finalizers remain incarnation-local.
+      const runtimeStack = Layer.suspend(() =>
+        application.pipe(
+          Layer.provideMerge(runStorageLayer),
+          Layer.provide(
+            cloudflarePreparedInputAdmissionLayer.pipe(Layer.provide(CloudflareThreadClient.layer)),
+          ),
+          Layer.provideMerge(routedMessages),
+          Layer.provideMerge(routedPorts),
+          Layer.provideMerge(wakes),
+          Layer.provideMerge(base),
+          Layer.provideMerge(portsEndpointLayer),
+        )
+      )
+
+      const maintenanceRuntime = options.lifecyclePublication === undefined
+        ? runtimeStack
+        : Layer.merge(
+          runtimeStack,
+          Layer.effect(ThreadNativeMaintenance)(
+            Effect.gen(function*() {
+              const previous = yield* ThreadNativeMaintenance
+              const store = yield* ThreadStore
+              const storage = store.lifecyclePublications
+
+              const context = yield* Effect.context<
+                LifecyclePublicationHandler | ThreadStore | ThreadReader | SubmissionLedger
+              >()
+
+              const failure = (cause: unknown) => {
+                const error = DurableAlarmError.make({
+                  operation: 'publish native lifecycle',
+                  message: 'Native lifecycle publication remains pending',
+                  cause,
+                })
+
+                return ErrorReporter.isIgnored(cause)
+                  ? Object.assign(error, { [ErrorReporter.ignore]: true })
+                  : error
+              }
+
+              const deadline = (
+                storage === undefined
+                  ? Effect.fail(failure('Native lifecycle storage unavailable'))
+                  : storage.pendingDeadline.pipe(Effect.mapError(failure))
+              ).pipe(
+                Effect.withErrorReporting,
+                Effect.catchCauseIf(
+                  (cause) => !Cause.hasInterrupts(cause),
+                  (cause) =>
+                    Effect.logError('Lifecycle publication deadline unavailable', cause).pipe(
+                      Effect.andThen(
+                        Effect.map(Clock.currentTimeMillis, (now) => Option.some(now + 60_000)),
+                      ),
+                    ),
+                ),
+              )
+
+              return {
+                lanes: [
+                  ...previous.lanes,
+                  {
+                    id: DueQueue.Lifecycle,
+                    // Source commits enroll one concurrent lane. Materialize a bounded
+                    // journal suffix per wave; never wait for publication in native work.
+                    // Four owner batches, each with a 10s host timeout, plus local commits/cleanup.
+                    dispatchTimeoutMillis: 60_000,
+                    run: storage === undefined
+                      ? Effect.fail(failure('Native lifecycle storage unavailable'))
+                      : drainLifecyclePublications(storage).pipe(
+                        Effect.provide(context),
+                        Effect.mapError(failure),
+                        Effect.andThen(deadline),
+                      ),
+                  },
+                ],
+              }
+            }),
+          ).pipe(
+            Layer.provide(rawLocalPorts),
+            Layer.provide(options.lifecyclePublication.pipe(Layer.provide(rawLocalPorts))),
+            Layer.provide(runtimeStack),
+          ),
+        )
+
+      return Layer.mergeAll(
+        maintenanceRuntime,
+        ThreadMaintenance.layer.pipe(
+          Layer.provide(options.recoveryEvents ?? Layer.empty),
+          Layer.provide(
+            Layer.effect(ThreadNativeMaintenance)(
+              Effect.gen(function*() {
+                const previous = yield* ThreadNativeMaintenance
+                const runtime = yield* DurableAgentRuntime
+
+                return {
+                  lanes: previous.lanes,
+                  ...(placement.threadId === undefined ? {} : { singleThreadRuntime: runtime }),
+                }
+              }),
+            ),
+          ),
+          Layer.provide(maintenanceRuntime),
+          Layer.provide(messageRecovery),
+        ),
+        portsEndpointLayer,
+        routedMessages,
+        messageRecovery,
+      ).pipe(
+        Layer.provideMerge(sourceProgress),
+        Layer.provideMerge(publication),
+        Layer.provideMerge(projection),
+        Layer.provideMerge(sourceOwner),
+        Layer.provideMerge(ThreadMutationGate.layer),
+        Layer.provideMerge(infrastructure),
+        Layer.provideMerge(
+          Layer.succeed(DurableObjectAlarm.ScheduleConfiguration, {
+            ...scheduling,
+            inFlightRecovery: config.recoveryWindowMillis || (scheduling.inFlightRecovery ?? 1_000),
+          }),
+        ),
+      )
+    }),
+  )

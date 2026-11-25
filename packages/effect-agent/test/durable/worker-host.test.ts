@@ -1050,7 +1050,7 @@ const harness = Effect.fn('workerHostHarness')(function*(
 })
 
 layer(NodeCrypto.layer)((it) => {
-  // Regression: https://github.com/systemfsoftware/agent/commit/4ff21e2a4
+  // Regression: https://github.com/yielded-dev/agent/commit/4ff21e2a4
   it.effect(
     'reuses one start admission through preparation and rejects a later revoked start',
     () =>
@@ -1088,7 +1088,7 @@ layer(NodeCrypto.layer)((it) => {
       }),
   )
 
-  // Regression: https://github.com/systemfsoftware/agent/pull/621
+  // Regression: https://github.com/yielded-dev/agent/pull/621
   it.effect('origin establishment retries a tail advance after its identity snapshot', () =>
     Effect.gen(function*() {
       let onIdentity: Effect.Effect<void, ThreadStoreError> = Effect.void
@@ -1113,7 +1113,7 @@ layer(NodeCrypto.layer)((it) => {
       ])
     }))
 
-  // Regression: https://github.com/systemfsoftware/agent/commit/6a4f4f870
+  // Regression: https://github.com/yielded-dev/agent/commit/6a4f4f870
   it.effect(
     'origin establishment replays the same identity and refuses incompatible canonical ancestry',
     () =>
@@ -1188,7 +1188,7 @@ layer(NodeCrypto.layer)((it) => {
       }),
   )
 
-  // Regression: https://github.com/systemfsoftware/agent/commit/4ff21e2a4c3735be34955e7d5caf64f623d33f81
+  // Regression: https://github.com/yielded-dev/agent/commit/4ff21e2a4c3735be34955e7d5caf64f623d33f81
   // Reuse the public-start retained-command fixture from #568 for follow-up correction provenance.
   it.effect(`public follow-up replays its pending correction across Runs without preparation`, () =>
     Effect.gen(function*() {
@@ -1315,7 +1315,7 @@ layer(NodeCrypto.layer)((it) => {
       expect(h.deliveries.size).toBe(2)
     }))
 
-  // Equal-input regression: https://github.com/systemfsoftware/agent/commit/3ab9045fc293d09a22801c7d881c4d89e562461a
+  // Equal-input regression: https://github.com/yielded-dev/agent/commit/3ab9045fc293d09a22801c7d881c4d89e562461a
   for (
     const [preparation, denied] of [
       ['changed', undefined],
@@ -1412,7 +1412,7 @@ layer(NodeCrypto.layer)((it) => {
     )
   }
 
-  // Regression: https://github.com/systemfsoftware/agent/commit/43882d187248665eaf7fd46950b3bc617edcb73d
+  // Regression: https://github.com/yielded-dev/agent/commit/43882d187248665eaf7fd46950b3bc617edcb73d
   it.effect(
     'serializes source-aware active slots across raced starts, steering and idle reactivation',
     () =>
@@ -1582,7 +1582,7 @@ layer(NodeCrypto.layer)((it) => {
       expect(pending.logs.has(retained.worker.threadId)).toBe(false)
     }))
 
-  // Regression: https://github.com/systemfsoftware/agent/commit/43882d187248665eaf7fd46950b3bc617edcb73d
+  // Regression: https://github.com/yielded-dev/agent/commit/43882d187248665eaf7fd46950b3bc617edcb73d
   it.effect(
     'revalidates captured authority across a reserved admission retry and freezes later worker policy',
     () =>

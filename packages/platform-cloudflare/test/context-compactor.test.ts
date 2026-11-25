@@ -1,0 +1,400 @@
+import { CloudflareThreadClient } from '@systemfsoftware/agent-platform-cloudflare/cloudflare-thread-client'
+import * as Agent from '@systemfsoftware/agent/agent'
+import { CompactionPolicy } from '@systemfsoftware/agent/agent-policy'
+import { DurableWorkerBinding } from '@systemfsoftware/agent/agent-registration'
+import { ContextCompactor } from '@systemfsoftware/agent/context-compactor'
+import { DurableAgentRuntime } from '@systemfsoftware/agent/durable-agent-runtime'
+import { RunContextPreparation, RunToolAuthorization } from '@systemfsoftware/agent/run-options'
+import { layer as runStorageLayer } from '@systemfsoftware/agent/run-storage'
+import { submissionSettlementRecordId } from '@systemfsoftware/agent/submission-ledger'
+import { readTestThread } from '@systemfsoftware/agent/testing/thread-store-conformance'
+import { ThreadExportRequest, ThreadStore } from '@systemfsoftware/agent/thread-store'
+import { runInDurableObject } from 'cloudflare:test'
+import { DurableObject } from 'effect-cf'
+import * as LanguageModel from 'effect/ai/LanguageModel'
+import * as Model from 'effect/ai/Model'
+import * as Toolkit from 'effect/ai/Toolkit'
+import * as Context from 'effect/Context'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
+import * as Option from 'effect/Option'
+import * as Schema from 'effect/Schema'
+import * as Stream from 'effect/Stream'
+import { describe, expect, it } from 'vitest'
+
+import {
+  contextAuthorizationProbe,
+  contextCompactorDefinition,
+  contextCompactorProbe,
+  searchDefinition,
+  searchToolLayer,
+  submitOptions,
+  TEST_DIGESTS,
+} from './fixtures.ts'
+import { allSettled, drainAlarmsUntil, readCanonical, runClient, stubFor, type TestNamespace } from './harness.ts'
+
+let laneCounter = 0
+const lane = (label: string): string => `cf-context-compactor-${label}-${laneCounter++}`
+
+const submitAndSettle = async (
+  thread: string,
+  question: string,
+  key: string,
+  namespace: TestNamespace,
+) => {
+  const receipt = await runClient(
+    Effect.gen(function*() {
+      const client = yield* CloudflareThreadClient
+
+      return yield* client.submit(
+        { definition: contextCompactorDefinition },
+        { question, ref: thread },
+        submitOptions(thread, key),
+      )
+    }),
+    namespace,
+  )
+
+  await drainAlarmsUntil(thread, allSettled(thread, namespace), { namespace })
+
+  const settlement = await runClient(
+    Effect.gen(function*() {
+      const client = yield* CloudflareThreadClient
+
+      return yield* client.awaitSettlement(receipt)
+    }),
+    namespace,
+  )
+
+  const records = await readCanonical(thread, namespace)
+
+  const terminal = records.find(
+    (envelope) => envelope.record.recordId === submissionSettlementRecordId(receipt.submissionId),
+  )?.record.payload
+
+  if (terminal?._tag !== 'SubmissionSettled') {
+    throw new Error(`Missing canonical settlement for ${receipt.submissionId}`)
+  }
+
+  return { receipt, settlement, records, terminal }
+}
+
+const abortIncarnation = (thread: string): Promise<void> =>
+  runInDurableObject(stubFor(thread, 'CONTEXT_COMPACTOR'), (_instance, state) => {
+    state.abort('issue #49 reconstruction probe')
+  }).then(
+    () => undefined,
+    () => undefined,
+  )
+
+describe('Cloudflare replaceable compaction', () => {
+  // https://github.com/yielded-dev/agent/issues/692
+  // Native routed identities remain opaque while canonical context survives rollover.
+  it('retains canonical rollover context with native routed identities', () => {
+    const thread = lane('checkpoint:run:nested:tool-settled')
+
+    return runInDurableObject(stubFor(thread), (instance) =>
+      instance[DurableObject.RunSymbol](
+        Effect.gen(function*() {
+          const store = yield* ThreadStore
+          const prompts: Array<string> = []
+          let rollover = false
+
+          const model = Model.make(
+            'scripted',
+            'routed-checkpoint',
+            Layer.effect(
+              LanguageModel.LanguageModel,
+              LanguageModel.make({
+                generateText: () => Effect.succeed([]),
+                streamText: ({ prompt }) => {
+                  prompts.push(JSON.stringify(prompt))
+
+                  return Stream.fromIterable([
+                    { type: 'text-start', id: 'answer' },
+                    { type: 'text-delta', id: 'answer', delta: '"done"' },
+                    { type: 'text-end', id: 'answer' },
+                    {
+                      type: 'finish',
+                      reason: 'stop',
+                      usage: { inputTokens: {}, outputTokens: {} },
+                    },
+                  ])
+                },
+              }),
+            ),
+          )
+
+          const agent = Agent.withModel(
+            Agent.make('routed-checkpoint', {
+              input: Schema.String,
+              output: Schema.String,
+              instructions: 'Retain the conversation.',
+              toolkit: Toolkit.empty,
+              policy: { maxTurns: 1, maxDuration: '30 seconds', contextTokenLimit: 250_000 },
+            }),
+            model,
+          )
+
+          const binding = yield* DurableWorkerBinding.make(agent, TEST_DIGESTS)
+
+          const runtime = yield* Layer.build(
+            DurableAgentRuntime.layerWithBindings([binding]).pipe(
+              Layer.provide(runStorageLayer),
+              Layer.provide(
+                Layer.mergeAll(RunToolAuthorization.allowAll, ContextCompactor.layerRollover),
+              ),
+            ),
+          ).pipe(
+            Effect.map((services) => Context.get(services, DurableAgentRuntime)),
+            Effect.provideService(ThreadStore, store),
+            Effect.provideService(RunContextPreparation, {
+              hook: {
+                prepare: (request) =>
+                  Effect.succeed({
+                    prompt: request.source,
+                    ...(rollover ? { rollover: { handoff: 'Retained handoff.' } } : {}),
+                  }),
+              },
+            }),
+          )
+
+          const process = Effect.fnUntraced(function*(input: string, key = input) {
+            const receipt = yield* runtime.submit(agent, input, submitOptions(thread, key))
+
+            expect(receipt.submissionId.endsWith(`:${thread}`)).toBe(true)
+            const result = yield* runtime.processThreadHead(receipt.threadId)
+
+            expect(Option.isSome(result) && result.value).toMatchObject({
+              submissionId: receipt.submissionId,
+              outcome: 'completed',
+            })
+
+            return yield* readTestThread(
+              store,
+              ThreadExportRequest.make({ threadId: receipt.threadId }),
+            )
+          })
+
+          yield* process('retired request')
+          rollover = true
+
+          // A large current input remains canonical beside its original context and rollover.
+          const original = yield* process(
+            `begin compacted conversation ${'x'.repeat(400_000)}`,
+            'begin compacted conversation',
+          )
+
+          rollover = false
+
+          for (const input of ['first fresh request', 'second fresh request']) {
+            const completed = yield* process(input)
+
+            expect(prompts.at(-1)).toContain('Retained handoff.')
+            expect(prompts.at(-1)).toContain('begin compacted conversation')
+            expect(prompts.at(-1)).toContain(input)
+            expect(prompts.at(-1)).not.toContain('retired request')
+            expect(completed.records.slice(0, original.records.length)).toEqual(original.records)
+          }
+          expect(prompts.at(-1)).toContain('first fresh request')
+
+          rollover = true
+          yield* process('new window request')
+          expect(prompts.at(-1)).toContain('new window request')
+          expect(prompts.at(-1)).not.toContain('first fresh request')
+        }).pipe(Effect.scoped),
+      ))
+  })
+
+  // 8df7c2a587d111bebdcb14ba6e6b7ef15a544e80 deferred the input past the startup read.
+  // A warm prefix must still forbid summaries of the owning Run, as canonical replay does.
+  it('refuses a same-Run summary after warm startup', () => {
+    const thread = lane('summary-owner-boundary')
+
+    return runInDurableObject(stubFor(thread), (instance) =>
+      instance[DurableObject.RunSymbol](
+        Effect.gen(function*() {
+          const store = yield* ThreadStore
+          let calls = 0
+          let summaries = 0
+
+          const model = Model.make(
+            'scripted',
+            'summary-owner-boundary',
+            Layer.effect(
+              LanguageModel.LanguageModel,
+              LanguageModel.make({
+                generateText: () => Effect.succeed([]),
+                streamText: () => {
+                  calls += 1
+                  if (calls === 2 || calls === 3) {
+                    return Stream.fromIterable([
+                      {
+                        type: 'tool-call',
+                        id: `search-current-${calls}`,
+                        name: 'search',
+                        params: { query: 'current' },
+                        providerExecuted: false,
+                      },
+                      {
+                        type: 'finish',
+                        reason: 'tool-calls',
+                        usage: { inputTokens: {}, outputTokens: {} },
+                      },
+                    ])
+                  }
+
+                  return Stream.fromIterable([
+                    { type: 'text-start', id: 'answer' },
+                    { type: 'text-delta', id: 'answer', delta: '"done"' },
+                    { type: 'text-end', id: 'answer' },
+                    {
+                      type: 'finish',
+                      reason: 'stop',
+                      usage: { inputTokens: {}, outputTokens: {} },
+                    },
+                  ])
+                },
+              }),
+            ),
+          )
+
+          const agent = Agent.withModel(
+            Agent.make('summary-owner-boundary', {
+              input: Schema.String,
+              output: Schema.String,
+              instructions: 'Search before answering.',
+              toolkit: searchDefinition.toolkit,
+              policy: {
+                maxTurns: 3,
+                maxToolCalls: 2,
+                maxDuration: '30 seconds',
+                contextTokenLimit: 2_000,
+                compaction: CompactionPolicy.make({ mode: 'summarize', keepRecentTokens: 1 }),
+              },
+            }),
+            model,
+          )
+
+          const binding = yield* DurableWorkerBinding.make(agent, TEST_DIGESTS).pipe(
+            Effect.provide(searchToolLayer),
+          )
+
+          const runtime = yield* Layer.build(
+            DurableAgentRuntime.layerWithBindings([binding]).pipe(
+              Layer.provide(runStorageLayer),
+              Layer.provide(RunToolAuthorization.allowAll),
+              Layer.provide(
+                Layer.succeed(ContextCompactor, {
+                  estimate: (messages) => messages.filter((message) => message.role === 'tool').length >= 2 ? 2_001 : 1,
+                  compact: (request) =>
+                    Stream.suspend(() => {
+                      summaries += 1
+
+                      return Stream.succeed({
+                        kind: 'summarize',
+                        through: request.source.content.findIndex((message) => message.role === 'tool') +
+                          1,
+                        summary: 'Overbroad summary.',
+                      })
+                    }),
+                }),
+              ),
+            ),
+          ).pipe(
+            Effect.map((services) => Context.get(services, DurableAgentRuntime)),
+            Effect.provideService(ThreadStore, store),
+            Effect.provideService(RunContextPreparation, { hook: undefined }),
+          )
+
+          const seed = yield* runtime.submit(agent, 'prior Run', submitOptions(thread, 'prior'))
+
+          expect(yield* runtime.processThreadHead(seed.threadId)).toMatchObject({
+            value: { outcome: 'completed' },
+          })
+
+          const receipt = yield* runtime.submit(
+            agent,
+            'current Run',
+            submitOptions(thread, 'current'),
+          )
+
+          const result = yield* runtime.processThreadHead(receipt.threadId)
+
+          const exported = yield* readTestThread(
+            store,
+            ThreadExportRequest.make({ threadId: receipt.threadId }),
+          )
+
+          expect(summaries).toBe(1)
+          expect(
+            exported.records.some(({ record }) => record.payload._tag === 'CompactionCreated'),
+          ).toBe(false)
+          expect(result).toMatchObject({
+            value: {
+              outcome: 'failed',
+              failure: {
+                errorTag: 'CompactionError',
+                message: 'Compaction coverage cannot be mapped to complete canonical records',
+              },
+            },
+          })
+          expect(calls).toBe(3)
+        }).pipe(Effect.scoped),
+      ))
+  })
+
+  it('retains independent Tool authorization alongside a compactor after eviction', async () => {
+    const thread = lane('authorization')
+
+    for (const incarnation of [1, 2]) {
+      await submitAndSettle(thread, 'seed', `${thread}-seed-${incarnation}`, 'CONTEXT_COMPACTOR')
+
+      const compacted = await submitAndSettle(
+        thread,
+        'compact',
+        `${thread}-compact-${incarnation}`,
+        'CONTEXT_COMPACTOR',
+      )
+
+      expect(compacted.terminal.result).toEqual({ answer: 'compacted' })
+
+      const receipt = await runClient(
+        CloudflareThreadClient.use((client) =>
+          client.submit(
+            { definition: searchDefinition },
+            { question: 'search', ref: thread },
+            submitOptions(thread, `${thread}-denied-${incarnation}`),
+          )
+        ),
+        'CONTEXT_COMPACTOR',
+      )
+
+      await drainAlarmsUntil(thread, allSettled(thread, 'CONTEXT_COMPACTOR'), {
+        namespace: 'CONTEXT_COMPACTOR',
+      })
+
+      const settlement = await runClient(
+        CloudflareThreadClient.use((client) => client.awaitSettlement(receipt)),
+        'CONTEXT_COMPACTOR',
+      )
+
+      expect(settlement).toMatchObject({
+        outcome: 'failed',
+        failure: {
+          errorTag: 'AgentToolAuthorizationDenied',
+          message: 'host denied Tool execution',
+        },
+      })
+      expect(contextAuthorizationProbe(thread)).toEqual({
+        acquisitions: incarnation,
+        calls: incarnation,
+      })
+      expect(contextCompactorProbe(thread).acquisitions).toBe(incarnation)
+      const records = await readCanonical(thread, 'CONTEXT_COMPACTOR')
+
+      expect(records.some(({ record }) => record.payload._tag === 'ToolCallSettled')).toBe(false)
+      if (incarnation === 1) await abortIncarnation(thread)
+    }
+  })
+})

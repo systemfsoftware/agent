@@ -1,0 +1,236 @@
+import * as NodeCrypto from '@effect/platform-node/NodeCrypto'
+import { describe, expect, it } from '@effect/vitest'
+import { MemoryThreadStoreLive } from '@systemfsoftware/agent-storage-memory/memory-thread-store'
+import { RunId, SubmissionId, ThreadId } from '@systemfsoftware/agent/identifiers'
+import {
+  CanonicalBatch,
+  CanonicalRecord,
+  CanonicalRecordEnvelope,
+  type CanonicalRecordPayload,
+  CanonicalSequence,
+  UserInputRecorded,
+} from '@systemfsoftware/agent/records'
+import { threadStoreConformanceCases } from '@systemfsoftware/agent/testing/thread-store-conformance'
+import {
+  AppendRequest,
+  type AppendResult,
+  ThreadMaterialization,
+  ThreadObservation,
+  ThreadRead,
+  ThreadStore,
+} from '@systemfsoftware/agent/thread-store'
+import * as Cause from 'effect/Cause'
+import * as Context from 'effect/Context'
+import * as DateTime from 'effect/DateTime'
+import * as Deferred from 'effect/Deferred'
+import * as Effect from 'effect/Effect'
+import * as Exit from 'effect/Exit'
+import * as Fiber from 'effect/Fiber'
+import * as Layer from 'effect/Layer'
+import * as Schema from 'effect/Schema'
+import * as Scope from 'effect/Scope'
+import * as Stream from 'effect/Stream'
+
+const testLayer = MemoryThreadStoreLive.pipe(Layer.provide(NodeCrypto.layer))
+
+const threadId = Schema.decodeSync(ThreadId)('thread-memory-1')
+const runId = Schema.decodeSync(RunId)('run-memory-1')
+const submissionId = Schema.decodeSync(SubmissionId)('submission-memory-1')
+const canonicalSequence = Schema.decodeSync(CanonicalSequence)
+const ZERO_CANONICAL_SEQUENCE = canonicalSequence(0)
+
+const id = <A>(schema: Schema.Codec<A, string>, value: string): A => Schema.decodeSync(schema)(value)
+
+const at = (millis: number) => DateTime.toUtc(DateTime.makeUnsafe(millis))
+
+const canonicalRecord = (recordId: string, payload: CanonicalRecordPayload): CanonicalRecord =>
+  CanonicalRecord.make({
+    recordId: id(
+      Schema.NonEmptyString.pipe(Schema.brand('@effect-agent/thread/RecordId')),
+      recordId,
+    ),
+    family: 'thread',
+    schemaVersion: 1,
+    createdAt: at(1),
+    deploymentId: id(
+      Schema.NonEmptyString.pipe(Schema.brand('@effect-agent/thread/DeploymentId')),
+      'deployment-memory',
+    ),
+    payload,
+  })
+
+const batch = (
+  batchId: string,
+  records: readonly [CanonicalRecord, ...Array<CanonicalRecord>],
+): CanonicalBatch =>
+  CanonicalBatch.make({
+    batchId: id(Schema.NonEmptyString.pipe(Schema.brand('@effect-agent/thread/BatchId')), batchId),
+    producerId: id(
+      Schema.NonEmptyString.pipe(Schema.brand('@effect-agent/thread/ProducerId')),
+      'producer-memory',
+    ),
+    records,
+  })
+
+const inputRecord = (recordId: string, input: string): CanonicalRecord =>
+  canonicalRecord(
+    recordId,
+    UserInputRecorded.make({
+      submissionId,
+      kind: 'user',
+      runId,
+      input,
+    }),
+  )
+
+const append = (
+  store: ThreadStore['Service'],
+  canonicalBatch: CanonicalBatch,
+  tail: Pick<AppendResult, 'lastSequence'> = {
+    lastSequence: ZERO_CANONICAL_SEQUENCE,
+  },
+) =>
+  store.append(
+    AppendRequest.make({
+      threadId,
+      batch: canonicalBatch,
+      expectedTailSequence: tail.lastSequence,
+    }),
+  )
+
+describe('MemoryThreadStore', () => {
+  it.effect('reads bounded pages from one snapshot while another batch is appended', () =>
+    Effect.gen(function*() {
+      const store = yield* ThreadStore
+
+      yield* store.materialize(ThreadMaterialization.make({ threadId }))
+      expect(
+        yield* store.read(ThreadRead.make({ threadId, limit: 2 })).pipe(Stream.runCollect),
+      ).toEqual([])
+
+      const first = yield* append(
+        store,
+        batch('page-first', [inputRecord('page-1', 'one'), inputRecord('page-2', 'two')]),
+      )
+
+      const tail = yield* append(
+        store,
+        batch('page-second', [inputRecord('page-3', 'three'), inputRecord('page-4', 'four')]),
+        first,
+      )
+
+      const snapshot = yield* store
+        .read(ThreadRead.make({ threadId, limit: 4 }))
+        .pipe(Stream.runCollect)
+
+      const readStarted = yield* Deferred.make<void>()
+      const resumeRead = yield* Deferred.make<void>()
+
+      const reader = yield* store.read(ThreadRead.make({ threadId, limit: 10 })).pipe(
+        Stream.tap(() => Deferred.succeed(readStarted, undefined).pipe(Effect.andThen(Deferred.await(resumeRead)))),
+        Stream.runCollect,
+        Effect.forkChild,
+      )
+
+      yield* Deferred.await(readStarted)
+      yield* append(store, batch('page-third', [inputRecord('page-5', 'five')]), tail)
+      yield* Deferred.succeed(resumeRead, undefined)
+      // Archive records also own their original wire; observation exposes the canonical view.
+      const encodeRecords = Schema.encodeEffect(Schema.Array(CanonicalRecordEnvelope))
+
+      expect(yield* encodeRecords(yield* Fiber.join(reader))).toEqual(
+        yield* encodeRecords(snapshot),
+      )
+    }).pipe(Effect.provide(testLayer)))
+
+  describe('shared ThreadStore conformance', () => {
+    for (const conformanceCase of threadStoreConformanceCases) {
+      it.effect(conformanceCase.name, () =>
+        conformanceCase.run.pipe(
+          Effect.updateService(ThreadStore, (store) => ({
+            readIdentity: store.readIdentity,
+            readExecution: store.readExecution,
+            countPeerMessages: store.countPeerMessages,
+            materialize: store.materialize,
+            append: store.append,
+            read: store.read,
+            readPrompt: store.readPrompt,
+            observe: store.observe,
+            export: store.export,
+            inspectTail: store.inspectTail,
+          })),
+          Effect.provide(testLayer),
+        ))
+    }
+  })
+
+  it.layer(testLayer)((it) => {
+    it.effect('coalesces wakeups without dropping records for a slow observer', () =>
+      Effect.gen(function*() {
+        const store = yield* ThreadStore
+
+        yield* store.materialize(
+          ThreadMaterialization.make({
+            threadId,
+          }),
+        )
+        const releaseObserver = yield* Deferred.make<void>()
+        const recordCount = 32
+
+        const observerFiber = yield* store.observe(ThreadObservation.make({ threadId })).pipe(
+          Stream.tap(() => Deferred.await(releaseObserver)),
+          Stream.take(recordCount),
+          Stream.runCollect,
+          Effect.forkChild,
+        )
+
+        yield* Effect.yieldNow
+
+        let tail: Pick<AppendResult, 'lastSequence'> = {
+          lastSequence: ZERO_CANONICAL_SEQUENCE,
+        }
+
+        for (let index = 0; index < recordCount; index++) {
+          tail = yield* append(
+            store,
+            batch(`slow-batch-${index}`, [inputRecord(`slow-record-${index}`, `input-${index}`)]),
+            tail,
+          )
+        }
+
+        yield* Deferred.succeed(releaseObserver, undefined)
+        const observed = yield* Fiber.join(observerFiber)
+
+        expect(observed.map((record) => record.record.recordId)).toEqual(
+          Array.from({ length: recordCount }, (_, index) => `slow-record-${index}`),
+        )
+      }))
+  })
+
+  it.effect('shuts down active observers when the storage Layer scope closes', () =>
+    Effect.gen(function*() {
+      const layerScope = yield* Scope.make()
+      const context = yield* Layer.buildWithScope(testLayer, layerScope)
+      const store = Context.get(context, ThreadStore)
+
+      yield* store.materialize(
+        ThreadMaterialization.make({
+          threadId,
+        }),
+      )
+
+      const observerFiber = yield* store
+        .observe(ThreadObservation.make({ threadId }))
+        .pipe(Stream.runDrain, Effect.forkChild)
+
+      yield* Effect.yieldNow
+
+      yield* Scope.close(layerScope, Exit.void)
+      const observerExit = yield* Fiber.await(observerFiber)
+
+      expect(Exit.isFailure(observerExit)).toBe(true)
+      if (Exit.isFailure(observerExit)) {
+        expect(Cause.hasInterrupts(observerExit.cause)).toBe(true)
+      }
+    }))
+})
