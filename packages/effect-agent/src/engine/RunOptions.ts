@@ -546,6 +546,16 @@ export interface RunBufferLimits {
   readonly maxBufferedEvents?: number | undefined
 }
 
+/**
+ * One provider request the engine is about to send. `turn` is the Turn's primary request
+ * (and its transient provider retries), `compaction` is a compaction summary call, and
+ * `overflow-retry` is the same Turn's request after an overflow compaction.
+ */
+export interface RunModelRequestInfo {
+  readonly turn: number
+  readonly kind: 'turn' | 'compaction' | 'overflow-retry'
+}
+
 export const RunCompletionMode = Schema.Literals(['definition', 'text'])
 export type RunCompletionMode = typeof RunCompletionMode.Type
 
@@ -585,6 +595,16 @@ export interface RunOptions<HookError = never, HookRequirements = never> {
    * Resources acquired here close with the current Turn, before the next Turn starts.
    */
   readonly beforeTurn?: (() => Effect.Effect<void, HookError, HookRequirements>) | undefined
+  /**
+   * Host check immediately before every provider request, after the Turn's context
+   * preparation: the Turn's request and each of its transient retries, a compaction summary
+   * call, and an overflow retry. A failure ends the Run through HookError before that request
+   * is sent; a compaction failure leaves canonical history uncompacted. A resumed canonical
+   * Tool batch sends no request, so this hook does not run until the next Turn.
+   */
+  readonly beforeModelRequest?:
+    | ((request: RunModelRequestInfo) => Effect.Effect<void, HookError, HookRequirements>)
+    | undefined
   /** Reuse a Thread identity, including retained history, instead of allocating one. */
   readonly threadId?: ThreadId | undefined
   /**

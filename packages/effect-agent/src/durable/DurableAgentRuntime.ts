@@ -113,6 +113,7 @@ import {
   type RunCostEstimator,
   type RunInputCommand,
   type RunInputHook,
+  type RunModelRequestInfo,
   RunToolAuthorization,
   type RunToolAuthorizationHook,
   type RunToolAuthorizationRequest,
@@ -881,6 +882,9 @@ export interface RunTurnRequest {
   readonly runId: RunId
 }
 
+/** One provider request a durable Run is about to send; see RunOptions.beforeModelRequest. */
+export interface RunModelCallRequest extends RunTurnRequest, RunModelRequestInfo {}
+
 export interface RunSettlementNotice {
   readonly threadId: ThreadId
   readonly submissionId: SubmissionId
@@ -896,6 +900,14 @@ export class RunHostControl extends Context.Service<
       | undefined
     readonly beforeTurn?:
       | ((request: RunTurnRequest) => Effect.Effect<void, AgentRunStopped>)
+      | undefined
+    /**
+     * Runs after context preparation and before every provider request of the Run, including
+     * compaction summaries and overflow retries. AgentRunStopped settles the Run failed with the
+     * host value without sending that request.
+     */
+    readonly beforeModelCall?:
+      | ((request: RunModelCallRequest) => Effect.Effect<void, AgentRunStopped>)
       | undefined
     readonly encodeFailure?: ((error: unknown) => Option.Option<Schema.Json>) | undefined
     readonly exemptToolResult?:
@@ -7887,6 +7899,7 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
           }
 
       const hostBeforeTurn = runHostControl.beforeTurn
+      const hostBeforeModelCall = runHostControl.beforeModelCall
 
       const settledToolCallAllowance = submission.parentLinkage !== undefined &&
           childLineage?._tag === 'SubagentLineageRecorded'
@@ -7996,6 +8009,15 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
                 runId,
               }),
           },
+        }),
+        ...(hostBeforeModelCall === undefined ? {} : {
+          beforeModelRequest: (request) =>
+            hostBeforeModelCall({
+              threadId: submission.threadId,
+              submissionId: submission.submissionId,
+              runId,
+              ...request,
+            }),
         }),
         beforeTurn: Effect.fnUntraced(function*() {
           if (hostBeforeTurn !== undefined) {

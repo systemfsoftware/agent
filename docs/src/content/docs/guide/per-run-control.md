@@ -24,7 +24,7 @@ length. It is called only for results larger than `toolResultBounds.maxBytes`.
 ## Stop a Run with a typed failure
 
 Fail a Run hook with `AgentRunStopped` to end the Run before its next model call. The hook can be
-`beforeTurn`, context preparation, or a durable model resolver. `value` is your own encoded JSON
+`beforeTurn`, context preparation, `beforeModelRequest`, or a durable model resolver. `value` is your own encoded JSON
 failure:
 
 ```ts
@@ -62,6 +62,7 @@ import { RunHostControl } from '@systemfsoftware/agent/durable-agent-runtime'
 const hostControl = Layer.succeed(RunHostControl, {
   resolveModel: (request) => models.resolve(request.submissionId, request.model),
   beforeTurn: (request) => quota.check(request.submissionId),
+  beforeModelCall: (request) => stops.check(request.submissionId),
   encodeFailure: (error) => encodeToolFailure(error),
   exemptToolResult: (request) => request.toolName === 'read_file',
   finalize: (notice) => models.release(notice.submissionId),
@@ -72,7 +73,12 @@ const hostControl = Layer.succeed(RunHostControl, {
   calls included. It returns a `ResolvedModelCall` built from host memory; the model and its
   credentials never reach storage. When it fails with `AgentRunStopped`, the Run stops. A Run with
   `model` settings and no resolver stops with `{ reason: "model-resolver-missing" }`.
-- `beforeTurn` runs before each new model call.
+- `beforeTurn` runs before each new model call, before context preparation.
+- `beforeModelCall` is the durable form of `RunOptions.beforeModelRequest`. It runs after context
+  preparation and immediately before every provider request: each Turn's request and its retries
+  (`kind: "turn"`), a compaction summary (`"compaction"`) and an overflow retry
+  (`"overflow-retry"`). A stop recorded during preparation or by a Tool batch therefore ends the Run
+  without another model call.
 - `encodeFailure` maps any other terminal failure, such as a Tool with `failureMode: "error"`, to
   the `hostFailure` value. Return `Option.none()` to keep only the diagnostic. A `hostFailure` value
   (from `AgentRunStopped` or `encodeFailure`) over 64 KiB is stored as `{ omitted: "host-failure-too-large" }`; a throwing encoder stores nothing.

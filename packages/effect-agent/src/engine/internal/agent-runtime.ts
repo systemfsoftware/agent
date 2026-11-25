@@ -4224,6 +4224,9 @@ const compactContext = <AgentValue extends Agent.Any, HookError, HookRequirement
             message: 'Compaction exceeded its summary-call allowance',
           })
         }
+        if (options.beforeModelRequest !== undefined) {
+          yield* options.beforeModelRequest({ turn, kind: 'compaction' })
+        }
         if (
           model === undefined &&
           resolvedModelInputLimit !== undefined &&
@@ -6411,6 +6414,8 @@ const makeTurn = <
         if (Exit.isFailure(exit)) failedUsageCause = exit.cause
       })
 
+      let modelRequestKind: 'turn' | 'overflow-retry' = 'turn'
+
       const attempt = (
         basis: Prompt.Prompt,
       ): Effect.Effect<
@@ -6437,6 +6442,9 @@ const makeTurn = <
             Effect.flatMap((providerPrompt) =>
               Effect.gen(function*() {
                 yield* checkpointExecution(context, options.durability)
+                if (options.beforeModelRequest !== undefined) {
+                  yield* options.beforeModelRequest({ turn, kind: modelRequestKind })
+                }
                 const toolChoice = modelToolChoice()
 
                 let requestToolkit = modelToolkit
@@ -6758,6 +6766,7 @@ const makeTurn = <
 
                 // The retried call is outside the outer catch: a second
                 // classified overflow converts here, typed, no retry.
+                modelRequestKind = 'overflow-retry'
                 const retried: TurnStream = attemptWithRetries.pipe(
                   Effect.catchIf(
                     (again): again is AiError.AiError =>
