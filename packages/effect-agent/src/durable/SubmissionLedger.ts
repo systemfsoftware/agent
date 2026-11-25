@@ -37,6 +37,7 @@ import {
 import type { AppendRequest, AppendResult, ThreadStoreFailure } from './ThreadStore'
 
 export { IdempotencyKey, JoinedToHost, Principal, QueueSequence } from '../core/Receipt'
+export { Selection } from '../core/ToolExposure'
 
 /**
  * Ledger lifecycle states for one Submission. `settled` is the only terminal state; every other
