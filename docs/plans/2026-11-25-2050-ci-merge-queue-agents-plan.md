@@ -13,8 +13,8 @@ status: draft (review round 1 of the design is recorded below; round 2 pending)
 
 - **Objective:** most pull requests here are written by coding agents. They should get the failing lane in under two
   minutes on their own head. They should enter the Mergify queue instead of being admin-merged. And no change reaches
-  `main` without the full suite having run, on the merged tree through the queue or on the head before an admin merge
-  (D4).
+  `main` until the full suite has run on the tree it lands: the queue's merged draft, or for an admin merge a head that
+  already contains the current `main` (D4).
 - **Means:** split the two monolithic jobs into parallel lanes under the unchanged `checks / check` verdict. Run the
   heavy suites only where they can be affected on a pull request head, and always on queue drafts, `main` and a nightly
   schedule. Make the queue the normal merge path.
@@ -70,7 +70,7 @@ requests stay inside the account's concurrent-job limit.
 
 ### D2. The verdict fails closed where it matters
 
-On a queue draft, on `main` and on the schedule, `checks / check` fails when any of the seven build, lint and test lanes
+On a queue draft, on `main`, on a `workflow_dispatch` run and on the schedule, `checks / check` fails when any of the seven build, lint and test lanes
 concluded anything but `success`, `skipped` included. `change intent` runs only on pull request heads, so it must succeed
 there and may be skipped everywhere else. On a pull request head the three affected-only lanes may also be skipped.
 
@@ -91,9 +91,20 @@ enqueues the pull request, and no agent runs `gh pr merge` on it. When a pull re
 reports the exact blocking condition: missing approval, the hold label, the title rule, or owner approval on protected
 paths.
 
-The maintainer bot keeps its admin merge for a pull request the queue cannot take. Before that merge it dispatches
-`ci.yml` on the head, which runs every lane because only pull request events skip the affected-only lanes. It merges
-only once that run's `checks / check` succeeds.
+The maintainer bot keeps its admin merge for a pull request the queue cannot take, under these conditions:
+
+1. The bot updates the branch onto the current `origin/main` and confirms `origin/main` is an ancestor of the head.
+2. It dispatches `ci.yml` on that head. Only pull request events skip the affected-only lanes, so a dispatched run
+   runs every lane and fails closed under D2.
+3. It finds the run whose `event` is `workflow_dispatch` and whose `head_sha` equals the pull request's head, and reads
+   that run's `checks / check`.
+4. It merges with `gh pr merge --squash --admin --match-head-commit <head sha>`, so a commit pushed after the run
+   cannot land unverified.
+
+No admin merge overrides the hold label, the title rule, a failing `squash message`, or owner approval on protected
+paths. A pull request that edits `.github/workflows/ci.yml` cannot use this path, because a dispatched run executes the
+workflow from the branch it targets rather than the pull request's review state. Neither can a pull request from a
+fork, which `workflow_dispatch` cannot target. Both go through the queue.
 
 ### D5. Flaky suites
 
@@ -118,6 +129,11 @@ Two review rounds came from an outside reviewer.
 - **Round 2, settled: heavy suites run on pull request heads when affected, not only in the queue.** A regression found
   first in a queue batch of up to 3 fails the batch and forces a bisection run that boots the microVMs again. Runner
   minutes are free, and an unaffected pull request skips those lanes anyway.
+- **Round 3, fixed:** an admin merge updates the branch onto `main` first, binds the dispatched run and the merge to
+  one head SHA, and never overrides the hold label, the title rule, `squash message` or owner approval (D4).
+  `workflow_dispatch` runs fail closed (D2).
+- **Round 3, refuted: no admin merge without the review app's approval.** In this organization the maintainer bot may
+  merge after its own review once it has read the raw checks. The review app's approval is not a precondition for it.
 - **Round 2, fixed:** `change intent` is exempt from the queue-draft, `main` and nightly verdict (D2). Root and
   toolchain changes run every heavy lane (D1). The job count is reconciled at ten (D1). The KVM step moves with
   `test postgres` (D1).
