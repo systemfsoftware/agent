@@ -282,6 +282,59 @@ layer(testLayer)('context economics — bounding, tracking, status, exhaustion',
       expect(event).toMatchObject({ result })
     }))
 
+  it.effect('keeps an exempted oversized result inline and offloads nothing', () =>
+    Effect.gen(function*() {
+      const data = 'z'.repeat(4_000)
+      const saved: Array<string> = []
+
+      const storage = Layer.succeed(ToolResultStorage, {
+        save: (request) =>
+          Effect.sync(() => {
+            saved.push(request.text)
+
+            return 'b'.repeat(64)
+          }),
+        read: () => Effect.fail(ToolResultStorageError.make({ reason: 'not-found', message: 'unused' })),
+      })
+
+      const definition = Agent.make('exempted-result', {
+        instructions: 'Use the tool once, then answer.',
+        input: Schema.String,
+        output: answerOutput,
+        toolkit: emitToolkit,
+        policy: { maxTurns: 3, maxToolCalls: 2, toolResultBounds: { maxBytes: 256 } },
+      })
+
+      const { model, requests } = scriptedModel([
+        toolCallParts('emit-exempted', 'emit', {}),
+        finalParts('{"answer":"done"}'),
+      ])
+
+      const exempted: Array<string> = []
+
+      yield* AgentRuntime.run(Agent.withModel(definition, model), 'read', {
+        toolResultExemption: {
+          maxBytes: 16 * 1024,
+          exempt: (request) => {
+            exempted.push(request.toolName)
+
+            return request.toolName === 'emit'
+          },
+        },
+      }).pipe(
+        Effect.provide(
+          Layer.merge(storage, emitToolkit.toLayer({ emit: () => Effect.succeed({ data }) })),
+        ),
+      )
+
+      const prompt = requests[1]?.prompt
+
+      if (prompt === undefined) throw new Error('expected a continuation')
+      expect(toolResultValues(prompt)[0]).toEqual({ data })
+      expect(saved).toEqual([])
+      expect(exempted).toEqual(['emit'])
+    }))
+
   it.effect(
     'reserves grace before provider execution and never grants it again after interruption',
     () =>
