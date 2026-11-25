@@ -36,6 +36,11 @@ use `await` for dependencies and bounded executor concurrency for independent ca
 result share a model-visible byte budget. Source, time, host-call count, concurrency, and payloads
 have separate limits. Inner calls also count toward the Agent's tool-call budget.
 
+On Cloudflare, every pass runs under a platform CPU limit: `limits.cpuMillis`, or the pass's
+`maxWallTime` (at most five minutes) when you leave it unset. When a Run is aborted or a pass times
+out, the pass stops serving host calls at once; this limit is what ends a program still computing
+in its isolate.
+
 Arguments are Schema-validated before handlers start. Calls requiring additional approval fail
 closed inside the program; obtain approval through an appropriate outer workflow.
 
