@@ -1,6 +1,7 @@
 allowBuilds:
   dprint: true
   esbuild: false
+  workerd: true
 minimumReleaseAgeExclude:
   - "@systemfsoftware/oxlint-config-recommended"
   - "@systemfsoftware/oxlint-config-cell-architecture"

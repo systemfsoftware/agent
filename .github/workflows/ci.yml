@@ -78,7 +78,8 @@ jobs:
           node-version: ${{ matrix.node }}
       - uses: ./.github/actions/pnpm-store
       - run: pnpm install --frozen-lockfile
-      - run: pnpm test
+      # The Postgres suites need a live server and run in their own job.
+      - run: pnpm -r --filter '!@systemfsoftware/agent-storage-postgres' run test
 
   # Transaction rollback and connection cleanup cannot be proven against an in-process double, so the Postgres
   # storage suite runs against real servers on each supported major.
