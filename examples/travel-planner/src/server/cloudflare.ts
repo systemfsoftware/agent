@@ -443,14 +443,7 @@ export const plannerApplication = <E, R>(
 const PlannerLive = Layer.unwrap(
   Effect.gen(function*() {
     const env = yield* WorkerEnvironment
-    const browser: BrowserQuickActionCaptureOptions['browser'] | undefined = env.BROWSER
-
-    if (browser === undefined) {
-      return yield* PlannerError.make({
-        code: 'unavailable',
-        message: 'The planner requires a Browser Run binding.',
-      })
-    }
+    const browser = env.BROWSER
 
     const credentials: Layer.Layer<CredentialSource> = credentialSourceLayer(env)
 
