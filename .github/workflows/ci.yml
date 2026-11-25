@@ -90,6 +90,28 @@ jobs:
       # the default concurrency of four produced.
       - run: pnpm -r --workspace-concurrency=6 run test
 
+  gritlint:
+    name: gritlint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086 # v31
+        with:
+          extra_nix_config: |
+            extra-substituters = https://nix.systemfsoftware.com
+            extra-trusted-public-keys = nix-cache-1:wXA8I4DayNW9q6enUyQA/P/nT38pGSTLt374t3gsn7M=
+      # ubuntu-24.04 ships AppArmor refusing unprivileged user namespaces, which bubblewrap needs.
+      - name: Let bubblewrap create user namespaces
+        run: |
+          if [ -e /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+      - name: The house conventions pass over the tree
+        run: "$(nix build --no-link --print-out-paths .#gritlint)/bin/gritlint check . --format github"
+
   # The one check the ruleset requires and the merge queue gates on; the name matches the shared CI of the other
   # systemfsoftware repositories. List every other job in `needs`: a job left out is not gated. The job always runs,
   # and any dependency that did not conclude `success` fails it, so a run that did not execute the gate can never
@@ -98,19 +120,20 @@ jobs:
     name: checks / check
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [static-checks, changeset, test]
+    needs: [static-checks, changeset, test, gritlint]
     if: ${{ always() }}
     steps:
       - name: Require every job to succeed
         env:
           STATIC_CHECKS: ${{ needs.static-checks.result }}
           TEST: ${{ needs.test.result }}
+          GRITLINT: ${{ needs.gritlint.result }}
           CHANGESET: ${{ needs.changeset.result }}
           EVENT: ${{ github.event_name }}
           HEAD_REF: ${{ github.head_ref }}
         run: |
           status=0
-          for pair in "static-checks:$STATIC_CHECKS" "test:$TEST"; do
+          for pair in "static-checks:$STATIC_CHECKS" "test:$TEST" "gritlint:$GRITLINT"; do
             case "$pair" in
               *:success) ;;
               *) echo "A required job finished as: $pair"; status=1 ;;

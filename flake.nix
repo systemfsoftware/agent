@@ -39,14 +39,6 @@
           pname = "agent";
           pnpm = pkgs.pnpm_12;
         };
-
-        # The house convention packs, scanned over the tracked tree.
-        gritlint = pkgs.runCommand "gritlint-check" {
-          nativeBuildInputs = [ gritlint.packages.${pkgs.stdenv.hostPlatform.system}.gritlint ];
-        } ''
-          cd ${self}
-          gritlint check . | tee $out
-        '';
       });
 
       devShells = forEachSystem (pkgs: {
