@@ -2821,16 +2821,21 @@ const executeToolBatch = Effect.fnUntraced(function*<
                       toolkit,
                       call,
                       trace,
-                      (encodedResult, isFailure) =>
-                        options.toolResultExemption === undefined
+                      (encodedResult, isFailure) => {
+                        const encodedBytes = options.toolResultExemption === undefined
+                          ? undefined
+                          : encodedResultBytes(encodedResult)
+
+                        return encodedBytes === undefined
                           ? resultBounds
                           : resultBoundsFor(resultBounds, options, {
                             toolName: call.call.name,
                             toolCallId: call.toolCallId,
                             turn,
                             isFailure,
-                            encodedBytes: encodedResultBytes(encodedResult),
-                          }),
+                            encodedBytes,
+                          })
+                      },
                       (waiting) => {
                         waitingByDeclaration.set(call.declarationIndex, waiting)
                       },
@@ -3214,7 +3219,7 @@ const withRunDefinitionOverrides = <Definition extends Agent.AnyDefinition, E, R
   options: RunOptions<E, R>,
 ): Definition => {
   const dropCompletion = options.completion === 'text' && definition.completion !== undefined
-  const contextTokenLimit = options.contextTokenLimit
+  const contextTokenLimit = isPositiveSafeInteger(options.contextTokenLimit) ? options.contextTokenLimit : undefined
 
   if (!dropCompletion && contextTokenLimit === undefined) return definition
 
@@ -3227,35 +3232,39 @@ const withRunDefinitionOverrides = <Definition extends Agent.AnyDefinition, E, R
   })
 }
 
-const encodedResultBytes = (encodedResult: unknown): number => {
+const isPositiveSafeInteger = (value: number | undefined): value is number =>
+  value !== undefined && Number.isSafeInteger(value) && value > 0
+
+const encodedResultBytes = (encodedResult: unknown): number | undefined => {
   try {
     const text = JSON.stringify(encodedResult)
 
-    return text === undefined ? 0 : utf8ByteLength(text)
+    return text === undefined ? undefined : utf8ByteLength(text)
   } catch {
-    return 0
+    return undefined
   }
 }
 
-const recentToolResultHeadroom = <E, R>(options: RunOptions<E, R>, prompt: Prompt.Prompt): number => {
-  if (options.contextTokenLimit === undefined) return 0
+const recentToolResultHeadroom = (prompt: Prompt.Prompt): number => {
+  let largest = 0
+  let inBatch = false
+
   for (let index = prompt.content.length - 1; index >= 0; index--) {
     const message = prompt.content[index]
 
-    if (message.role === 'user') return 0
-    if (message.role !== 'tool') continue
-    let largest = 0
-
+    if (message.role !== 'tool') {
+      if (inBatch || message.role === 'user') break
+      continue
+    }
+    inBatch = true
     for (const part of message.content) {
       if (part.type === 'tool-result') {
-        largest = Math.max(largest, Math.ceil(encodedResultBytes(part.result) / 4))
+        largest = Math.max(largest, Math.ceil((encodedResultBytes(part.result) ?? 0) / 4))
       }
     }
-
-    return largest
   }
 
-  return 0
+  return largest
 }
 
 const resultBoundsFor = <E, R>(
@@ -3265,15 +3274,14 @@ const resultBoundsFor = <E, R>(
 ): ToolResultBounds => {
   const exemption = options.toolResultExemption
 
-  return exemption === undefined || request.encodedBytes <= bounds.maxBytes ||
-      !exemption.exempt(request)
+  return exemption === undefined || !isPositiveSafeInteger(exemption.maxBytes) ||
+      request.encodedBytes <= bounds.maxBytes || !exemption.exempt(request)
     ? bounds
-    : ToolResultBounds.make({
-      maxBytes: Math.min(
-        exemption.maxBytes,
-        options.durability?.toolResultMaxBytes ?? exemption.maxBytes,
-      ),
-    })
+    : durableResultBounds(
+      ToolResultBounds.make({ maxBytes: Math.max(bounds.maxBytes, exemption.maxBytes) }),
+      options,
+      request.turn,
+    )
 }
 
 const durableResultBounds = <E, R>(
@@ -6103,7 +6111,7 @@ const makeTurn = <
 
         const estimate = (yield* preparedSourceTokens) + canonicalDecorationTokens()
         const contextPressure = contextCallTarget !== undefined &&
-          estimate + recentToolResultHeadroom(options, modelContext.prompt) > contextCallTarget
+          estimate + recentToolResultHeadroom(modelContext.prompt) > contextCallTarget
         const tokenPressure = tokenCallTarget !== undefined && estimate > tokenCallTarget
 
         if (
@@ -6235,7 +6243,7 @@ const makeTurn = <
         let preparedEstimate = (yield* preparedSourceTokens) + derivedPromptTokens()
 
         const contextPressure = contextTokenLimit !== undefined &&
-          preparedEstimate + recentToolResultHeadroom(options, modelContext.prompt) > contextTokenLimit
+          preparedEstimate + recentToolResultHeadroom(modelContext.prompt) > contextTokenLimit
 
         const tokenPressure = tokenCallTarget !== undefined && preparedEstimate > tokenCallTarget
         const currentCompactionAllowance = context.compactionTurn.turn === turn
@@ -8503,6 +8511,12 @@ function executeWithCompletion<
       ThreadHistoryError,
       ThreadHistory
     > {
+      if (runOptions.contextTokenLimit !== undefined && !isPositiveSafeInteger(runOptions.contextTokenLimit)) {
+        return yield* Effect.succeed(
+          Effect.fail(AgentInputError.make({ message: 'contextTokenLimit must be a positive integer' })),
+        )
+      }
+
       const history = yield* ThreadHistory
 
       const preparation = yield* Effect.serviceOption(RunContextPreparation).pipe(
