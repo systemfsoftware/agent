@@ -5,7 +5,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yielded-dev/agent.git",
+    "url": "git+https://github.com/systemfsoftware/agent.git",
     "directory": "packages/effect-agent"
   },
   "files": [
