@@ -38,4 +38,4 @@ jobs:
         run: |
           title=${PR_TITLE//$'\r'/}
           body=${PR_BODY//$'\r'/}
-          printf '%s\n\n%s' "$title" "$body" | pnpm exec commitlint --verbose
+          printf '%s\n\n%s' "$title" "$body" | pnpm --config.verify-deps-before-run=false exec commitlint --verbose
