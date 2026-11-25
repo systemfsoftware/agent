@@ -37,11 +37,18 @@ import { safeCauseDiagnostic, safeCauseMessage } from './internal/boundary'
  * with `globalOutbound: null`, so generated code has no ambient network,
  * bindings, or secrets; its only authority is the pass-scoped RPC target that
  * routes back into the owning event's `CodeExecutionHost` service. Platform
- * CPU limits stop synchronous runaway programs; the executor-owned wall-clock
+ * CPU limits stop synchronous runaway programs, defaulting to the pass's wall-clock budget when
+ * `limits.cpuMillis` is unset; the executor-owned wall-clock
  * deadline interrupts asynchronously suspended passes. Deployment class `E`
  * only: the adapter records no persistent state and a later pass may run in a
  * completely different isolate.
  */
+/** The CPU bound applied when a pass names none: its wall-clock budget, capped at the schema's five minutes. */
+const MAX_DEFAULT_CPU_MILLIS = 5 * 60 * 1000
+
+const defaultCpuMillis = (maxWallTime: Duration.Duration) =>
+  Math.min(MAX_DEFAULT_CPU_MILLIS, Math.max(1, Math.ceil(Duration.toMillis(maxWallTime))))
+
 export const dynamicWorkerImplementation = SandboxImplementation.make({
   isolation: 'isolated',
   identity: 'cloudflare-dynamic-worker',
@@ -653,14 +660,13 @@ const makeExecute = (
         }),
       },
       globalOutbound: null,
-      ...(request.limits.cpuMillis === undefined
-        ? {}
-        : {
-          limits: {
-            cpuMs: request.limits.cpuMillis,
-            subRequests: request.limits.maxHostCalls + 8,
-          },
-        }),
+      // Always bound isolate CPU. Releasing the pass handles on abort or timeout stops host calls
+      // but cannot preempt a synchronous program; only this platform limit can. Without a caller
+      // value it defaults to the pass's wall-clock budget, which the program cannot outlive.
+      limits: {
+        cpuMs: request.limits.cpuMillis ?? defaultCpuMillis(request.limits.maxWallTime),
+        subRequests: request.limits.maxHostCalls + 8,
+      },
     }
 
     const worker = yield* Effect.acquireRelease(
