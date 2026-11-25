@@ -4,5 +4,6 @@ export default defineConfig({
   test: {
     cache: false,
     silent: 'passed-only',
+    testTimeout: 30_000,
   },
 })

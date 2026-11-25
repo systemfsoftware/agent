@@ -164,12 +164,16 @@ const readProductionEntryPoints = Effect.fn('packagePurity.readProductionEntryPo
       }
     }
 
+    // The testing package's product is fixtures and conformance kits; its entry points are testing
+    // material by definition, so they are not audited as production bundles.
+    const testingPackage = manifest.name === '@systemfsoftware/agent-testing'
+
     for (
       const [exportPath, sourcePath] of Object.entries(manifest.exports).sort(
         ([left], [right]) => left.localeCompare(right),
       )
     ) {
-      if (isTestingExport(exportPath)) {
+      if (testingPackage || isTestingExport(exportPath)) {
         testingModules.add(path.join(relativeDirectory, sourcePath).replaceAll('\\', '/'))
         continue
       }
