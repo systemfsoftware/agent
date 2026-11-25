@@ -39,4 +39,4 @@ An effect recorded as Unknown requires reconciliation or authorized resolution;
 changing hosts does not make it safe to replay.
 
 Start with the [Node example](/platforms/node/#start-the-host) or the
-[runnable Cloudflare app](https://github.com/yielded-dev/agent/tree/main/examples/travel-planner).
+[runnable Cloudflare app](https://github.com/systemfsoftware/agent/tree/main/examples/travel-planner).

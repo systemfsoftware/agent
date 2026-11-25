@@ -55,7 +55,7 @@ across eviction; alarms bring the Object back to advance it.
 ## Create the thread object
 
 Install `@systemfsoftware/agent-platform-cloudflare@beta`, `effect`, `effect-cf`, and your
-provider. Reuse the [example agent and provider setup](https://github.com/yielded-dev/agent/blob/main/docs/snippets/travel-planner/node-agent.ts):
+provider. Reuse the [example agent and provider setup](https://github.com/systemfsoftware/agent/blob/main/docs/snippets/travel-planner/node-agent.ts):
 
 ```ts twoslash
 // @types: @cloudflare/workers-types
@@ -77,7 +77,7 @@ export class TravelThread extends ThreadObject.make(RuntimeLive, {
 
 Bind the exported class as a SQLite Durable Object under `THREADS`, enable
 `nodejs_compat`, and supply the provider secret. The
-[runnable travel planner](https://github.com/yielded-dev/agent/tree/main/examples/travel-planner)
+[runnable travel planner](https://github.com/systemfsoftware/agent/tree/main/examples/travel-planner)
 includes deployment and application wiring. No separate storage Layer is needed.
 
 ## Connect from your Worker
@@ -155,13 +155,13 @@ Use `ThreadObject.layerInHost` to place logical Threads in an existing Object.
 Share its SQL client and mutation gate; keep placement stable. Register
 `ThreadObject.alarms` with the host's `DurableObjectAlarm.mergeAll` and call
 `ThreadMaintenance.ensureAlarm` during local initialization. Follow the
-[shared-owner example](https://github.com/yielded-dev/agent/blob/main/packages/platform-cloudflare/examples/shared-owner.ts).
+[shared-owner example](https://github.com/systemfsoftware/agent/blob/main/packages/platform-cloudflare/examples/shared-owner.ts).
 
 ## Shared memory
 
 `MemoryObject.make` and `CloudflareMemoryClient` provide separately owned documents
 shared across Threads. You choose namespaces and authorize access. See the
-[memory example](https://github.com/yielded-dev/agent/blob/main/packages/platform-cloudflare/examples/memory.ts)
+[memory example](https://github.com/systemfsoftware/agent/blob/main/packages/platform-cloudflare/examples/memory.ts)
 and [context guide](/guide/context-management/).
 
 ## AI Gateway

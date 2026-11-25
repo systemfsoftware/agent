@@ -1,9 +1,4 @@
-<h1 align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/lockup-agent-paper.svg" />
-    <img src=".github/assets/lockup-agent-ink.svg" alt="Yielded Agent" height="48" />
-  </picture>
-</h1>
+<h1 align="center">@systemfsoftware/agent</h1>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@systemfsoftware/agent"><img alt="npm" src="https://img.shields.io/npm/v/@systemfsoftware/agent/beta?label=npm&labelColor=121310&color=b9a4ff" /></a>
@@ -12,14 +7,14 @@
 </p>
 
 <p align="center">
-  <a href="https://yielded.dev/agent/"><b>Documentation</b></a>
+  <a href="https://github.com/systemfsoftware/agent/tree/main/docs"><b>Documentation</b></a>
   ·
-  <a href="https://yielded.dev/agent/guide/getting-started/">Getting started</a>
+  <a href="https://github.com/systemfsoftware/agent/blob/main/docs/src/content/docs/guide/getting-started.md">Getting started</a>
   ·
-  <a href="https://yielded.dev">yielded.dev</a>
+  <a href="https://github.com/systemfsoftware/agent">GitHub</a>
 </p>
 
-Yielded Agent builds **durable agent Threads** in TypeScript with Effect and Effect AI.
+@systemfsoftware/agent builds **durable agent Threads** in TypeScript with Effect and Effect AI.
 Define schemas, instructions, and tools. The runtime runs the model/tool loop, validates
 output, and can retain accepted work across process restarts.
 
@@ -31,13 +26,13 @@ can be compacted without discarding its committed history.
 ## What you own
 
 Your application supplies authorization, tool handlers, model services, and storage.
-Yielded Agent supplies typed execution, bounded work, approvals, and recovery under a
+@systemfsoftware/agent supplies typed execution, bounded work, approvals, and recovery under a
 single owner per Thread. Native Effect AI tools and provider Layers work directly.
 
 A durable receipt means the runtime owes a terminal settlement. Recorded results are reused;
 uncertain ordinary mutations require reconciliation. Durable Steps need external idempotency.
 There is no exactly-once external execution guarantee.
-[Read the durability contract](https://yielded.dev/agent/concepts/durability/).
+[Read the durability contract](https://github.com/systemfsoftware/agent/blob/main/docs/src/content/docs/concepts/durability.mdx).
 
 ## Try it
 
@@ -65,7 +60,7 @@ const result = AgentRuntime.run(triage, 'Users cannot sign in.')
 ```
 
 Supply a model and history Layer to execute the Effect. The
-[getting-started guide](https://yielded.dev/agent/guide/getting-started/) has complete provider
+[getting-started guide](https://github.com/systemfsoftware/agent/blob/main/docs/src/content/docs/guide/getting-started.md) has complete provider
 setup, installation, and an executable entry point.
 
 ## Choose a host
@@ -77,9 +72,9 @@ setup, installation, and an executable entry point.
 | Durable Node service        | Supplied SQLite host, or a custom PostgreSQL host |
 | Durable Cloudflare service  | SQLite-backed Thread Objects                      |
 
-[How it works](https://yielded.dev/agent/concepts/runtime-model/) ·
-[Platforms](https://yielded.dev/agent/platforms/) ·
-[Packages](https://yielded.dev/agent/reference/packages/)
+[How it works](https://github.com/systemfsoftware/agent/blob/main/docs/src/content/docs/concepts/runtime-model.mdx) ·
+[Platforms](https://github.com/systemfsoftware/agent/blob/main/docs/src/content/docs/platforms/index.md) ·
+[Packages](https://github.com/systemfsoftware/agent/blob/main/docs/src/content/docs/reference/packages.md)
 
 ## Development
 

@@ -57,7 +57,7 @@ Host `onPassExit` reports are ephemeral and do not survive process loss.
 in a fresh Dynamic Worker with ambient network disabled and no application bindings, secrets,
 filesystem, or environment. Its authority is the scoped callback for allowlisted tools.
 
-The [Cloudflare application](https://github.com/yielded-dev/agent/tree/main/examples/travel-planner)
+The [Cloudflare application](https://github.com/systemfsoftware/agent/tree/main/examples/travel-planner)
 provides runnable deployment setup; Code Mode additionally needs a Worker Loader binding.
 Use `ToolDiscovery` with `includeDeclarations: false` when method documentation is too large to
 send on every request. This skips declaration generation until `Analyze.declarations` is read or

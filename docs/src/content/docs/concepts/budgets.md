@@ -53,7 +53,7 @@ const researcher = Agent.make('researcher', {
 ```
 
 [Context management](/guide/context-management/) explains compaction and oversized tool results.
-The [travel planner](https://github.com/yielded-dev/agent/tree/main/examples/travel-planner)
+The [travel planner](https://github.com/systemfsoftware/agent/tree/main/examples/travel-planner)
 shows policies in a complete application.
 
 Use `maxTurns: null` and `maxToolCalls: null` when the host owns the Run lifetime through

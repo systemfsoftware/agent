@@ -136,7 +136,7 @@ smaller result budget.
 
 Cloudflare hosts can use `R2ToolResultStorage.layer(bucket, threadId)` from
 `@systemfsoftware/agent-platform-cloudflare/r2-tool-result-storage`. Bind it to the authorized Thread;
-the model cannot choose another Thread. The [sandbox example](https://github.com/yielded-dev/agent/tree/main/examples/sandbox)
+the model cannot choose another Thread. The [sandbox example](https://github.com/systemfsoftware/agent/tree/main/examples/sandbox)
 shows the runtime wiring. Other hosts implement the same Effect storage contract.
 
 Saving has an 8 MiB ceiling and a five-second deadline. An expected save failure keeps the
@@ -146,5 +146,5 @@ cleanup. Saved objects are separate from Thread exports and must remain availabl
 as their references are needed. An expired or missing object returns a typed read failure.
 
 See [budgets](/concepts/budgets/) for defaults and the
-[context-continuity example](https://github.com/yielded-dev/agent/tree/main/tooling/context-continuity-eval)
+[context-continuity example](https://github.com/systemfsoftware/agent/tree/main/tooling/context-continuity-eval)
 for runnable rollover and recovery scenarios.

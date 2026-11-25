@@ -13,7 +13,7 @@ Means and 95% confidence intervals; **12 pairs per layout across two independent
 deployment cohorts**, six pairs in each. All samples, including slow ones, are retained.
 
 Measured 2026-10-16 against Yielded commit
-[`481ab30`](https://github.com/yielded-dev/agent/tree/481ab30de77b9dad7137b84a2b1c6d4b2168ec4f),
+[`481ab30`](https://github.com/systemfsoftware/agent/tree/481ab30de77b9dad7137b84a2b1c6d4b2168ec4f),
 pi-durable **1.1.0**, Effect **4.0.5**, and effect-cf **0.56.7**. Bundles use esbuild
 **0.28.1**, whitespace minification only, and compatibility date **2026-08-18** with
 `nodejs_compat` and `global_fetch_strictly_public`. Driver and Thread Objects request

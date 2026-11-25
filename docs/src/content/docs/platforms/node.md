@@ -19,7 +19,7 @@ Define the agent, choose its native Effect model, and supply provider and tool
 Layers. A durable registration also carries explicit agent, model, and tool version
 declarations. Update those declarations when behavior changes.
 
-The [runnable Node example](https://github.com/yielded-dev/agent/tree/main/docs/snippets/travel-planner)
+The [runnable Node example](https://github.com/systemfsoftware/agent/tree/main/docs/snippets/travel-planner)
 includes `node-agent.ts`, provider configuration, and the process entry point.
 Its provider reads `OPENAI_API_KEY` from the environment.
 

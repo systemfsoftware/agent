@@ -7,7 +7,7 @@ description: Find the package, public import, and ownership boundary for each ca
 
 `@systemfsoftware/agent` owns agent definitions, execution, Thread contracts, and durability.
 Hosts and adapters supply concrete execution environments and persistence. Install
-only the capabilities your application needs, keeping Yielded Agent packages on
+only the capabilities your application needs, keeping @systemfsoftware/agent packages on
 the same release. Package manifests declare peer compatibility.
 
 ## Public imports
@@ -39,7 +39,7 @@ Provide a native Effect Model around a Run or subagent handler Layer.
 `Agent.withModel` optionally pairs a definition and Model into a Binding.
 Durable registrations carry `{ agent, model, definitions }`; hosts acquire their
 services once. Providers come from upstream Effect AI, including OpenAI, Anthropic,
-and TypeSafe. Yielded Agent does not wrap their tool or prompt types.
+and TypeSafe. @systemfsoftware/agent does not wrap their tool or prompt types.
 
 ### In-memory defaults
 
@@ -93,13 +93,13 @@ before choosing an adapter.
 
 ## GitHub Action
 
-The [review Action](https://github.com/yielded-dev/agent/blob/main/action/README.md)
+The [review Action](https://github.com/systemfsoftware/agent/blob/main/action/README.md)
 adds GitHub integration and report publication around the review library.
 
 <a id="leaf-examples"></a>
 
 ## Examples
 
-Start with the [runnable planner](https://github.com/yielded-dev/agent/tree/main/docs/snippets/travel-planner)
-or the [Cloudflare application](https://github.com/yielded-dev/agent/tree/main/examples/travel-planner).
+Start with the [runnable planner](https://github.com/systemfsoftware/agent/tree/main/docs/snippets/travel-planner)
+or the [Cloudflare application](https://github.com/systemfsoftware/agent/tree/main/examples/travel-planner).
 These show complete service composition through public imports.

@@ -67,8 +67,8 @@ that supports structured output. Provide your chosen model Layer to the adapter;
 and configuration remain application-owned. Its probabilities are LLM estimates, not calibrated
 confidence scores. Native validation rejects invalid distributions; retries and failover are explicit.
 See the [language-model example](examples/language-model.ts) and
-[provider setup](https://yielded.dev/agent/reference/decision-models#language-model-adapter).
+[provider setup](https://github.com/systemfsoftware/agent/blob/main/docs/src/content/docs/reference/decision-models.md).
 
-See the [reference](https://yielded.dev/agent/reference/decision-models#automodel) for ownership,
+See the [reference](https://github.com/systemfsoftware/agent/blob/main/docs/src/content/docs/reference/decision-models.md) for ownership,
 configuration, and retention requirements, or the runnable [decision](examples/decision.ts),
 [direct client](examples/evaluate.ts), and [tool](examples/tool.ts) examples.

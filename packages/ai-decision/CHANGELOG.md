@@ -8,7 +8,7 @@ No changes in this release.
 
 ### Patch Changes
 
-- [#1117](https://github.com/yielded-dev/agent/pull/1117) [`c056984`](https://github.com/yielded-dev/agent/commit/c0569842948f9d3674f41c5334228f496df2e889) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Upgrade to Effect 4.1 and effect-cf 0.59. BEHAVIOR CHANGE: Replace custom Crypto layers with the required `Digest` and `SecureRandom` services from `effect/crypto`; `NodeCrypto.layer` and `BrowserCrypto.layer` supply both.
+- [#1117](https://github.com/systemfsoftware/agent/pull/1117) [`c056984`](https://github.com/systemfsoftware/agent/commit/c0569842948f9d3674f41c5334228f496df2e889) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Upgrade to Effect 4.1 and effect-cf 0.59. BEHAVIOR CHANGE: Replace custom Crypto layers with the required `Digest` and `SecureRandom` services from `effect/crypto`; `NodeCrypto.layer` and `BrowserCrypto.layer` supply both.
 
 ## 0.1.0-beta.190
 
@@ -18,7 +18,7 @@ No changes in this release.
 
 ### Patch Changes
 
-- [#1095](https://github.com/yielded-dev/agent/pull/1095) [`37b958b`](https://github.com/yielded-dev/agent/commit/37b958b321a0db45f4a907aedeb8f2bc38defd9b) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Resolve AutoModel choices explicitly before passing the returned native model to `Agent.withModel` or a durable registration.
+- [#1095](https://github.com/systemfsoftware/agent/pull/1095) [`37b958b`](https://github.com/systemfsoftware/agent/commit/37b958b321a0db45f4a907aedeb8f2bc38defd9b) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Resolve AutoModel choices explicitly before passing the returned native model to `Agent.withModel` or a durable registration.
   **BEHAVIOR CHANGE:** authorize and validate selection input in the host, and apply a Scope and timeout around selection plus execution; `AutoModel.make` no longer returns a model Layer.
 
 ## 0.1.0-beta.188
@@ -41,7 +41,7 @@ No changes in this release.
 
 ### Patch Changes
 
-- [#1003](https://github.com/yielded-dev/agent/pull/1003) [`03066c6`](https://github.com/yielded-dev/agent/commit/03066c600441c19c585e0e8f5daaed4b3ed333b2) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Support labeled rating criteria and structured descriptions in the language-model decision adapter. Require Effect 4.0.5 or later.
+- [#1003](https://github.com/systemfsoftware/agent/pull/1003) [`03066c6`](https://github.com/systemfsoftware/agent/commit/03066c600441c19c585e0e8f5daaed4b3ed333b2) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Support labeled rating criteria and structured descriptions in the language-model decision adapter. Require Effect 4.0.5 or later.
 
 ## 0.1.0-beta.183
 
@@ -107,7 +107,7 @@ No changes in this release.
 
 ### Patch Changes
 
-- [#784](https://github.com/yielded-dev/agent/pull/784) [`80deef0`](https://github.com/yielded-dev/agent/commit/80deef0af2af790c68c2fda8701b3fed77c07db9) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Reduce tracing overhead by keeping operation spans and removing private helper spans and stack frames. BEHAVIOR CHANGE: Update filters that use private helper span names to use the enclosing agent, model, tool, storage, or recovery operation.
+- [#784](https://github.com/systemfsoftware/agent/pull/784) [`80deef0`](https://github.com/systemfsoftware/agent/commit/80deef0af2af790c68c2fda8701b3fed77c07db9) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Reduce tracing overhead by keeping operation spans and removing private helper spans and stack frames. BEHAVIOR CHANGE: Update filters that use private helper span names to use the enclosing agent, model, tool, storage, or recovery operation.
 
 ## 0.1.0-beta.167
 
@@ -115,11 +115,11 @@ No changes in this release.
 
 ### Minor Changes
 
-- [#766](https://github.com/yielded-dev/agent/pull/766) [`a1fb42a`](https://github.com/yielded-dev/agent/commit/a1fb42a651eccef46b8775fe4373d3f04d85e8de) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Move Effect Agent to `@yielded/agent` and its `@yielded/agent-*` adapters. Update dependencies and import prefixes together; APIs, service identities, and stored formats remain unchanged.
+- [#766](https://github.com/systemfsoftware/agent/pull/766) [`a1fb42a`](https://github.com/systemfsoftware/agent/commit/a1fb42a651eccef46b8775fe4373d3f04d85e8de) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Move Effect Agent to `@yielded/agent` and its `@yielded/agent-*` adapters. Update dependencies and import prefixes together; APIs, service identities, and stored formats remain unchanged.
 
 ### Patch Changes
 
-- [#749](https://github.com/yielded-dev/agent/pull/749) [`08d1384`](https://github.com/yielded-dev/agent/commit/08d1384e625091d83a6cb6eeb9c95e28cff2cc69) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Require Effect 4.0.0 and use its current module paths and encoding APIs. Require `effect-cf@^0.53.0` for the Cloudflare adapter.
+- [#749](https://github.com/systemfsoftware/agent/pull/749) [`08d1384`](https://github.com/systemfsoftware/agent/commit/08d1384e625091d83a6cb6eeb9c95e28cff2cc69) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Require Effect 4.0.0 and use its current module paths and encoding APIs. Require `effect-cf@^0.53.0` for the Cloudflare adapter.
 
   BEHAVIOR CHANGE: upgrade Effect and matching provider, platform, SQL, and Atom packages to 4.0.0; replace `effect/unstable/*` imports with `effect/*` and use `effect/http-api` for HTTP APIs. Cloudflare logical alarms now back off from one second and park for hourly recovery after eight attempts without reported source progress.
 

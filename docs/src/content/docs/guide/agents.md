@@ -74,4 +74,4 @@ and authorization receives it. Projection failure never falls back to sending th
 Keep credentials in host services and separately control tool results, history, and retrieved context.
 
 For a complete application with tools and a durable host, see the
-[travel planner](https://github.com/yielded-dev/agent/tree/main/examples/travel-planner).
+[travel planner](https://github.com/systemfsoftware/agent/tree/main/examples/travel-planner).

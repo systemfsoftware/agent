@@ -50,7 +50,7 @@ const readPage = Effect.gen(function*() {
 Supply `browserQuickActionCaptureLayer` with `BrowserQuickActionBrowserBinding.layer({ browser })`
 in a Worker, or use `browserRestCaptureLayer({ accountId, apiToken })` with an Effect HTTP client.
 Applications compose their own native Effect AI tools over this port; the
-[sandbox example](https://github.com/yielded-dev/agent/blob/main/examples/sandbox/src/web.ts)
+[sandbox example](https://github.com/systemfsoftware/agent/blob/main/examples/sandbox/src/web.ts)
 shows read, scrape, and screenshot tools.
 
 Set the target, action, engine, resource policy, and response byte limit before dispatch.
@@ -196,7 +196,7 @@ read filled fields and the website may echo values in later observations or scre
 CDP also has access to browser cookies. Your disclosure policy must cover those outputs. Uncertain fills or
 actions must not be blindly retried; confirmed browser cleanup does not undo website effects.
 
-The [browser-speed example](https://github.com/yielded-dev/agent/tree/main/examples/browser-speed)
+The [browser-speed example](https://github.com/systemfsoftware/agent/tree/main/examples/browser-speed)
 shows a runnable interactive application. Consult the
-[session API](https://github.com/yielded-dev/agent/blob/main/packages/platform-cloudflare/src/BrowserSession.ts)
+[session API](https://github.com/systemfsoftware/agent/blob/main/packages/platform-cloudflare/src/BrowserSession.ts)
 for attachment and cleanup details.

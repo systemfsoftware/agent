@@ -1,7 +1,12 @@
 # agent
 
-Effect-native agents with durable Threads, published as four packages: `@systemfsoftware/agent`,
-`@systemfsoftware/agent-storage-sql`, `@systemfsoftware/agent-storage-sqlite` and `@systemfsoftware/agent-platform-node`.
+Effect-native agents with durable Threads, published as eleven packages: `@systemfsoftware/agent`,
+`@systemfsoftware/agent-ai-decision`, `@systemfsoftware/agent-platform-cloudflare`,
+`@systemfsoftware/agent-platform-node`, `@systemfsoftware/agent-pr-review`,
+`@systemfsoftware/agent-storage-cloudflare`, `@systemfsoftware/agent-storage-memory`,
+`@systemfsoftware/agent-storage-postgres`, `@systemfsoftware/agent-storage-sql`,
+`@systemfsoftware/agent-storage-sqlite` and `@systemfsoftware/agent-testing`, beside the private
+`agent-pr-review-action` and `ui` workspaces.
 This repository is public: nothing private goes in files, commit messages, pull requests or comments.
 
 ## Commands
@@ -19,8 +24,13 @@ pnpm --filter <package> test
 
 `package.json` owns what each script runs, so read it before you assume. `pnpm check:exports`,
 `pnpm check:record-format`, `pnpm check:package-purity` and `pnpm check:pack` guard the published
-surface. A pull request merges only through the Mergify queue, whose result on the merged tree is the
-gate. Never pass `--no-verify`.
+surface. When the Mergify check is active on the pull request and `.mergify.yml` has a matching
+queue rule (`default`, or `subtree` for commits carrying both `git-subtree-dir:` and
+`git-subtree-split:` trailers), let Mergify enqueue the pull request once its queue conditions pass
+and merge it — squashing for `default`, preserving merge commits for `subtree` — once `checks /
+check` and `squash message` pass. When the Mergify check is absent from the pull request or no queue
+rule matches, merge it directly once its required checks pass with `gh pr merge <n> --squash
+--admin`, or `gh pr merge <n> --merge --admin` for a subtree pull request. Never pass `--no-verify`.
 
 Use an Effect API only if it exists in the installed `node_modules/effect`, which the pnpm catalog pins.
 
@@ -40,13 +50,13 @@ Load a doc when its trigger fires, not before.
 
 ## Boundaries
 
-| Surface                                                                                                          | Your limit                                                          |
-| ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| Graders: the oxlint, dprint and commitlint configs, `oxlint.baseline.json`, `.github/workflows/`, `.mergify.yml` | Never change one to make your work pass; change the implementation. |
-| Law: `CODING_STANDARDS.md`, `REVIEW.md`, this file                                                               | Change only when the task is to change the law.                     |
-| Vendored: `repos/**`                                                                                             | Read only; update with `git subtree pull`.                          |
-| Human-controlled: merging, deploys, credentials, repository settings                                             | Never do these yourself.                                            |
-| Everything else                                                                                                  | Edit as the task needs.                                             |
+| Surface                                                                                                                                        | Your limit                                                          |
+| ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Graders: the oxlint, dprint and commitlint configs, `oxlint.baseline.json`, `.github/workflows/`, `.mergify.yml`                               | Never change one to make your work pass; change the implementation. |
+| Law: `CODING_STANDARDS.md`, `REVIEW.md`, this file                                                                                             | Change only when the task is to change the law.                     |
+| Vendored: `repos/**`                                                                                                                           | Read only; update with `git subtree pull`.                          |
+| Owner-reserved: `root`/`sudo`, spend and pricing, repository visibility, credentials outside the fleet's GitHub, Cloudflare and Doppler grants | Ask once, with the exact command or decision.                       |
+| Everything else                                                                                                                                | Edit as the task needs.                                             |
 
 Doppler is the only credential store. Never print a secret.
 

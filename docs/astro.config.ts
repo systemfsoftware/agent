@@ -7,12 +7,13 @@ import { snippetPlugins } from './integrations/snippets.ts'
 import { socialImages } from './integrations/social-images.ts'
 
 export default defineConfig({
-  site: 'https://yielded.dev',
+  // No `site` until an approved documentation domain exists: a repository URL is not a docs
+  // origin, and absolute canonical or social URLs built from it would 404.
   base: '/agent',
   trailingSlash: 'always',
   integrations: [
     starlight({
-      title: 'Yielded Agent',
+      title: '@systemfsoftware/agent',
       description: 'Durable agent Threads for TypeScript, built on Effect and Effect AI.',
       favicon: '/mark.svg',
       lastUpdated: true,
@@ -35,12 +36,12 @@ export default defineConfig({
           attrs: { rel: 'apple-touch-icon', sizes: '180x180', href: '/agent/apple-touch-icon.png' },
         },
         { tag: 'meta', attrs: { name: 'theme-color', content: '#161714' } },
-        { tag: 'meta', attrs: { property: 'og:site_name', content: 'Yielded Agent' } },
+        { tag: 'meta', attrs: { property: 'og:site_name', content: '@systemfsoftware/agent' } },
         { tag: 'meta', attrs: { property: 'og:locale', content: 'en_US' } },
       ],
       sidebar: [
         {
-          label: 'Understand Yielded Agent',
+          label: 'Understand @systemfsoftware/agent',
           items: [
             { label: 'Overview', link: '/' },
             { label: 'How it works', link: '/concepts/runtime-model/' },

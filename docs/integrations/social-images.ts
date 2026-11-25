@@ -39,13 +39,13 @@ export const socialImages = (): AstroIntegration => ({
               return decodeHtml(value)
             }
 
-            const image = new URL(meta('og:image'))
-
+            // Cards are derived from the page path: until a docs domain is approved no absolute
+            // origin exists, so og:url and og:image are not emitted for these pages.
             cards.push({
-              title: meta('og:title').replace(/ \| Yielded Agent$/, ''),
+              title: meta('og:title').replace(/ \| @systemfsoftware\/agent$/, ''),
               description: meta('og:description'),
-              url: meta('og:url'),
-              imagePath: image.pathname.replace(/^\/agent\//, ''),
+              url: pathname,
+              imagePath: `social/${pathname.replace(/^\/agent\/?/, '').replace(/\/$/, '') || 'index'}.png`,
             })
           }
 

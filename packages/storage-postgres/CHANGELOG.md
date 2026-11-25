@@ -4,7 +4,7 @@
 
 ### Patch Changes
 
-- Updated dependencies [[`d4edd24`](https://github.com/yielded-dev/agent/commit/d4edd24e5e46e313782c01cf132a79b410a84770), [`56cdc99`](https://github.com/yielded-dev/agent/commit/56cdc99f0ac42ada9ebdae9609ff7aa27c1b1a58), [`67c3aec`](https://github.com/yielded-dev/agent/commit/67c3aecff2f1372367340d0db57c1dff56aca970)]:
+- Updated dependencies [[`d4edd24`](https://github.com/systemfsoftware/agent/commit/d4edd24e5e46e313782c01cf132a79b410a84770), [`56cdc99`](https://github.com/systemfsoftware/agent/commit/56cdc99f0ac42ada9ebdae9609ff7aa27c1b1a58), [`67c3aec`](https://github.com/systemfsoftware/agent/commit/67c3aecff2f1372367340d0db57c1dff56aca970)]:
   - @yielded/agent@0.1.0-beta.192
   - @yielded/agent-storage-sql@0.1.0-beta.192
 
@@ -12,8 +12,8 @@
 
 ### Patch Changes
 
-- [#1117](https://github.com/yielded-dev/agent/pull/1117) [`c056984`](https://github.com/yielded-dev/agent/commit/c0569842948f9d3674f41c5334228f496df2e889) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Upgrade to Effect 4.1 and effect-cf 0.59. BEHAVIOR CHANGE: Replace custom Crypto layers with the required `Digest` and `SecureRandom` services from `effect/crypto`; `NodeCrypto.layer` and `BrowserCrypto.layer` supply both.
-- Updated dependencies [[`c056984`](https://github.com/yielded-dev/agent/commit/c0569842948f9d3674f41c5334228f496df2e889)]:
+- [#1117](https://github.com/systemfsoftware/agent/pull/1117) [`c056984`](https://github.com/systemfsoftware/agent/commit/c0569842948f9d3674f41c5334228f496df2e889) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Upgrade to Effect 4.1 and effect-cf 0.59. BEHAVIOR CHANGE: Replace custom Crypto layers with the required `Digest` and `SecureRandom` services from `effect/crypto`; `NodeCrypto.layer` and `BrowserCrypto.layer` supply both.
+- Updated dependencies [[`c056984`](https://github.com/systemfsoftware/agent/commit/c0569842948f9d3674f41c5334228f496df2e889)]:
   - @yielded/agent@0.1.0-beta.191
   - @yielded/agent-storage-sql@0.1.0-beta.191
 
@@ -21,8 +21,8 @@
 
 ### Patch Changes
 
-- [#1112](https://github.com/yielded-dev/agent/pull/1112) [`d4ee454`](https://github.com/yielded-dev/agent/commit/d4ee45458c002d5511612cd309d48a043ffdebcf) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Repair SQL work-index upgrades while preserving unfinished operations and unresolved external outcomes. SQL discovery advances incomplete upgrades in bounded passes; Cloudflare maintenance continues them automatically, including previously parked recovery.
-- Updated dependencies [[`7a36ba2`](https://github.com/yielded-dev/agent/commit/7a36ba23d39fc0a17fc63dc816ab58f70a04136d), [`e7abd30`](https://github.com/yielded-dev/agent/commit/e7abd300d3c5b4bb3bc011e92468b54afc687e73), [`ac0a76a`](https://github.com/yielded-dev/agent/commit/ac0a76a8c20759d842121076238ebc992ea1e280), [`af2dabd`](https://github.com/yielded-dev/agent/commit/af2dabd8f13ed2cb60787872b68f62fdd916d8b0), [`cc6c913`](https://github.com/yielded-dev/agent/commit/cc6c91312a2bd2f092095380b44212e57035be7d), [`d4ee454`](https://github.com/yielded-dev/agent/commit/d4ee45458c002d5511612cd309d48a043ffdebcf)]:
+- [#1112](https://github.com/systemfsoftware/agent/pull/1112) [`d4ee454`](https://github.com/systemfsoftware/agent/commit/d4ee45458c002d5511612cd309d48a043ffdebcf) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Repair SQL work-index upgrades while preserving unfinished operations and unresolved external outcomes. SQL discovery advances incomplete upgrades in bounded passes; Cloudflare maintenance continues them automatically, including previously parked recovery.
+- Updated dependencies [[`7a36ba2`](https://github.com/systemfsoftware/agent/commit/7a36ba23d39fc0a17fc63dc816ab58f70a04136d), [`e7abd30`](https://github.com/systemfsoftware/agent/commit/e7abd300d3c5b4bb3bc011e92468b54afc687e73), [`ac0a76a`](https://github.com/systemfsoftware/agent/commit/ac0a76a8c20759d842121076238ebc992ea1e280), [`af2dabd`](https://github.com/systemfsoftware/agent/commit/af2dabd8f13ed2cb60787872b68f62fdd916d8b0), [`cc6c913`](https://github.com/systemfsoftware/agent/commit/cc6c91312a2bd2f092095380b44212e57035be7d), [`d4ee454`](https://github.com/systemfsoftware/agent/commit/d4ee45458c002d5511612cd309d48a043ffdebcf)]:
   - @yielded/agent@0.1.0-beta.190
   - @yielded/agent-storage-sql@0.1.0-beta.190
 
@@ -30,8 +30,8 @@
 
 ### Patch Changes
 
-- [#1078](https://github.com/yielded-dev/agent/pull/1078) [`2899b5b`](https://github.com/yielded-dev/agent/commit/2899b5bfbf3f7959f54eabedf8b05fa48e5d96a5) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Commit peer messages, worker reports, and parent updates atomically with their pending deliveries through paired native storage. Drain unresolved source publications with the previous release before upgrading an existing SQL store.
-- Updated dependencies [[`2899b5b`](https://github.com/yielded-dev/agent/commit/2899b5bfbf3f7959f54eabedf8b05fa48e5d96a5), [`b0ad3e8`](https://github.com/yielded-dev/agent/commit/b0ad3e8158ad5d0094749bda4ef6848a897b76a8), [`c906edf`](https://github.com/yielded-dev/agent/commit/c906edff7b327d925542e3d4cf82dd3c2624081a), [`37b958b`](https://github.com/yielded-dev/agent/commit/37b958b321a0db45f4a907aedeb8f2bc38defd9b), [`0b8eac1`](https://github.com/yielded-dev/agent/commit/0b8eac17011a6c2039a2ca3646f00affb2c2468d), [`eec9362`](https://github.com/yielded-dev/agent/commit/eec93627fdde15cf0944458ac83f61e9d7ed7cc7), [`b31e5f1`](https://github.com/yielded-dev/agent/commit/b31e5f1dbbe27b194f3256e2ba731ecb66ea1b7d), [`10b6040`](https://github.com/yielded-dev/agent/commit/10b60405b31d869bad6bc538f8696e8ec8ba0e8e), [`5a7dc22`](https://github.com/yielded-dev/agent/commit/5a7dc2224ee4d9842bf46ff28445a7b85228d3bf), [`98e2a67`](https://github.com/yielded-dev/agent/commit/98e2a67726cadf4ed955579ea145d89b7e580129), [`64146b5`](https://github.com/yielded-dev/agent/commit/64146b510b6069986ea31ab485a6cc5b5afeec81), [`a22bd71`](https://github.com/yielded-dev/agent/commit/a22bd7128bcd42b2c1f15a65eb57cb2df3f53b05), [`ea1c3fb`](https://github.com/yielded-dev/agent/commit/ea1c3fbf276566faabdd326a6792ce492ab5b876), [`2b25a65`](https://github.com/yielded-dev/agent/commit/2b25a653a8d8c576975506ce7c0ae0cce635aa44)]:
+- [#1078](https://github.com/systemfsoftware/agent/pull/1078) [`2899b5b`](https://github.com/systemfsoftware/agent/commit/2899b5bfbf3f7959f54eabedf8b05fa48e5d96a5) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Commit peer messages, worker reports, and parent updates atomically with their pending deliveries through paired native storage. Drain unresolved source publications with the previous release before upgrading an existing SQL store.
+- Updated dependencies [[`2899b5b`](https://github.com/systemfsoftware/agent/commit/2899b5bfbf3f7959f54eabedf8b05fa48e5d96a5), [`b0ad3e8`](https://github.com/systemfsoftware/agent/commit/b0ad3e8158ad5d0094749bda4ef6848a897b76a8), [`c906edf`](https://github.com/systemfsoftware/agent/commit/c906edff7b327d925542e3d4cf82dd3c2624081a), [`37b958b`](https://github.com/systemfsoftware/agent/commit/37b958b321a0db45f4a907aedeb8f2bc38defd9b), [`0b8eac1`](https://github.com/systemfsoftware/agent/commit/0b8eac17011a6c2039a2ca3646f00affb2c2468d), [`eec9362`](https://github.com/systemfsoftware/agent/commit/eec93627fdde15cf0944458ac83f61e9d7ed7cc7), [`b31e5f1`](https://github.com/systemfsoftware/agent/commit/b31e5f1dbbe27b194f3256e2ba731ecb66ea1b7d), [`10b6040`](https://github.com/systemfsoftware/agent/commit/10b60405b31d869bad6bc538f8696e8ec8ba0e8e), [`5a7dc22`](https://github.com/systemfsoftware/agent/commit/5a7dc2224ee4d9842bf46ff28445a7b85228d3bf), [`98e2a67`](https://github.com/systemfsoftware/agent/commit/98e2a67726cadf4ed955579ea145d89b7e580129), [`64146b5`](https://github.com/systemfsoftware/agent/commit/64146b510b6069986ea31ab485a6cc5b5afeec81), [`a22bd71`](https://github.com/systemfsoftware/agent/commit/a22bd7128bcd42b2c1f15a65eb57cb2df3f53b05), [`ea1c3fb`](https://github.com/systemfsoftware/agent/commit/ea1c3fbf276566faabdd326a6792ce492ab5b876), [`2b25a65`](https://github.com/systemfsoftware/agent/commit/2b25a653a8d8c576975506ce7c0ae0cce635aa44)]:
   - @yielded/agent@0.1.0-beta.189
   - @yielded/agent-storage-sql@0.1.0-beta.189
 
@@ -39,13 +39,13 @@
 
 ### Minor Changes
 
-- [#1060](https://github.com/yielded-dev/agent/pull/1060) [`36ba1bc`](https://github.com/yielded-dev/agent/commit/36ba1bc1cb477ee152e7f6edabccf9f331a0f66a) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Retire generic `ThreadCheckpoint` storage and `ThreadProjection` replay APIs, including their TravelPlanner helpers. Discard only the retired derived cache in the layout 28 → 29 upgrade, preserving conversation and operational bytes and retaining supported older upgrades.
+- [#1060](https://github.com/systemfsoftware/agent/pull/1060) [`36ba1bc`](https://github.com/systemfsoftware/agent/commit/36ba1bc1cb477ee152e7f6edabccf9f331a0f66a) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Retire generic `ThreadCheckpoint` storage and `ThreadProjection` replay APIs, including their TravelPlanner helpers. Discard only the retired derived cache in the layout 28 → 29 upgrade, preserving conversation and operational bytes and retaining supported older upgrades.
 
   BEHAVIOR CHANGE: Keep application projections in application-owned storage; `ExecutionCheckpoint` and `PromptCheckpoint` remain supported.
 
 ### Patch Changes
 
-- Updated dependencies [[`9243e4c`](https://github.com/yielded-dev/agent/commit/9243e4c9cf91a89809b0e65544004f9e0f580368), [`04b5b3d`](https://github.com/yielded-dev/agent/commit/04b5b3d80741806b02ae332ed710bb0283895a3a), [`100ea4c`](https://github.com/yielded-dev/agent/commit/100ea4ce5e631fd412a1587d4a6453611fa0ad00), [`fcf63d5`](https://github.com/yielded-dev/agent/commit/fcf63d5d8be7a0b363f13e99d09e1647a88bad27), [`117fda5`](https://github.com/yielded-dev/agent/commit/117fda5d33d0a0c6c6620efcbbe5080e4a503fdc), [`1532ba3`](https://github.com/yielded-dev/agent/commit/1532ba39292e62e0b131ebb534a52dc3e98869ad), [`36ba1bc`](https://github.com/yielded-dev/agent/commit/36ba1bc1cb477ee152e7f6edabccf9f331a0f66a), [`eaf9f15`](https://github.com/yielded-dev/agent/commit/eaf9f158658dac20811dc252a9a2ecbd9b042309), [`e0bd59c`](https://github.com/yielded-dev/agent/commit/e0bd59cca79f9dbbc591736cef5dbb3b584f64f2), [`2113410`](https://github.com/yielded-dev/agent/commit/2113410f1c30ecc7761245b57e43bef769ec73dd), [`8732a30`](https://github.com/yielded-dev/agent/commit/8732a3055232349fd23f4d7deda82e179d6c9080), [`e19b934`](https://github.com/yielded-dev/agent/commit/e19b934f19ca3f551d045bc76e25924f34636ae0)]:
+- Updated dependencies [[`9243e4c`](https://github.com/systemfsoftware/agent/commit/9243e4c9cf91a89809b0e65544004f9e0f580368), [`04b5b3d`](https://github.com/systemfsoftware/agent/commit/04b5b3d80741806b02ae332ed710bb0283895a3a), [`100ea4c`](https://github.com/systemfsoftware/agent/commit/100ea4ce5e631fd412a1587d4a6453611fa0ad00), [`fcf63d5`](https://github.com/systemfsoftware/agent/commit/fcf63d5d8be7a0b363f13e99d09e1647a88bad27), [`117fda5`](https://github.com/systemfsoftware/agent/commit/117fda5d33d0a0c6c6620efcbbe5080e4a503fdc), [`1532ba3`](https://github.com/systemfsoftware/agent/commit/1532ba39292e62e0b131ebb534a52dc3e98869ad), [`36ba1bc`](https://github.com/systemfsoftware/agent/commit/36ba1bc1cb477ee152e7f6edabccf9f331a0f66a), [`eaf9f15`](https://github.com/systemfsoftware/agent/commit/eaf9f158658dac20811dc252a9a2ecbd9b042309), [`e0bd59c`](https://github.com/systemfsoftware/agent/commit/e0bd59cca79f9dbbc591736cef5dbb3b584f64f2), [`2113410`](https://github.com/systemfsoftware/agent/commit/2113410f1c30ecc7761245b57e43bef769ec73dd), [`8732a30`](https://github.com/systemfsoftware/agent/commit/8732a3055232349fd23f4d7deda82e179d6c9080), [`e19b934`](https://github.com/systemfsoftware/agent/commit/e19b934f19ca3f551d045bc76e25924f34636ae0)]:
   - @yielded/agent@0.1.0-beta.188
   - @yielded/agent-storage-sql@0.1.0-beta.188
 
@@ -53,7 +53,7 @@
 
 ### Patch Changes
 
-- Updated dependencies [[`3e18bdd`](https://github.com/yielded-dev/agent/commit/3e18bdd9b3a4a45928ea2d1b88abc008e52b860f), [`b5654bb`](https://github.com/yielded-dev/agent/commit/b5654bb685ec47e482e977ee521b8b217dfd0446)]:
+- Updated dependencies [[`3e18bdd`](https://github.com/systemfsoftware/agent/commit/3e18bdd9b3a4a45928ea2d1b88abc008e52b860f), [`b5654bb`](https://github.com/systemfsoftware/agent/commit/b5654bb685ec47e482e977ee521b8b217dfd0446)]:
   - @yielded/agent@0.1.0-beta.187
   - @yielded/agent-storage-sql@0.1.0-beta.187
 
@@ -61,7 +61,7 @@
 
 ### Patch Changes
 
-- Updated dependencies [[`b0d1062`](https://github.com/yielded-dev/agent/commit/b0d10629a17a063cc0a131a2b1854dd7c9d506f9), [`481ab30`](https://github.com/yielded-dev/agent/commit/481ab30de77b9dad7137b84a2b1c6d4b2168ec4f), [`357e8fa`](https://github.com/yielded-dev/agent/commit/357e8fa30805ebfe43e3248a5158fc1f365ee398)]:
+- Updated dependencies [[`b0d1062`](https://github.com/systemfsoftware/agent/commit/b0d10629a17a063cc0a131a2b1854dd7c9d506f9), [`481ab30`](https://github.com/systemfsoftware/agent/commit/481ab30de77b9dad7137b84a2b1c6d4b2168ec4f), [`357e8fa`](https://github.com/systemfsoftware/agent/commit/357e8fa30805ebfe43e3248a5158fc1f365ee398)]:
   - @yielded/agent@0.1.0-beta.186
   - @yielded/agent-storage-sql@0.1.0-beta.186
 
@@ -85,7 +85,7 @@
 
 ### Patch Changes
 
-- Updated dependencies [[`4d89b3d`](https://github.com/yielded-dev/agent/commit/4d89b3d70c61d5f9e070c586729e724dd278a329), [`e8c7dc5`](https://github.com/yielded-dev/agent/commit/e8c7dc52ca1f4ed5075a1cc6ba3ceb49dc9da2e4), [`07edb0e`](https://github.com/yielded-dev/agent/commit/07edb0ea3856d9cb05048b1f79531588f1fad0d7), [`35940af`](https://github.com/yielded-dev/agent/commit/35940afbde243fff4a9f5e10093e01e23050f545), [`016b10a`](https://github.com/yielded-dev/agent/commit/016b10a2353959fa5acde797e2e5b7c124761578), [`5a7b1f0`](https://github.com/yielded-dev/agent/commit/5a7b1f02dcb1b24586ee59f859bb19a2e0e9c8e3)]:
+- Updated dependencies [[`4d89b3d`](https://github.com/systemfsoftware/agent/commit/4d89b3d70c61d5f9e070c586729e724dd278a329), [`e8c7dc5`](https://github.com/systemfsoftware/agent/commit/e8c7dc52ca1f4ed5075a1cc6ba3ceb49dc9da2e4), [`07edb0e`](https://github.com/systemfsoftware/agent/commit/07edb0ea3856d9cb05048b1f79531588f1fad0d7), [`35940af`](https://github.com/systemfsoftware/agent/commit/35940afbde243fff4a9f5e10093e01e23050f545), [`016b10a`](https://github.com/systemfsoftware/agent/commit/016b10a2353959fa5acde797e2e5b7c124761578), [`5a7b1f0`](https://github.com/systemfsoftware/agent/commit/5a7b1f02dcb1b24586ee59f859bb19a2e0e9c8e3)]:
   - @yielded/agent@0.1.0-beta.183
   - @yielded/agent-storage-sql@0.1.0-beta.183
 
@@ -93,7 +93,7 @@
 
 ### Patch Changes
 
-- Updated dependencies [[`0499026`](https://github.com/yielded-dev/agent/commit/0499026905364b68aff14e9d2392789de8bbdd26)]:
+- Updated dependencies [[`0499026`](https://github.com/systemfsoftware/agent/commit/0499026905364b68aff14e9d2392789de8bbdd26)]:
   - @yielded/agent@0.1.0-beta.182
   - @yielded/agent-storage-sql@0.1.0-beta.182
 
@@ -101,7 +101,7 @@
 
 ### Patch Changes
 
-- Updated dependencies [[`f14a1a7`](https://github.com/yielded-dev/agent/commit/f14a1a7623d5d27ee7f89942289a09ec3cdc1f42)]:
+- Updated dependencies [[`f14a1a7`](https://github.com/systemfsoftware/agent/commit/f14a1a7623d5d27ee7f89942289a09ec3cdc1f42)]:
   - @yielded/agent@0.1.0-beta.181
   - @yielded/agent-storage-sql@0.1.0-beta.181
 
@@ -109,7 +109,7 @@
 
 ### Patch Changes
 
-- Updated dependencies [[`22a7b63`](https://github.com/yielded-dev/agent/commit/22a7b63faa7593e6d74be3203fa147848a63198f), [`cfbf457`](https://github.com/yielded-dev/agent/commit/cfbf45778fe611219ac8b034c3c5d40daa339674)]:
+- Updated dependencies [[`22a7b63`](https://github.com/systemfsoftware/agent/commit/22a7b63faa7593e6d74be3203fa147848a63198f), [`cfbf457`](https://github.com/systemfsoftware/agent/commit/cfbf45778fe611219ac8b034c3c5d40daa339674)]:
   - @yielded/agent@0.1.0-beta.180
   - @yielded/agent-storage-sql@0.1.0-beta.180
 
@@ -117,7 +117,7 @@
 
 ### Patch Changes
 
-- Updated dependencies [[`a25ebd4`](https://github.com/yielded-dev/agent/commit/a25ebd49fd150098ee616afd20c9f8796fd4bd34)]:
+- Updated dependencies [[`a25ebd4`](https://github.com/systemfsoftware/agent/commit/a25ebd49fd150098ee616afd20c9f8796fd4bd34)]:
   - @yielded/agent@0.1.0-beta.179
   - @yielded/agent-storage-sql@0.1.0-beta.179
 
@@ -125,7 +125,7 @@
 
 ### Patch Changes
 
-- Updated dependencies [[`007f63f`](https://github.com/yielded-dev/agent/commit/007f63f5a09e8e749203066ec8e124896d9140ec), [`7e904df`](https://github.com/yielded-dev/agent/commit/7e904df67f5ca9fb8a1eaa04c14b4947ae0dcc9f), [`36954c7`](https://github.com/yielded-dev/agent/commit/36954c75ae6190ff7d2872a065bc5b10c40b1823), [`9441dec`](https://github.com/yielded-dev/agent/commit/9441dece81f72f9a3fe2e58fd0241a5cfff997a9)]:
+- Updated dependencies [[`007f63f`](https://github.com/systemfsoftware/agent/commit/007f63f5a09e8e749203066ec8e124896d9140ec), [`7e904df`](https://github.com/systemfsoftware/agent/commit/7e904df67f5ca9fb8a1eaa04c14b4947ae0dcc9f), [`36954c7`](https://github.com/systemfsoftware/agent/commit/36954c75ae6190ff7d2872a065bc5b10c40b1823), [`9441dec`](https://github.com/systemfsoftware/agent/commit/9441dece81f72f9a3fe2e58fd0241a5cfff997a9)]:
   - @yielded/agent@0.1.0-beta.178
   - @yielded/agent-storage-sql@0.1.0-beta.178
 
@@ -133,7 +133,7 @@
 
 ### Patch Changes
 
-- Updated dependencies [[`6a77744`](https://github.com/yielded-dev/agent/commit/6a77744c006df578203285778ed38c06fce18b21)]:
+- Updated dependencies [[`6a77744`](https://github.com/systemfsoftware/agent/commit/6a77744c006df578203285778ed38c06fce18b21)]:
   - @yielded/agent@0.1.0-beta.177
   - @yielded/agent-storage-sql@0.1.0-beta.177
 
@@ -141,7 +141,7 @@
 
 ### Patch Changes
 
-- Updated dependencies [[`fefb1e1`](https://github.com/yielded-dev/agent/commit/fefb1e1cab7d60dbe0fdd2a5cc01a04106570e5b), [`9958974`](https://github.com/yielded-dev/agent/commit/9958974f756a136da8c991d2a8c229fbe96fa213), [`9701409`](https://github.com/yielded-dev/agent/commit/9701409f8060db88864f947295e668205ada858f), [`8a82272`](https://github.com/yielded-dev/agent/commit/8a82272f3ac6d75c6296e070d88f93529a2f1c66)]:
+- Updated dependencies [[`fefb1e1`](https://github.com/systemfsoftware/agent/commit/fefb1e1cab7d60dbe0fdd2a5cc01a04106570e5b), [`9958974`](https://github.com/systemfsoftware/agent/commit/9958974f756a136da8c991d2a8c229fbe96fa213), [`9701409`](https://github.com/systemfsoftware/agent/commit/9701409f8060db88864f947295e668205ada858f), [`8a82272`](https://github.com/systemfsoftware/agent/commit/8a82272f3ac6d75c6296e070d88f93529a2f1c66)]:
   - @yielded/agent@0.1.0-beta.176
   - @yielded/agent-storage-sql@0.1.0-beta.176
 
@@ -149,8 +149,8 @@
 
 ### Patch Changes
 
-- [#930](https://github.com/yielded-dev/agent/pull/930) [`48ae17b`](https://github.com/yielded-dev/agent/commit/48ae17b94075a565ce73ff4beb3a70b04a2ea259) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Remove the redundant batch-end index from SQLite and PostgreSQL stores while preserving existing tables, Threads and receipts.
-- Updated dependencies [[`4a4c74d`](https://github.com/yielded-dev/agent/commit/4a4c74dc5458347165eedf785c316168f78e840a), [`ca850e3`](https://github.com/yielded-dev/agent/commit/ca850e30cc38567a11df099a95f36b5c99a82f92), [`619d472`](https://github.com/yielded-dev/agent/commit/619d472c7ab5b857a1ae21d5737cd79ba3db6aee), [`b27e6bc`](https://github.com/yielded-dev/agent/commit/b27e6bcd8b8d9cbc3ddea766a6ca77cf2546567b), [`6d7aa0e`](https://github.com/yielded-dev/agent/commit/6d7aa0eed29be8da53fd5b129726afb2e0e4577e), [`0a0d58c`](https://github.com/yielded-dev/agent/commit/0a0d58c8ffeb161317f4f25eec8c28dd698c4984), [`61a1553`](https://github.com/yielded-dev/agent/commit/61a1553a4b6a380c85585bec8dbab8094ea15358), [`c592692`](https://github.com/yielded-dev/agent/commit/c5926920601470230cc07a163cd3de343806be45), [`e0ebc70`](https://github.com/yielded-dev/agent/commit/e0ebc704f871971a7c83ebae9d30bc1e7996fea9), [`72aea39`](https://github.com/yielded-dev/agent/commit/72aea39efec9a914621961d0465dfc6b6a097bbe), [`864a897`](https://github.com/yielded-dev/agent/commit/864a897aca150b64b1e2e8fab297963078857fcf), [`460b2c5`](https://github.com/yielded-dev/agent/commit/460b2c519b464f9a05510885737c528fc6d4a14b), [`195c9c3`](https://github.com/yielded-dev/agent/commit/195c9c350afa23a934da03d6fef18a91919a8fb5), [`efd458b`](https://github.com/yielded-dev/agent/commit/efd458b44b183e6e16b4436a013bbc1bffbed898), [`ba869fb`](https://github.com/yielded-dev/agent/commit/ba869fbb61a045d9b2e447394c3b42952b241ae1), [`a64a59f`](https://github.com/yielded-dev/agent/commit/a64a59f7471798706a75c7b59c4ae32c98cd0fc8), [`ac9620b`](https://github.com/yielded-dev/agent/commit/ac9620be4c3e50a77b3762b071543a588ae2484c), [`cc50268`](https://github.com/yielded-dev/agent/commit/cc502681dcaff9440a49780a49b68c615d96063f), [`4236b5c`](https://github.com/yielded-dev/agent/commit/4236b5c14a5745de69b949a9e35a3c24ccaf7b92)]:
+- [#930](https://github.com/systemfsoftware/agent/pull/930) [`48ae17b`](https://github.com/systemfsoftware/agent/commit/48ae17b94075a565ce73ff4beb3a70b04a2ea259) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Remove the redundant batch-end index from SQLite and PostgreSQL stores while preserving existing tables, Threads and receipts.
+- Updated dependencies [[`4a4c74d`](https://github.com/systemfsoftware/agent/commit/4a4c74dc5458347165eedf785c316168f78e840a), [`ca850e3`](https://github.com/systemfsoftware/agent/commit/ca850e30cc38567a11df099a95f36b5c99a82f92), [`619d472`](https://github.com/systemfsoftware/agent/commit/619d472c7ab5b857a1ae21d5737cd79ba3db6aee), [`b27e6bc`](https://github.com/systemfsoftware/agent/commit/b27e6bcd8b8d9cbc3ddea766a6ca77cf2546567b), [`6d7aa0e`](https://github.com/systemfsoftware/agent/commit/6d7aa0eed29be8da53fd5b129726afb2e0e4577e), [`0a0d58c`](https://github.com/systemfsoftware/agent/commit/0a0d58c8ffeb161317f4f25eec8c28dd698c4984), [`61a1553`](https://github.com/systemfsoftware/agent/commit/61a1553a4b6a380c85585bec8dbab8094ea15358), [`c592692`](https://github.com/systemfsoftware/agent/commit/c5926920601470230cc07a163cd3de343806be45), [`e0ebc70`](https://github.com/systemfsoftware/agent/commit/e0ebc704f871971a7c83ebae9d30bc1e7996fea9), [`72aea39`](https://github.com/systemfsoftware/agent/commit/72aea39efec9a914621961d0465dfc6b6a097bbe), [`864a897`](https://github.com/systemfsoftware/agent/commit/864a897aca150b64b1e2e8fab297963078857fcf), [`460b2c5`](https://github.com/systemfsoftware/agent/commit/460b2c519b464f9a05510885737c528fc6d4a14b), [`195c9c3`](https://github.com/systemfsoftware/agent/commit/195c9c350afa23a934da03d6fef18a91919a8fb5), [`efd458b`](https://github.com/systemfsoftware/agent/commit/efd458b44b183e6e16b4436a013bbc1bffbed898), [`ba869fb`](https://github.com/systemfsoftware/agent/commit/ba869fbb61a045d9b2e447394c3b42952b241ae1), [`a64a59f`](https://github.com/systemfsoftware/agent/commit/a64a59f7471798706a75c7b59c4ae32c98cd0fc8), [`ac9620b`](https://github.com/systemfsoftware/agent/commit/ac9620be4c3e50a77b3762b071543a588ae2484c), [`cc50268`](https://github.com/systemfsoftware/agent/commit/cc502681dcaff9440a49780a49b68c615d96063f), [`4236b5c`](https://github.com/systemfsoftware/agent/commit/4236b5c14a5745de69b949a9e35a3c24ccaf7b92)]:
   - @yielded/agent@0.1.0-beta.175
   - @yielded/agent-storage-sql@0.1.0-beta.175
 
@@ -158,7 +158,7 @@
 
 ### Patch Changes
 
-- Updated dependencies [[`0090e61`](https://github.com/yielded-dev/agent/commit/0090e61fb1e46ef2f574d79fde36e4cc3769bb41), [`fcfecdb`](https://github.com/yielded-dev/agent/commit/fcfecdb7b1116e97543f164356d4322ecf646434), [`525b995`](https://github.com/yielded-dev/agent/commit/525b995025dba1ac26e5a06451fd24d6d28ab7c4)]:
+- Updated dependencies [[`0090e61`](https://github.com/systemfsoftware/agent/commit/0090e61fb1e46ef2f574d79fde36e4cc3769bb41), [`fcfecdb`](https://github.com/systemfsoftware/agent/commit/fcfecdb7b1116e97543f164356d4322ecf646434), [`525b995`](https://github.com/systemfsoftware/agent/commit/525b995025dba1ac26e5a06451fd24d6d28ab7c4)]:
   - @yielded/agent@0.1.0-beta.174
   - @yielded/agent-storage-sql@0.1.0-beta.174
 
@@ -166,7 +166,7 @@
 
 ### Patch Changes
 
-- Updated dependencies [[`8bdd737`](https://github.com/yielded-dev/agent/commit/8bdd73764fc3964303ef1015e7d24eb6a0757a56)]:
+- Updated dependencies [[`8bdd737`](https://github.com/systemfsoftware/agent/commit/8bdd73764fc3964303ef1015e7d24eb6a0757a56)]:
   - @yielded/agent-storage-sql@0.1.0-beta.173
   - @yielded/agent@0.1.0-beta.173
 
@@ -174,7 +174,7 @@
 
 ### Patch Changes
 
-- Updated dependencies [[`23a7565`](https://github.com/yielded-dev/agent/commit/23a7565a8e59d517a0ee274454d71a552aa88abd), [`55f2b7d`](https://github.com/yielded-dev/agent/commit/55f2b7d9859f6688dd5f37bd49c9ce5205274569), [`559de65`](https://github.com/yielded-dev/agent/commit/559de65edbd78f58d991f63a14da2f3c55e4ee6f), [`ffb7e63`](https://github.com/yielded-dev/agent/commit/ffb7e63d1358bc245eb3173700cf879d96a49bec)]:
+- Updated dependencies [[`23a7565`](https://github.com/systemfsoftware/agent/commit/23a7565a8e59d517a0ee274454d71a552aa88abd), [`55f2b7d`](https://github.com/systemfsoftware/agent/commit/55f2b7d9859f6688dd5f37bd49c9ce5205274569), [`559de65`](https://github.com/systemfsoftware/agent/commit/559de65edbd78f58d991f63a14da2f3c55e4ee6f), [`ffb7e63`](https://github.com/systemfsoftware/agent/commit/ffb7e63d1358bc245eb3173700cf879d96a49bec)]:
   - @yielded/agent@0.1.0-beta.172
   - @yielded/agent-storage-sql@0.1.0-beta.172
 
@@ -182,8 +182,8 @@
 
 ### Patch Changes
 
-- [#880](https://github.com/yielded-dev/agent/pull/880) [`3c534a1`](https://github.com/yielded-dev/agent/commit/3c534a1b4c5e3f4c425447c5dd785c95c5857b92) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Reuse captured tool-cycle commits and settled prompt records, and retain each active Run continuation once. BEHAVIOR CHANGE: Execution checkpoints use wire version 2; native stores upgrade atomically from layouts 25 or 26 to 27, which older releases cannot reopen.
-- Updated dependencies [[`9c0a400`](https://github.com/yielded-dev/agent/commit/9c0a400c82b725514c7397485bac3bddeeb984f5), [`3c534a1`](https://github.com/yielded-dev/agent/commit/3c534a1b4c5e3f4c425447c5dd785c95c5857b92)]:
+- [#880](https://github.com/systemfsoftware/agent/pull/880) [`3c534a1`](https://github.com/systemfsoftware/agent/commit/3c534a1b4c5e3f4c425447c5dd785c95c5857b92) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Reuse captured tool-cycle commits and settled prompt records, and retain each active Run continuation once. BEHAVIOR CHANGE: Execution checkpoints use wire version 2; native stores upgrade atomically from layouts 25 or 26 to 27, which older releases cannot reopen.
+- Updated dependencies [[`9c0a400`](https://github.com/systemfsoftware/agent/commit/9c0a400c82b725514c7397485bac3bddeeb984f5), [`3c534a1`](https://github.com/systemfsoftware/agent/commit/3c534a1b4c5e3f4c425447c5dd785c95c5857b92)]:
   - @yielded/agent@0.1.0-beta.171
   - @yielded/agent-storage-sql@0.1.0-beta.171
 
@@ -191,11 +191,11 @@
 
 ### Minor Changes
 
-- [#868](https://github.com/yielded-dev/agent/pull/868) [`63bb8b5`](https://github.com/yielded-dev/agent/commit/63bb8b5bbbc18abec209ca173661ee35f6d27a9b) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Remove per-Thread conversation quotas and reuse messaging and subscription capacity after work settles or its retention window expires, preserving exact receipts and host capacity bounds. Upgrade released layout-25 stores and standalone Cloudflare subscription stores v3 atomically on open; custom Thread stores must count peer sends at the request's `nowMillis`.
+- [#868](https://github.com/systemfsoftware/agent/pull/868) [`63bb8b5`](https://github.com/systemfsoftware/agent/commit/63bb8b5bbbc18abec209ca173661ee35f6d27a9b) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Remove per-Thread conversation quotas and reuse messaging and subscription capacity after work settles or its retention window expires, preserving exact receipts and host capacity bounds. Upgrade released layout-25 stores and standalone Cloudflare subscription stores v3 atomically on open; custom Thread stores must count peer sends at the request's `nowMillis`.
 
 ### Patch Changes
 
-- Updated dependencies [[`7dbe5be`](https://github.com/yielded-dev/agent/commit/7dbe5bec64097562991d8f4126797d4590a03084), [`8554d50`](https://github.com/yielded-dev/agent/commit/8554d509163e4ff8380d04a1478da67ff99a87a6), [`63bb8b5`](https://github.com/yielded-dev/agent/commit/63bb8b5bbbc18abec209ca173661ee35f6d27a9b)]:
+- Updated dependencies [[`7dbe5be`](https://github.com/systemfsoftware/agent/commit/7dbe5bec64097562991d8f4126797d4590a03084), [`8554d50`](https://github.com/systemfsoftware/agent/commit/8554d509163e4ff8380d04a1478da67ff99a87a6), [`63bb8b5`](https://github.com/systemfsoftware/agent/commit/63bb8b5bbbc18abec209ca173661ee35f6d27a9b)]:
   - @yielded/agent@0.1.0-beta.170
   - @yielded/agent-storage-sql@0.1.0-beta.170
 
@@ -211,48 +211,48 @@
 
 ### Minor Changes
 
-- [#856](https://github.com/yielded-dev/agent/pull/856) [`d7429a6`](https://github.com/yielded-dev/agent/commit/d7429a6178c8407d43d1b4db41734f322023b899) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Persist only current Run state while a single process owns each Thread, and retire it at settlement. BEHAVIOR CHANGE: use matching packages on fresh layout-25 stores with thread@6 records and activity progress format 2; replace `ThreadIdentity.admissions` with `hasAdmissions`; transfers require an idle Thread and a completed archive, and distributed ownership, tamper evidence and historical progress replay are no longer supported.
+- [#856](https://github.com/systemfsoftware/agent/pull/856) [`d7429a6`](https://github.com/systemfsoftware/agent/commit/d7429a6178c8407d43d1b4db41734f322023b899) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Persist only current Run state while a single process owns each Thread, and retire it at settlement. BEHAVIOR CHANGE: use matching packages on fresh layout-25 stores with thread@6 records and activity progress format 2; replace `ThreadIdentity.admissions` with `hasAdmissions`; transfers require an idle Thread and a completed archive, and distributed ownership, tamper evidence and historical progress replay are no longer supported.
 
-- [#768](https://github.com/yielded-dev/agent/pull/768) [`8214498`](https://github.com/yielded-dev/agent/commit/8214498e8dfffde58773837fef3aa0c1fde07e9f) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Publish settlement intent atomically in the canonical log and remove the separate settlement reservation protocol. Combine eligible SQL receipt finalization with publication and exclusive-session input markers with their canonical append.
+- [#768](https://github.com/systemfsoftware/agent/pull/768) [`8214498`](https://github.com/systemfsoftware/agent/commit/8214498e8dfffde58773837fef3aa0c1fde07e9f) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Publish settlement intent atomically in the canonical log and remove the separate settlement reservation protocol. Combine eligible SQL receipt finalization with publication and exclusive-session input markers with their canonical append.
 
   BEHAVIOR CHANGE: custom durable assemblies must provide a co-owned `SettlementPublisher`; pair Memory ledger and thread layers with `Layer.provideMerge`, and use fresh thread storage or format 16.
 
-- [#768](https://github.com/yielded-dev/agent/pull/768) [`8214498`](https://github.com/yielded-dev/agent/commit/8214498e8dfffde58773837fef3aa0c1fde07e9f) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Capture canonical appends before asynchronous work so later caller mutations cannot change the persisted value or invalidate its digest. Reuse captured record JSON across hashing and SQL writes, and commit eligible readonly responses with their completed results.
+- [#768](https://github.com/systemfsoftware/agent/pull/768) [`8214498`](https://github.com/systemfsoftware/agent/commit/8214498e8dfffde58773837fef3aa0c1fde07e9f) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Capture canonical appends before asynchronous work so later caller mutations cannot change the persisted value or invalidate its digest. Reuse captured record JSON across hashing and SQL writes, and commit eligible readonly responses with their completed results.
 
   BEHAVIOR CHANGE: custom SQL adapters must prepare raw append requests with `prepareSqlAppend`; `RawAppendRequest` is now a typed value instead of a Schema factory, and `RawRecord` is removed.
 
-- [#768](https://github.com/yielded-dev/agent/pull/768) [`8214498`](https://github.com/yielded-dev/agent/commit/8214498e8dfffde58773837fef3aa0c1fde07e9f) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Recover unfinished tools from their committed model declarations and remove the separate preparation write and outstanding-operation index.
+- [#768](https://github.com/systemfsoftware/agent/pull/768) [`8214498`](https://github.com/systemfsoftware/agent/commit/8214498e8dfffde58773837fef3aa0c1fde07e9f) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Recover unfinished tools from their committed model declarations and remove the separate preparation write and outstanding-operation index.
 
   BEHAVIOR CHANGE: a crash after declaration can leave a mutating tool outcome unknown; durable Runs require unique tool call IDs and reject responses exceeding 4,096 distinct IDs with `RunJournalError` before commit or dispatch; thread stores require fresh storage or format 16. Use runtime `explain` in place of `readOutstanding`, and `DeclaredToolCallEvidence` in custom reconcilers.
 
   Supply JSON tool arguments and results in history used by function-based approval hooks.
 
-- [#800](https://github.com/yielded-dev/agent/pull/800) [`cd15a98`](https://github.com/yielded-dev/agent/commit/cd15a98fb4c7bd741ac69fcb983492df1a4b4b6e) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Remove cumulative Thread record, worker-input, peer-message, and delivery limits while preserving live capacity and per-Run bounds, and refuse batches whose expanded identities and references cannot fit a complete transfer page. **BEHAVIOR CHANGE:** Use fresh layout-21 stores and `effect-agent/thread@3` records, provide `ThreadExportSource` for `streamExport({ threadId })`, and configure compaction within retained model-context bounds.
+- [#800](https://github.com/systemfsoftware/agent/pull/800) [`cd15a98`](https://github.com/systemfsoftware/agent/commit/cd15a98fb4c7bd741ac69fcb983492df1a4b4b6e) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Remove cumulative Thread record, worker-input, peer-message, and delivery limits while preserving live capacity and per-Run bounds, and refuse batches whose expanded identities and references cannot fit a complete transfer page. **BEHAVIOR CHANGE:** Use fresh layout-21 stores and `effect-agent/thread@3` records, provide `ThreadExportSource` for `streamExport({ threadId })`, and configure compaction within retained model-context bounds.
 
-- [#768](https://github.com/yielded-dev/agent/pull/768) [`8214498`](https://github.com/yielded-dev/agent/commit/8214498e8dfffde58773837fef3aa0c1fde07e9f) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Bind durable Attempts to scoped storage sessions and reduce repeated ownership and tail reads in managed Node hosts.
+- [#768](https://github.com/systemfsoftware/agent/pull/768) [`8214498`](https://github.com/systemfsoftware/agent/commit/8214498e8dfffde58773837fef3aa0c1fde07e9f) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Bind durable Attempts to scoped storage sessions and reduce repeated ownership and tail reads in managed Node hosts.
 
   BEHAVIOR CHANGE: provide `RunStorage` in manual runtime assemblies and provide `ThreadReader` for canonical read helpers (stock adapters include it). Managed Node hosts keep `SqlClient`, `ThreadStore`, and `SubmissionLedger` private and reject custom SQLite triggers; compose application SQL with a separate client.
 
 ### Patch Changes
 
-- [#792](https://github.com/yielded-dev/agent/pull/792) [`d95dbb3`](https://github.com/yielded-dev/agent/commit/d95dbb3c462a28ba92205bc77734f66734c9e491) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Resume durable Runs from canonical continuations and referenced context, expose `@yielded/agent/run-continuation`, and remove `ThreadStore.recoveryCheckpoints`. **BEHAVIOR CHANGE:** use fresh layout-21 storage and `effect-agent/thread@3` archives; predecessor stores and formats are rejected.
+- [#792](https://github.com/systemfsoftware/agent/pull/792) [`d95dbb3`](https://github.com/systemfsoftware/agent/commit/d95dbb3c462a28ba92205bc77734f66734c9e491) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Resume durable Runs from canonical continuations and referenced context, expose `@yielded/agent/run-continuation`, and remove `ThreadStore.recoveryCheckpoints`. **BEHAVIOR CHANGE:** use fresh layout-21 storage and `effect-agent/thread@3` archives; predecessor stores and formats are rejected.
 
-- [#784](https://github.com/yielded-dev/agent/pull/784) [`80deef0`](https://github.com/yielded-dev/agent/commit/80deef0af2af790c68c2fda8701b3fed77c07db9) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Reduce tracing overhead by keeping operation spans and removing private helper spans and stack frames. BEHAVIOR CHANGE: Update filters that use private helper span names to use the enclosing agent, model, tool, storage, or recovery operation.
+- [#784](https://github.com/systemfsoftware/agent/pull/784) [`80deef0`](https://github.com/systemfsoftware/agent/commit/80deef0af2af790c68c2fda8701b3fed77c07db9) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Reduce tracing overhead by keeping operation spans and removing private helper spans and stack frames. BEHAVIOR CHANGE: Update filters that use private helper span names to use the enclosing agent, model, tool, storage, or recovery operation.
 
-- [#810](https://github.com/yielded-dev/agent/pull/810) [`5e3e3a7`](https://github.com/yielded-dev/agent/commit/5e3e3a7aef84807253a1c8b5a0087ff748b1e864) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Store durable context as verified canonical ranges, eliminate duplicate hot SQL batch payloads, and skip unused token estimates. **BEHAVIOR CHANGE:** use fresh stores for the revised unreleased `effect-agent/thread@3` format; custom adapters must provide narrow `readPrompt` and snapshot-bound full history reads.
+- [#810](https://github.com/systemfsoftware/agent/pull/810) [`5e3e3a7`](https://github.com/systemfsoftware/agent/commit/5e3e3a7aef84807253a1c8b5a0087ff748b1e864) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Store durable context as verified canonical ranges, eliminate duplicate hot SQL batch payloads, and skip unused token estimates. **BEHAVIOR CHANGE:** use fresh stores for the revised unreleased `effect-agent/thread@3` format; custom adapters must provide narrow `readPrompt` and snapshot-bound full history reads.
 
-- [#786](https://github.com/yielded-dev/agent/pull/786) [`8dd7b6a`](https://github.com/yielded-dev/agent/commit/8dd7b6ab18e4f5dd6970b830b5d8aa602f522f52) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Export complete Thread archives and atomically import them into empty Threads with rebuilt ledger state and preserved admission facts.
+- [#786](https://github.com/systemfsoftware/agent/pull/786) [`8dd7b6a`](https://github.com/systemfsoftware/agent/commit/8dd7b6ab18e4f5dd6970b830b5d8aa602f522f52) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Export complete Thread archives and atomically import them into empty Threads with rebuilt ledger state and preserved admission facts.
 
   BEHAVIOR CHANGE: Quiesce the source and export/import into fresh storage for the layout-16 cutover; import only the current record format and convert archives explicitly for future semantic changes. Keep the source on destination admission conflicts or unsupported external obligations, and re-export older archives that lack batch identities. Decode custom exports through `ThreadExportRecord` to retain their wire, and pair the memory ledger and delivery store with the same `MemoryThreadStoreLive`.
 
-- [#786](https://github.com/yielded-dev/agent/pull/786) [`8dd7b6a`](https://github.com/yielded-dev/agent/commit/8dd7b6ab18e4f5dd6970b830b5d8aa602f522f52) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Track table layouts separately from record formats and apply pending layout steps atomically when opening supported storage.
+- [#786](https://github.com/systemfsoftware/agent/pull/786) [`8dd7b6a`](https://github.com/systemfsoftware/agent/commit/8dd7b6ab18e4f5dd6970b830b5d8aa602f522f52) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Track table layouts separately from record formats and apply pending layout steps atomically when opening supported storage.
 
   BEHAVIOR CHANGE: Opening layout 16 advances its layout header to 17 without rewriting records; use the read-only export entry point when preserving the source for a format change.
 
-- [#786](https://github.com/yielded-dev/agent/pull/786) [`8dd7b6a`](https://github.com/yielded-dev/agent/commit/8dd7b6ab18e4f5dd6970b830b5d8aa602f522f52) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Validate PostgreSQL layout columns, indexes, and constraints through catalog structure while allowing physical index tuning. Reject incompatible keys, predicates, and constraints before applying layout steps.
+- [#786](https://github.com/systemfsoftware/agent/pull/786) [`8dd7b6a`](https://github.com/systemfsoftware/agent/commit/8dd7b6ab18e4f5dd6970b830b5d8aa602f522f52) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Validate PostgreSQL layout columns, indexes, and constraints through catalog structure while allowing physical index tuning. Reject incompatible keys, predicates, and constraints before applying layout steps.
 
-- [#798](https://github.com/yielded-dev/agent/pull/798) [`bdaaf49`](https://github.com/yielded-dev/agent/commit/bdaaf49643e8bfd3a4a72e7bfc7cacc640993486) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Discover unfinished Thread work through `@yielded/agent/thread-work`, recover bounded pages, and explicitly rebuild disposable indexes. **BEHAVIOR CHANGE:** follow `runRecovery().cursor` to finish a scan and use fresh layout-21 stores; factual effect closure remains available after execution decisions and Run settlement and must agree with any committed tool result.
-- Updated dependencies [[`d7429a6`](https://github.com/yielded-dev/agent/commit/d7429a6178c8407d43d1b4db41734f322023b899), [`bdaaf49`](https://github.com/yielded-dev/agent/commit/bdaaf49643e8bfd3a4a72e7bfc7cacc640993486), [`2461681`](https://github.com/yielded-dev/agent/commit/2461681593d911b28900ebe916b1c0d21ad3ebf0), [`fadafe5`](https://github.com/yielded-dev/agent/commit/fadafe50ea795d8f479723661d1b02153f881c94), [`8c05714`](https://github.com/yielded-dev/agent/commit/8c05714de84d68961b14e5ab7a3b7d809599563f), [`80deef0`](https://github.com/yielded-dev/agent/commit/80deef0af2af790c68c2fda8701b3fed77c07db9), [`1903e2c`](https://github.com/yielded-dev/agent/commit/1903e2ce0e62f6839e1cb881ef9970d2c5070656), [`d95dbb3`](https://github.com/yielded-dev/agent/commit/d95dbb3c462a28ba92205bc77734f66734c9e491), [`8214498`](https://github.com/yielded-dev/agent/commit/8214498e8dfffde58773837fef3aa0c1fde07e9f), [`32f8a07`](https://github.com/yielded-dev/agent/commit/32f8a0785ab3f639c86be27ed9ef0ae7a8e184ba), [`8214498`](https://github.com/yielded-dev/agent/commit/8214498e8dfffde58773837fef3aa0c1fde07e9f), [`80deef0`](https://github.com/yielded-dev/agent/commit/80deef0af2af790c68c2fda8701b3fed77c07db9), [`7e16332`](https://github.com/yielded-dev/agent/commit/7e16332061bfe394208257025a4ca903ed9f4f90), [`80deef0`](https://github.com/yielded-dev/agent/commit/80deef0af2af790c68c2fda8701b3fed77c07db9), [`32f8a07`](https://github.com/yielded-dev/agent/commit/32f8a0785ab3f639c86be27ed9ef0ae7a8e184ba), [`d449cd5`](https://github.com/yielded-dev/agent/commit/d449cd5efface20b6527f6e11f56fd6987408b5a), [`8214498`](https://github.com/yielded-dev/agent/commit/8214498e8dfffde58773837fef3aa0c1fde07e9f), [`8214498`](https://github.com/yielded-dev/agent/commit/8214498e8dfffde58773837fef3aa0c1fde07e9f), [`2188d64`](https://github.com/yielded-dev/agent/commit/2188d6447cf46c8f6942b93fcea66274da28e434), [`8214498`](https://github.com/yielded-dev/agent/commit/8214498e8dfffde58773837fef3aa0c1fde07e9f), [`9437078`](https://github.com/yielded-dev/agent/commit/9437078991252ae70d835dc192787ab8f479612e), [`fadafe5`](https://github.com/yielded-dev/agent/commit/fadafe50ea795d8f479723661d1b02153f881c94), [`80deef0`](https://github.com/yielded-dev/agent/commit/80deef0af2af790c68c2fda8701b3fed77c07db9), [`b237c75`](https://github.com/yielded-dev/agent/commit/b237c75373c864895409fbb829ccf67ad3875ee5), [`cd15a98`](https://github.com/yielded-dev/agent/commit/cd15a98fb4c7bd741ac69fcb983492df1a4b4b6e), [`80deef0`](https://github.com/yielded-dev/agent/commit/80deef0af2af790c68c2fda8701b3fed77c07db9), [`28e922d`](https://github.com/yielded-dev/agent/commit/28e922d68c03c51a40879ae4942c6920fd4c7f1c), [`f7652ff`](https://github.com/yielded-dev/agent/commit/f7652ff8197999e0155d6182b13cf8f70f552be2), [`8214498`](https://github.com/yielded-dev/agent/commit/8214498e8dfffde58773837fef3aa0c1fde07e9f), [`f689a35`](https://github.com/yielded-dev/agent/commit/f689a35e494a2c14770a4e644173cde693146c5c), [`b246f8a`](https://github.com/yielded-dev/agent/commit/b246f8aaa3a92d5f82934b1fc7a82356d1ad6664), [`80deef0`](https://github.com/yielded-dev/agent/commit/80deef0af2af790c68c2fda8701b3fed77c07db9), [`2f062d4`](https://github.com/yielded-dev/agent/commit/2f062d4ed30afa9b11fb7d24cb3508d10358f3bd), [`8214498`](https://github.com/yielded-dev/agent/commit/8214498e8dfffde58773837fef3aa0c1fde07e9f), [`5e3e3a7`](https://github.com/yielded-dev/agent/commit/5e3e3a7aef84807253a1c8b5a0087ff748b1e864), [`8dd7b6a`](https://github.com/yielded-dev/agent/commit/8dd7b6ab18e4f5dd6970b830b5d8aa602f522f52), [`f38cc1a`](https://github.com/yielded-dev/agent/commit/f38cc1a8582515341b6e255d6b509331b0059a21), [`51bb46c`](https://github.com/yielded-dev/agent/commit/51bb46c6f240c579cf26e72f6127a434c8697a34), [`8dd7b6a`](https://github.com/yielded-dev/agent/commit/8dd7b6ab18e4f5dd6970b830b5d8aa602f522f52), [`a4a1c4b`](https://github.com/yielded-dev/agent/commit/a4a1c4bb50cd037b114fcdaaf595492b775a2ad2), [`d449cd5`](https://github.com/yielded-dev/agent/commit/d449cd5efface20b6527f6e11f56fd6987408b5a), [`32f8a07`](https://github.com/yielded-dev/agent/commit/32f8a0785ab3f639c86be27ed9ef0ae7a8e184ba), [`d95dbb3`](https://github.com/yielded-dev/agent/commit/d95dbb3c462a28ba92205bc77734f66734c9e491), [`8214498`](https://github.com/yielded-dev/agent/commit/8214498e8dfffde58773837fef3aa0c1fde07e9f), [`32f8a07`](https://github.com/yielded-dev/agent/commit/32f8a0785ab3f639c86be27ed9ef0ae7a8e184ba), [`45f0eeb`](https://github.com/yielded-dev/agent/commit/45f0eeb8c72835716d4538ef925a649dc02a9734), [`fadafe5`](https://github.com/yielded-dev/agent/commit/fadafe50ea795d8f479723661d1b02153f881c94), [`bdaaf49`](https://github.com/yielded-dev/agent/commit/bdaaf49643e8bfd3a4a72e7bfc7cacc640993486), [`8214498`](https://github.com/yielded-dev/agent/commit/8214498e8dfffde58773837fef3aa0c1fde07e9f), [`a1fda46`](https://github.com/yielded-dev/agent/commit/a1fda46d689a278beaf60fbbcfe4a19048005ced), [`32f8a07`](https://github.com/yielded-dev/agent/commit/32f8a0785ab3f639c86be27ed9ef0ae7a8e184ba)]:
+- [#798](https://github.com/systemfsoftware/agent/pull/798) [`bdaaf49`](https://github.com/systemfsoftware/agent/commit/bdaaf49643e8bfd3a4a72e7bfc7cacc640993486) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Discover unfinished Thread work through `@yielded/agent/thread-work`, recover bounded pages, and explicitly rebuild disposable indexes. **BEHAVIOR CHANGE:** follow `runRecovery().cursor` to finish a scan and use fresh layout-21 stores; factual effect closure remains available after execution decisions and Run settlement and must agree with any committed tool result.
+- Updated dependencies [[`d7429a6`](https://github.com/systemfsoftware/agent/commit/d7429a6178c8407d43d1b4db41734f322023b899), [`bdaaf49`](https://github.com/systemfsoftware/agent/commit/bdaaf49643e8bfd3a4a72e7bfc7cacc640993486), [`2461681`](https://github.com/systemfsoftware/agent/commit/2461681593d911b28900ebe916b1c0d21ad3ebf0), [`fadafe5`](https://github.com/systemfsoftware/agent/commit/fadafe50ea795d8f479723661d1b02153f881c94), [`8c05714`](https://github.com/systemfsoftware/agent/commit/8c05714de84d68961b14e5ab7a3b7d809599563f), [`80deef0`](https://github.com/systemfsoftware/agent/commit/80deef0af2af790c68c2fda8701b3fed77c07db9), [`1903e2c`](https://github.com/systemfsoftware/agent/commit/1903e2ce0e62f6839e1cb881ef9970d2c5070656), [`d95dbb3`](https://github.com/systemfsoftware/agent/commit/d95dbb3c462a28ba92205bc77734f66734c9e491), [`8214498`](https://github.com/systemfsoftware/agent/commit/8214498e8dfffde58773837fef3aa0c1fde07e9f), [`32f8a07`](https://github.com/systemfsoftware/agent/commit/32f8a0785ab3f639c86be27ed9ef0ae7a8e184ba), [`8214498`](https://github.com/systemfsoftware/agent/commit/8214498e8dfffde58773837fef3aa0c1fde07e9f), [`80deef0`](https://github.com/systemfsoftware/agent/commit/80deef0af2af790c68c2fda8701b3fed77c07db9), [`7e16332`](https://github.com/systemfsoftware/agent/commit/7e16332061bfe394208257025a4ca903ed9f4f90), [`80deef0`](https://github.com/systemfsoftware/agent/commit/80deef0af2af790c68c2fda8701b3fed77c07db9), [`32f8a07`](https://github.com/systemfsoftware/agent/commit/32f8a0785ab3f639c86be27ed9ef0ae7a8e184ba), [`d449cd5`](https://github.com/systemfsoftware/agent/commit/d449cd5efface20b6527f6e11f56fd6987408b5a), [`8214498`](https://github.com/systemfsoftware/agent/commit/8214498e8dfffde58773837fef3aa0c1fde07e9f), [`8214498`](https://github.com/systemfsoftware/agent/commit/8214498e8dfffde58773837fef3aa0c1fde07e9f), [`2188d64`](https://github.com/systemfsoftware/agent/commit/2188d6447cf46c8f6942b93fcea66274da28e434), [`8214498`](https://github.com/systemfsoftware/agent/commit/8214498e8dfffde58773837fef3aa0c1fde07e9f), [`9437078`](https://github.com/systemfsoftware/agent/commit/9437078991252ae70d835dc192787ab8f479612e), [`fadafe5`](https://github.com/systemfsoftware/agent/commit/fadafe50ea795d8f479723661d1b02153f881c94), [`80deef0`](https://github.com/systemfsoftware/agent/commit/80deef0af2af790c68c2fda8701b3fed77c07db9), [`b237c75`](https://github.com/systemfsoftware/agent/commit/b237c75373c864895409fbb829ccf67ad3875ee5), [`cd15a98`](https://github.com/systemfsoftware/agent/commit/cd15a98fb4c7bd741ac69fcb983492df1a4b4b6e), [`80deef0`](https://github.com/systemfsoftware/agent/commit/80deef0af2af790c68c2fda8701b3fed77c07db9), [`28e922d`](https://github.com/systemfsoftware/agent/commit/28e922d68c03c51a40879ae4942c6920fd4c7f1c), [`f7652ff`](https://github.com/systemfsoftware/agent/commit/f7652ff8197999e0155d6182b13cf8f70f552be2), [`8214498`](https://github.com/systemfsoftware/agent/commit/8214498e8dfffde58773837fef3aa0c1fde07e9f), [`f689a35`](https://github.com/systemfsoftware/agent/commit/f689a35e494a2c14770a4e644173cde693146c5c), [`b246f8a`](https://github.com/systemfsoftware/agent/commit/b246f8aaa3a92d5f82934b1fc7a82356d1ad6664), [`80deef0`](https://github.com/systemfsoftware/agent/commit/80deef0af2af790c68c2fda8701b3fed77c07db9), [`2f062d4`](https://github.com/systemfsoftware/agent/commit/2f062d4ed30afa9b11fb7d24cb3508d10358f3bd), [`8214498`](https://github.com/systemfsoftware/agent/commit/8214498e8dfffde58773837fef3aa0c1fde07e9f), [`5e3e3a7`](https://github.com/systemfsoftware/agent/commit/5e3e3a7aef84807253a1c8b5a0087ff748b1e864), [`8dd7b6a`](https://github.com/systemfsoftware/agent/commit/8dd7b6ab18e4f5dd6970b830b5d8aa602f522f52), [`f38cc1a`](https://github.com/systemfsoftware/agent/commit/f38cc1a8582515341b6e255d6b509331b0059a21), [`51bb46c`](https://github.com/systemfsoftware/agent/commit/51bb46c6f240c579cf26e72f6127a434c8697a34), [`8dd7b6a`](https://github.com/systemfsoftware/agent/commit/8dd7b6ab18e4f5dd6970b830b5d8aa602f522f52), [`a4a1c4b`](https://github.com/systemfsoftware/agent/commit/a4a1c4bb50cd037b114fcdaaf595492b775a2ad2), [`d449cd5`](https://github.com/systemfsoftware/agent/commit/d449cd5efface20b6527f6e11f56fd6987408b5a), [`32f8a07`](https://github.com/systemfsoftware/agent/commit/32f8a0785ab3f639c86be27ed9ef0ae7a8e184ba), [`d95dbb3`](https://github.com/systemfsoftware/agent/commit/d95dbb3c462a28ba92205bc77734f66734c9e491), [`8214498`](https://github.com/systemfsoftware/agent/commit/8214498e8dfffde58773837fef3aa0c1fde07e9f), [`32f8a07`](https://github.com/systemfsoftware/agent/commit/32f8a0785ab3f639c86be27ed9ef0ae7a8e184ba), [`45f0eeb`](https://github.com/systemfsoftware/agent/commit/45f0eeb8c72835716d4538ef925a649dc02a9734), [`fadafe5`](https://github.com/systemfsoftware/agent/commit/fadafe50ea795d8f479723661d1b02153f881c94), [`bdaaf49`](https://github.com/systemfsoftware/agent/commit/bdaaf49643e8bfd3a4a72e7bfc7cacc640993486), [`8214498`](https://github.com/systemfsoftware/agent/commit/8214498e8dfffde58773837fef3aa0c1fde07e9f), [`a1fda46`](https://github.com/systemfsoftware/agent/commit/a1fda46d689a278beaf60fbbcfe4a19048005ced), [`32f8a07`](https://github.com/systemfsoftware/agent/commit/32f8a0785ab3f639c86be27ed9ef0ae7a8e184ba)]:
   - @yielded/agent@0.1.0-beta.168
   - @yielded/agent-storage-sql@0.1.0-beta.168
 
@@ -260,7 +260,7 @@
 
 ### Patch Changes
 
-- Updated dependencies [[`776aaca`](https://github.com/yielded-dev/agent/commit/776aaca3809ca5959327ebff5623d525503e8e34)]:
+- Updated dependencies [[`776aaca`](https://github.com/systemfsoftware/agent/commit/776aaca3809ca5959327ebff5623d525503e8e34)]:
   - @yielded/agent@0.1.0-beta.167
   - @yielded/agent-storage-sql@0.1.0-beta.167
 
@@ -268,15 +268,15 @@
 
 ### Minor Changes
 
-- [#766](https://github.com/yielded-dev/agent/pull/766) [`a1fb42a`](https://github.com/yielded-dev/agent/commit/a1fb42a651eccef46b8775fe4373d3f04d85e8de) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Move Effect Agent to `@yielded/agent` and its `@yielded/agent-*` adapters. Update dependencies and import prefixes together; APIs, service identities, and stored formats remain unchanged.
+- [#766](https://github.com/systemfsoftware/agent/pull/766) [`a1fb42a`](https://github.com/systemfsoftware/agent/commit/a1fb42a651eccef46b8775fe4373d3f04d85e8de) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Move Effect Agent to `@yielded/agent` and its `@yielded/agent-*` adapters. Update dependencies and import prefixes together; APIs, service identities, and stored formats remain unchanged.
 
 ### Patch Changes
 
-- [#749](https://github.com/yielded-dev/agent/pull/749) [`08d1384`](https://github.com/yielded-dev/agent/commit/08d1384e625091d83a6cb6eeb9c95e28cff2cc69) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Require Effect 4.0.0 and use its current module paths and encoding APIs. Require `effect-cf@^0.53.0` for the Cloudflare adapter.
+- [#749](https://github.com/systemfsoftware/agent/pull/749) [`08d1384`](https://github.com/systemfsoftware/agent/commit/08d1384e625091d83a6cb6eeb9c95e28cff2cc69) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Require Effect 4.0.0 and use its current module paths and encoding APIs. Require `effect-cf@^0.53.0` for the Cloudflare adapter.
 
   BEHAVIOR CHANGE: upgrade Effect and matching provider, platform, SQL, and Atom packages to 4.0.0; replace `effect/unstable/*` imports with `effect/*` and use `effect/http-api` for HTTP APIs. Cloudflare logical alarms now back off from one second and park for hourly recovery after eight attempts without reported source progress.
 
-- Updated dependencies [[`00995dd`](https://github.com/yielded-dev/agent/commit/00995dd9049e11190588b143a32ba5c520686e7f), [`2cfa8f7`](https://github.com/yielded-dev/agent/commit/2cfa8f75258edd32898958e264e549a737368c9e), [`08d1384`](https://github.com/yielded-dev/agent/commit/08d1384e625091d83a6cb6eeb9c95e28cff2cc69), [`a1fb42a`](https://github.com/yielded-dev/agent/commit/a1fb42a651eccef46b8775fe4373d3f04d85e8de)]:
+- Updated dependencies [[`00995dd`](https://github.com/systemfsoftware/agent/commit/00995dd9049e11190588b143a32ba5c520686e7f), [`2cfa8f7`](https://github.com/systemfsoftware/agent/commit/2cfa8f75258edd32898958e264e549a737368c9e), [`08d1384`](https://github.com/systemfsoftware/agent/commit/08d1384e625091d83a6cb6eeb9c95e28cff2cc69), [`a1fb42a`](https://github.com/systemfsoftware/agent/commit/a1fb42a651eccef46b8775fe4373d3f04d85e8de)]:
   - @yielded/agent@0.1.0-beta.166
   - @yielded/agent-storage-sql@0.1.0-beta.166
 
