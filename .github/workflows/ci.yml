@@ -85,10 +85,29 @@ jobs:
           path: ~/.cache/agent/integresql-layers
           key: integresql-${{ runner.arch }}-${{ hashFiles('packages/storage-postgres/test/integresql-binary.ts') }}
       - run: pnpm install --frozen-lockfile
-      # The workspaces' suites are independent. Six slots let the three heavy suites (storage-postgres,
-      # platform-cloudflare, testing) run together instead of queueing behind the light ones, which is what
-      # the default concurrency of four produced.
-      - run: pnpm -r --workspace-concurrency=6 run test
+      # The workspace graph orders these three one after another when pnpm recurses, whatever the slot count:
+      # in the measured run storage-postgres, testing and platform-cloudflare ran back to back and set the
+      # job's wall time. They are independent suites, so they run alongside the rest of the workspace instead.
+      - name: Run the suites
+        env:
+          HEAVY: "@systemfsoftware/agent-storage-postgres @systemfsoftware/agent-platform-cloudflare @systemfsoftware/agent-testing"
+        run: |
+          set -uo pipefail
+          pids=()
+          status=0
+          for pkg in $HEAVY; do
+            pnpm --filter "$pkg" test &
+            pids+=("$!")
+          done
+          pnpm -r --workspace-concurrency=4 \
+            --filter '!@systemfsoftware/agent-storage-postgres' \
+            --filter '!@systemfsoftware/agent-platform-cloudflare' \
+            --filter '!@systemfsoftware/agent-testing' \
+            run test || status=1
+          for pid in "${pids[@]}"; do
+            wait "$pid" || status=1
+          done
+          exit "$status"
 
   gritlint:
     name: gritlint
