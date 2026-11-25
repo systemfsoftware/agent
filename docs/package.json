@@ -7,7 +7,7 @@
     "build": "astro build",
     "dev": "astro dev",
     "preview": "astro preview",
-    "typecheck": "tsrs --noEmit -p tsconfig.json"
+    "typecheck": "astro sync && tsrs --noEmit -p tsconfig.json"
   },
   "dependencies": {
     "@astrojs/starlight": "catalog:",
