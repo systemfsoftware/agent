@@ -73,6 +73,7 @@ export const RECORD_TAGS: Readonly<Record<CanonicalRecordPayload['_tag'], number
   WorkerReportPrepared: 36,
   WorkerReportRefused: 37,
   WorkerStopRequested: 38,
+  ThreadHostUpdateAppended: 39,
 })
 
 const sameEnvelope = Schema.toEquivalence(EnvelopeFragments)

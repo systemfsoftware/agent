@@ -66,3 +66,20 @@ per-Thread quota. Payloads, individual Runs, live work and host storage have [li
 `Thread.Store.snapshot` inspects an in-memory conversation; `Thread.toPrompt` turns it into
 an Effect AI Prompt. Durable `ThreadStore` and `ThreadReader` expose journal reads instead.
 Authorize tenant and Thread access at the host boundary for both.
+
+## Host updates on a durable Thread
+
+`DurableAgentRuntime.appendHostUpdate({ threadId, updateId, update, relatedRunId? })` commits a
+`ThreadHostUpdateAppended` record: progress your host wants on the Thread stream, such as a
+gate's state or questions waiting for the user. It belongs to the Thread rather than to a Run, so
+you can append one while a Run is active or while the Thread is idle. It never starts or wakes a
+Run, and the model never sees it.
+
+- `update` is bounded JSON that your host decodes with its own Schema.
+- `updateId` makes the call idempotent: repeating it with the same update returns the first
+  commit's `sequence` with `deduplicated: true`, and reusing it with a different update fails
+  with `HostUpdateError` reason `conflict`.
+- The record's Thread `sequence` and commit time come from its envelope. Readers of the Thread's
+  canonical records, including live observers, receive it in sequence order.
+- Authorize the caller for the Thread before calling. Appending to a Thread that does not exist
+  yet fails with `ThreadNotMaterialized`.
