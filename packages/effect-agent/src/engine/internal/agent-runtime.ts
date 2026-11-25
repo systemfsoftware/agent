@@ -5641,6 +5641,9 @@ const makeTurn = <
         // Omit the key entirely when no contract renders so hooks keep the
         // same exact request shape as the preparation hook.
         ...(outputContractMessage === undefined ? {} : { outputContract: outputContractMessage }),
+        ...(options.runStartedAt === undefined
+          ? {}
+          : { runStartedAtMillis: DateTime.toEpochMillis(options.runStartedAt) }),
       }
 
       const modelContext: PreparedRunContext = options.context === undefined

@@ -238,6 +238,12 @@ export interface RunContextRequest {
    * contract but cannot remove or alter it.
    */
   readonly outputContract?: string | undefined
+  /**
+   * Epoch milliseconds at which the logical Run started. Durable Runs read it from the
+   * canonical `RunStarted` record, so it is the same in every Attempt, including after the
+   * host restarts. Absent for non-durable Runs.
+   */
+  readonly runStartedAtMillis?: number | undefined
 }
 
 /**

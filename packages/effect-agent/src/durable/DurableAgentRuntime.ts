@@ -880,6 +880,8 @@ export interface RunTurnRequest {
   readonly threadId: ThreadId
   readonly submissionId: SubmissionId
   readonly runId: RunId
+  /** Epoch milliseconds of the canonical `RunStarted` record; the same in every Attempt. */
+  readonly runStartedAtMillis: number
 }
 
 /** One provider request a durable Run is about to send; see RunOptions.beforeModelRequest. */
@@ -7900,6 +7902,12 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
 
       const hostBeforeTurn = runHostControl.beforeTurn
       const hostBeforeModelCall = runHostControl.beforeModelCall
+      const hostRequest: RunTurnRequest = {
+        threadId: submission.threadId,
+        submissionId: submission.submissionId,
+        runId,
+        runStartedAtMillis: DateTime.toEpochMillis(runTiming.startedAt),
+      }
 
       const settledToolCallAllowance = submission.parentLinkage !== undefined &&
           childLineage?._tag === 'SubagentLineageRecorded'
@@ -8004,28 +8012,16 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
             exempt: (request) =>
               exemptToolResult({
                 ...request,
-                threadId: submission.threadId,
-                submissionId: submission.submissionId,
-                runId,
+                ...hostRequest,
               }),
           },
         }),
         ...(hostBeforeModelCall === undefined ? {} : {
-          beforeModelRequest: (request) =>
-            hostBeforeModelCall({
-              threadId: submission.threadId,
-              submissionId: submission.submissionId,
-              runId,
-              ...request,
-            }),
+          beforeModelRequest: (request) => hostBeforeModelCall({ ...hostRequest, ...request }),
         }),
         beforeTurn: Effect.fnUntraced(function*() {
           if (hostBeforeTurn !== undefined) {
-            yield* hostBeforeTurn({
-              threadId: submission.threadId,
-              submissionId: submission.submissionId,
-              runId,
-            })
+            yield* hostBeforeTurn(hostRequest)
           }
           if (
             yieldAfter !== undefined &&
