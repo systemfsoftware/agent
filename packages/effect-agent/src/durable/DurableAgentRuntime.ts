@@ -145,7 +145,7 @@ import {
   type DurableRuntimeFailpointError,
   type DurableRuntimeFailpointLocation,
 } from './DurableFailpoint'
-import { HostUpdateAppended, HostUpdateError } from './HostUpdates.schema'
+import type { HostUpdateAppended, HostUpdateError, HostUpdateRequest } from './HostUpdates'
 import {
   type AgentRegistration,
   BindingUnavailable,
@@ -161,7 +161,7 @@ import {
 } from './internal/agent-registration'
 import { makeAgentUpdateRuntime, nativeUpdateAccepted } from './internal/agent-updates'
 import { inspectForeignDiagnostic, safeUnknownString } from './internal/foreign-diagnostic'
-import { type HostUpdateRequest, makeHostUpdateRuntime } from './internal/host-updates'
+import { makeHostUpdateRuntime } from './internal/host-updates'
 import { initialContext, type InitialContextInput } from './internal/initial-context'
 import { type JournalMetadata, type JournalRecordEnvelope, makeJournalMetadata } from './internal/journal-metadata'
 import { makeMessagingRuntime } from './internal/messaging-host'
@@ -488,6 +488,7 @@ const decodeBatchIdSync = Schema.decodeSync(BatchId)
  * §12 step 2, D4): one reservation per (parent Run, parent Tool Call) pair,
  * so a replayed establishment converges on the one existing row (SUB-016).
  */
+export { HostUpdateAppended, HostUpdateError, type HostUpdateRequest } from './HostUpdates'
 export const childReservationIdFor = (runId: RunId, toolCallId: ToolCallId): ChildReservationId =>
   decodeChildReservationIdSync(`subagent-reservation:${runId}:${toolCallId}`)
 

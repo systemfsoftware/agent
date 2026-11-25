@@ -4,8 +4,9 @@ import * as Effect from 'effect/Effect'
 import * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'
 
-import type { RunId, ThreadId } from '../../core/Identifiers'
+import type { ThreadId } from '../../core/Identifiers'
 import { IdempotencyKey } from '../../core/Receipt'
+import type { HostUpdateRequest } from '../HostUpdates'
 import { HostUpdateAppended, HostUpdateError } from '../HostUpdates.schema'
 import {
   BatchId,
@@ -28,15 +29,6 @@ import {
   ThreadTailRequest,
 } from '../ThreadStore'
 import { WakeScheduler } from '../WakeScheduler'
-
-/** @internal */
-export interface HostUpdateRequest {
-  readonly threadId: ThreadId
-  /** Caller-chosen key; repeating it with the same update returns the first commit. */
-  readonly updateId: string
-  readonly update: Schema.Json
-  readonly relatedRunId?: RunId | undefined
-}
 
 const MAX_TAIL_RETRIES = 8
 
