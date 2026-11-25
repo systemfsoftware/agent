@@ -104,6 +104,7 @@ import {
 import { MessagingHost } from '../engine/MessagingHost'
 import {
   CurrentToolFailureObserver,
+  type ResolvedModelCall,
   type RunApprovalHook,
   type RunContextHook,
   RunContextPreparation,
@@ -116,7 +117,6 @@ import {
   type RunToolAuthorizationHook,
   type RunToolAuthorizationRequest,
   RunToolScheduling,
-  type ResolvedModelCall,
 } from '../engine/RunOptions'
 import { SubagentHost } from '../engine/SubagentHost'
 import { ThreadHistory } from '../engine/ThreadHistory'
@@ -4930,8 +4930,10 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
       ? Option.none()
       : encodeFailure(error)
 
-    return Option.flatMap(value, (json) =>
-      utf8ByteLength(JSON.stringify(json)) <= 64 * 1024 ? decodeHostFailure(json) : Option.none())
+    return Option.flatMap(
+      value,
+      (json) => utf8ByteLength(JSON.stringify(json)) <= 64 * 1024 ? decodeHostFailure(json) : Option.none(),
+    )
   }
 
   const notifyHostSettled = (notice: RunSettlementNotice): Effect.Effect<void> => {
@@ -4939,7 +4941,7 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
 
     return finalize === undefined
       ? Effect.void
-      : finalize(notice).pipe(Effect.catchCause(() => Effect.void))
+      : finalize(notice).pipe(Effect.ignoreCause)
   }
 
   const halt = <A, R>(
@@ -7842,29 +7844,28 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
         runModel === undefined
           ? preparedContext
           : {
-            prepare: (request) =>
-              Effect.gen(function*() {
-                const prepared = preparedContext === undefined
-                  ? { prompt: request.source }
-                  : yield* preparedContext.prepare(request)
+            prepare: Effect.fnUntraced(function*(request) {
+              const prepared = preparedContext === undefined
+                ? { prompt: request.source }
+                : yield* preparedContext.prepare(request)
 
-                if (resolveRunModel === undefined) {
-                  return yield* AgentRunStopped.make({
-                    value: { reason: 'model-resolver-missing' },
-                    message: 'The host provides no RunHostControl.resolveModel for this Run',
-                  })
-                }
-
-                const modelCall = yield* resolveRunModel({
-                  threadId: submission.threadId,
-                  submissionId: submission.submissionId,
-                  runId,
-                  turn: request.turn,
-                  model: runModel,
+              if (resolveRunModel === undefined) {
+                return yield* AgentRunStopped.make({
+                  value: { reason: 'model-resolver-missing' },
+                  message: 'The host provides no RunHostControl.resolveModel for this Run',
                 })
+              }
 
-                return { ...prepared, modelCall }
-              }),
+              const modelCall = yield* resolveRunModel({
+                threadId: submission.threadId,
+                submissionId: submission.submissionId,
+                runId,
+                turn: request.turn,
+                model: runModel,
+              })
+
+              return { ...prepared, modelCall }
+            }),
           }
 
       const hostBeforeTurn = runHostControl.beforeTurn
@@ -11564,9 +11565,7 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
         ? {}
         : {
           runSettings: yield* Schema.encodeEffect(RunSettings)(options.runSettings).pipe(
-            Effect.mapError(() =>
-              AgentInputError.make({ message: 'Run settings do not satisfy the ledger contract' })
-            ),
+            Effect.mapError(() => AgentInputError.make({ message: 'Run settings do not satisfy the ledger contract' })),
           ),
         }),
     }).pipe(

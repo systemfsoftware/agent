@@ -2925,7 +2925,10 @@ layer(baseLayer)('per-Run host control', (it) => {
 
                     return perRunModelCall(calls, '{"answer":"high at noon"}')
                   }),
-                finalize: (notice) => Effect.sync(() => notices.push(notice)),
+                finalize: (notice) =>
+                  Effect.sync(() =>
+                    notices.push(notice)
+                  ),
               }),
             ),
           )
