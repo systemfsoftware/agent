@@ -1044,6 +1044,18 @@ export class AgentUpdateEmitted extends Schema.TaggedClass<AgentUpdateEmitted>()
   },
 ) {}
 
+/**
+ * A host-authored update on the Thread stream, independent of any Run. The envelope carries its
+ * Thread sequence and commit time; `relatedRunId` is set only when the host names a Run.
+ */
+export class ThreadHostUpdateAppended extends Schema.TaggedClass<ThreadHostUpdateAppended>(
+  '@effect-agent/thread/ThreadHostUpdateAppended',
+)('ThreadHostUpdateAppended', {
+  updateId: IdempotencyKey,
+  update: PersistedJson,
+  relatedRunId: Schema.optionalKey(RunId),
+}) {}
+
 /** Permanent bounded report refusal. Application errors and raw Run dispositions stay private. */
 export class WorkerReportRefused extends Schema.TaggedClass<WorkerReportRefused>()(
   'WorkerReportRefused',
@@ -1253,8 +1265,8 @@ export class RunContinuation extends Schema.TaggedClass<RunContinuation>()(
 ) {}
 
 /** Bump only when the meaning of an existing record changes, independently of SQL layout. */
-export const CURRENT_RECORD_VERSION = 6
-export const CURRENT_RECORD_FORMAT = 'effect-agent/thread@6'
+export const CURRENT_RECORD_VERSION = 7
+export const CURRENT_RECORD_FORMAT = 'effect-agent/thread@7'
 
 /** Durable fact and execution-command schemas. Unsupported controls fail before execution. */
 export const KnownRecordPayload = Schema.Union([
@@ -1290,6 +1302,7 @@ export const KnownRecordPayload = Schema.Union([
   WorkerInputRefused,
   WorkerReportPrepared,
   AgentUpdateEmitted,
+  ThreadHostUpdateAppended,
   WorkerReportRefused,
   PeerMessagePrepared,
   SubtreeBudgetReserved,

@@ -1,5 +1,5 @@
 {
-  "version": 6,
+  "version": 7,
   "dialect": "draft-2020-12",
   "schema": {
     "type": "object",
@@ -140,6 +140,9 @@
                   "repeated-failures"
                 ]
               },
+              "hostFailure": {
+                "$ref": "#/$defs/@effect-agent~1thread~1PersistedJsonEncoded"
+              },
               "usageSummary": {
                 "$ref": "#/$defs/@effect-agent~1core~1RunUsageSummaryEncoded"
               },
@@ -188,6 +191,9 @@
           },
           {
             "$ref": "#/$defs/AgentUpdateEmittedEncoded"
+          },
+          {
+            "$ref": "#/$defs/@effect-agent~1thread~1ThreadHostUpdateAppendedEncoded"
           },
           {
             "$ref": "#/$defs/WorkerReportRefusedEncoded"
@@ -342,14 +348,7 @@
           "maxLength": 4096
         }
       },
-      "required": [
-        "_tag",
-        "delegationId",
-        "targetAgentId",
-        "classification",
-        "errorTag",
-        "message"
-      ],
+      "required": ["_tag", "delegationId", "targetAgentId", "classification", "errorTag", "message"],
       "additionalProperties": true
     },
     "@effect-agent/core/AgentUpdates/UpdateEncoded": {
@@ -383,15 +382,7 @@
         },
         "value": {}
       },
-      "required": [
-        "schemaVersion",
-        "agentId",
-        "threadId",
-        "runId",
-        "updateId",
-        "sequence",
-        "value"
-      ],
+      "required": ["schemaVersion", "agentId", "threadId", "runId", "updateId", "sequence", "value"],
       "additionalProperties": true
     },
     "@effect-agent/thread/UserInputRecordedEncoded": {
@@ -540,12 +531,7 @@
                               "minLength": 1
                             }
                           },
-                          "required": [
-                            "schemaVersion",
-                            "delegationId",
-                            "targetAgentId",
-                            "threadId"
-                          ],
+                          "required": ["schemaVersion", "delegationId", "targetAgentId", "threadId"],
                           "additionalProperties": true
                         },
                         "receipt": {
@@ -564,7 +550,9 @@
                           "enum": ["completed"]
                         },
                         "result": {
-                          "anyOf": [{}]
+                          "anyOf": [
+                            {}
+                          ]
                         }
                       },
                       "required": [
@@ -605,12 +593,7 @@
                               "minLength": 1
                             }
                           },
-                          "required": [
-                            "schemaVersion",
-                            "delegationId",
-                            "targetAgentId",
-                            "threadId"
-                          ],
+                          "required": ["schemaVersion", "delegationId", "targetAgentId", "threadId"],
                           "additionalProperties": true
                         },
                         "receipt": {
@@ -1545,14 +1528,7 @@
           "maximum": 9007199254740991
         }
       },
-      "required": [
-        "provider",
-        "model",
-        "modelCalls",
-        "inputTokens",
-        "outputTokens",
-        "costMicrousd"
-      ],
+      "required": ["provider", "model", "modelCalls", "inputTokens", "outputTokens", "costMicrousd"],
       "additionalProperties": true
     },
     "@effect-agent/core/RunUsageSummaryEncoded": {
@@ -3125,6 +3101,29 @@
         }
       },
       "required": ["_tag", "update", "definitions"],
+      "additionalProperties": true
+    },
+    "@effect-agent/thread/ThreadHostUpdateAppendedEncoded": {
+      "type": "object",
+      "properties": {
+        "_tag": {
+          "type": "string",
+          "enum": ["ThreadHostUpdateAppended"]
+        },
+        "updateId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "update": {
+          "$ref": "#/$defs/@effect-agent~1thread~1PersistedJsonEncoded"
+        },
+        "relatedRunId": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": ["_tag", "updateId", "update"],
       "additionalProperties": true
     },
     "WorkerReportRefusedEncoded": {

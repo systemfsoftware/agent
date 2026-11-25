@@ -145,6 +145,7 @@ import {
   type DurableRuntimeFailpointError,
   type DurableRuntimeFailpointLocation,
 } from './DurableFailpoint'
+import type { HostUpdateAppended, HostUpdateError, HostUpdateRequest } from './HostUpdates'
 import {
   type AgentRegistration,
   BindingUnavailable,
@@ -160,6 +161,7 @@ import {
 } from './internal/agent-registration'
 import { makeAgentUpdateRuntime, nativeUpdateAccepted } from './internal/agent-updates'
 import { inspectForeignDiagnostic, safeUnknownString } from './internal/foreign-diagnostic'
+import { makeHostUpdateRuntime } from './internal/host-updates'
 import { initialContext, type InitialContextInput } from './internal/initial-context'
 import { type JournalMetadata, type JournalRecordEnvelope, makeJournalMetadata } from './internal/journal-metadata'
 import { makeMessagingRuntime } from './internal/messaging-host'
@@ -486,6 +488,7 @@ const decodeBatchIdSync = Schema.decodeSync(BatchId)
  * §12 step 2, D4): one reservation per (parent Run, parent Tool Call) pair,
  * so a replayed establishment converges on the one existing row (SUB-016).
  */
+export { HostUpdateAppended, HostUpdateError, type HostUpdateRequest } from './HostUpdates'
 export const childReservationIdFor = (runId: RunId, toolCallId: ToolCallId): ChildReservationId =>
   decodeChildReservationIdSync(`subagent-reservation:${runId}:${toolCallId}`)
 
@@ -12592,6 +12595,11 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
     Effect.provideService(ThreadStore, progressStore),
   )
 
+  const hostUpdateRuntime = yield* makeHostUpdateRuntime({
+    deploymentId: config.deploymentId,
+    producerId: config.producerId,
+  }).pipe(Effect.provideService(ThreadStore, progressStore))
+
   return DurableAgentRuntime.of({
     bindingRegistryKey: yield* withCrypto(
       digestJson({
@@ -12626,6 +12634,7 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
     awaitProgress,
     observe,
     abort,
+    appendHostUpdate: hostUpdateRuntime.append,
     resolveUnknown,
     resolveApproval,
     explain,
@@ -12774,6 +12783,17 @@ export class DurableAgentRuntime extends Context.Service<
       ThreadStoreError | ThreadNotMaterialized | OperationDenied
     >
     readonly abort: (command: AbortCommand) => Effect.Effect<AbortIntent, DurableAbortFailure>
+    /**
+     * Trusted host append of a `ThreadHostUpdateAppended` record. Authorize the caller for the
+     * Thread first; this is never a model capability. It commits under the Thread's progress gate
+     * whether or not a Run is active, never wakes a Run, and repeats idempotently by `updateId`.
+     */
+    readonly appendHostUpdate: (
+      request: HostUpdateRequest,
+    ) => Effect.Effect<
+      HostUpdateAppended,
+      HostUpdateError | ThreadStoreError | ThreadNotMaterialized | AppendConflict | OwnershipLost
+    >
     readonly resolveUnknown: (
       command: UnknownResolutionCommand,
     ) => Effect.Effect<UnknownResolutionIntent, DurableResolveFailure | OperationDenied>
