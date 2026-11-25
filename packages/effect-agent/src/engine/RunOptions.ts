@@ -546,6 +546,22 @@ export interface RunBufferLimits {
   readonly maxBufferedEvents?: number | undefined
 }
 
+export const RunCompletionMode = Schema.Literals(['definition', 'text'])
+export type RunCompletionMode = typeof RunCompletionMode.Type
+
+export interface RunToolResultExemptionRequest {
+  readonly toolName: string
+  readonly toolCallId: ToolCallId
+  readonly turn: number
+  readonly isFailure: boolean
+  readonly encodedBytes: number
+}
+
+export interface RunToolResultExemption {
+  readonly exempt: (request: RunToolResultExemptionRequest) => boolean
+  readonly maxBytes: number
+}
+
 /**
  * Application-owned values and hooks for one Run. ThreadHistory.layer retains history
  * incrementally in memory, including completed updates before a failure or interruption.
@@ -558,6 +574,9 @@ export interface RunOptions<HookError = never, HookRequirements = never> {
 
   /** Initial or canonically restored run-scoped native selection. */
   readonly toolSelection?: Selection | undefined
+  readonly completion?: RunCompletionMode | undefined
+  readonly contextTokenLimit?: number | undefined
+  readonly toolResultExemption?: RunToolResultExemption | undefined
   /**
    * Host preparation boundary before each new or replacement model call, including context preparation
    * and compaction calls. The preceding Tool batch and history advance have finished. A resumed

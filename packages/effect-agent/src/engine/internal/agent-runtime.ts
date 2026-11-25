@@ -57,7 +57,7 @@ import {
   ContextOverflowError,
   ModelProtocolError,
 } from '../../core/AgentError'
-import { type AgentPolicy } from '../../core/AgentPolicy'
+import { AgentPolicy } from '../../core/AgentPolicy'
 import { Emitter, Update, UpdateError } from '../../core/AgentUpdates'
 import * as FailureDiagnostic from '../../core/FailureDiagnostic'
 import {
@@ -156,6 +156,7 @@ import {
   type RunToolAuthorizationHook,
   type RunToolCallDescriptor,
   type RunToolFailureObserver,
+  type RunToolResultExemptionRequest,
   RunToolScheduling,
   type RunUsageDelta,
 } from '../RunOptions'
@@ -2105,7 +2106,7 @@ const executePreparedToolCall = Effect.fnUntraced(function*<
   toolkit: Toolkit.WithHandler<Tools>,
   prepared: PreparedToolCall<Tools>,
   trace: TurnTrace,
-  resultBounds: ToolResultBounds,
+  resultBounds: (encodedResult: unknown, isFailure: boolean) => ToolResultBounds,
   onWaiting: (waiting: ToolCallWaiting) => void,
 ): Effect.fn.Return<
   void,
@@ -2272,7 +2273,7 @@ const executePreparedToolCall = Effect.fnUntraced(function*<
 
     const encodedResult = yield* boundEncodedToolResult(
       result.encodedResult,
-      resultBounds,
+      resultBounds(result.encodedResult, result.isFailure),
       context.threadId,
     )
 
@@ -2820,7 +2821,16 @@ const executeToolBatch = Effect.fnUntraced(function*<
                       toolkit,
                       call,
                       trace,
-                      resultBounds,
+                      (encodedResult, isFailure) =>
+                        options.toolResultExemption === undefined
+                          ? resultBounds
+                          : resultBoundsFor(resultBounds, options, {
+                            toolName: call.call.name,
+                            toolCallId: call.toolCallId,
+                            turn,
+                            isFailure,
+                            encodedBytes: encodedResultBytes(encodedResult),
+                          }),
                       (waiting) => {
                         waitingByDeclaration.set(call.declarationIndex, waiting)
                       },
@@ -3197,6 +3207,73 @@ const boundEncodedToolResult = (
       Effect.orElseSucceed(unserializableToolResult),
     )
   })
+}
+
+const withRunDefinitionOverrides = <Definition extends Agent.AnyDefinition, E, R>(
+  definition: Definition,
+  options: RunOptions<E, R>,
+): Definition => {
+  const dropCompletion = options.completion === 'text' && definition.completion !== undefined
+  const contextTokenLimit = options.contextTokenLimit
+
+  if (!dropCompletion && contextTokenLimit === undefined) return definition
+
+  return Object.freeze({
+    ...definition,
+    ...(dropCompletion ? { completion: undefined } : {}),
+    ...(contextTokenLimit === undefined
+      ? {}
+      : { policy: AgentPolicy.make({ ...definition.policy, contextTokenLimit }) }),
+  })
+}
+
+const encodedResultBytes = (encodedResult: unknown): number => {
+  try {
+    const text = JSON.stringify(encodedResult)
+
+    return text === undefined ? 0 : utf8ByteLength(text)
+  } catch {
+    return 0
+  }
+}
+
+const recentToolResultHeadroom = <E, R>(options: RunOptions<E, R>, prompt: Prompt.Prompt): number => {
+  if (options.contextTokenLimit === undefined) return 0
+  for (let index = prompt.content.length - 1; index >= 0; index--) {
+    const message = prompt.content[index]
+
+    if (message.role === 'user') return 0
+    if (message.role !== 'tool') continue
+    let largest = 0
+
+    for (const part of message.content) {
+      if (part.type === 'tool-result') {
+        largest = Math.max(largest, Math.ceil(encodedResultBytes(part.result) / 4))
+      }
+    }
+
+    return largest
+  }
+
+  return 0
+}
+
+const resultBoundsFor = <E, R>(
+  bounds: ToolResultBounds,
+  options: RunOptions<E, R>,
+  request: RunToolResultExemptionRequest,
+): ToolResultBounds => {
+  const exemption = options.toolResultExemption
+
+  return exemption === undefined || request.encodedBytes <= bounds.maxBytes ||
+      !exemption.exempt(request)
+    ? bounds
+    : ToolResultBounds.make({
+      maxBytes: Math.min(
+        exemption.maxBytes,
+        options.durability?.toolResultMaxBytes ?? exemption.maxBytes,
+      ),
+    })
 }
 
 const durableResultBounds = <E, R>(
@@ -6025,7 +6102,8 @@ const makeTurn = <
           : Math.max(0, fullTarget - canonicalDecorationTokens())
 
         const estimate = (yield* preparedSourceTokens) + canonicalDecorationTokens()
-        const contextPressure = contextCallTarget !== undefined && estimate > contextCallTarget
+        const contextPressure = contextCallTarget !== undefined &&
+          estimate + recentToolResultHeadroom(options, modelContext.prompt) > contextCallTarget
         const tokenPressure = tokenCallTarget !== undefined && estimate > tokenCallTarget
 
         if (
@@ -6156,7 +6234,8 @@ const makeTurn = <
 
         let preparedEstimate = (yield* preparedSourceTokens) + derivedPromptTokens()
 
-        const contextPressure = contextTokenLimit !== undefined && preparedEstimate > contextTokenLimit
+        const contextPressure = contextTokenLimit !== undefined &&
+          preparedEstimate + recentToolResultHeadroom(options, modelContext.prompt) > contextTokenLimit
 
         const tokenPressure = tokenCallTarget !== undefined && preparedEstimate > tokenCallTarget
         const currentCompactionAllowance = context.compactionTurn.turn === turn
@@ -8401,7 +8480,12 @@ function executeWithCompletion<
     RunDispositionValue,
     InputPromptValue,
     UpdatesSchema
-  > = { definition: 'definition' in agentValue ? agentValue.definition : agentValue }
+  > = {
+    definition: withRunDefinitionOverrides(
+      'definition' in agentValue ? agentValue.definition : agentValue,
+      runOptions,
+    ),
+  }
 
   const model = 'definition' in agentValue ? agentValue.model : undefined
 
