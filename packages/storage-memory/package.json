@@ -54,7 +54,8 @@
         "types": "./dist/MemoryThreadStore.d.mts",
         "default": "./dist/MemoryThreadStore.mjs"
       }
-    }
+    },
+    "provenance": true
   },
   "scripts": {
     "build": "tsdown",

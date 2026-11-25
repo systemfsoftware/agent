@@ -54,7 +54,8 @@
         "types": "./dist/TravelPlanner.d.mts",
         "default": "./dist/TravelPlanner.mjs"
       }
-    }
+    },
+    "provenance": true
   },
   "scripts": {
     "build": "tsdown",

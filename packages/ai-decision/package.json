@@ -34,7 +34,8 @@
         "types": "./dist/LanguageModelDecisionModel.d.mts",
         "default": "./dist/LanguageModelDecisionModel.mjs"
       }
-    }
+    },
+    "provenance": true
   },
   "scripts": {
     "build": "tsdown",

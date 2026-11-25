@@ -1,0 +1,13 @@
+{
+  "ignore": [
+    "examples/durable-bench/third-party/**",
+    "tooling/pr-review-eval/fixtures/public-effect-agent-v2.json"
+  ],
+  "packs": {
+    "cell-architecture": {},
+    "npm-provenance": {
+      "repositoryUrl": "`\"git+https://github.com/systemfsoftware/agent.git\"`"
+    },
+    "build-output-imports": {}
+  }
+}

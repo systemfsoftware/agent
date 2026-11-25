@@ -35,7 +35,8 @@
         "types": "./dist/ReviewRepository.d.mts",
         "default": "./dist/ReviewRepository.mjs"
       }
-    }
+    },
+    "provenance": true
   },
   "scripts": {
     "build": "tsdown",

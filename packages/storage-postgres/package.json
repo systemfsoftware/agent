@@ -34,7 +34,8 @@
         "types": "./dist/PostgresStorageError.d.mts",
         "default": "./dist/PostgresStorageError.mjs"
       }
-    }
+    },
+    "provenance": true
   },
   "scripts": {
     "build": "tsdown",
