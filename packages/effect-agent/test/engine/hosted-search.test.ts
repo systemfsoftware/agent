@@ -165,14 +165,19 @@ it.effect('answers with one hosted search and carries sources through the next c
       input: Schema.String,
       output: Schema.String,
       instructions: 'Search and answer as JSON.',
-      toolkit: Toolkit.merge(
-        WebSearch.native({ tool: OpenAiTool.WebSearch({ search_context_size: 'low' }) }),
-        Toolkit.make(Tool.make('lookup', { success: Schema.String })),
+      toolkit: Toolkit.make(
+        OpenAiTool.WebSearch({ search_context_size: 'low' }),
+        Tool.make('lookup', { success: Schema.String }),
       ),
       toolExposure: { initialToolNames: ['OpenAiWebSearch', 'lookup'], maxSchemaBytes: 1024 },
     })
 
     const agent = Agent.withModel(definition, model)
+    expect(
+      Object.keys(
+        WebSearch.native({ tool: OpenAiTool.WebSearch({ search_context_size: 'low' }) }).tools,
+      ),
+    ).toEqual(['OpenAiWebSearch'])
     let localCalls = 0
 
     const handlers = definition.toolkit.toLayer({

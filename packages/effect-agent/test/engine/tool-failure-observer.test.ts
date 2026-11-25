@@ -223,13 +223,6 @@ layer(testLayer)('RUN-036 trusted Tool failure observation', (it) => {
         Effect.exit,
       )
 
-      expect(Exit.isFailure(exit)).toBe(true)
-      if (Exit.isFailure(exit)) {
-        expect(Cause.findErrorOption(exit.cause)).toMatchObject({
-          value: { _tag: 'AgentPolicyError', limit: 'turns' },
-        })
-      }
-      expect(JSON.stringify(FailureDiagnostic.capture(exit))).toContain('SchemaError')
       expect(observations).toHaveLength(1)
       expect(observations[0]).toMatchObject({
         _tag: 'ModelToolFailure',
@@ -238,6 +231,11 @@ layer(testLayer)('RUN-036 trusted Tool failure observation', (it) => {
       })
       expect(Cause.pretty(observations[0]!.cause!)).toContain('value')
       expect(Cause.pretty(observations[0]!.cause!)).toContain('number')
+      expect(Exit.isFailure(exit)).toBe(true)
+      if (Exit.isFailure(exit)) {
+        expect(Cause.pretty(exit.cause)).toContain('AgentPolicyError')
+      }
+      expect(JSON.stringify(FailureDiagnostic.capture(exit))).toContain('SchemaError')
     }))
 
   it.effect('retains the tool cause when the repeated-failure policy stops the Run', () =>

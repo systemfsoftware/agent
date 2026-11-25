@@ -59,6 +59,9 @@ const resolution = ReviewResolution.make({
   evidence: 'src/index.ts now charges every candidate before retaining it, rejecting input over the aggregate bound.',
 })
 
+// Providers send tool arguments as JSON, never as decoded Schema class instances.
+const resolutionParams = Schema.encodeSync(ReviewResolution)(resolution)
+
 const usage = {
   inputTokens: { total: 10, uncached: 7, cacheRead: 2, cacheWrite: 1 },
   outputTokens: { total: 4 },
@@ -225,7 +228,7 @@ describe('review output boundary', () => {
             return toolResponse([{ name: 'record_finding', params: submittedFinding(blocker, 1) }])
           }
           if (calls === 2) {
-            return response({ resolutions: [{ ...resolution, id: 'unknown-review' }] })
+            return response({ resolutions: [{ ...resolutionParams, id: 'unknown-review' }] })
           }
 
           expect(completionResult(prompt)).toMatchObject({
@@ -233,7 +236,7 @@ describe('review output boundary', () => {
             result: { _tag: 'ReviewVerificationError' },
           })
 
-          return response({ resolutions: calls === 3 ? [resolution, resolution] : [resolution] })
+          return response({ resolutions: calls === 3 ? [resolutionParams, resolutionParams] : [resolutionParams] })
         }),
       })
         .review(ReviewRequest.make({ ...request, followUps: [followUp] }))
@@ -446,7 +449,7 @@ describe('review output boundary', () => {
 
             return reread
               ? toolResponse([{ name: 'read_diff', params: { offset: 0 } }])
-              : response({ resolutions: [resolution] })
+              : response({ resolutions: [resolutionParams] })
           }
 
           if (calls === 6) {
@@ -462,7 +465,7 @@ describe('review output boundary', () => {
               },
             })
 
-            return response({ resolutions: [resolution] })
+            return response({ resolutions: [resolutionParams] })
           }
 
           const page = results.findLast(
@@ -603,7 +606,7 @@ describe('review output boundary', () => {
               { name: 'read_diff', params: { offset: 0 } },
               { name: 'read_diff', params: { offset: 9_000_000 } },
             ])
-            : response({ resolutions: [resolution] })
+            : response({ resolutions: [resolutionParams] })
         }),
       })
         .review(ReviewRequest.make({ ...input, followUps: [followUp] }))
@@ -681,7 +684,7 @@ describe('review output boundary', () => {
                 ])
               }
 
-              return response({ resolutions: [resolution] })
+              return response({ resolutions: [resolutionParams] })
             }),
           )
         ),

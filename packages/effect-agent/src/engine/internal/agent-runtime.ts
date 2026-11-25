@@ -28,7 +28,6 @@ import * as Result from 'effect/Result'
 import * as Schedule from 'effect/Schedule'
 import * as Schema from 'effect/Schema'
 import * as SchemaAST from 'effect/SchemaAST'
-import * as SchemaGetter from 'effect/SchemaGetter'
 import * as Scope from 'effect/Scope'
 import * as Semaphore from 'effect/Semaphore'
 import * as Stream from 'effect/Stream'
@@ -1019,62 +1018,6 @@ const inspectModelResponsePartCapacity = (
       ModelProtocolError.make({
         message: `Model response exceeded the ${limits.maxModelResponseBytes}-byte retained response limit`,
       })
-  )
-}
-
-/**
- * LanguageModel validates encoded parameters even with automatic resolution disabled.
- * Defer only recoverable application parameter validation; the declaration's JSON codec
- * still exposes the original schema to providers and preserves their wire normalization.
- * No handler is installed or executed by this transport-only Toolkit.
- */
-const defersToolParameters = (tool: Tool.Any): boolean =>
-  tool.failureMode === 'return' &&
-  !(Tool.isProviderDefined(tool) && !tool.requiresHandler) &&
-  !(Tool.isDynamic(tool) && tool.jsonSchema !== undefined)
-
-// Tool setters return new declarations. Share only transport wrappers: decoding still
-// runs with the current request's services, and discarded Tool identities can be collected.
-const deferredParameterTools = new WeakMap<Tool.Any, Tool.Any>()
-
-const deferredToolParameterToolkit = <Tools extends Record<string, Tool.Any>>(
-  toolkit: Toolkit.Toolkit<Tools>,
-): Toolkit.Toolkit<Record<string, Tool.Any>> => {
-  // Preserve the native request unchanged when it has no recoverable parameters.
-  // Toolkit's handler parameter variance is irrelevant to this resolution-disabled transport.
-  if (!Object.values(toolkit.tools).some(defersToolParameters)) {
-    return toolkit as unknown as Toolkit.Toolkit<Record<string, Tool.Any>>
-  }
-
-  return Toolkit.make(
-    ...Object.values(toolkit.tools).map((tool) => {
-      if (!defersToolParameters(tool)) return tool
-      const cached = deferredParameterTools.get(tool)
-
-      if (cached !== undefined) return cached
-
-      const deferred = tool.setParameters(
-        Schema.declareConstructor<unknown>()(
-          [],
-          () => (input) =>
-            Schema.decodeUnknownEffect(Schema.toEncoded(tool.parametersSchema))(input).pipe(
-              Effect.orElseSucceed(() => input),
-            ),
-          {
-            description: Tool.getDescription(tool),
-            toCodecJson: () =>
-              Schema.link<unknown>()(Schema.toEncoded(tool.parametersSchema), {
-                decode: SchemaGetter.passthrough(),
-                encode: SchemaGetter.passthrough(),
-              }),
-          },
-        ),
-      )
-
-      deferredParameterTools.set(tool, deferred)
-
-      return deferred
-    }),
   )
 }
 
@@ -6489,8 +6432,11 @@ const makeTurn = <
                         // contract in the leading system block before appending
                         // transient run status.
                         prompt: providerPrompt,
-                        toolkit: deferredToolParameterToolkit(requestToolkit),
+                        toolkit: requestToolkit,
                         disableToolCallResolution: true,
+                        // The engine validates every application Tool Call's parameters itself, so
+                        // `failureMode: "return"` rejections reach the model instead of failing the stream.
+                        toolCallValidation: 'deferred',
                         // Exact required Tool selection preserves the toolkit. A oneOf
                         // subset can drop other schemas and break the cached prefix.
                         ...(toolChoice === undefined ? {} : { toolChoice }),
