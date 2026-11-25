@@ -29,9 +29,14 @@ on 20.4s of CPU. That makes it I/O- and wait-bound, which is the case concurrenc
 - **Keep the sweep's closure.** Recovery in one cell can reach a failpoint that clean discovery
   never did (four of six scenarios swept more cells than discovery reached). A fixed list from
   discovery drops those cells. Run waves until no scenario has a reached but undriven location.
+- **Keep IntegreSQL's pool above the concurrency.** IntegreSQL v1.1.0 recreates the oldest
+  checked-out database, even one still in use, once its pool reaches the maximum size with fewer
+  than the initial size ready or recreating (`pkg/pool/pool.go`, `autoCleanDirty`). With 16 cells
+  on a pool of 16, a cell's database was dropped under it (`database "integresql_test_empty_009"
+  does not exist`). The pool maximum is derived from the most databases a test holds plus room for
+  the initial size, so the two cannot drift apart.
 - **Size the pools together.** At 16 cells, Postgres refused connections until each cell's client
-  was capped at four connections; IntegreSQL's pool rose to 16, keeping 64 connections under
-  `max_connections` 200.
+  was capped at four connections, keeping 64 connections under `max_connections` 200.
 
 ## Measure where it runs
 

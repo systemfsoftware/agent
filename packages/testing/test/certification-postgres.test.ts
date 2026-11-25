@@ -10,7 +10,7 @@ import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import * as Redacted from 'effect/Redacted'
 
-import { withIntegresqlDatabase } from './postgres-server.js'
+import { MAX_CHECKED_OUT_DATABASES, withIntegresqlDatabase } from './postgres-server.js'
 
 /**
  * Keep coordinator checks outside the adapter package to avoid a storage-postgres -> testing cycle.
@@ -66,8 +66,7 @@ const withStorage = <A, E>(cell: Effect.Effect<A, E, DurableCoordinatorStorage>)
 
 it.effect(
   'converges PostgreSQL coordinator recovery after injected faults',
-  // IntegreSQL hands out at most sixteen databases at once (postgres-server.ts); at four
-  // connections each they stay under its max_connections of 200.
-  () => durableCoordinatorConformance({ withStorage, concurrency: 16 }),
+  // At four connections a cell, every held database together stays under max_connections of 200.
+  () => durableCoordinatorConformance({ withStorage, concurrency: MAX_CHECKED_OUT_DATABASES }),
   300_000,
 )
