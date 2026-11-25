@@ -1,0 +1,812 @@
+import * as BrowserCrypto from '@effect/platform-browser/BrowserCrypto'
+import { authenticatedHttpClient, sessionObservation } from '@systemfsoftware/agent-example-auth/client'
+import { Cause, Effect, Option, Predicate, Redacted, Schema } from 'effect'
+import * as SecureRandom from 'effect/crypto/SecureRandom'
+import { AsyncResult, Atom, AtomHttpApi, Reactivity } from 'effect/reactivity'
+
+import {
+  type BrowserEngine,
+  LabApi,
+  LabError,
+  type ModelId,
+  type PrivateEntrySubmission,
+  Report,
+  requiresReasoning,
+  type RunInput,
+  serviceTierForModel,
+  TraceArchive,
+  VisitorKey,
+} from './contract.ts'
+
+const randomUUID = SecureRandom.SecureRandom.use((crypto) => crypto.uuidV4()).pipe(
+  Effect.provide(BrowserCrypto.layer),
+  Effect.orDie,
+)
+
+export class LabClient extends AtomHttpApi.Service<LabClient>()('browser-speed/client', {
+  api: LabApi,
+  httpClient: authenticatedHttpClient,
+  baseUrl: import.meta.env.BASE_URL.replace(/\/$/, ''),
+}) {}
+
+const sessionId = (() => {
+  try {
+    const key = 'yielded-browser-use-session'
+    const previous = sessionStorage.getItem(key)
+
+    if (previous !== null && Schema.is(Schema.String.check(Schema.isUUID()))(previous)) {
+      return previous
+    }
+    const id = crypto.randomUUID()
+
+    sessionStorage.setItem(key, id)
+
+    return id
+  } catch {
+    return crypto.randomUUID()
+  }
+})()
+
+export const watchingAtom = Atom.make(false)
+const stopRequestedAtom = Atom.make(false)
+
+export const progressAtom = Atom.make({ current: 0, total: 0 })
+
+export const ClientSample = Schema.Struct({
+  report: Report,
+  clientElapsedMillis: Schema.NullOr(Schema.Finite),
+})
+
+export type ClientSample = typeof ClientSample.Type
+const localHistoryAtom = Atom.make<ReadonlyArray<ClientSample>>([]).pipe(Atom.keepAlive)
+
+export const selectedAtom = Atom.make<string | null>(null)
+
+export const chatDraftAtom = Atom.make('').pipe(Atom.keepAlive)
+const localChatIdAtom = Atom.make<string | null | undefined>(undefined).pipe(Atom.keepAlive)
+
+export interface ChatTurn {
+  readonly id: string
+  readonly prompt: string
+  readonly pending: boolean
+  readonly connectionLost?: boolean
+  readonly report?: Report
+  readonly error?: string
+}
+
+const localChatTurnsAtom = Atom.make<ReadonlyArray<ChatTurn>>([]).pipe(Atom.keepAlive)
+
+const headers = { 'x-lab-session': sessionId }
+
+/** Visitor keys stay in this browser and travel only as headers on run requests. */
+export const ProviderKeys = Schema.Struct({
+  openai: Schema.String,
+  remember: Schema.Boolean,
+})
+
+export type ProviderKeys = typeof ProviderKeys.Type
+
+const keyStorage = 'yielded-browser-use-keys-v1'
+const emptyKeys: ProviderKeys = { openai: '', remember: false }
+const decodeKeys = Schema.decodeUnknownOption(Schema.fromJsonString(ProviderKeys))
+const encodeKeys = Schema.encodeSync(Schema.fromJsonString(ProviderKeys))
+
+// Storage can be missing or blocked (private windows, tests); keys then last for this page only.
+const storedKeys = (): ProviderKeys => {
+  try {
+    const value = localStorage.getItem(keyStorage) ?? sessionStorage.getItem(keyStorage)
+
+    return value === null ? emptyKeys : Option.getOrElse(decodeKeys(value), () => emptyKeys)
+  } catch {
+    return emptyKeys
+  }
+}
+
+export const keysAtom = Atom.make(storedKeys()).pipe(Atom.keepAlive)
+
+export const saveKeysAtom = Atom.fn<ProviderKeys>()(
+  Effect.fnUntraced(function*(keys, get) {
+    get.set(keysAtom, keys)
+    yield* Effect.sync(() => {
+      try {
+        if (keys.remember) {
+          localStorage.setItem(keyStorage, encodeKeys(keys))
+          sessionStorage.removeItem(keyStorage)
+        } else {
+          localStorage.removeItem(keyStorage)
+          sessionStorage.setItem(keyStorage, encodeKeys(keys))
+        }
+      } catch {
+        // Keys remain in memory for this page.
+      }
+    })
+  }),
+)
+
+export const validKey = (value: string) => Schema.is(VisitorKey)(value.trim())
+
+const keyHeaders = (keys: ProviderKeys) => validKey(keys.openai) ? { 'x-lab-openai-key': keys.openai.trim() } : {}
+
+const accountQuery = LabClient.query('lab', 'account', { headers })
+
+export const accountAtom = Atom.make((get) => {
+  get.mount(sessionObservation)
+
+  return get(accountQuery)
+})
+
+/** Shared Agent sign-in returns visitors to the lab. */
+export const signInUrl = `/auth/login?return=${encodeURIComponent(import.meta.env.BASE_URL)}`
+
+const snapshotQuery = LabClient.query('lab', 'snapshot', {
+  headers,
+  reactivityKeys: ['lab'],
+  timeToLive: '5 seconds',
+})
+
+const pollingSnapshot = snapshotQuery.pipe(Atom.withRefresh('300 millis'))
+const idleSnapshot = snapshotQuery.pipe(Atom.withRefresh('10 seconds'))
+
+export const snapshotAtom = Atom.make((get) => {
+  const snapshot = get(snapshotQuery)
+  const remote = Option.getOrNull(AsyncResult.value(snapshot))
+
+  // A lost POST does not imply the Worker stopped. Keep its status and Stop control live.
+  return get(watchingAtom) || remote?.busy
+    ? get(pollingSnapshot)
+    : remote?.ready
+    ? get(idleSnapshot)
+    : snapshot
+})
+
+const savedReportsAtom = LabClient.query('lab', 'reports', {
+  headers,
+  reactivityKeys: ['lab-history'],
+})
+
+export const historyAtom = Atom.make((get): ReadonlyArray<ClientSample> => {
+  const saved = Option.getOrElse(AsyncResult.value(get(savedReportsAtom)), () => [])
+
+  const byId = new Map<string, ClientSample>(
+    saved.map((report) => [report.input.id, { report, clientElapsedMillis: null }]),
+  )
+
+  for (const sample of get(localHistoryAtom)) byId.set(sample.report.input.id, sample)
+
+  return [...byId.values()].sort((a, b) => a.report.startedAt.localeCompare(b.report.startedAt))
+})
+
+export const chatIdAtom = Atom.make((get) => {
+  const local = get(localChatIdAtom)
+
+  return local !== undefined
+    ? local
+    : (Option.getOrNull(AsyncResult.value(get(snapshotAtom)))?.chatId ?? null)
+})
+
+export const chatTurnsAtom = Atom.make((get): ReadonlyArray<ChatTurn> => {
+  const local = get(localChatTurnsAtom)
+  const chatId = get(chatIdAtom)
+
+  const saved = chatId === null
+    ? []
+    : get(historyAtom).filter(
+      ({ report }) => report.input.scenario === 'chat' && (report.input.chatId ?? report.input.id) === chatId,
+    )
+
+  const turns = new Map<string, ChatTurn>(
+    saved.map(({ report }) => [
+      report.input.id,
+      {
+        id: report.input.id,
+        prompt: report.input.prompt,
+        pending: false,
+        report,
+      },
+    ]),
+  )
+
+  for (const turn of local) turns.set(turn.id, turn)
+  const remote = Option.getOrNull(AsyncResult.value(get(snapshotAtom)))
+  const report = remote?.report
+
+  if (report && (report.input.chatId ?? report.input.id) === chatId) {
+    const existing = turns.get(report.input.id)
+
+    // A reload has no sending workflow to subscribe to progress. Restore that message
+    // from the owner without resubmitting it or overriding a newer local response.
+    if (existing === undefined || !local.some((turn) => turn.id === report.input.id)) {
+      turns.set(report.input.id, {
+        id: report.input.id,
+        prompt: report.input.prompt,
+        pending: remote.busy && !remote.canClose,
+        report,
+      })
+    }
+  }
+
+  return [...turns.values()]
+})
+
+export const viewAtom = LabClient.runtime.fn<'watch' | 'control'>()(
+  Effect.fnUntraced(function*(mode, get) {
+    const client = yield* LabClient
+
+    const entry = Option.getOrNull(AsyncResult.value(get(snapshotAtom)))?.privateEntry
+
+    yield* Reactivity.mutation(
+      Effect.gen(function*() {
+        if (
+          mode === 'control' &&
+          entry &&
+          (entry.status === 'pending' || entry.status === 'expired')
+        ) {
+          yield* client.lab.cancelPrivateEntry({ headers, payload: { id: entry.id } })
+        }
+        yield* client.lab.view({ headers, payload: { mode } })
+      }),
+      ['lab', 'lab-history'],
+    )
+    get.set(selectedAtom, null)
+  }),
+)
+
+/** Only redacted, transient values cross this atom; neither inputs nor outputs are persisted. */
+export const submitPrivateEntryAtom = LabClient.runtime.fn<typeof PrivateEntrySubmission.Type>()(
+  Effect.fnUntraced(function*(input, get) {
+    const client = yield* LabClient
+
+    return yield* Reactivity.mutation(client.lab.privateEntry({ headers, payload: input }), [
+      'lab',
+      'lab-history',
+    ]).pipe(
+      Effect.mapError(() =>
+        LabError.make({
+          code: 'browser',
+          message: 'Private entry was not confirmed. Check the current request status before continuing.',
+        })
+      ),
+      Effect.ensuring(
+        Effect.sync(() => {
+          for (const value of Object.values(input.credential)) {
+            if (Redacted.isRedacted(value)) Redacted.wipeUnsafe(value)
+          }
+          get.refresh(snapshotQuery)
+        }),
+      ),
+      Effect.withTracerEnabled(false),
+    )
+  }),
+)
+
+export const cancelPrivateEntryAtom = LabClient.runtime.fn<string>()(
+  Effect.fnUntraced(function*(id) {
+    const client = yield* LabClient
+
+    return yield* Reactivity.mutation(client.lab.cancelPrivateEntry({ headers, payload: { id } }), [
+      'lab',
+      'lab-history',
+    ])
+  }),
+)
+
+export const downloadTraceAtom = LabClient.runtime.fn<ReadonlyArray<string>>()(
+  Effect.fnUntraced(function*(ids) {
+    const client = yield* LabClient
+
+    const fileError = () =>
+      LabError.make({
+        code: 'storage',
+        message: 'Could not save the trace. Allow browser storage and free disk space, then retry.',
+      })
+
+    // OPFS keeps the aggregate on disk. Only one bounded run is decoded/encoded at
+    // a time; a Blob assembled from all runs would still retain the conversation.
+    const directory = yield* Effect.tryPromise({
+      try: () => navigator.storage.getDirectory(),
+      catch: fileError,
+    })
+
+    const file = yield* Effect.tryPromise({
+      try: () => directory.getFileHandle('browser-trace-download.json', { create: true }),
+      catch: fileError,
+    })
+
+    const writer = yield* Effect.acquireRelease(
+      Effect.tryPromise({ try: () => file.createWritable(), catch: fileError }),
+      (writer) => Effect.tryPromise(() => writer.abort()).pipe(Effect.ignore),
+    )
+
+    let conversationId = 'conversation'
+
+    yield* Effect.tryPromise({ try: () => writer.write('['), catch: fileError })
+    for (const [index, id] of ids.entries()) {
+      const trace = yield* client.lab.trace({ headers, params: { id } })
+
+      if (index === 0) conversationId = trace.conversationId
+
+      const json = yield* Schema.encodeEffect(Schema.fromJsonString(TraceArchive))(trace).pipe(
+        Effect.orDie,
+      )
+
+      yield* Effect.tryPromise({
+        try: () => writer.write(`${index === 0 ? '' : ','}${json}`),
+        catch: fileError,
+      })
+    }
+    yield* Effect.tryPromise({
+      try: async () => {
+        await writer.write(']')
+        await writer.close()
+      },
+      catch: fileError,
+    })
+    const saved = yield* Effect.tryPromise({ try: () => file.getFile(), catch: fileError })
+
+    yield* Effect.sync(() => {
+      const url = URL.createObjectURL(saved)
+      const link = document.createElement('a')
+
+      link.href = url
+      link.download = `browser-trace-${conversationId}.json`
+      link.click()
+      URL.revokeObjectURL(url)
+    })
+  }, Effect.scoped),
+)
+
+export const runAtom = LabClient.runtime.fn<
+  Omit<RunInput, 'id'> & {
+    readonly repetitions: number
+    readonly compareModels?: ReadonlyArray<ModelId>
+    readonly compareEngines?: ReadonlyArray<typeof BrowserEngine.Type>
+  }
+>()(
+  Effect.fnUntraced(function*(input, get) {
+    const client = yield* LabClient
+
+    const {
+      repetitions,
+      compareModels,
+      compareEngines,
+      model,
+      engine,
+      reasoning,
+      serviceTier,
+      ...request
+    } = input
+
+    const models = compareModels?.length ? compareModels : [model]
+    const engines = compareEngines?.length ? compareEngines : [engine ?? 'chromium']
+    const variants = models.flatMap((model) => engines.map((engine) => ({ model, engine })))
+
+    // Rotate which configuration runs first each round, keeping requests sequential.
+    const attempts = Array.from(
+      { length: repetitions },
+      (_, round) => variants.map((variant, index) => variants[(index + round) % variants.length] ?? variant),
+    ).flat()
+
+    get.set(watchingAtom, true)
+    get.set(stopRequestedAtom, false)
+    get.set(selectedAtom, null)
+
+    return yield* Effect.gen(function*() {
+      for (const [index, variant] of attempts.entries()) {
+        if (get(stopRequestedAtom)) break
+        get.set(progressAtom, { current: index + 1, total: attempts.length })
+        const start = performance.now()
+
+        const report = yield* Reactivity.mutation(
+          client.lab.run({
+            headers: { ...headers, ...keyHeaders(get(keysAtom)) },
+            payload: {
+              ...request,
+              engine: variant.engine,
+              liveView: request.liveView && variant.engine === 'chromium',
+              ...(variant.model === undefined ? {} : { model: variant.model }),
+              ...(!variant.model?.startsWith('@cf/')
+                ? {
+                  ...(reasoning === undefined
+                    ? {}
+                    : {
+                      reasoning: reasoning === 'none' && requiresReasoning(variant.model ?? '')
+                        ? 'low'
+                        : reasoning,
+                    }),
+                  ...(serviceTier === undefined
+                    ? {}
+                    : { serviceTier: serviceTierForModel(variant.model ?? '', serviceTier) }),
+                }
+                : {}),
+              id: yield* randomUUID,
+            },
+          }),
+          ['lab'],
+        )
+
+        get.set(localChatIdAtom, null)
+        get.set(localChatTurnsAtom, [])
+        get.set(
+          localHistoryAtom,
+          [
+            ...get(historyAtom),
+            {
+              report,
+              clientElapsedMillis: performance.now() - start,
+            },
+          ].slice(-100),
+        )
+        if (
+          report.status === 'cancelled' ||
+          report.cleanup === 'failed' ||
+          (report.status === 'failed' && variants.length === 1)
+        ) {
+          break
+        }
+      }
+    }).pipe(
+      Effect.ensuring(
+        Effect.sync(() => get.set(watchingAtom, false)).pipe(
+          Effect.andThen(Reactivity.invalidate(['lab', 'lab-history'])),
+        ),
+      ),
+    )
+  }),
+)
+
+export const controlAtom = LabClient.runtime.fn<'stop' | 'close'>()(
+  Effect.fnUntraced(function*(action, get) {
+    const client = yield* LabClient
+
+    if (action === 'stop') {
+      get.set(stopRequestedAtom, true)
+      get.set(localChatIdAtom, null)
+    }
+    if (action === 'close') get.set(chatDraftAtom, '')
+    yield* Reactivity.mutation(
+      action === 'stop' ? client.lab.stop({ headers }) : client.lab.close({ headers }),
+      ['lab'],
+    )
+    if (action === 'close') {
+      get.set(localChatIdAtom, null)
+      get.set(localChatTurnsAtom, [])
+    }
+  }),
+)
+
+export const sendChatAtom = LabClient.runtime.fn<
+  Omit<RunInput, 'id' | 'scenario' | 'prompt' | 'chatId'>
+>()(
+  Effect.fnUntraced(function*(settings, get) {
+    if (get(watchingAtom)) return
+    const prompt = get(chatDraftAtom).trim()
+
+    if (!prompt) return
+    const client = yield* LabClient
+    const { url, ...options } = settings
+    const id = yield* randomUUID
+    const chatId = get(chatIdAtom)
+    const start = performance.now()
+
+    get.mount(stopRequestedAtom)
+    get.set(watchingAtom, true)
+    get.set(stopRequestedAtom, false)
+    get.set(selectedAtom, null)
+    get.set(progressAtom, { current: 1, total: 1 })
+    get.set(localChatTurnsAtom, [...get(chatTurnsAtom), { id, prompt, pending: true }])
+    get.set(chatDraftAtom, '')
+
+    return yield* Effect.gen(function*() {
+      // One polling transport, owned by this workflow. Keep the latest matching snapshot
+      // even when the POST fails; a previous run's delayed poll cannot populate this turn.
+      yield* Effect.acquireRelease(
+        Effect.sync(() =>
+          get.registry.subscribe(snapshotAtom, (snapshot) => {
+            if (!AsyncResult.isSuccess(snapshot)) return
+            const report = snapshot.value.report
+
+            if (report?.input.id !== id) return
+            get.set(
+              localChatTurnsAtom,
+              get(chatTurnsAtom).map((turn) =>
+                turn.id === id &&
+                  turn.pending &&
+                  (turn.report === undefined ||
+                    (turn.report.status === 'running' &&
+                      (report.status !== 'running' || report.elapsed >= turn.report.elapsed)))
+                  ? { ...turn, report }
+                  : turn
+              ),
+            )
+          })
+        ),
+        (unsubscribe) => Effect.sync(unsubscribe),
+      )
+
+      const report = yield* Reactivity.mutation(
+        client.lab.run({
+          headers: { ...headers, ...keyHeaders(get(keysAtom)) },
+          payload: {
+            ...options,
+            id,
+            scenario: 'chat',
+            prompt,
+            ...(chatId === null ? (url === undefined ? {} : { url }) : { chatId }),
+          },
+        }),
+        ['lab'],
+      ).pipe(
+        Effect.catchIf(
+          (error) =>
+            !(
+              Schema.is(LabError)(error) &&
+              ['configuration', 'invalid', 'busy', 'expired'].includes(error.code)
+            ),
+          () =>
+            Effect.gen(function*() {
+              get.set(
+                localChatTurnsAtom,
+                get(chatTurnsAtom).map((turn) => turn.id === id ? { ...turn, connectionLost: true } : turn),
+              )
+
+              // Match the owner's twelve-minute run limit. A matching report can shorten
+              // the wait without synchronized browser/Worker wall clocks.
+              const runDeadlineMillis = 12 * 60_000
+              let deadline = start + runDeadlineMillis
+
+              while (true) {
+                if (get(stopRequestedAtom)) {
+                  return yield* LabError.make({
+                    code: 'interrupted',
+                    message:
+                      'Stopped checking this response. Admission or completion could not be confirmed. Check the browser status; no actions were replayed.',
+                  })
+                }
+                const snapshot = get(snapshotAtom)
+
+                if (AsyncResult.isSuccess(snapshot)) {
+                  const remote = snapshot.value
+                  const report = remote.report
+
+                  if (report?.input.id === id) {
+                    if (!remote.busy && report.status !== 'running' && report.cleanup !== 'pending') {
+                      return report
+                    }
+                    if (remote.busy && remote.canClose) {
+                      return yield* LabError.make({
+                        code: 'interrupted',
+                        message:
+                          'The Worker cannot resolve this run. Choose New chat to close the browser; no actions will be replayed.',
+                      })
+                    }
+                    deadline = Math.min(
+                      deadline,
+                      performance.now() + runDeadlineMillis - report.elapsed,
+                    )
+                  }
+                }
+                const remaining = deadline - performance.now()
+
+                if (remaining <= 0) {
+                  return yield* LabError.make({
+                    code: 'interrupted',
+                    message:
+                      'The twelve-minute run deadline was reached without a confirmed result. Check the browser status and close it before starting again; no actions were replayed.',
+                  })
+                }
+                // Read the existing polling atom; never issue another run or status request.
+                yield* Effect.sleep(Math.min(300, remaining))
+              }
+            }),
+        ),
+      )
+
+      get.set(
+        localChatIdAtom,
+        !get(stopRequestedAtom) && report.cleanup === 'retained' ? (chatId ?? id) : null,
+      )
+      get.set(
+        localChatTurnsAtom,
+        get(chatTurnsAtom).map((turn) =>
+          turn.id === id ? { ...turn, report, pending: false, connectionLost: false } : turn
+        ),
+      )
+      get.set(
+        localHistoryAtom,
+        [
+          ...get(historyAtom),
+          {
+            report,
+            clientElapsedMillis: performance.now() - start,
+          },
+        ].slice(-100),
+      )
+    }).pipe(
+      Effect.tapCause((cause) =>
+        Effect.sync(() => {
+          const error = Option.flatMap(
+            Cause.findErrorOption(cause),
+            Schema.decodeUnknownOption(LabError),
+          )
+
+          const uncertain = get(chatTurnsAtom).find((turn) => turn.id === id)?.connectionLost
+
+          if (uncertain || (Option.isSome(error) && error.value.code === 'expired')) {
+            get.set(localChatIdAtom, null)
+          }
+          get.set(
+            localChatTurnsAtom,
+            get(chatTurnsAtom).map((turn) =>
+              turn.id === id
+                ? {
+                  ...turn,
+                  pending: false,
+                  error: failureMessage(cause),
+                }
+                : turn
+            ),
+          )
+          if (!uncertain && !get(chatDraftAtom)) get.set(chatDraftAtom, prompt)
+        })
+      ),
+      Effect.ensuring(
+        Effect.sync(() => get.set(watchingAtom, false)).pipe(
+          Effect.andThen(Reactivity.invalidate(['lab', 'lab-history'])),
+        ),
+      ),
+      Effect.scoped,
+    )
+  }),
+)
+
+export const exportAtom = Atom.fn<void>()(
+  Effect.fnUntraced(function*(_, get) {
+    const samples = get(historyAtom)
+
+    const downloadSamples = Effect.fnUntraced(function*() {
+      const json = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Array(ClientSample)))(
+        samples,
+      ).pipe(Effect.orDie)
+
+      const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }))
+      const link = document.createElement('a')
+
+      link.href = url
+      link.download = 'browser-speed-runs.json'
+      link.click()
+      URL.revokeObjectURL(url)
+    })
+
+    yield* downloadSamples()
+  }),
+)
+
+const failureMessage = <E>(cause: Cause.Cause<E>) => {
+  const error = Option.flatMap(
+    Cause.findErrorOption(cause),
+    Schema.decodeUnknownOption(Schema.Struct({ message: Schema.String })),
+  )
+
+  if (Option.isSome(error)) return error.value.message
+
+  return 'The connection to the Worker was interrupted. Check the browser status before running again.'
+}
+
+export const errorMessage = <A, E>(result: AsyncResult.AsyncResult<A, E>) =>
+  AsyncResult.isFailure(result) ? failureMessage(result.cause) : null
+
+/** Durations use the page-ready boundary on the same Worker clock. */
+export const fromReady = (report: Report, at: number | null | undefined): number | null =>
+  Predicate.isNullish(at) || report.readyAt === null ? null : Math.max(0, at - report.readyAt)
+
+export const verifiedMillis = (report: Report) => fromReady(report, report.verifiedAt)
+
+export const runOutcome = (report: Report) =>
+  report.readyAt !== null
+    ? report.status
+    : report.status === 'running'
+    ? 'preparing'
+    : report.status === 'cancelled'
+    ? 'preparation cancelled'
+    : 'preparation failed'
+
+export const flowStarted = (report: Report) => report.readyAt !== null
+
+const sameWorkload = (value: Report, report: Report) =>
+  value.fixture === report.fixture &&
+  value.input.scenario === report.input.scenario &&
+  value.input.prompt === report.input.prompt &&
+  value.input.url === report.input.url &&
+  value.input.wikipedia?.start === report.input.wikipedia?.start &&
+  value.input.wikipedia?.target === report.input.wikipedia?.target &&
+  value.input.screenshots === report.input.screenshots &&
+  value.input.liveView === report.input.liveView
+
+const settingsKey = (report: Report) =>
+  JSON.stringify([
+    report.input.engine ?? 'chromium',
+    report.browserVersion ?? 'unrecorded',
+    report.browserRevision ?? 'unrecorded',
+    report.commandTimeoutMillis ?? 'unrecorded',
+    report.input.reasoning ?? 'provider-default',
+    report.input.serviceTier ?? 'provider-default',
+  ])
+
+export const cohort = (samples: ReadonlyArray<ClientSample>, report: Report) =>
+  samples.filter(
+    ({ report: value }) =>
+      sameWorkload(value, report) &&
+      value.model === report.model &&
+      settingsKey(value) === settingsKey(report),
+  )
+
+const servedTiers = (reports: ReadonlyArray<Report>) =>
+  [
+    ...new Set(
+      reports.flatMap((report) => {
+        const spans = report.spans.filter((span) => span.phase === 'model')
+
+        return spans.length ? spans.map((span) => span.serviceTier ?? 'unknown') : ['unknown']
+      }),
+    ),
+  ]
+    .sort()
+    .join('+') || 'unknown'
+
+/** Compare the same task and capture settings; only verified outcomes contribute timings. */
+export const comparisons = (samples: ReadonlyArray<ClientSample>, report: Report) => {
+  const groups = new Map<string, Array<Report>>()
+
+  for (const { report: candidate } of samples) {
+    if (!sameWorkload(candidate, report)) continue
+    const key = `${candidate.model}/${settingsKey(candidate)}`
+    const group = groups.get(key) ?? []
+
+    group.push(candidate)
+    groups.set(key, group)
+  }
+
+  return [...groups.entries()].map(([key, reports]) => ({
+    key,
+    engine: reports[0]?.input.engine ?? 'chromium',
+    browserVersion: reports[0]?.browserVersion,
+    browserRevision: reports[0]?.browserRevision,
+    model: reports[0]?.model ?? 'unknown',
+    reasoning: reports[0]?.input.reasoning ??
+      (reports[0]?.model.startsWith('@cf/') ? 'n/a' : 'provider-default'),
+    serviceTier: reports[0]?.input.serviceTier ??
+      (reports[0]?.model.startsWith('@cf/') ? 'n/a' : 'provider-default'),
+    servedTier: servedTiers(reports),
+    count: reports.length,
+    started: reports.filter(flowStarted).length,
+    preparationFailed: reports.filter((value) => !flowStarted(value) && value.status !== 'running')
+      .length,
+    passed: reports.filter((value) => value.status === 'passed').length,
+    hops: percentile(
+      reports.flatMap((value) =>
+        value.status === 'passed' && value.race ? [Math.max(0, value.race.path.length - 1)] : []
+      ),
+      0.5,
+    ),
+    median: percentile(
+      reports.flatMap((value) => {
+        const time = verifiedMillis(value)
+
+        return value.status === 'passed' && time !== null ? [time] : []
+      }),
+      0.5,
+    ),
+  }))
+}
+
+export const percentile = (values: ReadonlyArray<number>, fraction: number): number | null => {
+  const sorted = [...values].sort((a, b) => a - b)
+
+  if (fraction === 0.5 && sorted.length > 0) {
+    const middle = Math.floor(sorted.length / 2)
+
+    return ((sorted[Math.ceil(sorted.length / 2) - 1] ?? 0) + (sorted[middle] ?? 0)) / 2
+  }
+
+  return sorted[Math.max(0, Math.ceil(sorted.length * fraction) - 1)] ?? null
+}

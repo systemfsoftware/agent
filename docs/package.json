@@ -1,0 +1,45 @@
+{
+  "name": "@systemfsoftware/agent-docs",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "astro build",
+    "dev": "astro dev",
+    "preview": "astro preview",
+    "typecheck": "tsrs --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "catalog:",
+    "@yielded/starlight-theme": "catalog:",
+    "astro": "catalog:",
+    "expressive-code-twoslash": "catalog:",
+    "satteri": "catalog:",
+    "starlight-links-validator": "catalog:",
+    "typescript": "catalog:docs",
+    "typescript-twoslash": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/ai-anthropic": "catalog:",
+    "@effect/ai-openai": "catalog:",
+    "@effect/ai-typesafe": "catalog:",
+    "@effect/platform-bun": "catalog:",
+    "@effect/platform-node": "catalog:",
+    "@effect/sql-pg": "catalog:",
+    "@fontsource-variable/ibm-plex-sans": "catalog:",
+    "@fontsource/ibm-plex-mono": "catalog:",
+    "@napi-rs/canvas": "catalog:",
+    "@systemfsoftware/agent": "workspace:*",
+    "@systemfsoftware/agent-ai-decision": "workspace:*",
+    "@systemfsoftware/agent-platform-cloudflare": "workspace:*",
+    "@systemfsoftware/agent-platform-node": "workspace:*",
+    "@systemfsoftware/agent-pr-review": "workspace:*",
+    "@systemfsoftware/agent-storage-cloudflare": "workspace:*",
+    "@systemfsoftware/agent-storage-memory": "workspace:*",
+    "@systemfsoftware/agent-storage-postgres": "workspace:*",
+    "@systemfsoftware/agent-storage-sql": "workspace:*",
+    "@systemfsoftware/agent-storage-sqlite": "workspace:*",
+    "@systemfsoftware/agent-testing": "workspace:*",
+    "effect": "catalog:"
+  }
+}

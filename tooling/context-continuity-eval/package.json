@@ -1,0 +1,33 @@
+{
+  "name": "@systemfsoftware/agent-example-context-continuity-eval",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "effect-tsgo tsrs --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@effect/ai-openai": "catalog:",
+    "@effect/platform-browser": "catalog:",
+    "@effect/platform-node": "catalog:",
+    "@systemfsoftware/agent": "workspace:*",
+    "@systemfsoftware/agent-platform-cloudflare": "workspace:*",
+    "@systemfsoftware/agent-platform-node": "workspace:*",
+    "effect": "catalog:",
+    "effect-cf": "catalog:"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
+    "@types/node": "catalog:",
+    "alchemy": "catalog:",
+    "esbuild": "catalog:",
+    "miniflare": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:",
+    "wrangler": "catalog:"
+  }
+}

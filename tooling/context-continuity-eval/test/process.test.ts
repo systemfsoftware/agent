@@ -1,0 +1,140 @@
+import { NodeServices } from '@effect/platform-node'
+import { ConfigProvider, Effect, FileSystem, Layer, Path, Schema } from 'effect'
+import { expect, it } from 'vitest'
+
+import { RunContinuationEvidence } from '../src/contracts.ts'
+import { supervise } from '../src/process-host.ts'
+
+it('recovers the real SQLite runtime after two SIGKILLs with pressure and cumulative accounting', async () => {
+  const { report, checkpoint, active } = await Effect.runPromise(
+    Effect.gen(function*() {
+      const fs = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+
+      const outputDirectory = yield* fs.makeTempDirectoryScoped({
+        prefix: 'continuity-kill-test-',
+      })
+
+      const report = yield* supervise(
+        {
+          model: 'gpt-6-astra',
+          reasoningEffort: 'low',
+          serviceTier: 'default',
+          seed: 17,
+          outputDirectory,
+          sourceCommit: 'a'.repeat(40),
+          dirtyWorkingTree: false,
+          maxCostMicrousd: 10_000_000,
+          profile: 'pressure-restart-sqlite-v1',
+        },
+        yield* path.fromFileUrl(new URL('./scripted-worker.ts', import.meta.url)),
+      )
+
+      const checkpoint = yield* Schema.decodeEffect(Schema.fromJsonString(RunContinuationEvidence))(
+        yield* fs.readFileString(path.join(outputDirectory, 'run-continuation.json')),
+      )
+
+      const active = yield* Schema.decodeEffect(Schema.fromJsonString(RunContinuationEvidence))(
+        yield* fs.readFileString(path.join(outputDirectory, 'active-run-continuation.json')),
+      )
+
+      return { report, checkpoint, active }
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(
+        Layer.merge(
+          NodeServices.layer,
+          ConfigProvider.layer(ConfigProvider.fromUnknown({ OPENAI_API_KEY: 'test-only' })),
+        ),
+      ),
+    ),
+  )
+
+  expect(report.status).toBe('passed')
+  expect(checkpoint.status).toBe('missing')
+  expect(active.status).toBe('present')
+  if (active.status !== 'present') throw new Error('Active SQLite execution capture absent')
+  expect(active.checkpoint.progress.runId).toBe(report.phases.at(-1)?.runId)
+  expect(active.checkpoint.throughSequence).toBeGreaterThanOrEqual(
+    report.windows.at(-1)?.sequence ?? 1,
+  )
+
+  expect(report.windows.length).toBeGreaterThanOrEqual(12)
+  expect(report.restarts.map((r) => r.killConfirmed)).toEqual([true, true])
+  expect(report.usage.calls).toBe(report.phases.reduce((n, p) => n + p.modelCalls, 0))
+}, 60_000)
+
+it('does not respawn after an interruption', async () => {
+  const result = await Effect.runPromise(
+    Effect.gen(function*() {
+      const fs = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+
+      const outputDirectory = yield* fs.makeTempDirectoryScoped({
+        prefix: 'continuity-supervisor-failure-',
+      })
+
+      const entry = path.join(outputDirectory, 'fixture.mjs')
+      const pidPath = path.join(outputDirectory, 'pid')
+
+      yield* fs.writeFileString(
+        entry,
+        `
+      import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
+      const options = JSON.parse(readFileSync(process.env.CONTEXT_EVAL_WORKER_OPTIONS, "utf8"));
+      appendFileSync(options.outputDirectory + "/launches", "launch\\n");
+      writeFileSync(options.outputDirectory + "/pid", String(process.pid));
+      ${'setInterval(() => {}, 1000);'}
+    `,
+      )
+
+      const run = supervise(
+        {
+          model: 'gpt-6-astra',
+          reasoningEffort: 'low',
+          serviceTier: 'default',
+          seed: 17,
+          outputDirectory,
+          sourceCommit: 'a'.repeat(40),
+          dirtyWorkingTree: false,
+          maxCostMicrousd: 10_000_000,
+          profile: 'pressure-restart-sqlite-v1',
+        },
+        entry,
+      )
+
+      const exit = yield* Effect.raceFirst(
+        run,
+        Effect.gen(function*() {
+          while (!(yield* fs.exists(pidPath))) yield* Effect.sleep('20 millis')
+
+          return yield* Effect.interrupt
+        }),
+      ).pipe(Effect.exit)
+
+      const pid = Number(yield* fs.readFileString(pidPath))
+
+      const running = yield* Effect.try(() => process.kill(pid, 0)).pipe(
+        Effect.as(true),
+        Effect.orElseSucceed(() => false),
+      )
+
+      return {
+        failed: exit._tag === 'Failure',
+        running,
+        launches: yield* fs.readFileString(path.join(outputDirectory, 'launches')),
+      }
+    }).pipe(
+      Effect.timeout('10 seconds'),
+      Effect.scoped,
+      Effect.provide(
+        Layer.merge(
+          NodeServices.layer,
+          ConfigProvider.layer(ConfigProvider.fromUnknown({ OPENAI_API_KEY: 'test-only' })),
+        ),
+      ),
+    ),
+  )
+
+  expect(result).toEqual({ failed: true, running: false, launches: 'launch\n' })
+}, 15_000)

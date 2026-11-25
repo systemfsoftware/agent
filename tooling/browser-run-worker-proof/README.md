@@ -1,0 +1,158 @@
+# Hosted checkout proof
+
+One ephemeral Worker serves a controlled store and a real model-driven buyer. Its
+`CheckoutRun` Durable Object owns the one-shot dispatch fence, private browser session,
+payment-attempt count, and receipt. `BrowserUse.make()` exposes `browser_execute`
+through the Cloudflare Code Mode Worker Loader. Generated page-specific code uses
+CDP against an attachment owned by `BrowserSessions`.
+
+```text
+Wrangler → Worker + CheckoutRun → Cloudflare Browser Run
+  /run once → /shop/login → /shop/product → /shop/review
+             → POST /shop/pay (commits, returns 503) → /shop/orders
+  independent GET /evidence → POST /close → GET /evidence → destroy
+```
+
+The designated buyer is `buyer@example.test`. This store never contacts a payment
+processor or charges money. Model and Cloudflare usage still incur provider costs.
+Passing this proof establishes the controlled checkout behavior; it does not establish
+Stripe, Shop Pay, real payment, or human-takeover compatibility.
+
+## What it checks
+
+The buyer chooses one blue, medium Everyday Shirt and standard shipping. The runner
+independently checks every receipt field, including the designated buyer, delivery to
+123 Test Street, San Francisco, CA 94107, US, quantity one, subtotal 3400 cents,
+shipping 500 cents, tax 312 cents, total 4212 cents, USD, and paid status.
+
+The payment endpoint deliberately returns an ambiguous 503 after committing the receipt.
+Generated browser code submits the purchase and reads browser order history. The
+read-only `finish` tool checks that page against the server receipt and attempt count.
+The controlled fixture authorizes whole-page JavaScript, which can submit forms; no
+tool boundary guarantees a single payment attempt. The runner requires exactly one
+payment attempt and an independently fetched matching receipt. A model completion
+message or an HTTP success alone cannot pass the gate.
+
+The runner deploys the executable Worker, Worker Loader binding, Durable Object migration,
+and secret bindings in one upload. It creates no temporary Durable Object class that could serve requests
+while the final version propagates. Before dispatch, it waits for authenticated evidence
+from a pristine Durable Object, retrying fresh-route 404 and transient 5xx/transport
+failures every two seconds for up to one minute.
+Authentication failures, invalid evidence, and nonpristine owners fail immediately.
+
+The browser then reloads the initial login GET until it observes the email, password,
+and Sign in controls, every two seconds for up to one minute. Model execution and
+credential input begin only after that check. The fixture deliberately serves a 503
+on its first login GET; independent evidence must show a subsequent login request.
+This covers startup error pages that browser navigation accepts as completed loads.
+
+A read-only scrape of inline fixture HTML runs before browser creation, avoiding
+propagation of a new public route to the Quick Actions browser. Transient 5xx/reset
+failures of that preflight may retry, at most twice. After login, generated code
+inspects the page and performs the purchase without an automatic action retry.
+Every Worker response carries `x-checkout-run-id` with the deployment's run ID.
+Only a `POST /run` 404 with that header absent may repeat, every two seconds within
+one minute: it never reached the Worker. Any stamped response, including a wrong
+run ID, ends dispatch retries. Browser failures, other HTTP failures, and lost
+responses remain hard failures. The Durable Object's persisted started fence
+refuses a replacement run. Closure persists a stop fence before
+acknowledgement so a suspended preflight cannot allocate a browser afterward.
+
+The host fills and submits the login form before giving generated code the signed-in
+page. `CHECKOUT_PASSWORD` remains a Worker binding, not a model prompt or tool argument.
+This is host-owned fixture authentication, not coverage of the BrowserCredentialAccess
+helper. The generated program receives no Worker secrets or ambient network access;
+its authorized CDP access still has the full authority of the signed-in browser page.
+The separate control token authorizes `/run`, `/evidence`, and `/close`; fixture navigation never receives it.
+Worker observability is disabled. Reports contain no transcripts, raw exceptions,
+passwords, control tokens, session IDs, or private URLs.
+
+## Run
+
+Use a clean committed checkout. Required environment:
+
+| Variable                       | Purpose                                                       |
+| ------------------------------ | ------------------------------------------------------------- |
+| `CHECKOUT_EXPECTED_SHA`        | Exact 40-character commit that must equal HEAD                |
+| `CHECKOUT_RUN_ID`              | Fresh lowercase letters/digits/hyphens, at most 24 characters |
+| `CHECKOUT_MODEL`               | Explicit model ID; CI uses gpt-6-luna                         |
+| `CHECKOUT_TOKEN`               | Fresh random control API bearer token                         |
+| `CHECKOUT_PASSWORD`            | Fresh random password for the designated fixture buyer        |
+| `OPENAI_API_KEY`               | Model provider credential                                     |
+| `CLOUDFLARE_ACCOUNT_ID`        | Deployment account, checked against the configured subdomain  |
+| `CLOUDFLARE_API_TOKEN`         | Deployment credential; stays on the runner                    |
+| `BROWSER_RENDERING_API_TOKEN`  | Narrow account-scoped Browser Run Write token                 |
+| `CLOUDFLARE_WORKERS_SUBDOMAIN` | Workers subdomain without .workers.dev                        |
+
+After supplying provider credentials through the environment or the
+[documented secret manager](../../docs/TOOLCHAIN.md#live-credentials):
+
+```sh
+export CHECKOUT_EXPECTED_SHA="$(git rev-parse HEAD)"
+export CHECKOUT_RUN_ID="checkout-$(openssl rand -hex 6)"
+export CHECKOUT_TOKEN="$(openssl rand -hex 32)"
+export CHECKOUT_PASSWORD="$(openssl rand -hex 32)"
+export CHECKOUT_MODEL=gpt-6-luna
+pnpm run --no-cache -F @systemfsoftware/agent-example-browser-run-worker-proof prove:live
+```
+
+Missing configuration, a dirty checkout, a mismatched SHA, an existing report, or an
+occupied Worker name fails before deployment. Local Alchemy emulation is refused.
+The runner records its identity and pending report before deployment. Wrangler receives
+bindings through a private temporary file, removed when deployment finishes or fails;
+its output is not published.
+
+The ignored `.checkout-proof/<run>/report.json` in this workspace retains the commit,
+Worker name, dispatch status, sanitized independent evidence, allowlisted Worker failure codes,
+the last checkout operation, login request count, failure stage/status,
+up to sixteen sanitized browser operation/reason/status diagnostics with a safe SDK error name when available, separate cleanup failure, cleanup result, and total, checkout, and cleanup milliseconds.
+HTTP failures include status, `cf-ray`, whether the deployment stamp was present
+and matched, and a body excerpt limited to edge error codes, `Not found`, or
+`Unauthorized`. All other response bodies are redacted. A `cf-ray` identifies
+edge traffic, not Worker execution.
+Total time includes deployment and retirement. Checkout time measures dispatch,
+including any pre-dispatch 404 retries; cleanup time measures closure, its independent
+confirmation, and Worker retirement. Evidence is
+written atomically. A mismatched receipt is omitted rather than publishing unexpected
+identity or payload values.
+
+Failure codes distinguish invalid helper calls from browser failures and retain known
+error tags even when a failure is carried as an Effect defect. The operation identifies
+whether it occurred during scraping, browser setup, model execution, input, or closure;
+unknown errors still use `worker-failure` without publishing their messages.
+
+## Recovery
+
+The runner closes the exact private browser session, independently reads its closed
+state, persists closure evidence, then destroys the Worker. Unconfirmed closure fails
+the gate and preserves the Worker and its Durable Object alarm for recovery. Destruction
+must also be confirmed by the Worker management API. A lost browser-acquisition reply
+without a session ID keeps cleanup unconfirmed and requires provider reconciliation;
+the owner is retained rather than claiming that no browser was created.
+
+Keep the same clean revision, environment, and report.
+Recovery performs closure and retirement only:
+
+```sh
+CHECKOUT_CLEANUP=true pnpm run --no-cache -F @systemfsoftware/agent-example-browser-run-worker-proof prove:live
+```
+
+Recovery never deploys or calls `/run`. An absent owner is acceptable after recorded
+closure, or when no run was dispatched. Otherwise it fails clearly. Successful cleanup
+does not turn a failed checkout into passing evidence. Use a fresh run ID for a new
+attempt; existing evidence cannot be overwritten.
+
+## CI policy
+
+Ordinary PR CI runs the local workerd receiver proof without deployment or credentials.
+The Changesets version PR runs one hosted checkout on its exact head through
+`release-gates.yml`, required by `ready`. Publication reuses that proof only under
+the repository's existing release revision policy. The manual hosted checkout workflow
+also runs one attempt at the selected dispatch commit.
+
+Both workflows generate and mask the control token and buyer password, retry recorded
+cleanup after failure or cancellation, and retain only `report.json` for 30 days.
+Missing evidence, failed checkout, or unconfirmed cleanup fails the job. Never upload
+credentials or private session capabilities. Hard runner termination can prevent finalizers;
+the retained Worker alarm remains the fallback for closing its browser. Recovery uses
+the recorded Worker identity and does not require local deployment state.

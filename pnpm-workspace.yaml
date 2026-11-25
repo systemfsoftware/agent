@@ -1,6 +1,9 @@
 allowBuilds:
   dprint: true
   esbuild: false
+  onnxruntime-node: true
+  protobufjs: true
+  sharp: false
   workerd: true
 minimumReleaseAgeExclude:
   - "@systemfsoftware/oxlint-config-recommended"
@@ -14,6 +17,15 @@ minimumReleaseAgeExclude:
   - "@systemfsoftware/oxlint-config-rule-authoring@3.0.3"
 packages:
   - packages/*
+  - examples/*
+  - tooling/*
+  - docs
+catalogs:
+  docs:
+    typescript: 6.0.3
+patchedDependencies:
+  alchemy@2.0.0-beta.80: patches/alchemy@2.0.0-beta.80.patch
+
 catalog:
   "@arethetypeswrong/cli": "^0.18.5"
   "dprint": "^0.65.0"
@@ -57,6 +69,34 @@ catalog:
   "use-stick-to-bottom": "1.1.6"
   "react-dom": "19.2.8"
   "react": "19.2.8"
+  "@alchemy.run/cloudflare-runtime": "2.0.0-beta.80"
+  "@astrojs/starlight": "0.42.4"
+  "@cloudflare/sandbox": "0.13.0-next.830.1"
+  "@effect/ai-openai-compat": "4.1.2"
+  "@effect/atom-react": "4.1.2"
+  "@effect/platform-bun": "4.1.2"
+  "@fontsource-variable/ibm-plex-sans": "5.3.0"
+  "@fontsource/ibm-plex-mono": "5.3.0"
+  "@streamparser/json": "0.0.26"
+  "@tailwindcss/vite": "4.3.3"
+  "@tanstack/react-router": "1.170.18"
+  "@tanstack/react-start": "1.168.33"
+  "@vitejs/plugin-react": "6.0.4"
+  "@yielded/auth": "0.1.0-beta.47"
+  "@yielded/jose": "0.1.0-beta.47"
+  "@yielded/starlight-theme": "0.2.2"
+  "alchemy": "2.0.0-beta.80"
+  "astro": "7.3.5"
+  "@napi-rs/canvas": "1.0.8"
+  "drizzle-kit": "1.0.0-rc.4"
+  "drizzle-orm": "1.0.0-rc.4"
+  "expressive-code-twoslash": "0.6.1"
+  "isomorphic-git": "1.41.9"
+  "memfs": "4.71.0"
+  "satteri": "0.10.5"
+  "starlight-links-validator": "0.26.0"
+  "vite": "^7.3.8"
+  "wrangler": "4.123.0"
 overrides:
   "@effect/platform-node": "catalog:"
   "@effect/vitest": "catalog:"
