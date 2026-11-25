@@ -24,7 +24,7 @@ const conversation = Effect.gen(function*() {
 ```
 
 One Layer surrounds both Runs. In a server, keep the application Layer in one
-`ManagedRuntime`. The [runnable Node snippets](https://github.com/yielded-dev/agent/tree/main/docs/snippets/travel-planner)
+`ManagedRuntime`. The [runnable Node snippets](https://github.com/systemfsoftware/agent/tree/main/docs/snippets/travel-planner)
 show the imported definition and services.
 
 ## Choose the lifetime

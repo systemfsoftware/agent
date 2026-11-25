@@ -84,8 +84,8 @@ const renderImage = (page: SocialPage, mark: Image) => {
   context.font = '500 32px "Social Sans"'
   context.fillText('@systemfsoftware/agent', 132, 55)
 
-  const url = new URL(page.url)
-  const section = url.pathname.split('/')[1]
+  // The page path may be site-relative: no approved docs domain exists yet.
+  const section = page.url.replace(/^\/agent\//, '').split('/')[0]
 
   context.font = '20px "Social Mono"'
   context.fillStyle = '#e4dcff'
@@ -105,7 +105,7 @@ const renderImage = (page: SocialPage, mark: Image) => {
   context.fillRect(64, 548, 1072, 1)
   context.fillStyle = '#f8f9fb'
   context.font = '20px "Social Mono"'
-  context.fillText(`${url.host}${url.pathname === '/' ? '' : url.pathname}`, 64, 574)
+  context.fillText(page.url === '/' ? '' : page.url, 64, 574)
 
   return canvas.toBuffer('image/png')
 }

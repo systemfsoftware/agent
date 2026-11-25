@@ -68,5 +68,5 @@ Node's scoped delivery pump and Cloudflare maintenance recover retained deliveri
 They need a functioning host and available capacity. Child completion, report delivery, and the
 parent's response remain separate outcomes.
 
-See the [Cloudflare application](https://github.com/yielded-dev/agent/tree/main/examples/travel-planner)
+See the [Cloudflare application](https://github.com/systemfsoftware/agent/tree/main/examples/travel-planner)
 for a runnable host, and [operations](/guide/operations/) for observing and controlling accepted work.

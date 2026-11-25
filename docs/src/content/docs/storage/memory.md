@@ -25,7 +25,7 @@ const conversation = Effect.gen(function*() {
 ```
 
 Supply the agent's model and tool services around this program. The
-[runnable planner](https://github.com/yielded-dev/agent/tree/main/docs/snippets/travel-planner)
+[runnable planner](https://github.com/systemfsoftware/agent/tree/main/docs/snippets/travel-planner)
 contains the complete setup.
 
 ## Share the application Scope

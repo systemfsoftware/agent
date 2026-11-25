@@ -54,8 +54,8 @@ execution slot while waiting and recovers the same child after restart. Parent a
 to attached children. Sibling calls may run concurrently, but the parent model receives the
 complete batch before continuing.
 
-Run the [in-memory example](https://github.com/yielded-dev/agent/blob/main/docs/snippets/travel-planner/delegation-main.ts),
-or use the [durable host assembly](https://github.com/yielded-dev/agent/blob/main/docs/snippets/travel-planner/durable-delegation-host.ts)
+Run the [in-memory example](https://github.com/systemfsoftware/agent/blob/main/docs/snippets/travel-planner/delegation-main.ts),
+or use the [durable host assembly](https://github.com/systemfsoftware/agent/blob/main/docs/snippets/travel-planner/durable-delegation-host.ts)
 with the [Node host](/platforms/node/).
 
 ## Continue work in the background
@@ -74,7 +74,7 @@ Add `reporting: [Subagent.reporting(delegation)]` to the parent registration so 
 send framework messages to it. Declare `updates` on the child for structured intermediate findings.
 Reporting and destination processing can fail independently of the child outcome. Reports are
 untrusted model context, not instructions.
-The [background example](https://github.com/yielded-dev/agent/blob/main/docs/snippets/travel-planner/background-main.ts)
+The [background example](https://github.com/systemfsoftware/agent/blob/main/docs/snippets/travel-planner/background-main.ts)
 includes declarations, access policy, and host wiring.
 
 ## Lifecycle and limits

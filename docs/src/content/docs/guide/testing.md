@@ -50,7 +50,7 @@ Choose assertions for your integration's actual risks: authorized tools, expecte
 cleanup, or the outcome after restart. A scripted model proves how the runtime handles the supplied
 response; it does not prove that a real model will choose that response.
 
-The [testing package](https://github.com/yielded-dev/agent/tree/main/packages/testing) includes
+The [testing package](https://github.com/systemfsoftware/agent/tree/main/packages/testing) includes
 executable travel-planner and researcher fixtures. Use live evaluation separately when the question
 is model quality.
 
@@ -66,7 +66,7 @@ as `it.effect`. Provide one combined Layer containing `SubmissionLedger`, `Threa
 `SettlementPublisher`, `StorageOwner`, and `Digest` from `effect/crypto/Digest`. Use pristine disposable storage with native
 Thread verification. The helper discovers six scenario paths, injects faults, and checks bounded
 recovery through settled history; violations fail with `DurableCoordinatorConformanceViolation`.
-See the [coordinator conformance module](https://github.com/yielded-dev/agent/blob/main/packages/testing/src/DurableCoordinatorConformance.ts)
+See the [coordinator conformance module](https://github.com/systemfsoftware/agent/blob/main/packages/testing/src/DurableCoordinatorConformance.ts)
 for its contract.
 
 Injected faults do not establish recovery after process loss or eviction. Exercise actual restarts

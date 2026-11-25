@@ -7,7 +7,8 @@ import { snippetPlugins } from './integrations/snippets.ts'
 import { socialImages } from './integrations/social-images.ts'
 
 export default defineConfig({
-  site: 'https://github.com/systemfsoftware/agent',
+  // No `site` until an approved documentation domain exists: a repository URL is not a docs
+  // origin, and absolute canonical or social URLs built from it would 404.
   base: '/agent',
   trailingSlash: 'always',
   integrations: [

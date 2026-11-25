@@ -1,3 +1,8 @@
+> This example was written against the previous project's hosted identity service
+> (`auth.yielded.dev`), its Cloudflare zones and its account model. Deploying it from this
+> repository needs an equivalent identity service and an approved domain; until then it runs
+> locally and its deployment configuration is inert.
+
 # Travel planner
 
 An Effect Agent example for planning trips through chat or voice, researching destinations

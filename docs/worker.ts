@@ -1,5 +1,3 @@
-import { legacyDocsHosts, legacyDocsTarget } from './legacy-redirect.ts'
-
 // Docs assets are stored under /agent/, and Cloudflare's HTML handling redirects
 // with that prefix already attached. This Worker does not strip it.
 //
@@ -44,19 +42,9 @@ const permanentDirectoryRedirect = (requestUrl: URL): Response => {
   return Response.redirect(target, 308)
 }
 
-const legacyRedirect = (url: URL): Response => {
-  const target = new URL(legacyDocsTarget(url.pathname))
-
-  target.search = url.search
-
-  return Response.redirect(target, 301)
-}
-
 export default {
   async fetch(request: Request, env: DocsAssets): Promise<Response> {
     const url = new URL(request.url)
-
-    if (legacyDocsHosts.has(url.hostname)) return legacyRedirect(url)
 
     if (directoryRedirects.has(url.pathname)) return permanentDirectoryRedirect(url)
 

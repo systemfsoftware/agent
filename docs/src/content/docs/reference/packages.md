@@ -93,13 +93,13 @@ before choosing an adapter.
 
 ## GitHub Action
 
-The [review Action](https://github.com/yielded-dev/agent/blob/main/action/README.md)
+The [review Action](https://github.com/systemfsoftware/agent/blob/main/action/README.md)
 adds GitHub integration and report publication around the review library.
 
 <a id="leaf-examples"></a>
 
 ## Examples
 
-Start with the [runnable planner](https://github.com/yielded-dev/agent/tree/main/docs/snippets/travel-planner)
-or the [Cloudflare application](https://github.com/yielded-dev/agent/tree/main/examples/travel-planner).
+Start with the [runnable planner](https://github.com/systemfsoftware/agent/tree/main/docs/snippets/travel-planner)
+or the [Cloudflare application](https://github.com/systemfsoftware/agent/tree/main/examples/travel-planner).
 These show complete service composition through public imports.

@@ -24,8 +24,9 @@ pnpm --filter <package> test
 
 `package.json` owns what each script runs, so read it before you assume. `pnpm check:exports`,
 `pnpm check:record-format`, `pnpm check:package-purity` and `pnpm check:pack` guard the published
-surface. A pull request merges through the Mergify queue when it is available; otherwise it merges with
-`gh pr merge <n> --squash --admin` once its required checks pass. Never pass `--no-verify`.
+surface. A pull request merges through the Mergify queue when its `Mergify Merge Queue` check is on
+the pull request; otherwise it merges with `gh pr merge <n> --squash --admin` once its required checks
+pass. Never pass `--no-verify`.
 
 Use an Effect API only if it exists in the installed `node_modules/effect`, which the pnpm catalog pins.
 

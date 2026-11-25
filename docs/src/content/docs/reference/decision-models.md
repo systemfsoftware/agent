@@ -59,7 +59,7 @@ and a shared `SelectionStore` around this workflow. Keep selection and execution
 the caller's Scope and deadline; the Agent's generation budget starts after selection. Resolving the
 same Thread reuses its committed choice. Child agents use their configured
 native model; a separate per-child choice requires explicit host resolution.
-The [complete example](https://github.com/yielded-dev/agent/blob/main/docs/snippets/travel-planner/auto-model.ts)
+The [complete example](https://github.com/systemfsoftware/agent/blob/main/docs/snippets/travel-planner/auto-model.ts)
 includes provider and store wiring shared across two requests.
 
 ### Configuration and records
@@ -97,7 +97,7 @@ There are no implicit retries, fallback models, thresholds, or mid-Thread switch
 `LanguageModelDecisionModel.layer` requires a native `LanguageModel` supporting
 structured output and provides `DecisionModel`. All decisions share one
 `generateObject` call. Probabilities are model estimates. The
-[provider-neutral example](https://github.com/yielded-dev/agent/blob/main/packages/ai-decision/examples/language-model.ts)
+[provider-neutral example](https://github.com/systemfsoftware/agent/blob/main/packages/ai-decision/examples/language-model.ts)
 shows the composition.
 
 ## TypeSafe client
@@ -118,5 +118,5 @@ allows two-decimal rounding drift and rescales accepted distributions.
 Input encoding failures use `InvalidUserInputError`; invalid answers use
 `InvalidOutputError`. Structured-output and provider failures retain their typed
 errors. Compose retries and timeouts explicitly. Read the
-[decision example](https://github.com/yielded-dev/agent/blob/main/packages/ai-decision/examples/decision.ts)
+[decision example](https://github.com/systemfsoftware/agent/blob/main/packages/ai-decision/examples/decision.ts)
 for ordinary assessments without model selection.

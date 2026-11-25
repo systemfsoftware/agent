@@ -27,7 +27,7 @@ const TravelToolsLive = TravelTools.toLayer({
 
 Set the Agent's `toolkit` to `TravelTools` and provide `TravelToolsLive` alongside the model Layer.
 Replace the sample data with an application service; its errors and dependencies remain visible
-in Effect. The [travel-planner snippets](https://github.com/yielded-dev/agent/tree/main/docs/snippets/travel-planner)
+in Effect. The [travel-planner snippets](https://github.com/systemfsoftware/agent/tree/main/docs/snippets/travel-planner)
 show complete composition.
 
 ## Run batches deterministically

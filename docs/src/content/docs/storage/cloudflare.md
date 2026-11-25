@@ -14,7 +14,7 @@ owns a Thread.
 
 Use [`ThreadObject.make`](/platforms/cloudflare/#create-the-thread-object) for the
 complete host. It assembles the stores, registered agents, admission, and alarm-driven
-recovery. The [runnable travel planner](https://github.com/yielded-dev/agent/tree/main/examples/travel-planner)
+recovery. The [runnable travel planner](https://github.com/systemfsoftware/agent/tree/main/examples/travel-planner)
 shows the Worker and Object together. No additional storage Layer is needed there.
 
 For example, the planner's Thread Object retains accepted input while the user's
@@ -26,7 +26,7 @@ canonical history; Object-local live text is only a provisional preview.
 For an application-owned Object, use
 [`ThreadObject.layerInHost`](/platforms/cloudflare/#share-an-application-object).
 Share one Effect SQL client and mutation gate with its related application state.
-The [shared-owner example](https://github.com/yielded-dev/agent/blob/main/packages/platform-cloudflare/examples/shared-owner.ts)
+The [shared-owner example](https://github.com/systemfsoftware/agent/blob/main/packages/platform-cloudflare/examples/shared-owner.ts)
 shows the composition.
 
 `@systemfsoftware/agent-storage-cloudflare` also exposes `DoThreadStore` and

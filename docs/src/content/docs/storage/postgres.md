@@ -31,7 +31,7 @@ const History = PersistentHistory.layer.pipe(Layer.provideMerge(Persistence))
 Install `@systemfsoftware/agent-storage-postgres@beta` and `@effect/sql-pg` alongside your
 Effect and platform packages. Create the database and set `DATABASE_URL` in the
 host environment. Provide `History` around `AgentRuntime.run`, plus model and tool
-services, as in the [planner example](https://github.com/yielded-dev/agent/tree/main/docs/snippets/travel-planner).
+services, as in the [planner example](https://github.com/systemfsoftware/agent/tree/main/docs/snippets/travel-planner).
 Reuse the returned Thread ID for follow-ups.
 
 ## What is retained

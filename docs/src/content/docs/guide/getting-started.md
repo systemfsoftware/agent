@@ -69,7 +69,7 @@ Share the same `InMemory.layer` across Runs and pass the returned `threadId` for
 input. Providing a fresh Layer around each call creates a separate store. History lasts
 until its owner Scope closes; active execution has no process-loss recovery.
 
-The repository has [complete runnable snippets](https://github.com/yielded-dev/agent/tree/main/docs/snippets/travel-planner)
-and a [Cloudflare travel planner](https://github.com/yielded-dev/agent/tree/main/examples/travel-planner).
+The repository has [complete runnable snippets](https://github.com/systemfsoftware/agent/tree/main/docs/snippets/travel-planner)
+and a [Cloudflare travel planner](https://github.com/systemfsoftware/agent/tree/main/examples/travel-planner).
 Next, [add tools](/guide/tools/), [stream progress](/guide/run-agents/), or choose
 [what the Thread retains](/guide/threads/).

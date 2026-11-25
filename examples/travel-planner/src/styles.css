@@ -2512,7 +2512,7 @@
   color: inherit;
 }
 
-/* Sign-in uses the yielded.dev tokens (@yielded/starlight-theme) with the Agent accent.
+/* Sign-in uses the external identity tokens (@yielded/starlight-theme) with the Agent accent.
    Dark is the default; light follows the system. The planner keeps its own palette. */
 .login-page {
   color-scheme: dark;
