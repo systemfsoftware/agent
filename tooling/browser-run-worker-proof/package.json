@@ -1,0 +1,30 @@
+{
+  "name": "@systemfsoftware/agent-example-browser-run-worker-proof",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prove:live": "vitest run --config vite.live.config.ts",
+    "typecheck": "effect-tsgo tsrs --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@effect/ai-openai": "catalog:",
+    "@effect/platform-browser": "catalog:",
+    "@effect/platform-node": "catalog:",
+    "@systemfsoftware/agent": "workspace:*",
+    "@systemfsoftware/agent-platform-cloudflare": "workspace:*",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
+    "@effect/vitest": "catalog:",
+    "@types/node": "catalog:",
+    "alchemy": "catalog:",
+    "esbuild": "catalog:",
+    "miniflare": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:",
+    "wrangler": "catalog:"
+  }
+}

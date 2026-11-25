@@ -1,0 +1,238 @@
+import { OpenAiClient, OpenAiLanguageModel, OpenAiTool } from '@effect/ai-openai'
+import { Effect, Layer, Redacted, Result, Schema, Stream } from 'effect'
+import { AiError, LanguageModel, Model } from 'effect/ai'
+import { FetchHttpClient, HttpClient, HttpClientError, HttpClientRequest } from 'effect/http'
+
+import { type PlannerError, type PlannerSettings } from '../domain.ts'
+import { credentialForOwner } from './credentials.ts'
+import { recordDiagnostic } from './diagnostics.ts'
+import { PlannerAttempt, type ProgressWriter } from './progress.ts'
+import { PublicOutputLive } from './public-output.ts'
+
+const PublicProviderEvent = Schema.Union([
+  Schema.Struct({
+    type: Schema.Literals(['response.output_item.added', 'response.output_item.done']),
+    item: Schema.Union([
+      Schema.Struct({
+        type: Schema.Literal('web_search_call'),
+        id: Schema.String,
+        status: Schema.String,
+        action: Schema.optionalKey(Schema.Unknown),
+      }),
+      Schema.Struct({
+        type: Schema.Literal('function_call'),
+        id: Schema.String,
+        name: Schema.String,
+      }),
+    ]),
+  }),
+])
+
+const searchParameters = OpenAiTool.WebSearch({}).parametersSchema
+
+/** Observe typed public SSE events without altering the stream consumed by Effect AI. */
+export const observeOpenAi = (
+  client: OpenAiClient.Service,
+  writer: ProgressWriter,
+): OpenAiClient.Service => ({
+  ...client,
+  createResponseStream: (request) =>
+    Effect.suspend(() => {
+      return client.createResponseStream(request).pipe(
+        Effect.tapCause((cause) =>
+          recordDiagnostic('OpenAI: response request failed', {
+            request: {
+              model: request.model,
+              reasoning: request.reasoning,
+              serviceTier: request.service_tier,
+              maxOutputTokens: request.max_output_tokens,
+              maxToolCalls: request.max_tool_calls,
+            },
+            cause,
+          })
+        ),
+        Effect.map(
+          ([response, events]) =>
+            [
+              response,
+              events.pipe(
+                Stream.tapCause((cause) =>
+                  recordDiagnostic('OpenAI: response stream failed', {
+                    model: request.model,
+                    response: { status: response.status, headers: response.headers },
+                    cause,
+                  })
+                ),
+                Stream.tap((event) => {
+                  if (
+                    event.type === 'error' ||
+                    event.type === 'response.failed' ||
+                    event.type === 'response.incomplete'
+                  ) {
+                    return recordDiagnostic(`OpenAI: ${event.type}`, event)
+                  }
+                  const decoded = Schema.decodeUnknownOption(PublicProviderEvent)(event)
+
+                  if (decoded._tag === 'None') return Effect.void
+                  const visible = decoded.value
+
+                  if (
+                    visible.type === 'response.output_item.added' ||
+                    visible.type === 'response.output_item.done'
+                  ) {
+                    if (visible.item.type === 'function_call') {
+                      return Effect.void
+                    }
+
+                    const progress = writer.tool(
+                      visible.item.id,
+                      'Searching the web',
+                      visible.type === 'response.output_item.added'
+                        ? 'running'
+                        : visible.item.status === 'completed'
+                        ? 'complete'
+                        : visible.item.status === 'failed'
+                        ? 'failed'
+                        : 'incomplete',
+                    )
+
+                    // The native provider decoder can reject an action even when OpenAI
+                    // reports success. Retain just this public item, through the existing
+                    // redaction boundary, so the upstream mismatch is diagnosable. Do not
+                    // rewrite it, invent search results, or replay the failed model turn.
+                    if (
+                      visible.type === 'response.output_item.done' &&
+                      !Schema.is(searchParameters)({ action: visible.item.action })
+                    ) {
+                      return recordDiagnostic('OpenAI web search: invalid action', visible, {
+                        toolCallId: visible.item.id,
+                      }).pipe(Effect.andThen(progress))
+                    }
+
+                    return visible.type === 'response.output_item.done' &&
+                        visible.item.status !== 'completed'
+                      ? recordDiagnostic(`OpenAI web search: ${visible.item.status}`, event, {
+                        toolCallId: visible.item.id,
+                      }).pipe(Effect.andThen(progress))
+                      : progress
+                  }
+
+                  return Effect.void
+                }),
+              ),
+            ] as const,
+        ),
+      )
+    }),
+})
+
+export const selectedModelConfig = (settings: PlannerSettings) =>
+  ({
+    store: false,
+    max_output_tokens: 16_384,
+    // OpenAI ignores additional built-in attempts after this per-response allowance.
+    max_tool_calls: 4,
+    // Built-in search limits do not constrain native function calls or completion batches.
+    parallel_tool_calls: false,
+    reasoning: { effort: settings.reasoningEffort },
+    service_tier: settings.fast ? 'fast' : 'default',
+  }) as const
+
+const unavailableModel = (error: PlannerError) => {
+  const failure = AiError.make({
+    module: 'TravelPlanner',
+    method: 'selectModel',
+    reason: AiError.InvalidRequestError.make({ description: error.message }),
+  })
+
+  return Model.make(
+    'openai',
+    'unavailable',
+    Layer.effect(
+      LanguageModel.LanguageModel,
+      LanguageModel.make({
+        generateText: () => Effect.fail(failure),
+        streamText: () => Stream.fail(failure),
+      }),
+    ),
+  )
+}
+
+// The pinned provider accepts only URL sources, but OpenAI also returns live feeds.
+// Omit the optional inventory until upstream supports those sources. Answer citations
+// arrive separately in output-text annotations and remain available.
+const withoutSearchSources = (request: Parameters<OpenAiClient.Service['createResponse']>[0]) =>
+  request.include === undefined || request.include === null
+    ? request
+    : {
+      ...request,
+      include: request.include.filter((value) => value !== 'web_search_call.action.sources'),
+    }
+
+/** Resolve on each HTTP request so removal/rotation also affects running durable workers.
+ * Capture required services when constructing the provider adapter, never the resolved key.
+ * An already dispatched provider request may finish; subsequent requests still require the account’s own key.
+ */
+export const credentialClient = Effect.fn('credentialClient')(function*<R>(
+  key: Effect.Effect<Redacted.Redacted<string>, PlannerError, R>,
+) {
+  const context = yield* Effect.context<R>()
+
+  const client = yield* OpenAiClient.make({
+    transformClient: (client) =>
+      HttpClient.mapRequestEffect(client, (request) =>
+        key.pipe(
+          Effect.provideContext(context),
+          Effect.map((apiKey) => HttpClientRequest.bearerToken(request, Redacted.value(apiKey))),
+          Effect.mapError(
+            (error) =>
+              new HttpClientError.HttpClientError({
+                reason: new HttpClientError.TransportError({ request, description: error.message }),
+              }),
+          ),
+        )),
+  })
+
+  return OpenAiClient.OpenAiClient.of({
+    ...client,
+    createResponse: (request) => client.createResponse(withoutSearchSources(request)),
+    createResponseStream: (request) => client.createResponseStream(withoutSearchSources(request)),
+  })
+})
+
+/** Settings are read once from the trusted claimed Submission, not from model prompts. */
+export const selectableModel = <R = never>(
+  resolve: Redacted.Redacted<string> | Effect.Effect<Redacted.Redacted<string>, PlannerError, R>,
+) =>
+  Layer.unwrap(
+    Effect.gen(function*() {
+      const attempt = yield* PlannerAttempt
+      const selected = yield* Effect.result(attempt.settings)
+
+      if (Result.isFailure(selected)) return unavailableModel(selected.failure)
+      const settings = selected.success
+
+      const client = Layer.effect(
+        OpenAiClient.OpenAiClient,
+        Effect.map(
+          credentialClient(Redacted.isRedacted(resolve) ? Effect.succeed(resolve) : resolve),
+          (base) => observeOpenAi(base, attempt.progress),
+        ),
+      ).pipe(Layer.provide(FetchHttpClient.layer))
+
+      const model = OpenAiLanguageModel.model(settings.model, selectedModelConfig(settings)).pipe(
+        Layer.provide(client),
+      )
+
+      return PublicOutputLive.pipe(Layer.provideMerge(model))
+    }),
+  )
+
+/** Production resolves the personal key for the canonical account. */
+export const liveModel = selectableModel(
+  Effect.gen(function*() {
+    const attempt = yield* PlannerAttempt
+
+    return yield* credentialForOwner(yield* attempt.billingOwner)
+  }),
+)

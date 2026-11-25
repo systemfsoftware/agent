@@ -27,3 +27,5 @@ test/fixtures/*.d.ts
 .direnv/
 /result
 /result-*
+# Astro build cache and generated content types
+.astro/

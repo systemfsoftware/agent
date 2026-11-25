@@ -1,0 +1,19 @@
+{
+  "name": "@systemfsoftware/agent-example-auth",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./cloudflare": "./src/cloudflare.ts",
+    "./client": "./src/client.ts",
+    "./contract": "./src/contract.ts",
+    "./server": "./src/server.ts"
+  },
+  "dependencies": {
+    "@yielded/auth": "catalog:",
+    "@yielded/jose": "catalog:",
+    "effect": "catalog:",
+    "effect-cf": "catalog:"
+  },
+  "scripts": {}
+}

@@ -1,0 +1,52 @@
+{
+  "name": "@systemfsoftware/agent-example-travel-planner",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "alchemy dev alchemy.run.ts"
+  },
+  "dependencies": {
+    "@base-ui/react": "catalog:",
+    "@cloudflare/sandbox": "catalog:",
+    "@effect/ai-openai": "catalog:",
+    "@effect/atom-react": "catalog:",
+    "@effect/platform-browser": "catalog:",
+    "@effect/sql-sqlite-do": "catalog:",
+    "@streamparser/json": "catalog:",
+    "@tanstack/react-router": "catalog:",
+    "@tanstack/react-start": "catalog:",
+    "@systemfsoftware/agent": "workspace:*",
+    "@systemfsoftware/agent-example-auth": "workspace:*",
+    "@systemfsoftware/agent-platform-cloudflare": "workspace:*",
+    "@systemfsoftware/agent-storage-cloudflare": "workspace:*",
+    "@systemfsoftware/agent-testing": "workspace:*",
+    "@systemfsoftware/ui": "workspace:*",
+    "effect": "catalog:",
+    "effect-cf": "catalog:",
+    "isomorphic-git": "catalog:",
+    "lucide-react": "catalog:",
+    "memfs": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "streamdown": "catalog:"
+  },
+  "devDependencies": {
+    "@alchemy.run/cloudflare-runtime": "catalog:",
+    "@cloudflare/workers-types": "catalog:",
+    "@effect/platform-node": "catalog:",
+    "@effect/vitest": "catalog:",
+    "@tailwindcss/vite": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "@yielded/auth": "catalog:",
+    "esbuild": "catalog:",
+    "miniflare": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

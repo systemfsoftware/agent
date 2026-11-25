@@ -1,0 +1,28 @@
+{
+  "name": "@systemfsoftware/agent-example-pr-review-eval",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "effect-tsgo tsrs --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@effect/ai-openai": "catalog:",
+    "@effect/platform-node": "catalog:",
+    "@systemfsoftware/agent-pr-review": "workspace:*",
+    "@systemfsoftware/agent-pr-review-action": "workspace:*",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/vitest": "catalog:",
+    "@systemfsoftware/agent-testing": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

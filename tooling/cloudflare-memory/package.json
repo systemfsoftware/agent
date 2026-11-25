@@ -1,0 +1,28 @@
+{
+  "name": "@systemfsoftware/agent-example-cloudflare-memory",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "measure": "node src/measure-main.ts",
+    "measure:heap": "node src/heap-main.ts",
+    "typecheck": "effect-tsgo tsrs --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@effect/platform-node": "catalog:",
+    "@systemfsoftware/agent": "workspace:*",
+    "@systemfsoftware/agent-platform-cloudflare": "workspace:*",
+    "@systemfsoftware/agent-storage-cloudflare": "workspace:*",
+    "effect": "catalog:",
+    "effect-cf": "catalog:"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
+    "@types/node": "catalog:",
+    "esbuild": "catalog:",
+    "miniflare": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "wrangler": "catalog:"
+  }
+}
