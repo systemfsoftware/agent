@@ -55,7 +55,7 @@ jobs:
   changeset:
     name: change intent
     if: github.event_name == 'pull_request' && github.head_ref != 'changeset-release/main'
-    uses: systemfsoftware/pnpm-release-management/.github/workflows/changeset-check.yml@1e897828d917341fb7dd444c7bbd6cfa0998caa9
+    uses: systemfsoftware/pnpm-release-management/.github/workflows/changeset-check.yml@ea9d020a3ffd18fa34b85e39c1655b0756109f2b
     permissions:
       contents: read
       pull-requests: read
