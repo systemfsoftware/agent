@@ -16,6 +16,7 @@ for navigation and input. Your application owns destination access, credentials,
 | Render content, links, or selector groups        | PageCapture with Quick Actions            | Cloudflare browser binding                                     |
 | Capture a page from Node or a Worker             | PageCapture with REST                     | Account ID, redacted token, Effect HttpClient                  |
 | Take an ephemeral PNG or JPEG screenshot         | PageScreenshot with Quick Actions         | Cloudflare browser binding                                     |
+| Inspect a page's errors, script and screenshots  | PageInspection with Browser Sessions      | Cloudflare browser binding, optional lifecycle credentials     |
 | Let an agent navigate and interact with websites | BrowserUse + Code Mode + Browser Sessions | Worker Loader, browser binding, optional lifecycle credentials |
 
 ## Capture a page
@@ -75,6 +76,30 @@ image format (`PageScreenshotPng`, or `PageScreenshotJpeg` with a `quality` from
 viewport, resource policy, navigation options, and byte limit. Authorize the URL before capture
 and recheck authority before publishing the result. Interrupting local waiting for a Quick Action
 does not confirm termination of its unresolved remote browser request.
+
+## Inspect a page
+
+`PageInspection` runs one pass in a single browser session and closes it. Use it to check a page you
+serve: it reports the document `status`, a named `responseHeader` and the `landedUrl`; console errors
+and uncaught page errors (`findings`); failed requests and responses with status 400 or above
+(`failedRequests`); the JSON value of one `script`; and one screenshot per named viewport. Listeners
+attach before navigation, so errors during load are included. `browserSessionInspectionLayer` from
+`@systemfsoftware/agent-platform-cloudflare/browser-inspection` implements it over `BrowserSessions`.
+
+- `readiness` waits after the load event for `pageFunction` to become truthy and for the network to
+  stay idle for `networkIdleMillis`. If either does not hold within `timeoutMillis`, the pass
+  continues with `PageReadyTimedOut`, carrying the value of `pendingFunction` when you give one.
+- `ignoreFailedRequests` lists the requests that are expected to fail on your pages. A rule matches by
+  `urlPrefix`, and optionally by `resourceType` and `status`.
+- `viewports` are named; the first applies before navigation and later ones resize the same page.
+  Each has its own `PageScreenshotPng` or `PageScreenshotJpeg` format.
+- Navigation that lands outside `allowedOrigins` (default: the target's origin), checked after load and again after readiness, fails with
+  `PageInspectionOriginRefusedError` before readiness functions or the script run there.
+- A pass that never reaches the page returns `PageInspectionNotRun` with `BrowserUnavailable`,
+  `ConcurrencyLimited`, `OriginUnreachable` or `NavigationTimedOut`, not an error.
+
+`timings` reports `launchMillis` (opening the session), `readyMillis` (navigation start until
+readiness) and `totalMillis`. Everything the pass returns is page-influenced, untrusted content.
 
 ## Interact with a browser
 

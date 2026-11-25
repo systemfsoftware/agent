@@ -13,7 +13,10 @@ import {
   PageResourcePolicy,
   PageViewport,
 } from './PageCapture'
+import { PageScreenshotFormat } from './PageScreenshot.schema'
 import { SandboxImplementation } from './Sandbox'
+
+export { PageScreenshotFormat, PageScreenshotJpeg, PageScreenshotPng } from './PageScreenshot.schema'
 
 const MAX_SCREENSHOT_BYTES = 8 * 1024 * 1024
 const PositiveInt = Schema.Int.check(Schema.isGreaterThan(0))
@@ -24,18 +27,6 @@ export class PageScreenshotLimits extends Schema.Class<PageScreenshotLimits>(
 )({
   maxOutputBytes: PositiveInt.check(Schema.isLessThanOrEqualTo(MAX_SCREENSHOT_BYTES)),
 }) {}
-
-/** Lossless PNG encoding. */
-export class PageScreenshotPng extends Schema.TaggedClass<PageScreenshotPng>()('PageScreenshotPng', {}) {}
-
-/** Lossy JPEG encoding at a quality from 0 (smallest) to 100 (best). */
-export class PageScreenshotJpeg extends Schema.TaggedClass<PageScreenshotJpeg>()('PageScreenshotJpeg', {
-  quality: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(100)),
-}) {}
-
-/** The image encoding. Only JPEG carries a quality. */
-export const PageScreenshotFormat = Schema.Union([PageScreenshotPng, PageScreenshotJpeg])
-export type PageScreenshotFormat = typeof PageScreenshotFormat.Type
 
 /** Schema-first request for exactly one screenshot in the requested format. */
 export class PageScreenshotRequest extends Schema.Class<PageScreenshotRequest>(

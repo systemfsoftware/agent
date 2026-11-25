@@ -1,5 +1,6 @@
 export * as Alarm from './Alarm'
 export * as BrowserCredentials from './BrowserCredentials'
+export * as BrowserInspection from './BrowserInspection'
 export * as BrowserSession from './BrowserSession'
 export * as BrowserUse from './BrowserUse'
 export * as CloudflareAiGateway from './CloudflareAiGateway'

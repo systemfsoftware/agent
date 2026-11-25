@@ -3,15 +3,9 @@ import * as Schema from 'effect/Schema'
 const BoundedName = Schema.NonEmptyString.check(Schema.isMaxLength(256))
 const PositiveInt = Schema.Int.check(Schema.isGreaterThan(0))
 
-export const SANDBOX_DIAGNOSTIC_MAX_LENGTH = 8 * 1024
+export { SandboxImplementation } from './Sandbox.schema'
 
-/** The implementation and its isolation posture that executed a request. */
-export class SandboxImplementation extends Schema.Class<SandboxImplementation>(
-  'SandboxImplementation',
-)({
-  isolation: Schema.Literals(['isolated', 'unisolated']),
-  identity: BoundedName,
-}) {}
+export const SANDBOX_DIAGNOSTIC_MAX_LENGTH = 8 * 1024
 
 /** Explicitly denies all workload network access. */
 export class NetworkDisabled extends Schema.TaggedClass<NetworkDisabled>()('NetworkDisabled', {}) {}

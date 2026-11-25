@@ -100,7 +100,8 @@ ledger.
 Persisted settings use layout 32 on SQLite, Durable Object SQLite and PostgreSQL. It adds a nullable
 `run_settings_json` column to `effect_agent_submissions`; layouts 25 to 31 upgrade in place.
 
-Every `RunHostControl` request carries `runStartedAtMillis`: the epoch milliseconds of the Run's
-canonical `RunStarted` record. Each Attempt, including one after the host restarts, sees the same
-value, so a clock shown to users can be derived from it rather than from process memory. The
-`transientContext.load` and `context.prepare` requests carry the same value for durable Runs.
+The `beforeTurn`, `beforeModelCall` and `exemptToolResult` requests carry `runStartedAtMillis`:
+the epoch milliseconds of the Run's canonical `RunStarted` record. Each Attempt, including one after
+the host restarts, sees the same value, so a clock shown to users can be derived from it rather than
+from process memory. The `transientContext.load` and `context.prepare` requests carry the same value
+for durable Runs; `resolveModel` does not.

@@ -3,7 +3,10 @@ import type * as Effect from 'effect/Effect'
 import * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'
 
+import { PageResourceType, PageViewport } from './PageCapture.schema'
 import { SANDBOX_DIAGNOSTIC_MAX_LENGTH, SandboxImplementation } from './Sandbox'
+
+export { PageResourceType, PageViewport } from './PageCapture.schema'
 
 /**
  * Page capture (capability spec §9.2): one stateless, schema-first rendering
@@ -152,12 +155,6 @@ export class PageNavigationOptions extends Schema.Class<PageNavigationOptions>(
   waitForSelector: Schema.optionalKey(PageSelectorWait),
 }) {}
 
-/** The rendered viewport. */
-export class PageViewport extends Schema.Class<PageViewport>('PageViewport')({
-  width: PositiveInt.check(Schema.isLessThanOrEqualTo(7_680)),
-  height: PositiveInt.check(Schema.isLessThanOrEqualTo(7_680)),
-}) {}
-
 /**
  * Request egress policy for the render. Rejected resource types are never
  * fetched; when request patterns are given, only matching navigation,
@@ -166,25 +163,7 @@ export class PageViewport extends Schema.Class<PageViewport>('PageViewport')({
  * JavaScript cannot escape the same construction-time authority.
  */
 export class PageResourcePolicy extends Schema.Class<PageResourcePolicy>('PageResourcePolicy')({
-  rejectResourceTypes: Schema.optionalKey(
-    Schema.Array(
-      Schema.Literals([
-        'document',
-        'stylesheet',
-        'image',
-        'media',
-        'font',
-        'script',
-        'texttrack',
-        'xhr',
-        'fetch',
-        'eventsource',
-        'websocket',
-        'manifest',
-        'other',
-      ]),
-    ).check(Schema.isMaxLength(16)),
-  ),
+  rejectResourceTypes: Schema.optionalKey(Schema.Array(PageResourceType).check(Schema.isMaxLength(16))),
   allowRequestPatterns: Schema.optionalKey(
     Schema.Array(BoundedPattern).check(Schema.isMaxLength(64)),
   ),
