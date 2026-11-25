@@ -1137,6 +1137,12 @@ const makeServices = Effect.fnUntraced(function*() {
               existing[0].admission_fence_json,
             ).pipe(Effect.mapError(internalFailure(operation)))
 
+          const retainedRunSettings = existing[0].run_settings_json === null
+            ? undefined
+            : yield* decodeRunSettingsJson(existing[0].run_settings_json).pipe(
+              Effect.mapError(internalFailure(operation)),
+            )
+
           if (
             (existing[0].admission_group ?? undefined) !== validated.admissionGroup ||
             !Schema.toEquivalence(Schema.optional(WorkerAdmission))(
@@ -1150,6 +1156,10 @@ const makeServices = Effect.fnUntraced(function*() {
             !Schema.toEquivalence(Schema.optional(AdmissionFence))(
               retainedFence,
               validated.admissionFence,
+            ) ||
+            !Schema.toEquivalence(Schema.optional(RunSettings))(
+              retainedRunSettings,
+              validated.runSettings,
             )
           ) {
             return yield* AdmissionConflict.make({

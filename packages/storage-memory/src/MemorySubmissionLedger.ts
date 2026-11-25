@@ -79,6 +79,7 @@ import {
   ReleaseChildBudgetRequest,
   ReservedChildBudget,
   RevertJoiningRequest,
+  RunSettings,
   Settlement,
   SettlementConflict,
   settlementFailureFromRecord,
@@ -857,6 +858,10 @@ const makeSubmissionLedger = Effect.fnUntraced(
               !Schema.toEquivalence(Schema.optional(Schema.Json))(
                 existing.row.admissionFence,
                 request.admissionFence,
+              ) ||
+              !Schema.toEquivalence(Schema.optional(RunSettings))(
+                existing.row.runSettings,
+                request.runSettings,
               )
             ) {
               return [
