@@ -21,7 +21,8 @@
     "check:package-purity": "node scripts/verify-package-purity.ts",
     "check:pack": "pnpm -r --filter './packages/*' run check:pack",
     "action:build": "node scripts/build-action.ts",
-    "ready": "dprint check && pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+    "ready": "dprint check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "check:gritlint": "nix run .#gritlint -- check ."
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.4",

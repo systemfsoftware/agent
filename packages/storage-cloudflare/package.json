@@ -94,7 +94,8 @@
         "types": "./dist/DoMessageDeliveryStore.d.mts",
         "default": "./dist/DoMessageDeliveryStore.mjs"
       }
-    }
+    },
+    "provenance": true
   },
   "scripts": {
     "build": "tsdown",

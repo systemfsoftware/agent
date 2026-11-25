@@ -129,7 +129,8 @@
         "types": "./dist/SqlCanonicalStorage.d.mts",
         "default": "./dist/SqlCanonicalStorage.mjs"
       }
-    }
+    },
+    "provenance": true
   },
   "scripts": {
     "build": "tsdown",

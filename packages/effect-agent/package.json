@@ -579,7 +579,8 @@
         "types": "./dist/capabilities/ToolResults.d.mts",
         "default": "./dist/capabilities/ToolResults.mjs"
       }
-    }
+    },
+    "provenance": true
   },
   "scripts": {
     "build": "tsdown",

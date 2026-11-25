@@ -74,7 +74,8 @@
         "types": "./dist/SqliteMessageDeliveryStore.d.mts",
         "default": "./dist/SqliteMessageDeliveryStore.mjs"
       }
-    }
+    },
+    "provenance": true
   },
   "scripts": {
     "build": "tsdown",

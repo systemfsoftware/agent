@@ -2,6 +2,9 @@ import { Schema } from 'effect'
 
 import { type Env, errorText, type Identity, type ProviderCall, ProviderReceipt, type Query } from './protocol.ts'
 
+/** One recorded provider call, with the readonly modifiers dropped so the record can be filled in. */
+type BenchCall = { -readonly [K in keyof ProviderCall]: ProviderCall[K] }
+
 const Token = Schema.Struct({
   choices: Schema.Array(
     Schema.Struct({
@@ -86,7 +89,7 @@ export class Observation {
   }
   query?: Query
   entry?: Identity
-  calls: Array<{ -readonly [K in keyof ProviderCall]: ProviderCall[K] }> = []
+  calls: Array<BenchCall> = []
   constructor(
     readonly env: Env,
     readonly constructedMs = Date.now(),
@@ -176,7 +179,7 @@ export class Observation {
     }
     const startMs = Date.now()
 
-    const call: (typeof this.calls)[number] = {
+    const call: BenchCall = {
       call: this.calls.length,
       fingerprint: '',
       startMs,

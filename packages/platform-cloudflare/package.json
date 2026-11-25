@@ -119,7 +119,8 @@
         "types": "./dist/R2ToolResultStorage.d.mts",
         "default": "./dist/R2ToolResultStorage.mjs"
       }
-    }
+    },
+    "provenance": true
   },
   "scripts": {
     "build": "tsdown",
