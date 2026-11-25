@@ -52,6 +52,14 @@ jobs:
       - run: pnpm check:package-purity
       - run: pnpm check:pack
 
+  changeset:
+    name: change intent
+    if: github.event_name == 'pull_request' && github.head_ref != 'changeset-release/main'
+    uses: systemfsoftware/pnpm-release-management/.github/workflows/changeset-check.yml@1e897828d917341fb7dd444c7bbd6cfa0998caa9
+    permissions:
+      contents: read
+      pull-requests: read
+
   test:
     name: test (node ${{ matrix.node }})
     runs-on: ubuntu-latest
@@ -72,19 +80,24 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
 
-  # The one check the ruleset requires and the merge queue gates on. List every other job in `needs`: a job left out is
-  # not gated. The job always runs, and any dependency that did not conclude `success` fails it.
+  # The one check the ruleset requires and the merge queue gates on; the name matches the shared CI of the other
+  # systemfsoftware repositories. List every other job in `needs`: a job left out is not gated. The job always runs,
+  # and any dependency that did not conclude `success` fails it, so a run that did not execute the gate can never
+  # stand in for one that passed. The change-intent job is skipped on a push and on the release pull request.
   check:
     name: checks / check
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [static-checks, test]
+    needs: [static-checks, changeset, test]
     if: ${{ always() }}
     steps:
       - name: Require every job to succeed
         env:
           STATIC_CHECKS: ${{ needs.static-checks.result }}
           TEST: ${{ needs.test.result }}
+          CHANGESET: ${{ needs.changeset.result }}
+          EVENT: ${{ github.event_name }}
+          HEAD_REF: ${{ github.head_ref }}
         run: |
           status=0
           for pair in "static-checks:$STATIC_CHECKS" "test:$TEST"; do
@@ -93,4 +106,12 @@ jobs:
               *) echo "A required job finished as: $pair"; status=1 ;;
             esac
           done
+          if [ "$CHANGESET" != success ]; then
+            if [ "$CHANGESET" = skipped ] && { [ "$EVENT" != pull_request ] || [ "$HEAD_REF" = changeset-release/main ]; }; then
+              :
+            else
+              echo "A required job finished as: changeset:$CHANGESET"
+              status=1
+            fi
+          fi
           exit "$status"

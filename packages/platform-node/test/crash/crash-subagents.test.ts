@@ -1,26 +1,26 @@
 import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import { expect, layer } from '@effect/vitest'
-import { NodeDurableHost } from '@yielded/agent-platform-node/node-durable-host'
-import { DurableAgentRuntime, DurableRuntimeConfig } from '@yielded/agent/durable-agent-runtime'
-import { DurableRuntimeFailpoint, type DurableRuntimeFailpointLocation } from '@yielded/agent/durable-failpoint'
-import { type SubmissionId } from '@yielded/agent/identifiers'
-import { DeploymentId, ProducerId } from '@yielded/agent/records'
+import { NodeDurableHost } from '@systemfsoftware/agent-platform-node/node-durable-host'
+import { DurableAgentRuntime, DurableRuntimeConfig } from '@systemfsoftware/agent/durable-agent-runtime'
+import { DurableRuntimeFailpoint, type DurableRuntimeFailpointLocation } from '@systemfsoftware/agent/durable-failpoint'
+import { type SubmissionId } from '@systemfsoftware/agent/identifiers'
+import { DeploymentId, ProducerId } from '@systemfsoftware/agent/records'
 import {
   childIdempotencyKeyFor,
   childThreadIdFor,
   runIdForSubmission,
   toolCallSettledRecordId,
-} from '@yielded/agent/run-journal'
-import { RunToolAuthorization } from '@yielded/agent/run-options'
-import { StorageOwner } from '@yielded/agent/run-storage'
+} from '@systemfsoftware/agent/run-journal'
+import { RunToolAuthorization } from '@systemfsoftware/agent/run-options'
+import { StorageOwner } from '@systemfsoftware/agent/run-storage'
 import {
   AbortCommand,
   RecoverySnapshotRequest,
   SubmissionLedger,
   SubmissionLookupById,
   SubmissionLookupByKey,
-} from '@yielded/agent/submission-ledger'
-import { ToolReconciler } from '@yielded/agent/tool-reconciler'
+} from '@systemfsoftware/agent/submission-ledger'
+import { ToolReconciler } from '@systemfsoftware/agent/tool-reconciler'
 import * as Effect from 'effect/Effect'
 import * as Fiber from 'effect/Fiber'
 import * as Layer from 'effect/Layer'

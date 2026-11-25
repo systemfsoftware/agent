@@ -1,25 +1,33 @@
 import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import { expect, it } from '@effect/vitest'
-import { NodeDurableHost } from '@yielded/agent-platform-node/node-durable-host'
-import { NodeSubscriptions } from '@yielded/agent-platform-node/node-subscriptions'
-import { subscriptionStoreLayer } from '@yielded/agent-storage-sqlite/sqlite-subscription-store'
-import * as Agent from '@yielded/agent/agent'
-import { AgentPolicy } from '@yielded/agent/agent-policy'
-import { DurableAgentRuntime } from '@yielded/agent/durable-agent-runtime'
-import { DurableRuntimeFailpointError, type DurableRuntimeFailpointHandler } from '@yielded/agent/durable-failpoint'
-import { EventSources, makeEventSource } from '@yielded/agent/event-source'
-import { AgentId, ThreadId } from '@yielded/agent/identifiers'
-import { DefinitionDigests, Digest } from '@yielded/agent/records'
-import { IdempotencyKey, Principal, SubmissionLedger, SubmissionLookupByKey } from '@yielded/agent/submission-ledger'
+import { NodeDurableHost } from '@systemfsoftware/agent-platform-node/node-durable-host'
+import { NodeSubscriptions } from '@systemfsoftware/agent-platform-node/node-subscriptions'
+import { subscriptionStoreLayer } from '@systemfsoftware/agent-storage-sqlite/sqlite-subscription-store'
+import * as Agent from '@systemfsoftware/agent/agent'
+import { AgentPolicy } from '@systemfsoftware/agent/agent-policy'
+import { DurableAgentRuntime } from '@systemfsoftware/agent/durable-agent-runtime'
+import {
+  DurableRuntimeFailpointError,
+  type DurableRuntimeFailpointHandler,
+} from '@systemfsoftware/agent/durable-failpoint'
+import { EventSources, makeEventSource } from '@systemfsoftware/agent/event-source'
+import { AgentId, ThreadId } from '@systemfsoftware/agent/identifiers'
+import { DefinitionDigests, Digest } from '@systemfsoftware/agent/records'
+import {
+  IdempotencyKey,
+  Principal,
+  SubmissionLedger,
+  SubmissionLookupByKey,
+} from '@systemfsoftware/agent/submission-ledger'
 import {
   defaultSubscriptionLimits,
   SourcePartition,
   SubscriptionAuthorizer,
   type SubscriptionDeliverySnapshot,
   SubscriptionStore,
-} from '@yielded/agent/subscription'
-import { makeSubscriptionInputBinding, SubscriptionInputBindings } from '@yielded/agent/subscription-input'
-import { Subscriptions } from '@yielded/agent/subscriptions'
+} from '@systemfsoftware/agent/subscription'
+import { makeSubscriptionInputBinding, SubscriptionInputBindings } from '@systemfsoftware/agent/subscription-input'
+import { Subscriptions } from '@systemfsoftware/agent/subscriptions'
 import * as LanguageModel from 'effect/ai/LanguageModel'
 import * as Model from 'effect/ai/Model'
 import type * as Response from 'effect/ai/Response'

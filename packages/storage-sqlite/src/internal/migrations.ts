@@ -1,13 +1,19 @@
 import {
   assertLegacyMessagePublicationDrained,
   backfillPeerMessageRetention,
-} from '@yielded/agent-storage-sql/sql-message-delivery-store'
-import { makeSqlTransaction } from '@yielded/agent-storage-sql/sql-storage'
-import { backfillSubscriptionSettlementObservation } from '@yielded/agent-storage-sql/sql-subscription-store'
-import { SQL_PROMPT_PREDICATE, upgradeExecutionCheckpoints } from '@yielded/agent-storage-sql/sql-thread-native-reads'
-import { createSqlThreadWorkTables, upgradeSqlThreadWorkIndex } from '@yielded/agent-storage-sql/sql-thread-work'
-import { makeSqliteLayoutInspection } from '@yielded/agent-storage-sql/sqlite-layout-inspection'
-import { CURRENT_RECORD_FORMAT } from '@yielded/agent/records'
+} from '@systemfsoftware/agent-storage-sql/sql-message-delivery-store'
+import { makeSqlTransaction } from '@systemfsoftware/agent-storage-sql/sql-storage'
+import { backfillSubscriptionSettlementObservation } from '@systemfsoftware/agent-storage-sql/sql-subscription-store'
+import {
+  SQL_PROMPT_PREDICATE,
+  upgradeExecutionCheckpoints,
+} from '@systemfsoftware/agent-storage-sql/sql-thread-native-reads'
+import {
+  createSqlThreadWorkTables,
+  upgradeSqlThreadWorkIndex,
+} from '@systemfsoftware/agent-storage-sql/sql-thread-work'
+import { makeSqliteLayoutInspection } from '@systemfsoftware/agent-storage-sql/sqlite-layout-inspection'
+import { CURRENT_RECORD_FORMAT } from '@systemfsoftware/agent/records'
 import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 import * as SqlClient from 'effect/sql/SqlClient'

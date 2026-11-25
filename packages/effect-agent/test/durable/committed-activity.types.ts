@@ -3,16 +3,20 @@ import {
   type ActivityProcessorStore,
   type ActivityStoreFailure,
   type PreparedActivity,
-} from '@yielded/agent/activity-store'
+} from '@systemfsoftware/agent/activity-store'
 import {
   ActivityPassLimits,
   type ActivityProcessingError,
   processCommittedActivity,
-} from '@yielded/agent/committed-activity'
-import { type DigestError } from '@yielded/agent/digest'
-import { ThreadId } from '@yielded/agent/identifiers'
-import { type PersistedJson } from '@yielded/agent/records'
-import { type ThreadNotMaterialized, type ThreadStore, type ThreadStoreError } from '@yielded/agent/thread-store'
+} from '@systemfsoftware/agent/committed-activity'
+import { type DigestError } from '@systemfsoftware/agent/digest'
+import { ThreadId } from '@systemfsoftware/agent/identifiers'
+import { type PersistedJson } from '@systemfsoftware/agent/records'
+import {
+  type ThreadNotMaterialized,
+  type ThreadStore,
+  type ThreadStoreError,
+} from '@systemfsoftware/agent/thread-store'
 import * as Context from 'effect/Context'
 import type * as CryptoDigest from 'effect/crypto/Digest'
 import * as Effect from 'effect/Effect'

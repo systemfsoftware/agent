@@ -1,6 +1,6 @@
-import * as MemoryNamespace from '@yielded/agent/memory-namespace'
-import { type MemoryNamespaceError } from '@yielded/agent/memory-namespace'
-import { MemoryAccess } from '@yielded/agent/memory-revalidation'
+import * as MemoryNamespace from '@systemfsoftware/agent/memory-namespace'
+import { type MemoryNamespaceError } from '@systemfsoftware/agent/memory-namespace'
+import { MemoryAccess } from '@systemfsoftware/agent/memory-revalidation'
 import {
   ActiveMemoryDocument,
   applyMemoryWrite,
@@ -12,8 +12,8 @@ import {
   MemoryWrite,
   type MemoryWriteError,
   MemoryWriter,
-} from '@yielded/agent/memory-store'
-import { indexMemorySource, SemanticIndexLimits } from '@yielded/agent/semantic-memory'
+} from '@systemfsoftware/agent/memory-store'
+import { indexMemorySource, SemanticIndexLimits } from '@systemfsoftware/agent/semantic-memory'
 import {
   MemoryIndexCandidate,
   MemoryIndexQuery,
@@ -22,7 +22,7 @@ import {
   MemoryIndexSource,
   SemanticMemoryIndex,
   type SemanticMemoryProfile,
-} from '@yielded/agent/semantic-memory-index'
+} from '@systemfsoftware/agent/semantic-memory-index'
 import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 

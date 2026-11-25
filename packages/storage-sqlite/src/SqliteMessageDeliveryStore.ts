@@ -1,8 +1,8 @@
 import {
   makeSqlMessageDeliveryStore,
   registerCanonicalMessageWriter,
-} from '@yielded/agent-storage-sql/sql-message-delivery-store'
-import { MessageDeliveryStore, type MessageDeliveryStoreLimits } from '@yielded/agent/message-delivery'
+} from '@systemfsoftware/agent-storage-sql/sql-message-delivery-store'
+import { MessageDeliveryStore, type MessageDeliveryStoreLimits } from '@systemfsoftware/agent/message-delivery'
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 

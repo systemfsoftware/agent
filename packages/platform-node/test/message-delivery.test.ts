@@ -1,22 +1,27 @@
 import * as NodeCrypto from '@effect/platform-node/NodeCrypto'
 import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import { describe, expect, it } from '@effect/vitest'
-import { NodeDurableAgentRuntime } from '@yielded/agent-platform-node/node-durable-agent-runtime'
-import * as NodeHost from '@yielded/agent-platform-node/node-durable-host'
-import { NodeDurableHost } from '@yielded/agent-platform-node/node-durable-host'
-import * as Agent from '@yielded/agent/agent'
-import { digestDefinitions, digestJson } from '@yielded/agent/digest'
-import { DurableAgentRuntime } from '@yielded/agent/durable-agent-runtime'
-import { DurableRuntimeFailpointError } from '@yielded/agent/durable-failpoint'
-import { AgentId, ThreadId } from '@yielded/agent/identifiers'
+import { NodeDurableAgentRuntime } from '@systemfsoftware/agent-platform-node/node-durable-agent-runtime'
+import * as NodeHost from '@systemfsoftware/agent-platform-node/node-durable-host'
+import { NodeDurableHost } from '@systemfsoftware/agent-platform-node/node-durable-host'
+import * as Agent from '@systemfsoftware/agent/agent'
+import { digestDefinitions, digestJson } from '@systemfsoftware/agent/digest'
+import { DurableAgentRuntime } from '@systemfsoftware/agent/durable-agent-runtime'
+import { DurableRuntimeFailpointError } from '@systemfsoftware/agent/durable-failpoint'
+import { AgentId, ThreadId } from '@systemfsoftware/agent/identifiers'
 import {
   type MessageDeliveryKey,
   type MessageDeliveryRecord,
   MessageDeliveryStore,
   prepareMessageDelivery,
-} from '@yielded/agent/message-delivery'
-import { DefinitionDigestInput, type DefinitionDigests } from '@yielded/agent/records'
-import { IdempotencyKey, Principal, SubmissionLedger, SubmissionLookupByKey } from '@yielded/agent/submission-ledger'
+} from '@systemfsoftware/agent/message-delivery'
+import { DefinitionDigestInput, type DefinitionDigests } from '@systemfsoftware/agent/records'
+import {
+  IdempotencyKey,
+  Principal,
+  SubmissionLedger,
+  SubmissionLookupByKey,
+} from '@systemfsoftware/agent/submission-ledger'
 import * as LanguageModel from 'effect/ai/LanguageModel'
 import * as Model from 'effect/ai/Model'
 import type * as Response from 'effect/ai/Response'

@@ -1,15 +1,15 @@
 import * as NodeCrypto from '@effect/platform-node/NodeCrypto'
 import { describe, expect, it } from '@effect/vitest'
-import { type PreparedActivity } from '@yielded/agent/activity-store'
+import { type PreparedActivity } from '@systemfsoftware/agent/activity-store'
 import {
   ActivityMutationFailure,
   ActivityOwnershipLost,
   ActivityProcessorKey,
   ActivityProcessorStore,
   ActivityProgress,
-} from '@yielded/agent/activity-store'
-import { ActivityPassLimits, processCommittedActivity } from '@yielded/agent/committed-activity'
-import { ThreadId } from '@yielded/agent/identifiers'
+} from '@systemfsoftware/agent/activity-store'
+import { ActivityPassLimits, processCommittedActivity } from '@systemfsoftware/agent/committed-activity'
+import { ThreadId } from '@systemfsoftware/agent/identifiers'
 import {
   BatchId,
   CanonicalRecordEnvelope,
@@ -19,8 +19,8 @@ import {
   RecordEnvelope,
   RecordId,
   UserInputRecorded,
-} from '@yielded/agent/records'
-import { ThreadStore, ThreadTail } from '@yielded/agent/thread-store'
+} from '@systemfsoftware/agent/records'
+import { ThreadStore, ThreadTail } from '@systemfsoftware/agent/thread-store'
 import * as Cause from 'effect/Cause'
 import * as Clock from 'effect/Clock'
 import * as DateTime from 'effect/DateTime'

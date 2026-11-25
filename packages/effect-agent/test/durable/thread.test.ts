@@ -1,7 +1,7 @@
 import * as NodeCrypto from '@effect/platform-node/NodeCrypto'
 import { describe, expect, it, layer } from '@effect/vitest'
-import { digestJson } from '@yielded/agent/digest'
-import { MAX_PERSISTED_JSON_BYTES, PersistedJson } from '@yielded/agent/records'
+import { digestJson } from '@systemfsoftware/agent/digest'
+import { MAX_PERSISTED_JSON_BYTES, PersistedJson } from '@systemfsoftware/agent/records'
 import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 

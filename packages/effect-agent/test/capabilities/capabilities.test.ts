@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@effect/vitest'
-import { RunId, ThreadId } from '@yielded/agent/identifiers'
-import { layerMemory, Store as ConversationStore, ThreadAppend, toPrompt } from '@yielded/agent/thread'
+import { RunId, ThreadId } from '@systemfsoftware/agent/identifiers'
+import { layerMemory, Store as ConversationStore, ThreadAppend, toPrompt } from '@systemfsoftware/agent/thread'
 import * as Prompt from 'effect/ai/Prompt'
 import * as Clock from 'effect/Clock'
 import * as Deferred from 'effect/Deferred'

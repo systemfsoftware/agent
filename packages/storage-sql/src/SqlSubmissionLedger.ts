@@ -1,21 +1,21 @@
-import type { LifecyclePublicationFact } from '@yielded/agent/lifecycle-publication'
-import { InputMessage } from '@yielded/agent/messaging'
+import type { LifecyclePublicationFact } from '@systemfsoftware/agent/lifecycle-publication'
+import { InputMessage } from '@systemfsoftware/agent/messaging'
 import {
   CanonicalSequence,
   DefinitionDigests,
   PersistedJson,
   RecordEnvelope,
   WorkerAdmission,
-} from '@yielded/agent/records'
-import { runIdForSubmission } from '@yielded/agent/run-journal'
-import type { SettlementPublication } from '@yielded/agent/settlement-publisher'
+} from '@systemfsoftware/agent/records'
+import { runIdForSubmission } from '@systemfsoftware/agent/run-journal'
+import type { SettlementPublication } from '@systemfsoftware/agent/settlement-publisher'
 import {
   SettlementPublicationResult,
   SettlementPublisher,
   validateCanonicalSettlement,
   validateJoinedSettlement,
   validatePublication,
-} from '@yielded/agent/settlement-publisher'
+} from '@systemfsoftware/agent/settlement-publisher'
 import {
   AbortCommand,
   AbortIntent,
@@ -87,7 +87,7 @@ import {
   WorkerLedgerState,
   WorkerStopCommand,
   workerTerminalFromRecord,
-} from '@yielded/agent/submission-ledger'
+} from '@systemfsoftware/agent/submission-ledger'
 import {
   AppendConflict,
   makeTransferFactCheck,
@@ -97,7 +97,7 @@ import {
   ThreadResolutionFact,
   type ThreadStoreFailure,
   transferPageFits,
-} from '@yielded/agent/thread-store'
+} from '@systemfsoftware/agent/thread-store'
 import * as Clock from 'effect/Clock'
 import * as CryptoDigest from 'effect/crypto/Digest'
 import * as SecureRandom from 'effect/crypto/SecureRandom'

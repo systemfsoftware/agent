@@ -1,5 +1,5 @@
-import type { CanonicalSequence, RunContinuation } from '@yielded/agent/records'
-import type { ExecutionCheckpoint } from '@yielded/agent/thread-store'
+import type { CanonicalSequence, RunContinuation } from '@systemfsoftware/agent/records'
+import type { ExecutionCheckpoint } from '@systemfsoftware/agent/thread-store'
 
 export interface ExecutionPredecessor {
   readonly progress: RunContinuation

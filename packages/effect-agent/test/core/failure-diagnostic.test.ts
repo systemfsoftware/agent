@@ -1,6 +1,6 @@
-import { AgentToolAuthorizationCheckError } from '@yielded/agent/agent-error'
-import * as FailureDiagnostic from '@yielded/agent/failure-diagnostic'
-import { ToolCallId } from '@yielded/agent/identifiers'
+import { AgentToolAuthorizationCheckError } from '@systemfsoftware/agent/agent-error'
+import * as FailureDiagnostic from '@systemfsoftware/agent/failure-diagnostic'
+import { ToolCallId } from '@systemfsoftware/agent/identifiers'
 import * as Cause from 'effect/Cause'
 import * as Redacted from 'effect/Redacted'
 import * as Schema from 'effect/Schema'
@@ -16,7 +16,7 @@ class DependencyFailure extends Schema.TaggedError<DependencyFailure>()('Depende
 }) {}
 
 describe('causal failure diagnostics', () => {
-  // https://github.com/yielded-dev/agent/commit/992d062a09
+  // https://github.com/systemfsoftware/agent/commit/992d062a09
   it('retains validated HTTP diagnostics through capture and JSON recapture', () => {
     const original = {
       name: 'ProviderFailure',

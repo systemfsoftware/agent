@@ -1,9 +1,0 @@
----
-"@yielded/agent-platform-node": minor
-"@yielded/agent-platform-cloudflare": minor
-"@yielded/agent": minor
----
-
-Bind subscription input preparation to each destination Agent's retained definition version, authorize reconciliation through explicit host policy, and preserve newer delivery retry state.
-
-BEHAVIOR CHANGE: Provide `SubscriptionInputBindings` and `SubscriptionAuthorizer.reconcile` in subscription hosts, and import GitHub integration from `@effect-agent/thread/github`.

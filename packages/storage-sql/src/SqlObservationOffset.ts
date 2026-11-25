@@ -1,5 +1,5 @@
-import { CanonicalSequence, type ObservationOffset } from '@yielded/agent/records'
-import { type ThreadMaterialization, ThreadStoreError } from '@yielded/agent/thread-store'
+import { CanonicalSequence, type ObservationOffset } from '@systemfsoftware/agent/records'
+import { type ThreadMaterialization, ThreadStoreError } from '@systemfsoftware/agent/thread-store'
 import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 

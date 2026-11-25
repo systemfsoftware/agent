@@ -1,9 +1,9 @@
-import { ActivityProcessorKey } from '@yielded/agent/activity-store'
-import { ActivityPassResult } from '@yielded/agent/committed-activity'
-import * as MemoryNamespace from '@yielded/agent/memory-namespace'
-import { MemoryContent } from '@yielded/agent/memory-reference'
-import { MemoryKey, MemoryScope } from '@yielded/agent/memory-store'
-import { Digest } from '@yielded/agent/records'
+import { ActivityProcessorKey } from '@systemfsoftware/agent/activity-store'
+import { ActivityPassResult } from '@systemfsoftware/agent/committed-activity'
+import * as MemoryNamespace from '@systemfsoftware/agent/memory-namespace'
+import { MemoryContent } from '@systemfsoftware/agent/memory-reference'
+import { MemoryKey, MemoryScope } from '@systemfsoftware/agent/memory-store'
+import { Digest } from '@systemfsoftware/agent/records'
 import * as Schema from 'effect/Schema'
 
 export const MEMORY_NAMESPACE = MemoryNamespace.define({

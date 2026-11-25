@@ -1,4 +1,4 @@
-import { CURRENT_RECORD_FORMAT } from '@yielded/agent/records'
+import { CURRENT_RECORD_FORMAT } from '@systemfsoftware/agent/records'
 import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 import * as SqlClient from 'effect/sql/SqlClient'

@@ -1,13 +1,17 @@
 {
-  "name": "@yielded/agent-storage-sqlite",
-  "version": "0.1.0-beta.192",
+  "name": "@systemfsoftware/agent-storage-sqlite",
+  "version": "0.1.0",
   "description": "Node SQLite persistence adapters for the Effect Agent durable runtime and optional memory lifecycle.",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yielded-dev/agent.git",
+    "url": "git+https://github.com/systemfsoftware/agent.git",
     "directory": "packages/storage-sqlite"
   },
+  "bugs": {
+    "url": "https://github.com/systemfsoftware/agent/issues"
+  },
+  "homepage": "https://github.com/systemfsoftware/agent/tree/main/packages/storage-sqlite#readme",
   "files": [
     "dist",
     "src"
@@ -85,8 +89,8 @@
   "dependencies": {
     "@effect/platform-node": "catalog:",
     "@effect/sql-sqlite-node": "catalog:",
-    "@yielded/agent": "workspace:*",
-    "@yielded/agent-storage-sql": "workspace:*"
+    "@systemfsoftware/agent": "workspace:*",
+    "@systemfsoftware/agent-storage-sql": "workspace:*"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "catalog:",

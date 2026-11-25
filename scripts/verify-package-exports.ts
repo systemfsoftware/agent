@@ -429,7 +429,7 @@ export const verifyPackageExports = Effect.fn('verifyPackageExports')(
             }
           })
           for (const { specifier, typeOnly } of imports) {
-            const layer = pkg.manifest.name === '@yielded/agent' && relative.startsWith('src/')
+            const layer = pkg.manifest.name === '@systemfsoftware/agent' && relative.startsWith('src/')
               ? relative.split('/')[1]
               : undefined
 
@@ -480,9 +480,9 @@ export const verifyPackageExports = Effect.fn('verifyPackageExports')(
 
             if (!owner) {
               if (
-                specifier.startsWith('@yielded/agent-') ||
-                specifier === '@yielded/agent' ||
-                specifier.startsWith('@yielded/agent/')
+                specifier.startsWith('@systemfsoftware/agent-') ||
+                specifier === '@systemfsoftware/agent' ||
+                specifier.startsWith('@systemfsoftware/agent/')
               ) {
                 report(file, `${specifier} references an unknown workspace package`)
               }

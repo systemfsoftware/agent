@@ -16,8 +16,8 @@ import {
   ScheduleStorageError,
   ScheduleStore,
   type ScheduleStoreFailure,
-} from '@yielded/agent/schedule'
-import { applyScheduleChange, scheduleDeadline, scheduleUsesCapacity } from '@yielded/agent/schedule-transition'
+} from '@systemfsoftware/agent/schedule'
+import { applyScheduleChange, scheduleDeadline, scheduleUsesCapacity } from '@systemfsoftware/agent/schedule-transition'
 import * as Context from 'effect/Context'
 import * as Effect from 'effect/Effect'
 import * as Result from 'effect/Result'

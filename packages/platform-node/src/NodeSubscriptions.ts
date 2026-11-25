@@ -1,6 +1,6 @@
 import * as NodeCrypto from '@effect/platform-node/NodeCrypto'
-import { type EventSources } from '@yielded/agent/event-source'
-import { PreparedInputAdmission } from '@yielded/agent/prepared-input-admission'
+import { type EventSources } from '@systemfsoftware/agent/event-source'
+import { PreparedInputAdmission } from '@systemfsoftware/agent/prepared-input-admission'
 import {
   defaultSubscriptionLimits,
   type SubscriptionAuthorizer,
@@ -8,9 +8,9 @@ import {
   type SubscriptionLimits,
   SubscriptionStore,
   type SubscriptionStoreFailure,
-} from '@yielded/agent/subscription'
-import { type SubscriptionInputBindings } from '@yielded/agent/subscription-input'
-import { SubscriptionDriver, SubscriptionIntake, Subscriptions } from '@yielded/agent/subscriptions'
+} from '@systemfsoftware/agent/subscription'
+import { type SubscriptionInputBindings } from '@systemfsoftware/agent/subscription-input'
+import { SubscriptionDriver, SubscriptionIntake, Subscriptions } from '@systemfsoftware/agent/subscriptions'
 import * as Cause from 'effect/Cause'
 import * as Duration from 'effect/Duration'
 import * as Effect from 'effect/Effect'

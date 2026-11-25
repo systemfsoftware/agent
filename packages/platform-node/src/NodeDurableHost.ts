@@ -3,7 +3,7 @@ import {
   type AgentRegistration,
   type DurableBindingFailure,
   type ResolvedBinding,
-} from '@yielded/agent/agent-registration'
+} from '@systemfsoftware/agent/agent-registration'
 import {
   type DurableAbortFailure,
   DurableAgentRuntime,
@@ -16,20 +16,24 @@ import {
   type Receipt,
   type RecoveryBlocked,
   type RecoveryReport,
-} from '@yielded/agent/durable-agent-runtime'
-import { MessageDeliveryDriver, type MessageDeliveryError, MessageDeliveryStore } from '@yielded/agent/message-delivery'
-import { type OperationDenied } from '@yielded/agent/operation-authorizer'
-import { PreparedInputAdmission } from '@yielded/agent/prepared-input-admission'
-import { type CanonicalRecordEnvelope } from '@yielded/agent/records'
+} from '@systemfsoftware/agent/durable-agent-runtime'
+import {
+  MessageDeliveryDriver,
+  type MessageDeliveryError,
+  MessageDeliveryStore,
+} from '@systemfsoftware/agent/message-delivery'
+import { type OperationDenied } from '@systemfsoftware/agent/operation-authorizer'
+import { PreparedInputAdmission } from '@systemfsoftware/agent/prepared-input-admission'
+import { type CanonicalRecordEnvelope } from '@systemfsoftware/agent/records'
 import {
   type AbortCommand,
   type AbortIntent,
   type Settlement,
   SubmissionLedger,
-} from '@yielded/agent/submission-ledger'
-import { type ThreadNotMaterialized, ThreadReader, type ThreadStoreError } from '@yielded/agent/thread-store'
-import { MAX_RECOVERY_WORK_ITEMS } from '@yielded/agent/thread-work'
-import { WakeScheduler } from '@yielded/agent/wake-scheduler'
+} from '@systemfsoftware/agent/submission-ledger'
+import { type ThreadNotMaterialized, ThreadReader, type ThreadStoreError } from '@systemfsoftware/agent/thread-store'
+import { MAX_RECOVERY_WORK_ITEMS } from '@systemfsoftware/agent/thread-work'
+import { WakeScheduler } from '@systemfsoftware/agent/wake-scheduler'
 import * as Context from 'effect/Context'
 import * as Effect from 'effect/Effect'
 import * as Fiber from 'effect/Fiber'

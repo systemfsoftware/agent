@@ -1,15 +1,15 @@
 import { describe, expect, it } from '@effect/vitest'
-import * as Memory from '@yielded/agent/memory'
-import * as MemoryNamespace from '@yielded/agent/memory-namespace'
+import * as Memory from '@systemfsoftware/agent/memory'
+import * as MemoryNamespace from '@systemfsoftware/agent/memory-namespace'
 import {
   MemoryAttribution,
   MemoryContent,
   type MemoryLookup,
   MemoryPassage,
   MemoryRecallLimits,
-} from '@yielded/agent/memory-reference'
-import { MemoryAccess, revalidateMemoryLookup } from '@yielded/agent/memory-revalidation'
-import { ActiveMemoryDocument, MemoryKey, MemoryReader, MemoryScope } from '@yielded/agent/memory-store'
+} from '@systemfsoftware/agent/memory-reference'
+import { MemoryAccess, revalidateMemoryLookup } from '@systemfsoftware/agent/memory-revalidation'
+import { ActiveMemoryDocument, MemoryKey, MemoryReader, MemoryScope } from '@systemfsoftware/agent/memory-store'
 import * as Effect from 'effect/Effect'
 import * as Ref from 'effect/Ref'
 import * as NamespaceSchema from 'effect/Schema'

@@ -1,25 +1,25 @@
 import * as fs from 'node:fs'
 
-import * as Agent from '@yielded/agent/agent'
-import { AgentPolicy } from '@yielded/agent/agent-policy'
-import { DurableWorkerBinding, type ResolvedBinding } from '@yielded/agent/agent-registration'
-import { type DurableSubmitOptions, Receipt } from '@yielded/agent/durable-agent-runtime'
-import { DurableStep, DurableStepError, ToolExecutionClass } from '@yielded/agent/durable-step'
-import { IdGenerator } from '@yielded/agent/id-generator'
-import { RunId, ThreadId, ToolCallId, TurnId } from '@yielded/agent/identifiers'
-import { DefinitionDigests, Digest } from '@yielded/agent/records'
-import { RunContextPreparation } from '@yielded/agent/run-options'
-import * as Subagent from '@yielded/agent/subagent'
-import { SubagentPolicy } from '@yielded/agent/subagent'
-import { SubagentReservationsMemoryLive } from '@yielded/agent/subagent-reservations'
-import { IdempotencyKey, Principal, Settlement } from '@yielded/agent/submission-ledger'
+import * as Agent from '@systemfsoftware/agent/agent'
+import { AgentPolicy } from '@systemfsoftware/agent/agent-policy'
+import { DurableWorkerBinding, type ResolvedBinding } from '@systemfsoftware/agent/agent-registration'
+import { type DurableSubmitOptions, Receipt } from '@systemfsoftware/agent/durable-agent-runtime'
+import { DurableStep, DurableStepError, ToolExecutionClass } from '@systemfsoftware/agent/durable-step'
+import { IdGenerator } from '@systemfsoftware/agent/id-generator'
+import { RunId, ThreadId, ToolCallId, TurnId } from '@systemfsoftware/agent/identifiers'
+import { DefinitionDigests, Digest } from '@systemfsoftware/agent/records'
+import { RunContextPreparation } from '@systemfsoftware/agent/run-options'
+import * as Subagent from '@systemfsoftware/agent/subagent'
+import { SubagentPolicy } from '@systemfsoftware/agent/subagent'
+import { SubagentReservationsMemoryLive } from '@systemfsoftware/agent/subagent-reservations'
+import { IdempotencyKey, Principal, Settlement } from '@systemfsoftware/agent/submission-ledger'
 import {
   ReconciliationCompleted,
   ReconciliationNeverStarted,
   ReconciliationSafeToRetry,
   ReconciliationUncertain,
   ToolReconciler,
-} from '@yielded/agent/tool-reconciler'
+} from '@systemfsoftware/agent/tool-reconciler'
 import * as LanguageModel from 'effect/ai/LanguageModel'
 import * as Model from 'effect/ai/Model'
 import type * as Response from 'effect/ai/Response'

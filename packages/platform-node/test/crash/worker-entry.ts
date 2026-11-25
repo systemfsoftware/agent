@@ -3,15 +3,18 @@ import * as fs from 'node:fs'
 import {
   NodeDurableAgentRuntime,
   type NodeDurableAgentRuntimeOptions,
-} from '@yielded/agent-platform-node/node-durable-agent-runtime'
-import { NodeDurableHost } from '@yielded/agent-platform-node/node-durable-host'
-import { SqliteStorageFailpointLocation } from '@yielded/agent-storage-sqlite/sqlite-storage-error'
-import { type SqliteStorageFailpointHandler } from '@yielded/agent-storage-sqlite/sqlite-storage-failpoint'
-import * as Agent from '@yielded/agent/agent'
-import { DurableAgentRuntime, type Receipt } from '@yielded/agent/durable-agent-runtime'
-import { type DurableRuntimeFailpointHandler, DurableRuntimeFailpointLocation } from '@yielded/agent/durable-failpoint'
-import { type ThreadId } from '@yielded/agent/identifiers'
-import { childThreadIdFor } from '@yielded/agent/run-journal'
+} from '@systemfsoftware/agent-platform-node/node-durable-agent-runtime'
+import { NodeDurableHost } from '@systemfsoftware/agent-platform-node/node-durable-host'
+import { SqliteStorageFailpointLocation } from '@systemfsoftware/agent-storage-sqlite/sqlite-storage-error'
+import { type SqliteStorageFailpointHandler } from '@systemfsoftware/agent-storage-sqlite/sqlite-storage-failpoint'
+import * as Agent from '@systemfsoftware/agent/agent'
+import { DurableAgentRuntime, type Receipt } from '@systemfsoftware/agent/durable-agent-runtime'
+import {
+  type DurableRuntimeFailpointHandler,
+  DurableRuntimeFailpointLocation,
+} from '@systemfsoftware/agent/durable-failpoint'
+import { type ThreadId } from '@systemfsoftware/agent/identifiers'
+import { childThreadIdFor } from '@systemfsoftware/agent/run-journal'
 import {
   AbortCommand,
   ApprovalDecisionCommand,
@@ -21,7 +24,7 @@ import {
   SubmissionLookupByKey,
   type SubmissionSnapshot,
   UnknownResolutionCommand,
-} from '@yielded/agent/submission-ledger'
+} from '@systemfsoftware/agent/submission-ledger'
 import type * as Response from 'effect/ai/Response'
 import * as Cause from 'effect/Cause'
 import * as Duration from 'effect/Duration'

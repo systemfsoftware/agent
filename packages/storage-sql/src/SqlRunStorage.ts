@@ -1,14 +1,14 @@
-import { runIdForSubmission } from '@yielded/agent/run-journal'
-import { make as makeRunStorage, StorageOwner } from '@yielded/agent/run-storage'
-import { SettlementPublisher } from '@yielded/agent/settlement-publisher'
+import { runIdForSubmission } from '@systemfsoftware/agent/run-journal'
+import { make as makeRunStorage, StorageOwner } from '@systemfsoftware/agent/run-storage'
+import { SettlementPublisher } from '@systemfsoftware/agent/settlement-publisher'
 import {
   MarkInputAppliedRequest,
   submissionInputBatchId,
   submissionInputRecordId,
   SubmissionLedger,
-} from '@yielded/agent/submission-ledger'
-import { type ThreadArchive, ThreadImport } from '@yielded/agent/thread-import'
-import { ThreadReader, ThreadStore } from '@yielded/agent/thread-store'
+} from '@systemfsoftware/agent/submission-ledger'
+import { type ThreadArchive, ThreadImport } from '@systemfsoftware/agent/thread-import'
+import { ThreadReader, ThreadStore } from '@systemfsoftware/agent/thread-store'
 import * as Channel from 'effect/Channel'
 import * as Context from 'effect/Context'
 import * as CryptoDigest from 'effect/crypto/Digest'

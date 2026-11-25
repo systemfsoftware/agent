@@ -1,29 +1,29 @@
 import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import { expect, it } from '@effect/vitest'
-import * as NodeHost from '@yielded/agent-platform-node/node-durable-host'
-import * as Agent from '@yielded/agent/agent'
-import { DurableAgentRuntime } from '@yielded/agent/durable-agent-runtime'
-import { DurableRuntimeFailpointError } from '@yielded/agent/durable-failpoint'
-import { ThreadId, ToolCallId } from '@yielded/agent/identifiers'
-import { MessageDeliveryFailpoint, MessageDeliveryStore } from '@yielded/agent/message-delivery'
-import type { Receipt } from '@yielded/agent/receipt'
-import { DefinitionDigestInput } from '@yielded/agent/records'
-import { canonicalRecordBytes, runEvidence } from '@yielded/agent/run-continuation'
-import { runIdForSubmission } from '@yielded/agent/run-journal'
-import { RunToolAuthorization } from '@yielded/agent/run-options'
-import * as Subagent from '@yielded/agent/subagent'
-import { SubagentHost } from '@yielded/agent/subagent-host'
-import { ApprovalDecisionCommand, IdempotencyKey, Principal } from '@yielded/agent/submission-ledger'
-import { readTestThread } from '@yielded/agent/testing/thread-store-conformance'
+import * as NodeHost from '@systemfsoftware/agent-platform-node/node-durable-host'
+import * as Agent from '@systemfsoftware/agent/agent'
+import { DurableAgentRuntime } from '@systemfsoftware/agent/durable-agent-runtime'
+import { DurableRuntimeFailpointError } from '@systemfsoftware/agent/durable-failpoint'
+import { ThreadId, ToolCallId } from '@systemfsoftware/agent/identifiers'
+import { MessageDeliveryFailpoint, MessageDeliveryStore } from '@systemfsoftware/agent/message-delivery'
+import type { Receipt } from '@systemfsoftware/agent/receipt'
+import { DefinitionDigestInput } from '@systemfsoftware/agent/records'
+import { canonicalRecordBytes, runEvidence } from '@systemfsoftware/agent/run-continuation'
+import { runIdForSubmission } from '@systemfsoftware/agent/run-journal'
+import { RunToolAuthorization } from '@systemfsoftware/agent/run-options'
+import * as Subagent from '@systemfsoftware/agent/subagent'
+import { SubagentHost } from '@systemfsoftware/agent/subagent-host'
+import { ApprovalDecisionCommand, IdempotencyKey, Principal } from '@systemfsoftware/agent/submission-ledger'
+import { readTestThread } from '@systemfsoftware/agent/testing/thread-store-conformance'
 import {
   readWorkerState,
   ThreadExportRequest,
   ThreadIdentityRequest,
   ThreadReader,
   ThreadStore,
-} from '@yielded/agent/thread-store'
-import { AssignmentDisposition, WorkerError, type WorkerSummary } from '@yielded/agent/worker'
-import { WorkerBudgetAuthorizer, WorkerHostAuthorizer } from '@yielded/agent/worker-host'
+} from '@systemfsoftware/agent/thread-store'
+import { AssignmentDisposition, WorkerError, type WorkerSummary } from '@systemfsoftware/agent/worker'
+import { WorkerBudgetAuthorizer, WorkerHostAuthorizer } from '@systemfsoftware/agent/worker-host'
 import * as LanguageModel from 'effect/ai/LanguageModel'
 import * as Model from 'effect/ai/Model'
 import type * as Response from 'effect/ai/Response'
@@ -235,7 +235,7 @@ it.effect('reports an unknown worker without replaying its uncertain operation',
     }),
   ).pipe(Effect.provide(NodeFileSystem.layer)))
 
-// Regression: https://github.com/yielded-dev/agent/commit/6ceda1d221d990d4959f21596eedad84e742c95f
+// Regression: https://github.com/systemfsoftware/agent/commit/6ceda1d221d990d4959f21596eedad84e742c95f
 it.effect(
   'keeps launching Run evidence unchanged across independently funded worker follow-ups',
   () =>
@@ -552,7 +552,7 @@ it.effect(
   15_000,
 )
 
-// Regression: https://github.com/yielded-dev/agent/blob/4c417d98e8cc790c42ab4200a54a0548fe32e6e3/packages/effect-agent/src/durable/internal/worker-host.ts#L1645-L1691
+// Regression: https://github.com/systemfsoftware/agent/blob/4c417d98e8cc790c42ab4200a54a0548fe32e6e3/packages/effect-agent/src/durable/internal/worker-host.ts#L1645-L1691
 for (const completion of ['interrupted'] as const) {
   it.effect(
     `tracks one retained delivery through acceptance and completion after its ${completion} claim`,
@@ -1869,7 +1869,7 @@ it.effect(
   15_000,
 )
 
-// Regression: https://github.com/yielded-dev/agent/blob/c721a292205e06185f0136c3ed05dcf53e29ca66/packages/effect-agent/src/durable/internal/worker-host.ts#L2189-L2210
+// Regression: https://github.com/systemfsoftware/agent/blob/c721a292205e06185f0136c3ed05dcf53e29ca66/packages/effect-agent/src/durable/internal/worker-host.ts#L2189-L2210
 for (const point of ['worker:after-source-append', 'worker:after-origin-append'] as const) {
   it.effect(
     `recovers a successor after interruption at ${point}`,

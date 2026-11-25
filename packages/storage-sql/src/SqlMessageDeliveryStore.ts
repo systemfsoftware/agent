@@ -1,4 +1,4 @@
-import { ThreadId } from '@yielded/agent/identifiers'
+import { ThreadId } from '@systemfsoftware/agent/identifiers'
 import {
   applyMessageDeliveryChange,
   defaultMessageDeliveryStoreLimits,
@@ -17,12 +17,12 @@ import {
   peerMessageRetentionDeadline,
   sameMessageDeliveryIdentity,
   validateMessageDelivery,
-} from '@yielded/agent/message-delivery'
-import { StorageOwner } from '@yielded/agent/run-storage'
-import { ScheduleInstant } from '@yielded/agent/schedule'
-import { SqlStorageOwner } from '@yielded/agent/sql-storage-owner'
-import { IdempotencyKey } from '@yielded/agent/submission-ledger'
-import { makeTransferFactCheck } from '@yielded/agent/thread-store'
+} from '@systemfsoftware/agent/message-delivery'
+import { StorageOwner } from '@systemfsoftware/agent/run-storage'
+import { ScheduleInstant } from '@systemfsoftware/agent/schedule'
+import { SqlStorageOwner } from '@systemfsoftware/agent/sql-storage-owner'
+import { IdempotencyKey } from '@systemfsoftware/agent/submission-ledger'
+import { makeTransferFactCheck } from '@systemfsoftware/agent/thread-store'
 import * as Cause from 'effect/Cause'
 import * as DateTime from 'effect/DateTime'
 import * as Effect from 'effect/Effect'

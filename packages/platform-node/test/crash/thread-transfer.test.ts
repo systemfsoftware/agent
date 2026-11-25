@@ -2,21 +2,21 @@ import { DatabaseSync } from 'node:sqlite'
 
 import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import { expect, layer } from '@effect/vitest'
-import { NodeDurableHost } from '@yielded/agent-platform-node/node-durable-host'
-import * as SqliteThreadStore from '@yielded/agent-storage-sqlite/sqlite-thread-store'
-import * as Agent from '@yielded/agent/agent'
-import { DurableAgentRuntime } from '@yielded/agent/durable-agent-runtime'
-import { Receipt } from '@yielded/agent/receipt'
-import { CanonicalRecordEnvelope, CURRENT_RECORD_FORMAT } from '@yielded/agent/records'
-import { runIdForSubmission } from '@yielded/agent/run-journal'
-import { ThreadArchive, ThreadImport } from '@yielded/agent/thread-import'
+import { NodeDurableHost } from '@systemfsoftware/agent-platform-node/node-durable-host'
+import * as SqliteThreadStore from '@systemfsoftware/agent-storage-sqlite/sqlite-thread-store'
+import * as Agent from '@systemfsoftware/agent/agent'
+import { DurableAgentRuntime } from '@systemfsoftware/agent/durable-agent-runtime'
+import { Receipt } from '@systemfsoftware/agent/receipt'
+import { CanonicalRecordEnvelope, CURRENT_RECORD_FORMAT } from '@systemfsoftware/agent/records'
+import { runIdForSubmission } from '@systemfsoftware/agent/run-journal'
+import { ThreadArchive, ThreadImport } from '@systemfsoftware/agent/thread-import'
 import {
   streamExport,
   ThreadExport,
   ThreadExportRequest,
   ThreadStore,
   ThreadTailRequest,
-} from '@yielded/agent/thread-store'
+} from '@systemfsoftware/agent/thread-store'
 import * as LanguageModel from 'effect/ai/LanguageModel'
 import * as Model from 'effect/ai/Model'
 import type * as Prompt from 'effect/ai/Prompt'

@@ -1,5 +1,5 @@
 import { expectTypeOf } from '@effect/vitest'
-import type { AppendConflict, ThreadStoreError } from '@yielded/agent/thread-store'
+import type { AppendConflict, ThreadStoreError } from '@systemfsoftware/agent/thread-store'
 import * as Context from 'effect/Context'
 import type * as CryptoDigest from 'effect/crypto/Digest'
 import type * as SecureRandom from 'effect/crypto/SecureRandom'

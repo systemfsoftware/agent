@@ -36,3 +36,6 @@ overrides:
   "@effect/vitest": "catalog:"
   effect: "catalog:"
   vitest: "catalog:"
+versioning:
+  changelog:
+    storage: repository

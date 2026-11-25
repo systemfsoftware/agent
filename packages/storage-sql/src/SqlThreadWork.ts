@@ -1,6 +1,6 @@
-import { ThreadId } from '@yielded/agent/identifiers'
-import { IdempotencyKey } from '@yielded/agent/receipt'
-import { decodeExportRecordJson } from '@yielded/agent/record-format'
+import { ThreadId } from '@systemfsoftware/agent/identifiers'
+import { IdempotencyKey } from '@systemfsoftware/agent/receipt'
+import { decodeExportRecordJson } from '@systemfsoftware/agent/record-format'
 import {
   BatchId,
   type CanonicalRecord,
@@ -8,9 +8,9 @@ import {
   CanonicalSequence,
   ObservationOffset,
   RecordId,
-} from '@yielded/agent/records'
-import { SubmissionWorkItem } from '@yielded/agent/submission-ledger'
-import { ThreadStoreError } from '@yielded/agent/thread-store'
+} from '@systemfsoftware/agent/records'
+import { SubmissionWorkItem } from '@systemfsoftware/agent/submission-ledger'
+import { ThreadStoreError } from '@systemfsoftware/agent/thread-store'
 import {
   admissionWork,
   advanceWorkEntry,
@@ -33,7 +33,7 @@ import {
   WorkIndexProgress,
   WorkIndexRebuildRequest,
   WorkThreadsRequest,
-} from '@yielded/agent/thread-work'
+} from '@systemfsoftware/agent/thread-work'
 import * as Arr from 'effect/Array'
 import * as CryptoDigest from 'effect/crypto/Digest'
 import * as Effect from 'effect/Effect'

@@ -1,4 +1,4 @@
-import * as MemoryNamespace from '@yielded/agent/memory-namespace'
+import * as MemoryNamespace from '@systemfsoftware/agent/memory-namespace'
 import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 import { describe, expect, it } from 'vitest'

@@ -1,10 +1,13 @@
 import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import * as SqliteClient from '@effect/sql-sqlite-node/SqliteClient'
 import { describe, it } from '@effect/vitest'
-import { scheduleStoreLayer } from '@yielded/agent-storage-sqlite/sqlite-schedule-store'
-import { SqliteStorageConfig, SqliteStorageConfigValue } from '@yielded/agent-storage-sqlite/sqlite-storage-config'
-import { SqliteStorageFailpoint } from '@yielded/agent-storage-sqlite/sqlite-storage-failpoint'
-import { scheduleStoreConformanceCases } from '@yielded/agent/testing/schedule-store-conformance'
+import { scheduleStoreLayer } from '@systemfsoftware/agent-storage-sqlite/sqlite-schedule-store'
+import {
+  SqliteStorageConfig,
+  SqliteStorageConfigValue,
+} from '@systemfsoftware/agent-storage-sqlite/sqlite-storage-config'
+import { SqliteStorageFailpoint } from '@systemfsoftware/agent-storage-sqlite/sqlite-storage-failpoint'
+import { scheduleStoreConformanceCases } from '@systemfsoftware/agent/testing/schedule-store-conformance'
 import * as Effect from 'effect/Effect'
 import * as FileSystem from 'effect/FileSystem'
 import * as Layer from 'effect/Layer'

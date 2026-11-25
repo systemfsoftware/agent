@@ -1,7 +1,7 @@
 # agent
 
-Effect-native agents with durable Threads, published as four packages: `@yielded/agent`,
-`@yielded/agent-storage-sql`, `@yielded/agent-storage-sqlite` and `@yielded/agent-platform-node`.
+Effect-native agents with durable Threads, published as four packages: `@systemfsoftware/agent`,
+`@systemfsoftware/agent-storage-sql`, `@systemfsoftware/agent-storage-sqlite` and `@systemfsoftware/agent-platform-node`.
 This repository is public: nothing private goes in files, commit messages, pull requests or comments.
 
 ## Commands

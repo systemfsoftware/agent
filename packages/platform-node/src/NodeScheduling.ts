@@ -7,8 +7,8 @@ import {
   type ScheduleValidationError,
   ScheduleWake,
   type SchedulingLimits,
-} from '@yielded/agent/schedule'
-import { ScheduleDriver, type ScheduleProcessFailure, Scheduling } from '@yielded/agent/scheduling'
+} from '@systemfsoftware/agent/schedule'
+import { ScheduleDriver, type ScheduleProcessFailure, Scheduling } from '@systemfsoftware/agent/scheduling'
 import * as Cause from 'effect/Cause'
 import * as Duration from 'effect/Duration'
 import * as Effect from 'effect/Effect'

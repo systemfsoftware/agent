@@ -1,11 +1,11 @@
 import { expect, layer } from '@effect/vitest'
-import * as Agent from '@yielded/agent/agent'
-import { ToolExecutionClass } from '@yielded/agent/durable-step'
-import { IdGenerator } from '@yielded/agent/id-generator'
-import { RunId, ThreadId, TurnId } from '@yielded/agent/identifiers'
-import { SubagentGrant } from '@yielded/agent/subagent-contract'
-import { ThreadHistory } from '@yielded/agent/thread-history'
-import * as ToolDiscovery from '@yielded/agent/tool-discovery'
+import * as Agent from '@systemfsoftware/agent/agent'
+import { ToolExecutionClass } from '@systemfsoftware/agent/durable-step'
+import { IdGenerator } from '@systemfsoftware/agent/id-generator'
+import { RunId, ThreadId, TurnId } from '@systemfsoftware/agent/identifiers'
+import { SubagentGrant } from '@systemfsoftware/agent/subagent-contract'
+import { ThreadHistory } from '@systemfsoftware/agent/thread-history'
+import * as ToolDiscovery from '@systemfsoftware/agent/tool-discovery'
 import {
   CurrentToolCatalog,
   DiscoveryTool,
@@ -13,7 +13,7 @@ import {
   RunToolVisibility,
   Selection,
   Snapshot,
-} from '@yielded/agent/tool-exposure'
+} from '@systemfsoftware/agent/tool-exposure'
 import * as LanguageModel from 'effect/ai/LanguageModel'
 import * as Model from 'effect/ai/Model'
 import type * as Response from 'effect/ai/Response'
@@ -130,7 +130,7 @@ const failure = <E>(exit: Exit.Exit<unknown, E>) =>
   Exit.isFailure(exit) ? Option.getOrUndefined(Cause.findErrorOption(exit.cause)) : undefined
 
 layer(Layer.mergeAll(identifiers, ThreadHistory.layer))('native Tool exposure', (it) => {
-  // Regression: https://github.com/yielded-dev/agent/issues/496
+  // Regression: https://github.com/systemfsoftware/agent/issues/496
   {
     it.effect(
       'continues after discovery result-byte overflow with only documented selections',

@@ -1,10 +1,10 @@
-import { makeSqlActivityStore } from '@yielded/agent-storage-sql/sql-activity-store'
+import { makeSqlActivityStore } from '@systemfsoftware/agent-storage-sql/sql-activity-store'
 import {
   ActivityMutationFailpoint,
   type ActivityMutationFailure,
   ActivityProcessorStore,
   type ActivityStoreError,
-} from '@yielded/agent/activity-store'
+} from '@systemfsoftware/agent/activity-store'
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import * as SqlClientService from 'effect/sql/SqlClient'

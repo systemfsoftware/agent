@@ -1,10 +1,10 @@
 import * as NodeCrypto from '@effect/platform-node/NodeCrypto'
 import { describe, expect, layer } from '@effect/vitest'
-import * as Agent from '@yielded/agent/agent'
-import * as AgentRuntime from '@yielded/agent/agent-runtime'
-import { CLEARED_TOOL_RESULT, contextWindowId, contextWindowMessage } from '@yielded/agent/compaction'
-import { SubmissionId, ThreadId, ToolCallId } from '@yielded/agent/identifiers'
-import type { CanonicalBatch } from '@yielded/agent/records'
+import * as Agent from '@systemfsoftware/agent/agent'
+import * as AgentRuntime from '@systemfsoftware/agent/agent-runtime'
+import { CLEARED_TOOL_RESULT, contextWindowId, contextWindowMessage } from '@systemfsoftware/agent/compaction'
+import { SubmissionId, ThreadId, ToolCallId } from '@systemfsoftware/agent/identifiers'
+import type { CanonicalBatch } from '@systemfsoftware/agent/records'
 import {
   BatchId,
   CanonicalRecordEnvelope,
@@ -17,7 +17,7 @@ import {
   RecordEnvelope,
   ToolCallUnknown,
   ToolOperation,
-} from '@yielded/agent/records'
+} from '@systemfsoftware/agent/records'
 import {
   projectRunJournal,
   projectRunJournalStream,
@@ -28,9 +28,9 @@ import {
   turnIdForRun,
   turnResponseBatch,
   turnResultsBatch,
-} from '@yielded/agent/run-journal'
-import { ThreadHistory } from '@yielded/agent/thread-history'
-import { Selection, Snapshot } from '@yielded/agent/tool-exposure'
+} from '@systemfsoftware/agent/run-journal'
+import { ThreadHistory } from '@systemfsoftware/agent/thread-history'
+import { Selection, Snapshot } from '@systemfsoftware/agent/tool-exposure'
 import * as LanguageModel from 'effect/ai/LanguageModel'
 import * as Model from 'effect/ai/Model'
 import * as Prompt from 'effect/ai/Prompt'
@@ -714,7 +714,7 @@ describe('engine compaction records and projection (RUN-026)', () => {
 
   layer(NodeCrypto.layer)((it) => {
     // Independent Runs can both resume, so neither continuation nor compaction may absorb the other:
-    // https://github.com/yielded-dev/agent/commit/8fc53ad9eb6b110ca6faaaebbb6dbba08e3c292f
+    // https://github.com/systemfsoftware/agent/commit/8fc53ad9eb6b110ca6faaaebbb6dbba08e3c292f
     it.effect('preserves both interleaved Run contexts and their complete Thread history', () =>
       Effect.gen(function*() {
         const first = yield* turnCanonicalBatch({
@@ -799,7 +799,7 @@ describe('engine compaction records and projection (RUN-026)', () => {
       }))
 
     // The same interleaving must retain each independently compacted context:
-    // https://github.com/yielded-dev/agent/commit/8fc53ad9eb6b110ca6faaaebbb6dbba08e3c292f
+    // https://github.com/systemfsoftware/agent/commit/8fc53ad9eb6b110ca6faaaebbb6dbba08e3c292f
     it.effect('does not restore retired exchanges when independent Runs both compact', () =>
       Effect.gen(function*() {
         const first = yield* turnCanonicalBatch(turnInput(toolTurnAppended))
@@ -935,7 +935,7 @@ describe('engine compaction records and projection (RUN-026)', () => {
       )
     }
 
-    // Regression: https://github.com/yielded-dev/agent/commit/afcdd64bbdd23c9985902a0192d8e2ed3a48c295
+    // Regression: https://github.com/systemfsoftware/agent/commit/afcdd64bbdd23c9985902a0192d8e2ed3a48c295
     // Saved ranges must retain the facts that keep compaction validation stable.
     const inputAt = (sequence: number, runId: typeof RUN_ID) =>
       envelopeAt(
@@ -1145,7 +1145,7 @@ describe('engine compaction records and projection (RUN-026)', () => {
               expect(otherView.policyUsage).toEqual(otherBaseline.policyUsage)
               if (projectionOwner === RUN_ID) {
                 // A later independent Run cannot rewrite this Run's resume context:
-                // https://github.com/yielded-dev/agent/commit/8fc53ad9eb6b110ca6faaaebbb6dbba08e3c292f
+                // https://github.com/systemfsoftware/agent/commit/8fc53ad9eb6b110ca6faaaebbb6dbba08e3c292f
                 expect(otherView).toEqual(otherBaseline)
                 expect(otherBaseline.usage).toMatchObject({
                   inputTokens: 100,

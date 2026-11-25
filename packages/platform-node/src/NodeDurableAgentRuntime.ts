@@ -1,26 +1,33 @@
 import * as NodeCrypto from '@effect/platform-node/NodeCrypto'
 import * as SqliteClient from '@effect/sql-sqlite-node/SqliteClient'
-import { messageDeliveryStoreLayer } from '@yielded/agent-storage-sqlite/sqlite-message-delivery-store'
-import { scheduleStoreLayer } from '@yielded/agent-storage-sqlite/sqlite-schedule-store'
-import { SqliteStorageConfig, SqliteStorageConfigValue } from '@yielded/agent-storage-sqlite/sqlite-storage-config'
-import { SqliteStorageError } from '@yielded/agent-storage-sqlite/sqlite-storage-error'
+import { messageDeliveryStoreLayer } from '@systemfsoftware/agent-storage-sqlite/sqlite-message-delivery-store'
+import { scheduleStoreLayer } from '@systemfsoftware/agent-storage-sqlite/sqlite-schedule-store'
+import {
+  SqliteStorageConfig,
+  SqliteStorageConfigValue,
+} from '@systemfsoftware/agent-storage-sqlite/sqlite-storage-config'
+import { SqliteStorageError } from '@systemfsoftware/agent-storage-sqlite/sqlite-storage-error'
 import {
   SqliteStorageFailpoint,
   type SqliteStorageFailpointHandler,
-} from '@yielded/agent-storage-sqlite/sqlite-storage-failpoint'
-import { submissionLedgerLayer } from '@yielded/agent-storage-sqlite/sqlite-submission-ledger'
+} from '@systemfsoftware/agent-storage-sqlite/sqlite-storage-failpoint'
+import { submissionLedgerLayer } from '@systemfsoftware/agent-storage-sqlite/sqlite-submission-ledger'
 import {
   exclusiveHostClientLayer,
   exclusiveRunStorageLayer,
   type SqliteStorageInitializationError,
   storageFailpointLayer,
   threadStoreLayer,
-} from '@yielded/agent-storage-sqlite/sqlite-thread-store'
-import { type AgentRegistration, compileRegistrations, type ResolvedBinding } from '@yielded/agent/agent-registration'
-import { DurableAgentRuntime, DurableRuntimeConfig } from '@yielded/agent/durable-agent-runtime'
-import { DurableRuntimeFailpoint, type DurableRuntimeFailpointHandler } from '@yielded/agent/durable-failpoint'
-import { type MessageDeliveryError, MessageDeliveryStore } from '@yielded/agent/message-delivery'
-import { DeploymentId, ProducerId } from '@yielded/agent/records'
+} from '@systemfsoftware/agent-storage-sqlite/sqlite-thread-store'
+import {
+  type AgentRegistration,
+  compileRegistrations,
+  type ResolvedBinding,
+} from '@systemfsoftware/agent/agent-registration'
+import { DurableAgentRuntime, DurableRuntimeConfig } from '@systemfsoftware/agent/durable-agent-runtime'
+import { DurableRuntimeFailpoint, type DurableRuntimeFailpointHandler } from '@systemfsoftware/agent/durable-failpoint'
+import { type MessageDeliveryError, MessageDeliveryStore } from '@systemfsoftware/agent/message-delivery'
+import { DeploymentId, ProducerId } from '@systemfsoftware/agent/records'
 import {
   CurrentToolFailureObserver,
   type RunContextPreparation,
@@ -29,10 +36,10 @@ import {
   RunToolAuthorization,
   type RunToolFailureObserver,
   toolFailureObserverLayer,
-} from '@yielded/agent/run-options'
-import { layer as runStorageLayer } from '@yielded/agent/run-storage'
-import { ThreadReader } from '@yielded/agent/thread-store'
-import { ToolReconciler } from '@yielded/agent/tool-reconciler'
+} from '@systemfsoftware/agent/run-options'
+import { layer as runStorageLayer } from '@systemfsoftware/agent/run-storage'
+import { ThreadReader } from '@systemfsoftware/agent/thread-store'
+import { ToolReconciler } from '@systemfsoftware/agent/tool-reconciler'
 import * as Context from 'effect/Context'
 import * as CryptoDigest from 'effect/crypto/Digest'
 import type * as SecureRandom from 'effect/crypto/SecureRandom'

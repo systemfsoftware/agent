@@ -2,7 +2,7 @@ import * as NodeCrypto from '@effect/platform-node/NodeCrypto'
 import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import * as SqliteClient from '@effect/sql-sqlite-node/SqliteClient'
 import { expect, it } from '@effect/vitest'
-import { ThreadId } from '@yielded/agent/identifiers'
+import { ThreadId } from '@systemfsoftware/agent/identifiers'
 import {
   drainLifecyclePublications,
   LifecyclePublication,
@@ -11,14 +11,14 @@ import {
   LifecyclePublicationHandler,
   lifecyclePublicationLayer,
   type LifecyclePublicationStorage,
-} from '@yielded/agent/lifecycle-publication'
-import { MessageDeliveryStore, prepareMessageDelivery, readPending } from '@yielded/agent/message-delivery'
+} from '@systemfsoftware/agent/lifecycle-publication'
+import { MessageDeliveryStore, prepareMessageDelivery, readPending } from '@systemfsoftware/agent/message-delivery'
 import {
   makeMessageDeliveryFixture,
   makeWorkerUpdateDeliveryFixture,
   messageDeliveryStoreConformanceCases,
-} from '@yielded/agent/testing/message-delivery-store-conformance'
-import { ThreadMaterialization, ThreadStore } from '@yielded/agent/thread-store'
+} from '@systemfsoftware/agent/testing/message-delivery-store-conformance'
+import { ThreadMaterialization, ThreadStore } from '@systemfsoftware/agent/thread-store'
 import * as DateTime from 'effect/DateTime'
 import * as Effect from 'effect/Effect'
 import * as FileSystem from 'effect/FileSystem'

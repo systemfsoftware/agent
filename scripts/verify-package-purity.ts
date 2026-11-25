@@ -96,9 +96,9 @@ const testOnlyModuleReason = (sourcePath: string): string | undefined => {
 }
 
 const isWorkspaceImport = (specifier: string): boolean =>
-  specifier === '@yielded/agent' ||
-  specifier.startsWith('@yielded/agent/') ||
-  specifier.startsWith('@yielded/agent-')
+  specifier === '@systemfsoftware/agent' ||
+  specifier.startsWith('@systemfsoftware/agent/') ||
+  specifier.startsWith('@systemfsoftware/agent-')
 
 const displayNameFor = (packageName: string, exportPath: string): string =>
   exportPath === '.' ? packageName : `${packageName}${exportPath.slice(1)}`
