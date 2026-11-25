@@ -21,29 +21,33 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' && !startsWith(github.head_ref, 'mergify/merge-queue/') }}
 
 jobs:
-  static-checks:
-    name: static checks
+  lint:
+    name: lint
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      # Only a push to main writes the pnpm store; every other run restores it read-only.
+      - uses: ./.github/actions/workspace
         with:
           node-version: 24
-      - id: pnpm-store
-        uses: ./.github/actions/pnpm-store
-      - run: pnpm install --frozen-lockfile
-      # Only a push to main writes the pnpm store; every other run restores it read-only.
-      - if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.pnpm-store.outputs.hit != 'true'
-        uses: ./.github/actions/pnpm-store
-        with:
-          mode: save
-          key: ${{ steps.pnpm-store.outputs.key }}
+          save-store: "true"
       - run: pnpm format:check
       - run: pnpm lint
+
+  build-and-pack:
+    name: build and pack
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/workspace
+        with:
+          node-version: 24
       - run: pnpm typecheck
       # attw and the export checks guard the built output, so the build precedes them.
       - run: pnpm build
@@ -60,10 +64,23 @@ jobs:
       contents: read
       pull-requests: read
 
+  # Each heavy suite gets its own runner; the rest of the workspace shares one. `rest` excludes the heavy packages.
   test:
-    name: test
+    name: test ${{ matrix.lane.name }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        lane:
+          - name: postgres
+            filter: "--filter @systemfsoftware/agent-storage-postgres"
+          - name: cloudflare
+            filter: "--filter @systemfsoftware/agent-platform-cloudflare"
+          - name: agent-testing
+            filter: "--filter @systemfsoftware/agent-testing"
+          - name: rest
+            filter: "--workspace-concurrency=4 --filter !@systemfsoftware/agent-storage-postgres --filter !@systemfsoftware/agent-platform-cloudflare --filter !@systemfsoftware/agent-testing"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -74,40 +91,20 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 26
-      - uses: ./.github/actions/pnpm-store
       # The fixtures pull the digest-pinned IntegreSQL layer from ghcr.io once and keep it here.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/agent/integresql-layers
           key: integresql-${{ runner.arch }}-${{ hashFiles('packages/storage-postgres/test/integresql-binary.ts') }}
-      - run: pnpm install --frozen-lockfile
-      # The workspace graph orders these three one after another when pnpm recurses, whatever the slot count:
-      # in the measured run storage-postgres, testing and platform-cloudflare ran back to back and set the
-      # job's wall time. They are independent suites, so they run alongside the rest of the workspace instead.
+      - uses: ./.github/actions/workspace
+        with:
+          node-version: 26
       - name: Run the suites
         env:
-          HEAVY: "@systemfsoftware/agent-storage-postgres @systemfsoftware/agent-platform-cloudflare @systemfsoftware/agent-testing"
+          FILTER: ${{ matrix.lane.filter }}
         run: |
-          set -uo pipefail
-          pids=()
-          status=0
-          for pkg in $HEAVY; do
-            pnpm --filter "$pkg" test &
-            pids+=("$!")
-          done
-          pnpm -r --workspace-concurrency=4 \
-            --filter '!@systemfsoftware/agent-storage-postgres' \
-            --filter '!@systemfsoftware/agent-platform-cloudflare' \
-            --filter '!@systemfsoftware/agent-testing' \
-            run test || status=1
-          for pid in "${pids[@]}"; do
-            wait "$pid" || status=1
-          done
-          exit "$status"
+          read -ra filter <<< "$FILTER"
+          pnpm -r "${filter[@]}" run test
 
   gritlint:
     name: gritlint
@@ -139,12 +136,13 @@ jobs:
     name: checks / check
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [static-checks, changeset, test, gritlint]
+    needs: [lint, build-and-pack, changeset, test, gritlint]
     if: ${{ always() }}
     steps:
       - name: Require every job to succeed
         env:
-          STATIC_CHECKS: ${{ needs.static-checks.result }}
+          LINT: ${{ needs.lint.result }}
+          BUILD_AND_PACK: ${{ needs.build-and-pack.result }}
           TEST: ${{ needs.test.result }}
           GRITLINT: ${{ needs.gritlint.result }}
           CHANGESET: ${{ needs.changeset.result }}
@@ -152,7 +150,7 @@ jobs:
           HEAD_REF: ${{ github.head_ref }}
         run: |
           status=0
-          for pair in "static-checks:$STATIC_CHECKS" "test:$TEST" "gritlint:$GRITLINT"; do
+          for pair in "lint:$LINT" "build-and-pack:$BUILD_AND_PACK" "test:$TEST" "gritlint:$GRITLINT"; do
             case "$pair" in
               *:success) ;;
               *) echo "A required job finished as: $pair"; status=1 ;;
