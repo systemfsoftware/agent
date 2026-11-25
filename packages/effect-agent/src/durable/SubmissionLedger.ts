@@ -10,8 +10,10 @@ import * as FailureDiagnostic from '../core/FailureDiagnostic'
 import { AgentId, AttemptId, ReceiptId, SettlementId, SubmissionId, ThreadId, ToolCallId } from '../core/Identifiers'
 import type { JoinedToHost } from '../core/Receipt'
 import { IdempotencyKey, Principal, QueueSequence } from '../core/Receipt'
+import { Selection } from '../core/ToolExposure'
 import { RunUsageSummary } from '../core/Usage'
 import { AssignmentTerminal } from '../core/Worker'
+import { RunCompletionMode } from '../engine/RunOptions'
 import { canonicalJson } from './Digest'
 import {
   AbortRequested,
@@ -35,6 +37,7 @@ import {
 import type { AppendRequest, AppendResult, ThreadStoreFailure } from './ThreadStore'
 
 export { IdempotencyKey, JoinedToHost, Principal, QueueSequence } from '../core/Receipt'
+export { Selection } from '../core/ToolExposure'
 
 /**
  * Ledger lifecycle states for one Submission. `settled` is the only terminal state; every other
@@ -131,6 +134,28 @@ export class AdmissionPolicyError extends Schema.TaggedError<AdmissionPolicyErro
   },
 ) {}
 
+const RunSettingName = Schema.NonEmptyString.check(Schema.isMaxLength(256))
+const RunSettingCount = Schema.Int.check(Schema.isGreaterThan(0))
+
+export const RunModelSelection = Schema.Struct({
+  provider: RunSettingName,
+  model: RunSettingName,
+  credentialSource: Schema.optionalKey(RunSettingName),
+})
+
+export type RunModelSelection = typeof RunModelSelection.Type
+
+export const RunSettings = Schema.Struct({
+  model: Schema.optionalKey(RunModelSelection),
+  completion: Schema.optionalKey(RunCompletionMode),
+  contextTokenLimit: Schema.optionalKey(RunSettingCount),
+  toolSelection: Schema.optionalKey(Selection),
+  turnAllowance: Schema.optionalKey(RunSettingCount),
+  toolCallAllowance: Schema.optionalKey(RunSettingCount),
+})
+
+export type RunSettings = typeof RunSettings.Type
+
 /**
  * Durable admission input. `inputDigest` must be the digest of the canonical JSON encoding of
  * `inputPayload` (see `digestJson`); admission idempotency compares digests, never re-encodes.
@@ -155,6 +180,7 @@ export class AdmissionRequest extends Schema.Class<AdmissionRequest>(
   messageAdmission: Schema.optionalKey(InputMessage),
   admissionGroup: Schema.optionalKey(AdmissionGroup),
   admissionFence: Schema.optionalKey(AdmissionFence),
+  runSettings: Schema.optionalKey(RunSettings),
 }) {}
 
 /**
@@ -236,6 +262,7 @@ export class SubmissionSnapshot extends Schema.Class<SubmissionSnapshot>(
   parentLinkage: Schema.optionalKey(ParentLinkage),
   workerAdmission: Schema.optionalKey(WorkerAdmission),
   messageAdmission: Schema.optionalKey(InputMessage),
+  runSettings: Schema.optionalKey(RunSettings),
 }) {}
 
 /** Resolve the exact selected input to its immutable host Run without enumerating joins. */
@@ -361,6 +388,7 @@ const SettlementFields = Schema.Struct({
   usageSummary: Schema.optionalKey(RunUsageSummary),
   /** Present exactly for `failed`; its Schema rejects excess keys before canonical projection. */
   failure: Schema.optionalKey(SettlementFailureDiagnostic),
+  hostFailure: Schema.optionalKey(PersistedJson),
   settledAt: Schema.DateTimeUtcFromString,
 }).check(
   Schema.makeFilter(
@@ -368,6 +396,12 @@ const SettlementFields = Schema.Struct({
     { title: 'failure exactly on a failed Settlement' },
   ),
 )
+  .check(
+    Schema.makeFilter(
+      (settlement) => settlement.hostFailure === undefined || settlement.outcome === 'failed',
+      { title: 'hostFailure only on a failed Settlement' },
+    ),
+  )
 
 /** The single durable terminal outcome recorded for one accepted Submission (DUR-002). */
 export class Settlement extends Schema.Class<Settlement>('@effect-agent/thread/Settlement')(
