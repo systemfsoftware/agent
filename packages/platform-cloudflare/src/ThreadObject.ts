@@ -513,6 +513,7 @@ export const submit = Effect.fnUntraced(function*(threadId: ThreadId, request: S
         ...(request.messageAdmission === undefined
           ? {}
           : { messageAdmission: request.messageAdmission }),
+        ...(request.runSettings === undefined ? {} : { runSettings: request.runSettings }),
         definitions: request.definitions,
       })
       .pipe(
