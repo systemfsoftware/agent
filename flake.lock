@@ -602,7 +602,7 @@
       },
       "locked": {
         "lastModified": 1795202863,
-        "narHash": "sha256-0d65tRr6t/9aBjSmtI+627Td3+dpolcO5QBN+qsCKrQ=",
+        "narHash": "sha256-YlLu7acyExl4MbRKjhwQDz3kC40j88WWbFXjmOFq+Aw=",
         "owner": "systemfsoftware",
         "repo": "pnpm-release-management",
         "rev": "1caca2828ed543409ae9ce0dceb949845a617564",
