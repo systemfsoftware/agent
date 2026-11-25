@@ -248,7 +248,7 @@ layer(testLayer)('engine compaction and overflow recovery', (it) => {
         const result = yield* driveRun({
           policy: AgentPolicy.make({
             ...basePolicy,
-            contextTokenLimit: 2_000,
+            contextTokenLimit: 2_600,
             compaction: CompactionPolicy.make({ mode: 'summarize', keepRecentTokens: 300 }),
           }),
           context: {

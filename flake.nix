@@ -9,7 +9,7 @@
   inputs = {
     core.url = "github:systemfsoftware/systemfsoftware/15b4d2ab1e2af0a154fad2b9af7bd1f6449b3606";
     nixpkgs.follows = "core/nixpkgs";
-    pnpm-release-management.url = "github:systemfsoftware/pnpm-release-management/1caca2828ed543409ae9ce0dceb949845a617564";
+    pnpm-release-management.url = "github:systemfsoftware/pnpm-release-management/ea9d020a3ffd18fa34b85e39c1655b0756109f2b";
     gritlint.url = "github:systemfsoftware/gritlint/886e7c1646ba2edf93403b4591d2e3adceebf91c";
   };
 

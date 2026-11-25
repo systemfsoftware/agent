@@ -87,6 +87,7 @@ import {
   ReleaseChildBudgetRequest,
   ReservedChildBudget,
   RevertJoiningRequest,
+  RunSettings,
   Settlement,
   SettlementConflict,
   settlementFailureFromRecord,
@@ -256,7 +257,8 @@ const SUBMISSION_COLUMNS = `
   admission_group,
   admission_fence_json,
   worker_admission_json,
-  message_admission_json
+  message_admission_json,
+  run_settings_json
 `
 
 const CHILD_RESERVATION_COLUMNS = `
@@ -297,6 +299,8 @@ const decodeSubmissionSnapshotType = (input: SubmissionSnapshot) =>
   )
 
 const decodeSubmissionId = Schema.decodeUnknownEffect(SubmissionSnapshot.fields.submissionId)
+const encodeRunSettingsJson = Schema.encodeEffect(Schema.fromJsonString(RunSettings))
+const decodeRunSettingsJson = Schema.decodeUnknownEffect(Schema.fromJsonString(RunSettings))
 const decodeQueueSequence = Schema.decodeUnknownEffect(QueueSequence)
 const decodeUtcInstant = Schema.decodeUnknownEffect(Schema.DateTimeUtcFromString)
 const decodeJoiningClaim = Schema.decodeUnknownEffect(JoiningClaim)
@@ -675,8 +679,13 @@ const makeServices = Effect.fnUntraced(function*() {
       ? undefined
       : yield* decodeUtcInstant(row.ready_at).pipe(Effect.mapError(decodeFailure))
 
+    const runSettings = row.run_settings_json === null
+      ? undefined
+      : yield* decodeRunSettingsJson(row.run_settings_json).pipe(Effect.mapError(decodeFailure))
+
     const snapshot = yield* decodeSubmissionSnapshotType({
       ...admission,
+      ...(runSettings === undefined ? {} : { runSettings }),
       state: row.state,
       ...(row.settled_outcome === null ? {} : { settledOutcome: row.settled_outcome }),
       ...(settledAt === undefined ? {} : { settledAt }),
@@ -1128,6 +1137,12 @@ const makeServices = Effect.fnUntraced(function*() {
               existing[0].admission_fence_json,
             ).pipe(Effect.mapError(internalFailure(operation)))
 
+          const retainedRunSettings = existing[0].run_settings_json === null
+            ? undefined
+            : yield* decodeRunSettingsJson(existing[0].run_settings_json).pipe(
+              Effect.mapError(internalFailure(operation)),
+            )
+
           if (
             (existing[0].admission_group ?? undefined) !== validated.admissionGroup ||
             !Schema.toEquivalence(Schema.optional(WorkerAdmission))(
@@ -1141,6 +1156,10 @@ const makeServices = Effect.fnUntraced(function*() {
             !Schema.toEquivalence(Schema.optional(AdmissionFence))(
               retainedFence,
               validated.admissionFence,
+            ) ||
+            !Schema.toEquivalence(Schema.optional(RunSettings))(
+              retainedRunSettings,
+              validated.runSettings,
             )
           ) {
             return yield* AdmissionConflict.make({
@@ -1247,6 +1266,12 @@ const makeServices = Effect.fnUntraced(function*() {
               (thread) => thread.tail_sequence > 0,
             )
 
+        const runSettingsJson = validated.runSettings === undefined
+          ? null
+          : yield* encodeRunSettingsJson(validated.runSettings).pipe(
+            Effect.mapError(internalFailure(operation)),
+          )
+
         yield* sql`
             INSERT INTO effect_agent_submissions (
               submission_id,
@@ -1268,7 +1293,8 @@ const makeServices = Effect.fnUntraced(function*() {
               admission_group,
               admission_fence_json,
   worker_admission_json,
-  message_admission_json
+  message_admission_json,
+  run_settings_json
             ) VALUES (
               ${mintedSubmissionId},
               ${validated.threadId},
@@ -1289,7 +1315,8 @@ const makeServices = Effect.fnUntraced(function*() {
               ${validated.admissionGroup ?? null},
               ${validated.admissionFence === undefined ? null : JSON.stringify(validated.admissionFence)},
               ${workerAdmissionJson},
-              ${messageAdmissionJson}
+              ${messageAdmissionJson},
+              ${runSettingsJson}
             )
            RETURNING *, ${definitionJson(sql)} AS agent_digests_json`.pipe(
           rows.submissions.write,
