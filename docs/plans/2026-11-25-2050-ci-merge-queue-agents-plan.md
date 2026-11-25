@@ -13,7 +13,8 @@ status: draft (review round 1 of the design is recorded below; round 2 pending)
 
 - **Objective:** most pull requests here are written by coding agents. They should get the failing lane in under two
   minutes on their own head. They should enter the Mergify queue instead of being admin-merged. And no change reaches
-  `main` without the full suite having run on the merged tree.
+  `main` without the full suite having run, on the merged tree through the queue or on the head before an admin merge
+  (D4).
 - **Means:** split the two monolithic jobs into parallel lanes under the unchanged `checks / check` verdict. Run the
   heavy suites only where they can be affected on a pull request head, and always on queue drafts, `main` and a nightly
   schedule. Make the queue the normal merge path.
@@ -58,13 +59,20 @@ lane.
 | `change intent`   | changeset presence                                                   | always            | skipped     | skipped     | skipped |
 
 "Affected only" means the lane runs when the pull request changes the package or any workspace package it depends on,
-computed from the pnpm graph against the merge base. Seven lanes, not one per package, so that three speculative
-queue drafts plus a few agent pull requests stay inside the account's concurrent-job limit.
+computed from the pnpm graph against the merge base. A change to any root or toolchain input runs all three regardless:
+`pnpm-lock.yaml`, `pnpm-workspace.yaml`, the root `package.json`, any `tsconfig*.json`, `flake.nix`, `flake.lock`,
+`.github/workflows/` or `.github/actions/`. `test postgres` carries the `/dev/kvm` permission step that the single
+`test` job has today, through a shared composite action.
+
+Each run has ten jobs: the eight lanes above, `checks / check`, and `squash message` from its own workflow. That is
+about one job per package group rather than one per package, so three speculative queue drafts plus a few agent pull
+requests stay inside the account's concurrent-job limit.
 
 ### D2. The verdict fails closed where it matters
 
-On a queue draft, on `main` and on the schedule, `checks / check` fails when any lane concluded anything but
-`success`, `skipped` included. On a pull request head only the three affected-only lanes may be skipped.
+On a queue draft, on `main` and on the schedule, `checks / check` fails when any of the seven build, lint and test lanes
+concluded anything but `success`, `skipped` included. `change intent` runs only on pull request heads, so it must succeed
+there and may be skipped everywhere else. On a pull request head the three affected-only lanes may also be skipped.
 
 ### D3. Queue configuration
 
@@ -78,9 +86,14 @@ On a queue draft, on `main` and on the schedule, `checks / check` fails when any
 
 ### D4. Agents merge through the queue
 
-Agents stop running `gh pr merge` on pull requests the queue can take. When a pull request cannot enter the queue, the
-agent reports the exact blocking condition: missing approval, the hold label, the title rule, or owner approval on
-protected paths.
+The queue is the routine merge path. Once the review gate approves, `merge_protections_settings.auto_merge_conditions`
+enqueues the pull request, and no agent runs `gh pr merge` on it. When a pull request cannot enter the queue, the agent
+reports the exact blocking condition: missing approval, the hold label, the title rule, or owner approval on protected
+paths.
+
+The maintainer bot keeps its admin merge for a pull request the queue cannot take. Before that merge it dispatches
+`ci.yml` on the head, which runs every lane because only pull request events skip the affected-only lanes. It merges
+only once that run's `checks / check` succeeds.
 
 ### D5. Flaky suites
 
@@ -92,23 +105,26 @@ protected paths.
 ### D6. What an agent sees first
 
 `squash message` and `change intent` report in about 10 seconds, `lint` in about 45, and `test` and `gritlint` in
-about 90. Each lane writes one line to the job summary, so an agent can find the failing lane without reading logs.
+about 90. The affected heavy lanes and `build and pack` finish in about 190. Each lane writes one line to the job summary, so an agent can find the failing lane without reading logs.
 
 ## Review record
 
-Round 1 of the design came from an outside reviewer. One of its items is refuted, and one requirement is still open.
+Two review rounds came from an outside reviewer.
 
-- **Refuted: remove the bot identity from the ruleset bypass.** In this organization, admin merges by the maintainer
-  bot are an allowed path once the bot has read the checks itself. The queue becomes the default path (D4) without
-  removing that ability.
-- **Open: heavy suites only in the queue.** One option runs the slow suites (storage-postgres, platform-cloudflare,
-  agent-testing) only on queue drafts. The reviewer ruled for affected-only runs on pull request heads instead (D1),
-  because a Postgres break first found in a batch of up to 3 forces a bisection that boots the microVMs again. Round 2
-  settles this.
+- **Round 1, refuted: remove the bot identity from the ruleset bypass.** In this organization, the maintainer bot may
+  admin-merge once it has read the checks itself. Round 2 accepted the refutation. It also found that an admin merge of
+  a pull request that skipped the heavy lanes reaches `main` without the full suite. D4 now requires a full run on the
+  head first.
+- **Round 2, settled: heavy suites run on pull request heads when affected, not only in the queue.** A regression found
+  first in a queue batch of up to 3 fails the batch and forces a bisection run that boots the microVMs again. Runner
+  minutes are free, and an unaffected pull request skips those lanes anyway.
+- **Round 2, fixed:** `change intent` is exempt from the queue-draft, `main` and nightly verdict (D2). Root and
+  toolchain changes run every heavy lane (D1). The job count is reconciled at ten (D1). The KVM step moves with
+  `test postgres` (D1).
 
-## Questions round 2 must settle
+## Measured answers to round 1's questions
 
-- Whether the default queue enqueues automatically once its conditions pass. The org policy sets
-  `merge_protections_settings.auto_merge_conditions`, which needs the review gate's approval.
-- The organization's concurrent-job limit for GitHub-hosted runners.
-- Whether any slower suite that CI does not run today belongs on the nightly schedule.
+- Auto-enqueue exists: the org policy sets `merge_protections_settings.auto_merge_conditions`, which needs the review
+  gate's approval. It has not been exercised here, since Mergify merged none of the last 18 pull requests.
+- No suite runs outside `ci.yml` today.
+- The organization's concurrent-job limit is not measured.
