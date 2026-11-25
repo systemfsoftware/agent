@@ -64,12 +64,15 @@ const usage = {
   outputTokens: { total: 4 },
 }
 
+// Providers emit parsed JSON, so fixture arguments carry no Schema class instances.
+const wire = (value: object): unknown => JSON.parse(JSON.stringify(value))
+
 const response = (
   value: object,
   responseUsage: typeof usage = usage,
 ): Stream.Stream<Response.StreamPartEncoded> =>
   Stream.fromIterable([
-    { type: 'tool-call', id: 'review', name: 'submit_review', params: value },
+    { type: 'tool-call', id: 'review', name: 'submit_review', params: wire(value) },
     { type: 'finish', reason: 'tool-calls', usage: responseUsage },
   ])
 
@@ -78,7 +81,12 @@ const toolResponse = (
   responseUsage: typeof usage = usage,
 ): Stream.Stream<Response.StreamPartEncoded> =>
   Stream.fromIterable([
-    ...calls.map((call, index) => ({ type: 'tool-call' as const, id: `call-${index}`, ...call })),
+    ...calls.map((call, index) => ({
+      type: 'tool-call' as const,
+      id: `call-${index}`,
+      name: call.name,
+      params: wire(call.params),
+    })),
     { type: 'finish', reason: 'tool-calls', usage: responseUsage },
   ])
 
