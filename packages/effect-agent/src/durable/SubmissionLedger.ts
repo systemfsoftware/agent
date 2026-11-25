@@ -387,6 +387,7 @@ const SettlementFields = Schema.Struct({
   usageSummary: Schema.optionalKey(RunUsageSummary),
   /** Present exactly for `failed`; its Schema rejects excess keys before canonical projection. */
   failure: Schema.optionalKey(SettlementFailureDiagnostic),
+  hostFailure: Schema.optionalKey(PersistedJson),
   settledAt: Schema.DateTimeUtcFromString,
 }).check(
   Schema.makeFilter(
