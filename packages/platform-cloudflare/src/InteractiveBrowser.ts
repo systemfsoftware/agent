@@ -48,7 +48,7 @@ import {
   type HTTPRequest,
   type JSHandle,
   type Page,
-} from 'puppeteer-core/lib/esm/puppeteer/puppeteer-core-browser.js'
+} from 'puppeteer-core/lib/puppeteer/puppeteer-core-browser.js'
 
 import { BrowserRunBinding, BrowserRunRefusal } from './internal/browser-binding'
 import { BrowserRunFailure, reportBrowserCause, reportedBrowserError } from './internal/browser-failure'
@@ -1269,7 +1269,7 @@ const makeProductionPage = (page: Page): BrowserRunInteractivePage => {
       }
     },
     close: async () => {
-      if (!page.browser().isConnected()) return
+      if (!page.browser().connected) return
       try {
         await page.close()
       } catch (cause) {
@@ -1409,7 +1409,7 @@ const makeProductionContext = (
     return makeProductionPage(page)
   },
   close: async () => {
-    if (!context.browser().isConnected()) return
+    if (!context.browser().connected) return
     try {
       await context.close()
     } catch (cause) {
@@ -1449,7 +1449,7 @@ const makeProductionBrowser = (
   createContext: async () => makeProductionContext(await browser.createBrowserContext(), viewport),
   // Exact-session termination may already have closed the provider transport.
   close: async () => {
-    if (!browser.isConnected()) return
+    if (!browser.connected) return
     try {
       await browser.close()
     } catch (cause) {
@@ -1458,7 +1458,7 @@ const makeProductionBrowser = (
     }
   },
   sessionId: () => sessionId,
-  isConnected: () => browser.isConnected(),
+  isConnected: () => browser.connected,
   onDisconnected: (listener) => {
     browser.on('disconnected', listener)
   },

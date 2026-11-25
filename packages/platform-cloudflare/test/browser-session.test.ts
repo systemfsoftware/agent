@@ -61,7 +61,7 @@ const provider = vi.hoisted(() => ({
 
 // Substitute only the SDK/provider seam. The real attachment transport, scopes, authority,
 // timeout and exact-session cleanup wiring run in workerd; Chromium owns DOM tests separately.
-vi.mock('puppeteer-core/lib/esm/puppeteer/puppeteer-core-browser.js', () => ({
+vi.mock('puppeteer-core/lib/puppeteer/puppeteer-core-browser.js', () => ({
   default: {
     connect: async ({ transport }: { transport: { onclose?: () => void } }) => {
       if (!provider.alive) throw new Error('private-expired-provider')
@@ -194,7 +194,9 @@ vi.mock('puppeteer-core/lib/esm/puppeteer/puppeteer-core-browser.js', () => ({
       }
 
       return {
-        isConnected: () => connected,
+        get connected() {
+          return connected
+        },
         browserContexts: () => [context],
         createBrowserContext: async () => context,
       }

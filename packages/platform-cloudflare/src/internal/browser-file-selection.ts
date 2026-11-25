@@ -1,6 +1,6 @@
 import type { BrowserSelectFileRequest } from '@systemfsoftware/agent/interactive-browser'
 import * as Base64 from 'effect/encoding/Base64'
-import type { Page } from 'puppeteer-core/lib/esm/puppeteer/puppeteer-core-browser.js'
+import type { Page } from 'puppeteer-core/lib/puppeteer/puppeteer-core-browser.js'
 
 import { pageFunction } from './page-function'
 

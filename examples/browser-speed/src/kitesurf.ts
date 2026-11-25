@@ -1,6 +1,6 @@
 import { type BrowserSession, BrowserSessionError } from '@systemfsoftware/agent-platform-cloudflare/browser-session'
 import { Effect, Option, Redacted, Schema, Semaphore } from 'effect'
-import puppeteer, { type ConnectionTransport } from 'puppeteer-core/lib/esm/puppeteer/puppeteer-core-browser.js'
+import puppeteer, { type ConnectionTransport } from 'puppeteer-core/lib/puppeteer/puppeteer-core-browser.js'
 
 import { browserCommandTimeoutMillis, LabError } from './contract'
 

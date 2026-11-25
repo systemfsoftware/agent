@@ -32,7 +32,7 @@ import {
   type PageEvent,
   type PageEvents,
   TimeoutError,
-} from 'puppeteer-core/lib/esm/puppeteer/puppeteer-core-browser.js'
+} from 'puppeteer-core/lib/puppeteer/puppeteer-core-browser.js'
 
 import {
   type BrowserSession,

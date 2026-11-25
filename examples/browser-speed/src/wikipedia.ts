@@ -1,5 +1,5 @@
 import { Effect, Schema } from 'effect'
-import type { Frame } from 'puppeteer-core/lib/esm/puppeteer/puppeteer-core-browser.js'
+import type { Frame } from 'puppeteer-core/lib/puppeteer/puppeteer-core-browser.js'
 
 import { Browser } from './browser'
 import { ArticleTitle, LabError, type WikipediaChallenge, type WikiRace } from './contract'
