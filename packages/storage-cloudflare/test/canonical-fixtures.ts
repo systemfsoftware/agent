@@ -1,0 +1,35 @@
+import { CanonicalBatch, CanonicalRecord, UserInputRecorded } from '@systemfsoftware/agent/records'
+import * as Schema from 'effect/Schema'
+
+import { at, id, TEST_DEPLOYMENT, TEST_PRODUCER } from './harness.ts'
+
+/** A minimal canonical `UserInputRecorded` record for store round-trip tests. */
+export const inputRecord = (recordId: string, input: string): CanonicalRecord =>
+  CanonicalRecord.make({
+    recordId: id(
+      Schema.NonEmptyString.pipe(Schema.brand('@effect-agent/thread/RecordId')),
+      recordId,
+    ),
+    family: 'thread',
+    schemaVersion: 1,
+    createdAt: at(1),
+    deploymentId: TEST_DEPLOYMENT,
+    payload: UserInputRecorded.make({
+      submissionId: id(SubmissionId, 'submission-do-store'),
+      kind: 'user',
+      input,
+    }),
+  })
+
+/** A canonical batch of the given records under the shared test producer identity. */
+export const batch = (
+  batchId: string,
+  records: readonly [CanonicalRecord, ...Array<CanonicalRecord>],
+): CanonicalBatch =>
+  CanonicalBatch.make({
+    batchId: id(Schema.NonEmptyString.pipe(Schema.brand('@effect-agent/thread/BatchId')), batchId),
+    producerId: TEST_PRODUCER,
+    records,
+  })
+
+import { SubmissionId } from '@systemfsoftware/agent/identifiers'

@@ -80,6 +80,43 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
 
+  # Transaction rollback and connection cleanup cannot be proven against an in-process double, so the Postgres
+  # storage suite runs against real servers on each supported major.
+  storage-postgres:
+    name: test (postgres ${{ matrix.postgres }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        postgres: ["16", "17", "18"]
+    services:
+      postgres:
+        image: postgres:${{ matrix.postgres }}-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: effect_agent
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - uses: ./.github/actions/pnpm-store
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @systemfsoftware/agent-storage-postgres test
+        env:
+          EFFECT_AGENT_TEST_POSTGRES_URL: postgres://postgres:postgres@localhost:55432/effect_agent
+
   # The one check the ruleset requires and the merge queue gates on; the name matches the shared CI of the other
   # systemfsoftware repositories. List every other job in `needs`: a job left out is not gated. The job always runs,
   # and any dependency that did not conclude `success` fails it, so a run that did not execute the gate can never
@@ -88,19 +125,20 @@ jobs:
     name: checks / check
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [static-checks, changeset, test]
+    needs: [static-checks, changeset, test, storage-postgres]
     if: ${{ always() }}
     steps:
       - name: Require every job to succeed
         env:
           STATIC_CHECKS: ${{ needs.static-checks.result }}
           TEST: ${{ needs.test.result }}
+          STORAGE_POSTGRES: ${{ needs.storage-postgres.result }}
           CHANGESET: ${{ needs.changeset.result }}
           EVENT: ${{ github.event_name }}
           HEAD_REF: ${{ github.head_ref }}
         run: |
           status=0
-          for pair in "static-checks:$STATIC_CHECKS" "test:$TEST"; do
+          for pair in "static-checks:$STATIC_CHECKS" "test:$TEST" "storage-postgres:$STORAGE_POSTGRES"; do
             case "$pair" in
               *:success) ;;
               *) echo "A required job finished as: $pair"; status=1 ;;

@@ -304,7 +304,7 @@ layer(TestServices)('Subagent.layer S1 attached delegation', (it) => {
       expect(result.output).toBe('done')
     }))
 
-  // Regression: https://github.com/systemfsoftware/agent/issues/961
+  // Regression: https://github.com/yielded-dev/agent/issues/961
   it.effect('bounds late children by the parent deadline and leaves time to finish', () =>
     Effect.gen(function*() {
       const childCalls = yield* Ref.make(0)

@@ -764,7 +764,7 @@ describe('NodeDurableAgentRuntime', () => {
       ),
   )
 
-  // Regression: https://github.com/systemfsoftware/agent/commit/6ceda1d2
+  // Regression: https://github.com/yielded-dev/agent/commit/6ceda1d2
   it.effect('keeps accepted input owed across incompatible current Bindings', () =>
     withTemporaryDatabase((filename) =>
       Effect.gen(function*() {

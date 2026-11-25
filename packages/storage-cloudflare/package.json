@@ -1,0 +1,125 @@
+{
+  "name": "@systemfsoftware/agent-storage-cloudflare",
+  "version": "0.1.0-beta.192",
+  "description": "Durable Object SQLite storage adapters and the routed port protocol for Effect Agent on Cloudflare.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/systemfsoftware/agent.git",
+    "directory": "packages/storage-cloudflare"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "type": "module",
+  "sideEffects": [],
+  "exports": {
+    ".": "./src/index.ts",
+    "./do-memory-store": "./src/DoMemoryStore.ts",
+    "./do-schedule-store": "./src/DoScheduleStore.ts",
+    "./do-storage-config": "./src/DoStorageConfig.ts",
+    "./do-storage-error": "./src/DoStorageError.ts",
+    "./do-storage-failpoint": "./src/DoStorageFailpoint.ts",
+    "./do-storage-version": "./src/DoStorageVersion.ts",
+    "./do-submission-ledger": "./src/DoSubmissionLedger.ts",
+    "./do-subscription-store": "./src/DoSubscriptionStore.ts",
+    "./do-thread-store": "./src/DoThreadStore.ts",
+    "./memory-protocol": "./src/MemoryProtocol.ts",
+    "./port-protocol": "./src/PortProtocol.ts",
+    "./port-routing": "./src/PortRouting.ts",
+    "./testing/do-storage-failpoint-testing": "./src/DoStorageFailpointTesting.ts",
+    "./do-message-delivery-store": "./src/DoMessageDeliveryStore.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "./do-memory-store": {
+        "types": "./dist/DoMemoryStore.d.mts",
+        "default": "./dist/DoMemoryStore.mjs"
+      },
+      "./do-schedule-store": {
+        "types": "./dist/DoScheduleStore.d.mts",
+        "default": "./dist/DoScheduleStore.mjs"
+      },
+      "./do-storage-config": {
+        "types": "./dist/DoStorageConfig.d.mts",
+        "default": "./dist/DoStorageConfig.mjs"
+      },
+      "./do-storage-error": {
+        "types": "./dist/DoStorageError.d.mts",
+        "default": "./dist/DoStorageError.mjs"
+      },
+      "./do-storage-failpoint": {
+        "types": "./dist/DoStorageFailpoint.d.mts",
+        "default": "./dist/DoStorageFailpoint.mjs"
+      },
+      "./do-storage-version": {
+        "types": "./dist/DoStorageVersion.d.mts",
+        "default": "./dist/DoStorageVersion.mjs"
+      },
+      "./do-submission-ledger": {
+        "types": "./dist/DoSubmissionLedger.d.mts",
+        "default": "./dist/DoSubmissionLedger.mjs"
+      },
+      "./do-subscription-store": {
+        "types": "./dist/DoSubscriptionStore.d.mts",
+        "default": "./dist/DoSubscriptionStore.mjs"
+      },
+      "./do-thread-store": {
+        "types": "./dist/DoThreadStore.d.mts",
+        "default": "./dist/DoThreadStore.mjs"
+      },
+      "./memory-protocol": {
+        "types": "./dist/MemoryProtocol.d.mts",
+        "default": "./dist/MemoryProtocol.mjs"
+      },
+      "./port-protocol": {
+        "types": "./dist/PortProtocol.d.mts",
+        "default": "./dist/PortProtocol.mjs"
+      },
+      "./port-routing": {
+        "types": "./dist/PortRouting.d.mts",
+        "default": "./dist/PortRouting.mjs"
+      },
+      "./testing/do-storage-failpoint-testing": {
+        "types": "./dist/DoStorageFailpointTesting.d.mts",
+        "default": "./dist/DoStorageFailpointTesting.mjs"
+      },
+      "./do-message-delivery-store": {
+        "types": "./dist/DoMessageDeliveryStore.d.mts",
+        "default": "./dist/DoMessageDeliveryStore.mjs"
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "effect-tsgo tsrs --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "check:pack": "pnpm pack --pack-destination .pack && attw .pack/*.tgz --profile esm-only; s=$?; rm -rf .pack; exit $s"
+  },
+  "dependencies": {
+    "@effect/platform-browser": "catalog:",
+    "@effect/sql-sqlite-do": "catalog:",
+    "@systemfsoftware/agent": "workspace:*",
+    "@systemfsoftware/agent-storage-sql": "workspace:*"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "catalog:",
+    "@cloudflare/vitest-plugin": "catalog:",
+    "@cloudflare/workers-types": "catalog:",
+    "@effect/vitest": "catalog:",
+    "@systemfsoftware/agent-testing": "workspace:*",
+    "effect": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "effect": "^4.1.0"
+  }
+}

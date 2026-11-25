@@ -165,7 +165,7 @@ const lookup = Toolkit.make(
 
 // #651: successful answers and reported usage do not prove a reusable prompt prefix.
 // These assertions compare real wire prefixes, without simulating the provider cache.
-describe('prompt caching: https://github.com/systemfsoftware/agent/issues/651', () => {
+describe('prompt caching: https://github.com/yielded-dev/agent/issues/651', () => {
   it.effect.each(['retained', 'prepared', 'conversation-only'] as const)(
     'preserves user-ending prefixes within the context limit across three runs with %s history',
     (historyMode) =>

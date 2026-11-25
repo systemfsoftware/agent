@@ -1,0 +1,42 @@
+import * as Effect from 'effect/Effect'
+
+import type { DoStorageFailpointLocation } from './DoStorageError.ts'
+import type { DoStorageFailpointHandler } from './DoStorageFailpoint.ts'
+
+/**
+ * The DC-specific eviction failpoint mode: instead of failing typed, an armed hit evicts the
+ * Durable Object through an injected `evict` thunk — in production-shaped harnesses that thunk
+ * is `() => ctx.abort()`, the platform's real failure mode. `ctx.abort()` never returns (it
+ * throws while destroying the in-memory instance and every in-flight implicit or explicit
+ * storage transaction rolls back), so an armed hit ends the current Attempt exactly like an
+ * unannounced platform eviction; DO storage — the only correctness-critical state — survives
+ * for the next incarnation, which the persisted alarm wakes without any incoming request.
+ *
+ * The handles stay injected: this package never imports `cloudflare:workers`, so the harness
+ * that owns a `DurableObjectState` supplies the thunk.
+ */
+export const evictionFailpointHandler = (options: {
+  readonly isArmed: (location: DoStorageFailpointLocation) => Effect.Effect<boolean>
+  /** Kills the incarnation — e.g. `() => ctx.abort()`. Typed `void` because the platform
+   * declares `abort` as returning, but it throws while destroying the instance. */
+  readonly evict: (location: DoStorageFailpointLocation) => void
+}): DoStorageFailpointHandler =>
+(location) =>
+  options.isArmed(location).pipe(
+    Effect.flatMap((armed) =>
+      armed
+        // `ctx.abort()` throws while destroying the instance; that throw surfaces as a
+        // defect in the (already dying) incarnation. The defensive defect below keeps the
+        // guarantee — nothing after an armed hit may observe in-memory state — even if a
+        // harness supplies an evict thunk that returns.
+        ? Effect.sync(() => options.evict(location)).pipe(
+          Effect.andThen(
+            Effect.die(
+              // oxlint-disable-next-line effect/no-native-error -- A returning native eviction callback violates the host contract and must remain a defect.
+              new Error(`Durable Object eviction did not interrupt execution at ${location}.`),
+            ),
+          ),
+        )
+        : Effect.void
+    ),
+  )

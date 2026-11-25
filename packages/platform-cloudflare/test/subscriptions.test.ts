@@ -1,0 +1,213 @@
+import {
+  CloudflareSubscriptionsClient,
+  sourcePartitionName,
+  SubscriptionPartitionNamespace,
+} from '@systemfsoftware/agent-platform-cloudflare/cloudflare-subscriptions'
+import { SubscriptionIntake, Subscriptions } from '@systemfsoftware/agent/subscriptions'
+import { env, runDurableObjectAlarm, runInDurableObject } from 'cloudflare:test'
+import { DurableObject, DurableObjectAlarm } from 'effect-cf'
+import * as DateTime from 'effect/DateTime'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
+import { expect, it } from 'vitest'
+
+import { laneRows } from './harness.ts'
+import {
+  armSubscriptionEviction,
+  subscriptionAgentId,
+  subscriptionDefinitions,
+  subscriptionEvictionsRemaining,
+  subscriptionPartition,
+  subscriptionPrincipal,
+  SubscriptionTestSourceVersion,
+  subscriptionThreadId,
+} from './subscription-fixtures.ts'
+import type { TestSubscriptionPartitionObject } from './worker.ts'
+
+const partitionName = sourcePartitionName(subscriptionPartition)
+const stubFor = () => env.SUBSCRIPTIONS.get(env.SUBSCRIPTIONS.idFromName(partitionName))
+
+const clientLayer = CloudflareSubscriptionsClient.layer(subscriptionPartition).pipe(
+  Layer.provide(Layer.succeed(SubscriptionPartitionNamespace)({ namespace: env.SUBSCRIPTIONS })),
+)
+
+const runClient = <A, E>(effect: Effect.Effect<A, E, Subscriptions | SubscriptionIntake>) =>
+  Effect.runPromise(effect.pipe(Effect.provide(clientLayer)))
+
+const sleep = (millis: number) => new Promise((resolve) => setTimeout(resolve, millis))
+
+interface EvictionCase {
+  readonly name: string
+  readonly point: string
+  readonly registrations: number
+}
+
+const cases: ReadonlyArray<EvictionCase> = [
+  { name: 'partial fanout', point: 'subscription:select:after', registrations: 2 },
+  {
+    name: 'admission before Receipt recording',
+    point: 'subscription:admission:after',
+    registrations: 1,
+  },
+]
+
+for (const [caseIndex, row] of cases.entries()) {
+  it(`recovers ${row.name} from the persisted partition alarm after eviction`, async () => {
+    const topic = `topic-${caseIndex}`
+    const eventId = `event-${caseIndex}`
+    const ownerId = `owner-${caseIndex}`
+    const threads: Array<string> = []
+
+    for (let index = 0; index < row.registrations; index += 1) {
+      const threadId = subscriptionThreadId(`${caseIndex}-${index}`)
+
+      threads.push(threadId)
+      await runClient(
+        Effect.gen(function*() {
+          const subscriptions = yield* Subscriptions
+
+          yield* subscriptions.subscribe(
+            { partition: subscriptionPartition, ownerId, principal: subscriptionPrincipal },
+            {
+              subscriptionId: `subscription-${caseIndex}-${index}`,
+              source: SubscriptionTestSourceVersion,
+              parameters: { topic },
+              context: { instruction: 'continue after the event' },
+              mode: 'once',
+              expiresAtMillis: Date.now() + 60_000,
+              destination: { _tag: 'ExistingThread', threadId },
+              deliveryPrincipal: subscriptionPrincipal,
+              agentId: subscriptionAgentId,
+              definitions: subscriptionDefinitions,
+            },
+          )
+        }),
+      )
+    }
+
+    armSubscriptionEviction(partitionName, row.point)
+    await runClient(
+      Effect.gen(function*() {
+        const intake = yield* SubscriptionIntake
+
+        return yield* intake.accept(subscriptionPrincipal, SubscriptionTestSourceVersion, {
+          eventId,
+          topic,
+          message: 'the durable event completed',
+        })
+      }).pipe(Effect.exit),
+    )
+
+    let delivered = false
+
+    for (let round = 0; round < 2_000; round += 1) {
+      const pageResults = await Promise.allSettled(
+        Array.from({ length: row.registrations }, (_, index) =>
+          runClient(
+            Effect.gen(function*() {
+              const subscriptions = yield* Subscriptions
+
+              return yield* subscriptions.listDeliveries(
+                { partition: subscriptionPartition, ownerId, principal: subscriptionPrincipal },
+                {
+                  partition: subscriptionPartition,
+                  ownerId,
+                  subscriptionId: `subscription-${caseIndex}-${index}`,
+                },
+              )
+            }),
+          )),
+      )
+
+      if (
+        pageResults.every(
+          (result) =>
+            result.status === 'fulfilled' &&
+            result.value.items.length === 1 &&
+            result.value.items[0]?.receipt !== null,
+        )
+      ) {
+        delivered = true
+        break
+      }
+      try {
+        await runDurableObjectAlarm(stubFor())
+      } catch {
+        // The armed seam aborted this incarnation. A fresh stub reaches the replacement.
+      }
+      await sleep(10)
+    }
+
+    expect(delivered).toBe(true)
+    expect(subscriptionEvictionsRemaining(partitionName)).toBe(0)
+    for (const thread of threads) {
+      expect(await laneRows(thread)).toHaveLength(1)
+    }
+  }, 30_000)
+}
+
+it('isolates failed and unknown ancillary alarms while advancing native work and preserving replacements', async () => {
+  const partition = { tenantId: 'alarm-fairness', address: 'events' }
+  const stub = env.SUBSCRIPTIONS.get(env.SUBSCRIPTIONS.idFromName(sourcePartitionName(partition)))
+
+  // Keep the input gate closed through inspection: an automatic 10ms retry can otherwise
+  // consume the newly armed wake between dispatch and getAlarm(), racing this assertion.
+  const rows = await runInDurableObject(stub, (instance, state) =>
+    state.blockConcurrencyWhile(async () => {
+      await instance[DurableObject.RunSymbol](
+        Effect.gen(function*() {
+          const alarms = yield* DurableObjectAlarm.DurableObjectAlarm
+
+          for (
+            const [index, tag] of [
+              'test/failing',
+              'test/replacement',
+              'effect-agent/SubscriptionPartitionWake',
+            ].entries()
+          ) {
+            yield* alarms.scheduleAlarm({
+              tag,
+              id: tag.startsWith('effect-agent/Subscription') ? 'driver' : 'one',
+              runAt: DateTime.makeUnsafe(Date.now() - 100 + index),
+              payload: tag === 'test/replacement'
+                ? 1
+                : tag.startsWith('effect-agent/Subscription')
+                ? { schemaVersion: 1, generation: 1 }
+                : null,
+            })
+          }
+        }),
+      )
+      await state.storage.deleteAlarm()
+      await instance.alarm()
+
+      try {
+        const rows = state.storage.sql
+          .exec<{ tag: string; payload: string; run_at: number }>(
+            'SELECT tag, payload, run_at FROM effect_cf_scheduled_alarms ORDER BY tag',
+          )
+          .toArray()
+
+        expect(await state.storage.getAlarm()).not.toBeNull()
+
+        return rows
+      } finally {
+        // Stop this fixture's intentionally failing retries after verifying rearm.
+        await state.storage.deleteAlarm()
+      }
+    }))
+
+  expect(rows.map((row) => row.tag)).toEqual(['test/failing', 'test/replacement'])
+  const replacement = rows.find((row) => row.tag === 'test/replacement')
+
+  expect(replacement?.payload).toBe('2')
+  expect(replacement?.run_at).toBeGreaterThan(Date.now() + 30_000)
+})
+
+declare global {
+  namespace Cloudflare {
+    interface Env {
+      SUBSCRIPTIONS: DurableObjectNamespace<TestSubscriptionPartitionObject>
+    }
+  }
+}

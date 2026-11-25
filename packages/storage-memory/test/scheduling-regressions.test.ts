@@ -1,0 +1,676 @@
+import * as NodeCrypto from '@effect/platform-node/NodeCrypto'
+import { describe, expect, it } from '@effect/vitest'
+import { MemoryScheduleStoreLive } from '@systemfsoftware/agent-storage-memory/memory-schedule-store'
+import { Receipt } from '@systemfsoftware/agent/durable-agent-runtime'
+import { AgentId, ReceiptId, SubmissionId, ThreadId } from '@systemfsoftware/agent/identifiers'
+import {
+  type PreparedInput,
+  PreparedInputAdmission,
+  PreparedInputRetryable,
+} from '@systemfsoftware/agent/prepared-input-admission'
+import { DefinitionDigests, Digest } from '@systemfsoftware/agent/records'
+import {
+  defaultSchedulingLimits,
+  ScheduleAuthorizationError,
+  ScheduleAuthorizer,
+  ScheduledEnvelope,
+  ScheduleId,
+  ScheduleStorageError,
+  ScheduleStore,
+  type ScheduleTimingRequest,
+  type SchedulingLimits,
+} from '@systemfsoftware/agent/schedule'
+import {
+  type ScheduleCreateOptions,
+  ScheduleDriver,
+  ScheduleWakeNoop,
+  Scheduling,
+} from '@systemfsoftware/agent/scheduling'
+import { Principal, QueueSequence } from '@systemfsoftware/agent/submission-ledger'
+import * as Cause from 'effect/Cause'
+import * as Deferred from 'effect/Deferred'
+import * as Effect from 'effect/Effect'
+import * as Exit from 'effect/Exit'
+import * as Fiber from 'effect/Fiber'
+import * as Layer from 'effect/Layer'
+import * as Ref from 'effect/Ref'
+import * as Schema from 'effect/Schema'
+import * as TestClock from 'effect/testing/TestClock'
+import * as Tracer from 'effect/Tracer'
+
+const Input = Schema.Struct({ text: Schema.String })
+const agent = { definition: { id: Schema.decodeSync(AgentId)('schedule-test'), input: Input } }
+const digest = Schema.decodeSync(Digest)('a'.repeat(64))
+const definitions = DefinitionDigests.make({ agent: digest, model: digest, tools: digest })
+
+const scope = {
+  owner: { tenantId: 'tenant', ownerId: 'owner' },
+  principal: Schema.decodeSync(Principal)('manager'),
+}
+
+const deliveryPrincipal = Schema.decodeSync(Principal)('delivery')
+
+const options = (
+  id: string,
+  timing: ScheduleTimingRequest = { _tag: 'At', atMillis: 0 },
+): ScheduleCreateOptions => ({
+  scope,
+  scheduleId: Schema.decodeSync(ScheduleId)(id),
+  timing,
+  destination: { _tag: 'FreshThread' },
+  deliveryPrincipal,
+  definitions,
+})
+
+const keyOf = (request: ScheduleCreateOptions) => ({
+  owner: request.scope.owner,
+  scheduleId: request.scheduleId,
+})
+
+const receiptFor = (envelope: PreparedInput): Receipt =>
+  Receipt.make({
+    threadId: envelope.threadId,
+    receiptId: Schema.decodeSync(ReceiptId)(`receipt:${envelope.admissionKey}`),
+    submissionId: Schema.decodeSync(SubmissionId)(`submission:${envelope.admissionKey}`),
+    queueSequence: Schema.decodeSync(QueueSequence)(1),
+  })
+
+const allow: ScheduleAuthorizer['Service'] = {
+  manage: () => Effect.void,
+  prepare: () => Effect.succeed({ policyId: 'test-policy', decisionId: 'allowed' }),
+}
+
+const layer = (
+  submit: PreparedInputAdmission['Service']['submit'] = (envelope) => Effect.succeed(receiptFor(envelope)),
+  authorizer: ScheduleAuthorizer['Service'] = allow,
+  limits: SchedulingLimits = defaultSchedulingLimits,
+  store: Layer.Layer<ScheduleStore> = MemoryScheduleStoreLive,
+) =>
+  Layer.merge(Scheduling.layer(limits), ScheduleDriver.layer(limits)).pipe(
+    Layer.provideMerge(store),
+    Layer.provide(
+      Layer.mergeAll(
+        NodeCrypto.layer,
+        ScheduleWakeNoop,
+        Layer.succeed(ScheduleAuthorizer, authorizer),
+        Layer.succeed(PreparedInputAdmission, { submit }),
+      ),
+    ),
+  )
+
+describe('Scheduling public recovery contract', () => {
+  it.effect('management cannot acquire driver authority or reveal persistence fields', () => {
+    let revoked = false
+
+    return Effect.gen(function*() {
+      const scheduler = yield* Scheduling
+      const request = options('private-input')
+      const created = yield* scheduler.create(agent, { text: 'private-sentinel' }, request)
+
+      yield* (yield* ScheduleDriver).process(keyOf(request))
+      const snapshot = yield* scheduler.get(scope, request.scheduleId)
+      const page = yield* scheduler.list(scope)
+
+      for (const value of [created, snapshot, ...page.items]) {
+        expect(JSON.stringify(value)).not.toContain('private-sentinel')
+      }
+      revoked = true
+      expect((yield* scheduler.get(scope, request.scheduleId).pipe(Effect.flip))._tag).toBe(
+        'ScheduleAuthorizationError',
+      )
+      expect((yield* scheduler.list(scope).pipe(Effect.flip))._tag).toBe(
+        'ScheduleAuthorizationError',
+      )
+    }).pipe(
+      Effect.provide(
+        layer(() => Effect.fail(PreparedInputRetryable.make({ reason: 'ambiguous' })), {
+          ...allow,
+          manage: () =>
+            revoked
+              ? Effect.fail(ScheduleAuthorizationError.make({ code: 'revoked' }))
+              : Effect.void,
+        }),
+      ),
+    )
+  })
+
+  it.effect('repeated resume preserves an active due occurrence and its storage version', () =>
+    Effect.gen(function*() {
+      const scheduler = yield* Scheduling
+      const store = yield* ScheduleStore
+      const request = options('resume-replay', { _tag: 'Interval', everyMillis: 60_000 })
+
+      yield* scheduler.create(agent, { text: 'tick' }, request)
+      yield* scheduler.pause(scope, request.scheduleId, 1)
+      yield* scheduler.resume(scope, request.scheduleId, 1)
+      const before = yield* store.get(keyOf(request))
+
+      yield* TestClock.adjust(60_000)
+      const resumed = yield* scheduler.resume(scope, request.scheduleId, 1)
+
+      expect(resumed.nextAtMillis).toBe(60_000)
+      expect(yield* store.get(keyOf(request))).toEqual(before)
+      const delivered = yield* (yield* ScheduleDriver).process(keyOf(request))
+
+      expect(delivered.lastReceipt?.intendedAtMillis).toBe(60_000)
+      expect((yield* scheduler.resume(scope, request.scheduleId, 2).pipe(Effect.flip))._tag).toBe(
+        'ScheduleConflict',
+      )
+    }).pipe(Effect.provide(layer())))
+
+  for (const failure of ['defect', 'decode']) {
+    it.effect(`a ${failure} failure cannot starve later schedules with a one-record page`, () => {
+      let broken = true
+
+      const wrapped = Layer.effect(
+        ScheduleStore,
+        Effect.gen(function*() {
+          const store = yield* ScheduleStore
+
+          return ScheduleStore.of({
+            ...store,
+            get: (key) =>
+              failure === 'decode' && broken && key.scheduleId === 'a-failing'
+                ? Effect.fail(ScheduleStorageError.make({ operation: 'decode', reason: 'corrupt' }))
+                : store.get(key),
+          })
+        }),
+      ).pipe(Layer.provide(MemoryScheduleStoreLive))
+
+      return Effect.gen(function*() {
+        const scheduler = yield* Scheduling
+        const driver = yield* ScheduleDriver
+
+        broken = false
+        yield* scheduler.create(agent, { text: 'first' }, options('a-failing'))
+        yield* scheduler.create(agent, { text: 'second' }, options('b-healthy'))
+        broken = true
+        expect(yield* driver.runDue()).toEqual({ processed: 1, failed: 1 })
+        expect(
+          (yield* scheduler.get(scope, options('b-healthy').scheduleId)).lastReceipt,
+        ).not.toBeNull()
+        expect(yield* driver.runDue()).toEqual({ processed: 0, failed: 1 })
+        broken = false
+        expect(yield* driver.runDue()).toEqual({ processed: 1, failed: 0 })
+      }).pipe(
+        Effect.provide(
+          layer(
+            (envelope) =>
+              broken &&
+                Schema.decodeUnknownSync(Input)(envelope.input).text === 'first' &&
+                failure !== 'decode'
+                ? failure === 'defect'
+                  ? Effect.die('injected')
+                  : Effect.fail(
+                    ScheduleStorageError.make({ operation: 'admit', reason: 'corrupt' }),
+                  )
+                : Effect.succeed(receiptFor(envelope)),
+            allow,
+            { ...defaultSchedulingLimits, dueBatchSize: 1 },
+            wrapped,
+          ),
+        ),
+      )
+    })
+  }
+
+  it.effect('delivers the spring-gap occurrence through ordinary admission', () => {
+    const submitted: Array<number> = []
+
+    return Effect.gen(function*() {
+      yield* TestClock.setTime(Date.parse('2026-03-07T12:00:00Z'))
+      const scheduler = yield* Scheduling
+
+      const request = options('spring-forward', {
+        _tag: 'Cron',
+        expression: '30 2 * * *',
+        timeZone: 'America/New_York',
+      })
+
+      const created = yield* scheduler.create(agent, { text: 'spring' }, request)
+
+      expect(created.nextAtMillis).toBe(Date.parse('2026-03-08T07:30:00Z'))
+      yield* TestClock.setTime(Date.parse('2026-03-08T07:30:00Z'))
+      yield* (yield* ScheduleDriver).runDue()
+      yield* TestClock.setTime(Date.parse('2026-03-09T06:30:00Z'))
+      yield* (yield* ScheduleDriver).runDue()
+      expect(submitted).toEqual([
+        Date.parse('2026-03-08T07:30:00Z'),
+        Date.parse('2026-03-09T06:30:00Z'),
+      ])
+    }).pipe(
+      Effect.provide(
+        layer((envelope) =>
+          Effect.gen(function*() {
+            submitted.push(
+              (yield* Schema.decodeUnknownEffect(ScheduledEnvelope)(envelope).pipe(Effect.orDie))
+                .intendedAtMillis,
+            )
+
+            return receiptFor(envelope)
+          })
+        ),
+      ),
+    )
+  })
+
+  it.effect('an authorization outage keeps the firing active for a later preparation', () => {
+    let unavailable = true
+
+    const authorizer: ScheduleAuthorizer['Service'] = {
+      manage: allow.manage,
+      prepare: () =>
+        unavailable
+          ? Effect.fail(
+            ScheduleStorageError.make({ operation: 'authorize', reason: 'unavailable' }),
+          )
+          : Effect.succeed({ policyId: 'policy', decisionId: 'available' }),
+    }
+
+    return Effect.gen(function*() {
+      const scheduler = yield* Scheduling
+      const request = options('authorization-outage')
+
+      yield* scheduler.create(agent, { text: 'work' }, request)
+      const failure = yield* (yield* ScheduleDriver).process(keyOf(request)).pipe(Effect.flip)
+
+      expect(failure).toMatchObject({ _tag: 'ScheduleStorageError', reason: 'unavailable' })
+      const unchanged = yield* scheduler.get(scope, request.scheduleId)
+
+      expect(unchanged.state).toBe('active')
+      expect(unchanged.pending).toBeNull()
+      expect(unchanged.nextAtMillis).toBe(0)
+      expect(unchanged.lastRefusal).toBeNull()
+      unavailable = false
+      const delivered = yield* (yield* ScheduleDriver).process(keyOf(request))
+
+      expect(delivered.lastReceipt?.intendedAtMillis).toBe(0)
+    }).pipe(Effect.provide(layer(undefined, authorizer)))
+  })
+
+  it.effect(
+    'recovers one Receipt after a lost reply despite updates, cancellation and revocation',
+    () => {
+      const admitted = new Map<string, Receipt>()
+      const submitted: Array<PreparedInput> = []
+      let preparationCount = 0
+      let revoked = false
+
+      const submit: PreparedInputAdmission['Service']['submit'] = Effect.fn(function*(envelope) {
+        submitted.push(envelope)
+        const existing = admitted.get(envelope.admissionKey)
+
+        if (existing !== undefined) return existing
+        admitted.set(envelope.admissionKey, receiptFor(envelope))
+
+        return yield* PreparedInputRetryable.make({ reason: 'ambiguous' })
+      })
+
+      const authorizer: ScheduleAuthorizer['Service'] = {
+        manage: allow.manage,
+        prepare: () => {
+          preparationCount += 1
+
+          return revoked
+            ? Effect.fail(ScheduleAuthorizationError.make({ code: 'revoked' }))
+            : Effect.succeed({ policyId: 'test-policy', decisionId: 'allowed' })
+        },
+      }
+
+      return Effect.gen(function*() {
+        const scheduler = yield* Scheduling
+        const request = options('lost-reply')
+
+        yield* scheduler.create(agent, { text: 'frozen' }, request)
+        const pending = yield* (yield* ScheduleDriver).process(keyOf(request))
+
+        expect(pending.pending?.retry.lastFailure).toBe('ambiguous')
+        expect(pending.pending?.retry.nextAttemptAtMillis).toBe(1_000)
+        const envelope = pending.pending?.envelope
+
+        const updated = yield* scheduler.update(
+          agent,
+          { text: 'replacement' },
+          {
+            ...request,
+            expectedRevision: 1,
+            destination: {
+              _tag: 'ExistingThread',
+              threadId: yield* Schema.decodeEffect(ThreadId)('other-thread').pipe(Effect.orDie),
+            },
+            timing: { _tag: 'At', atMillis: 50_000 },
+          },
+        )
+
+        expect(updated.pending?.occurrenceId).toBe(envelope?.occurrenceId)
+        expect((yield* (yield* ScheduleStore).get(keyOf(request)))?.pending?.envelope).toEqual(
+          envelope,
+        )
+        yield* scheduler.pause(scope, request.scheduleId, 2)
+        const cancelled = yield* scheduler.cancel(scope, request.scheduleId, 2)
+
+        expect(cancelled.pending?.occurrenceId).toBe(envelope?.occurrenceId)
+        expect((yield* (yield* ScheduleStore).get(keyOf(request)))?.pending?.envelope).toEqual(
+          envelope,
+        )
+        revoked = true
+        yield* TestClock.adjust(1_000)
+        const recovered = yield* (yield* ScheduleDriver).process(keyOf(request))
+
+        expect(recovered.state).toBe('cancelled')
+        expect(recovered.pending).toBeNull()
+        expect(recovered.nextAtMillis).toBeNull()
+        expect(recovered.lastReceipt?.receipt).toEqual(admitted.values().next().value)
+        expect(submitted).toHaveLength(2)
+        expect(submitted[0]).toEqual(submitted[1])
+        expect(admitted.size).toBe(1)
+        expect(preparationCount).toBe(1)
+      }).pipe(Effect.provide(layer(submit, authorizer)))
+    },
+  )
+
+  it.effect('duplicate due passes converge on one occurrence per schedule', () => {
+    const admitted = new Map<string, Receipt>()
+
+    const submit: PreparedInputAdmission['Service']['submit'] = Effect.fn(function*(envelope) {
+      yield* Effect.yieldNow
+      const receipt = admitted.get(envelope.admissionKey) ?? receiptFor(envelope)
+
+      admitted.set(envelope.admissionKey, receipt)
+
+      return receipt
+    })
+
+    return Effect.gen(function*() {
+      const scheduler = yield* Scheduling
+      const requests = [options('duplicate-a'), options('duplicate-b')]
+
+      yield* Effect.forEach(requests, (request) => scheduler.create(agent, { text: 'work' }, request))
+      yield* Effect.all([(yield* ScheduleDriver).runDue(), (yield* ScheduleDriver).runDue()], {
+        concurrency: 'unbounded',
+      })
+      const snapshots = yield* scheduler.list(scope)
+
+      expect(snapshots.items.map((record) => record.pending)).toEqual([null, null])
+      expect(snapshots.items.every((record) => record.lastReceipt !== null)).toBe(true)
+      expect(admitted.size).toBe(2)
+      expect(yield* (yield* ScheduleDriver).runDue()).toEqual({ processed: 0, failed: 0 })
+    }).pipe(Effect.provide(layer(submit)))
+  })
+
+  it.effect('a Receipt for a different Thread does not clear the pending obligation', () => {
+    const submit: PreparedInputAdmission['Service']['submit'] = (envelope) =>
+      Effect.succeed(
+        Receipt.make({
+          ...receiptFor(envelope),
+          threadId: Schema.decodeSync(ThreadId)('wrong-thread'),
+        }),
+      )
+
+    return Effect.gen(function*() {
+      const scheduler = yield* Scheduling
+      const request = options('wrong-receipt')
+
+      yield* scheduler.create(agent, { text: 'work' }, request)
+      const failure = yield* (yield* ScheduleDriver).process(keyOf(request)).pipe(Effect.flip)
+
+      expect(failure).toMatchObject({ _tag: 'ScheduleStorageError', reason: 'corrupt' })
+      const current = yield* scheduler.get(scope, request.scheduleId)
+
+      expect(current.pending).not.toBeNull()
+      expect((yield* (yield* ScheduleStore).get(keyOf(request)))?.pending?.envelope.input).toEqual({
+        text: 'work',
+      })
+      expect(current.lastReceipt).toBeNull()
+    }).pipe(Effect.provide(layer(submit)))
+  })
+
+  it.effect('rejects a corrupted current input digest before authorization or admission', () =>
+    Effect.gen(function*() {
+      let corruptReads = false
+      const preparations = yield* Ref.make(0)
+      const submissions = yield* Ref.make(0)
+
+      const wrappedStore = Layer.effect(
+        ScheduleStore,
+        Effect.gen(function*() {
+          const store = yield* ScheduleStore
+
+          return ScheduleStore.of({
+            ...store,
+            get: (key) =>
+              store.get(key).pipe(
+                Effect.map((current) =>
+                  corruptReads && current !== null
+                    ? {
+                      ...current,
+                      configuration: {
+                        ...current.configuration,
+                        input: { text: 'tampered-without-digest' },
+                      },
+                    }
+                    : current
+                ),
+              ),
+          })
+        }),
+      ).pipe(Layer.provide(MemoryScheduleStoreLive))
+
+      const authorizer: ScheduleAuthorizer['Service'] = {
+        manage: allow.manage,
+        prepare: (request) =>
+          Ref.update(preparations, (count) => count + 1).pipe(
+            Effect.as({ policyId: 'policy', decisionId: `decision-${request.occurrenceId}` }),
+          ),
+      }
+
+      const submit: PreparedInputAdmission['Service']['submit'] = (envelope) =>
+        Ref.update(submissions, (count) => count + 1).pipe(Effect.as(receiptFor(envelope)))
+
+      yield* Effect.gen(function*() {
+        const scheduler = yield* Scheduling
+        const request = options('corrupt-current-input')
+
+        yield* scheduler.create(agent, { text: 'original' }, request)
+        corruptReads = true
+        const failure = yield* (yield* ScheduleDriver).process(keyOf(request)).pipe(Effect.flip)
+
+        expect(failure).toMatchObject({ _tag: 'ScheduleStorageError', reason: 'corrupt' })
+        expect(yield* Ref.get(preparations)).toBe(0)
+        expect(yield* Ref.get(submissions)).toBe(0)
+      }).pipe(Effect.provide(layer(submit, authorizer, defaultSchedulingLimits, wrappedStore)))
+    }))
+
+  it.effect('does not expose rejected Agent input through errors or spans', () => {
+    const sentinel = 'schedule-input-secret-sentinel'
+    const spans: Array<Tracer.NativeSpan> = []
+
+    const tracer = Tracer.make({
+      span(options) {
+        const span = new Tracer.NativeSpan(options)
+
+        spans.push(span)
+
+        return span
+      },
+    })
+
+    const SecretInput = Schema.String.check(Schema.isMinLength(128))
+
+    const secretAgent = {
+      definition: { id: Schema.decodeSync(AgentId)('schedule-secret-test'), input: SecretInput },
+    }
+
+    return Effect.gen(function*() {
+      const scheduler = yield* Scheduling
+
+      const failure = yield* scheduler
+        .create(secretAgent, sentinel, options('redacted-input'))
+        .pipe(Effect.flip)
+
+      expect(failure).toMatchObject({
+        _tag: 'ScheduleValidationError',
+        message: 'Unable to encode Agent input',
+      })
+
+      const spanFailures = spans.flatMap((span) =>
+        span.status._tag === 'Ended' && Exit.isFailure(span.status.exit)
+          ? [Cause.pretty(span.status.exit.cause)]
+          : []
+      )
+
+      expect([failure.message, ...spanFailures].join('\n')).not.toContain(sentinel)
+    }).pipe(Effect.provide(layer()), Effect.provideService(Tracer.Tracer, tracer))
+  })
+
+  it.effect('denies an update before reading whether the schedule exists', () =>
+    Effect.gen(function*() {
+      const reads = yield* Ref.make(0)
+
+      const observedStore = Layer.effect(
+        ScheduleStore,
+        Effect.gen(function*() {
+          const store = yield* ScheduleStore
+
+          return ScheduleStore.of({
+            ...store,
+            get: (key) => Ref.update(reads, (count) => count + 1).pipe(Effect.andThen(store.get(key))),
+          })
+        }),
+      ).pipe(Layer.provide(MemoryScheduleStoreLive))
+
+      const authorizer: ScheduleAuthorizer['Service'] = {
+        ...allow,
+        manage: () => Effect.fail(ScheduleAuthorizationError.make({ code: 'unauthorized' })),
+      }
+
+      yield* Effect.gen(function*() {
+        const scheduler = yield* Scheduling
+
+        const failure = yield* scheduler
+          .update(
+            agent,
+            { text: 'private' },
+            {
+              ...options('not-visible'),
+              expectedRevision: 1,
+            },
+          )
+          .pipe(Effect.flip)
+
+        expect(failure._tag).toBe('ScheduleAuthorizationError')
+        expect(yield* Ref.get(reads)).toBe(0)
+      }).pipe(Effect.provide(layer(undefined, authorizer, defaultSchedulingLimits, observedStore)))
+    }))
+
+  it.effect('shares one admission bound across overlapping process calls', () =>
+    Effect.gen(function*() {
+      const firstEntered = yield* Deferred.make<void>()
+      const releaseFirst = yield* Deferred.make<void>()
+      const active = yield* Ref.make(0)
+      const maximum = yield* Ref.make(0)
+
+      const submit: PreparedInputAdmission['Service']['submit'] = Effect.fn(function*(envelope) {
+        const count = yield* Ref.updateAndGet(active, (value) => value + 1)
+
+        yield* Ref.update(maximum, (value) => Math.max(value, count))
+        yield* Deferred.succeed(firstEntered, undefined)
+        yield* Deferred.await(releaseFirst).pipe(
+          Effect.ensuring(Ref.update(active, (value) => value - 1)),
+        )
+
+        return receiptFor(envelope)
+      })
+
+      yield* Effect.gen(function*() {
+        const scheduler = yield* Scheduling
+        const a = options('bounded-a')
+        const b = options('bounded-b')
+
+        yield* scheduler.create(agent, { text: 'a' }, a)
+        yield* scheduler.create(agent, { text: 'b' }, b)
+        const first = yield* (yield* ScheduleDriver).process(keyOf(a)).pipe(Effect.forkScoped)
+
+        yield* Deferred.await(firstEntered)
+        const second = yield* (yield* ScheduleDriver).process(keyOf(b)).pipe(Effect.forkScoped)
+
+        yield* Effect.yieldNow
+        expect(yield* Ref.get(active)).toBe(1)
+        yield* Deferred.succeed(releaseFirst, undefined)
+        yield* Fiber.join(first)
+        yield* Fiber.join(second)
+        expect(yield* Ref.get(maximum)).toBe(1)
+        expect(yield* Ref.get(active)).toBe(0)
+      }).pipe(
+        Effect.provide(
+          layer(submit, allow, { ...defaultSchedulingLimits, admissionConcurrency: 1 }),
+        ),
+      )
+    }).pipe(Effect.scoped))
+
+  it.effect('timeout, interruption and defect preserve a frozen pending delivery', () =>
+    Effect.gen(function*() {
+      const entered = yield* Deferred.make<void>()
+      let behavior: 'timeout' | 'interruption' | 'defect' | 'success' = 'timeout'
+
+      const submit: PreparedInputAdmission['Service']['submit'] = Effect.fn(function*(envelope) {
+        yield* Deferred.succeed(entered, undefined)
+        switch (behavior) {
+          case 'timeout':
+          case 'interruption':
+            return yield* Effect.never
+          case 'defect':
+            return yield* Effect.die('injected scheduler admission defect')
+          case 'success':
+            return receiptFor(envelope)
+        }
+      })
+
+      yield* Effect.gen(function*() {
+        const scheduler = yield* Scheduling
+        const request = options('failure-paths')
+
+        yield* scheduler.create(agent, { text: 'work' }, request)
+
+        const timed = yield* (yield* ScheduleDriver)
+          .process(keyOf(request))
+          .pipe(Effect.forkScoped)
+
+        yield* Deferred.await(entered)
+        yield* TestClock.adjust(100)
+        const pending = yield* Fiber.join(timed)
+
+        expect(pending.pending?.retry.lastFailure).toBe('timeout')
+        const envelope = pending.pending?.envelope
+
+        yield* TestClock.adjust(1_000)
+        behavior = 'interruption'
+
+        const interrupted = yield* (yield* ScheduleDriver)
+          .process(keyOf(request))
+          .pipe(Effect.forkScoped)
+
+        yield* Effect.yieldNow
+        yield* Fiber.interrupt(interrupted)
+        expect((yield* (yield* ScheduleStore).get(keyOf(request)))?.pending?.envelope).toEqual(
+          envelope,
+        )
+        behavior = 'defect'
+        const defect = yield* (yield* ScheduleDriver).process(keyOf(request)).pipe(Effect.exit)
+
+        expect(defect._tag).toBe('Failure')
+        expect((yield* (yield* ScheduleStore).get(keyOf(request)))?.pending?.envelope).toEqual(
+          envelope,
+        )
+        behavior = 'success'
+        const completed = yield* (yield* ScheduleDriver).process(keyOf(request))
+
+        expect(completed.pending).toBeNull()
+        expect(completed.lastReceipt?.occurrenceId).toBe(envelope?.occurrenceId)
+      }).pipe(
+        Effect.provide(
+          layer(submit, allow, { ...defaultSchedulingLimits, admissionTimeoutMillis: 100 }),
+        ),
+      )
+    }).pipe(Effect.scoped))
+})

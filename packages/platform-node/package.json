@@ -1,17 +1,13 @@
 {
   "name": "@systemfsoftware/agent-platform-node",
-  "version": "0.1.0",
+  "version": "0.1.0-beta.192",
   "description": "Class DN layer assembly for Effect Agent: the durable Node/SQLite runtime host, wake scheduler, and ownership drain.",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/systemfsoftware/agent.git",
+    "url": "git+https://github.com/yielded-dev/agent.git",
     "directory": "packages/platform-node"
   },
-  "bugs": {
-    "url": "https://github.com/systemfsoftware/agent/issues"
-  },
-  "homepage": "https://github.com/systemfsoftware/agent/tree/main/packages/platform-node#readme",
   "files": [
     "dist",
     "src"

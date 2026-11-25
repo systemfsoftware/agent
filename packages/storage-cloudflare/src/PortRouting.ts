@@ -1,0 +1,1888 @@
+import type { DurableRuntimeFailpoint } from '@systemfsoftware/agent/durable-failpoint'
+import { LifecyclePublicationError } from '@systemfsoftware/agent/lifecycle-publication'
+import { MessageDeliveryError, MessageDeliveryStore } from '@systemfsoftware/agent/message-delivery'
+import {
+  type SettlementPublicationFailure,
+  type SettlementPublicationResult,
+  SettlementPublisher,
+} from '@systemfsoftware/agent/settlement-publisher'
+import {
+  AdmissionConflict,
+  AdmissionIndeterminate,
+  AdmissionPolicyError,
+  ChildAttachmentSnapshot,
+  JoinedToHost,
+  LedgerError,
+  OwnershipLost,
+  RecoverySnapshot,
+  SettlementConflict,
+  SubmissionLedger,
+  SubmissionLookupById,
+  type SubmissionLookupByKey,
+  type SubmissionSnapshot,
+} from '@systemfsoftware/agent/submission-ledger'
+import {
+  AppendConflict,
+  ThreadExportRejected,
+  ThreadMaterialization,
+  ThreadNotMaterialized,
+  ThreadReader,
+  ThreadStore,
+  ThreadStoreError,
+} from '@systemfsoftware/agent/thread-store'
+import { checkExportSource } from '@systemfsoftware/agent/thread-transfer'
+import { WorkDiscoveryUnavailable } from '@systemfsoftware/agent/thread-work'
+import type { WakeScheduler } from '@systemfsoftware/agent/wake-scheduler'
+import { admitWorker, WorkerAdmissionFailure, WorkerAdmissionPort } from '@systemfsoftware/agent/worker-admission'
+import * as Cause from 'effect/Cause'
+import * as Clock from 'effect/Clock'
+import * as Context from 'effect/Context'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
+import * as Option from 'effect/Option'
+import * as Predicate from 'effect/Predicate'
+import * as Schema from 'effect/Schema'
+import * as Stream from 'effect/Stream'
+
+import {
+  boundPortDiagnostic,
+  decodePortRequest,
+  decodePortResponse,
+  encodePortRequest,
+  encodePortResponse,
+  LedgerAdmitCall,
+  LedgerAdmitResult,
+  LedgerFundingOwnerCall,
+  LedgerFundingOwnerResult,
+  LedgerInspectWorkerCall,
+  LedgerInspectWorkerResult,
+  LedgerLookupCall,
+  LedgerLookupResult,
+  LedgerMarkReadyCall,
+  LedgerMarkReadyResult,
+  LedgerRecordChildSettledCall,
+  LedgerRecordChildSettledResult,
+  LedgerRequestAbortCall,
+  LedgerRequestAbortResult,
+  LedgerResolveAdmissionCall,
+  LedgerResolveAdmissionResult,
+  LedgerStopWorkerCall,
+  LedgerStopWorkerResult,
+  MessageDeliveryCompleteCall,
+  MessageDeliveryCompleteResult,
+  MessageDeliveryListCall,
+  MessageDeliveryListResult,
+  PortFailed,
+  type PortFailure,
+  PortProtocolError,
+  type PortRequest,
+  type PortRequestEnvelope,
+  type PortResponse,
+  type PortResult,
+  PortSucceeded,
+  SettlementPublishCall,
+  SettlementPublishResult,
+  StoreAppendCall,
+  StoreAppendResult,
+  StoreCountPeerMessagesCall,
+  StoreCountPeerMessagesResult,
+  StoreExportCall,
+  StoreExportResult,
+  StoreInspectTailCall,
+  StoreInspectTailResult,
+  StoreMaterializeCall,
+  StoreMaterializeResult,
+  StoreRangeArchiveCall,
+  StoreRangeArchiveResult,
+  StoreRangePageCall,
+  StoreRangePageResult,
+  StoreRangeSealCall,
+  StoreRangeSealResult,
+  StoreRangeVerifyCall,
+  StoreRangeVerifyResult,
+  StoreReadExecutionCall,
+  StoreReadExecutionResult,
+  StoreReadIdentityCall,
+  StoreReadIdentityResult,
+  StoreReadPageCall,
+  StoreReadPageResult,
+  StoreReadPromptCall,
+  StoreReadPromptResult,
+  StoreVerificationCall,
+  StoreVerificationResult,
+  StoreWorkerCapacityCall,
+  StoreWorkerCapacityResult,
+  StoreWorkPageCall,
+  StoreWorkPageResult,
+  StoreWorkRebuildCall,
+  StoreWorkRebuildResult,
+  WorkerAdmitCall,
+  WorkerAdmitResult,
+} from './PortProtocol.ts'
+
+type ThreadId = ThreadMaterialization['threadId']
+type SubmissionId = SubmissionSnapshot['submissionId']
+
+const ThreadIdSchema = ThreadMaterialization.fields.threadId
+const decodeThreadId = Schema.decodeUnknownEffect(ThreadIdSchema)
+
+/** Owner-local maintenance scope; permits local inventory without global Object enumeration. */
+export const CurrentNativeSource = Context.Reference<boolean>(
+  '@effect-agent/storage-cloudflare/CurrentNativeSource',
+  { defaultValue: () => false },
+)
+
+/**
+ * The ledger row bound routable Submission identities must respect (mirrors the local
+ * facet's `MAX_IDENTIFIER_LENGTH`; the minting side already refuses longer identities typed
+ * at admission, so a longer identity presented here cannot name any stored row).
+ */
+const MAX_ROUTABLE_SUBMISSION_ID_LENGTH = 1_024
+
+/** The `{uuidv7}` head of a DC-minted routable Submission identity. */
+const UUID_HEAD_PATTERN = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
+
+/**
+ * A transport could not deliver a port request to (or an answer from) the owning
+ * Thread's Durable Object. `retryable` carries the platform's own stub signal when one
+ * exists. This error never crosses the wire — it is the CALLER-side evidence that the
+ * authority was unreachable, which is exactly the case `AdmissionIndeterminate` was
+ * specified for (SUB-031).
+ */
+export class PortTransportError extends Schema.TaggedError<PortTransportError>()(
+  'PortTransportError',
+  {
+    target: Schema.String,
+    message: Schema.String,
+    retryable: Schema.optionalKey(Schema.Boolean),
+    cause: Schema.optionalKey(Schema.Defect()),
+  },
+) {}
+
+const safeTransportDiagnostic = (cause: unknown): string => {
+  try {
+    const message = cause instanceof Error ? cause.message : cause
+
+    return boundPortDiagnostic(typeof message === 'string' ? message : String(message))
+  } catch {
+    return '[unavailable transport diagnostic]'
+  }
+}
+
+const transportRetryableSignal = (cause: unknown): boolean | undefined => {
+  if (!Predicate.isObjectKeyword(cause)) return undefined
+  try {
+    const signal = Reflect.get(cause, 'retryable')
+
+    return typeof signal === 'boolean' ? signal : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Build a `PortTransportError` from an arbitrary thrown transport cause, preserving the
+ * platform stub's own `retryable` signal when present.
+ */
+export const portTransportFailure = (target: string, cause: unknown): PortTransportError => {
+  const retryable = transportRetryableSignal(cause)
+
+  return PortTransportError.make({
+    target,
+    message: safeTransportDiagnostic(cause),
+    ...(retryable === undefined ? {} : { retryable }),
+    cause,
+  })
+}
+
+/**
+ * Delivery of Schema-encoded port envelopes to the Durable Object that owns a FOREIGN
+ * Thread (plan §1.3, D-P6-3). The shipped implementation (platform-cloudflare, WP3)
+ * calls the owner's `portCall` over native Durable Object JS RPC via
+ * `namespace.idFromName(threadId)`; the protocol is transport-agnostic and any carrier
+ * that moves the encoded envelopes verbatim satisfies this service. Implementations MUST
+ * surface every delivery problem as `PortTransportError` and must never fabricate an answer.
+ */
+export class ThreadPortTransport extends Context.Service<
+  ThreadPortTransport,
+  {
+    readonly call: (
+      threadId: ThreadId,
+      request: PortRequestEnvelope,
+    ) => Effect.Effect<unknown, PortTransportError>
+  }
+>()('@effect-agent/storage-cloudflare/ThreadPortTransport') {}
+
+/** Construction options shared by both routed port Layers. */
+export interface RoutedPortOptions {
+  /**
+   * Decide whether this physical owner stores the addressed logical Thread. Local
+   * requests use the same SQLite facets; foreign requests use the transport or fail
+   * fast typed. The predicate determines placement, never caller authorization.
+   */
+  readonly ownsThread: (threadId: ThreadId) => boolean
+}
+
+/** Where one port request must execute. */
+type RouteTarget =
+  | { readonly _tag: 'local' }
+  | { readonly _tag: 'foreign'; readonly threadId: ThreadId }
+
+const LOCAL: RouteTarget = { _tag: 'local' }
+
+/**
+ * Parse a DC-minted routable Submission identity — `{uuidv7}:{threadId}`, split at the
+ * FIRST `:` because the Thread tail may itself contain colons (D-P6-5). This adapter
+ * minted the format at admission and is the ONLY component that parses it; identities that do
+ * not carry the minted shape (no separator, non-UUID head, empty tail) fall back to the local
+ * facet, which is the only authority this Object can consult without inventing an owner.
+ * Identities beyond the ledger's 1,024-character row bound fail typed: the minting side
+ * refused them at admission, so they cannot name any stored row anywhere.
+ */
+const routableSubmissionTarget = (
+  ownsThread: RoutedPortOptions['ownsThread'],
+): (operation: string, submissionId: string) => Effect.Effect<RouteTarget, LedgerError> =>
+(operation, submissionId) =>
+  Effect.suspend(() => {
+    if (submissionId.length > MAX_ROUTABLE_SUBMISSION_ID_LENGTH) {
+      return Effect.fail(
+        LedgerError.make({
+          operation,
+          message: `A Submission identity of ${submissionId.length} characters exceeds the ` +
+            `${MAX_ROUTABLE_SUBMISSION_ID_LENGTH}-character routable identity bound; admission ` +
+            'refuses such identities, so it cannot name any stored row.',
+        }),
+      )
+    }
+    const separator = submissionId.indexOf(':')
+
+    if (separator === -1 || !UUID_HEAD_PATTERN.test(submissionId.slice(0, separator))) {
+      return Effect.succeed(LOCAL)
+    }
+
+    return decodeThreadId(submissionId.slice(separator + 1)).pipe(
+      Effect.match({
+        onFailure: () => LOCAL,
+        onSuccess: (threadId): RouteTarget => ownsThread(threadId) ? LOCAL : { _tag: 'foreign', threadId },
+      }),
+    )
+  })
+
+/**
+ * Read a Submission only from this physical owner. Encoded foreign identities fail before
+ * storage access; opaque identities still use local lookup. A returned row must also belong
+ * to an owned Thread. This is placement validation, not caller authorization.
+ */
+export const makeLocalSubmissionLookup = (
+  options: RoutedPortOptions,
+): (
+  submissionId: SubmissionId,
+) => Effect.Effect<Option.Option<SubmissionSnapshot>, LedgerError, SubmissionLedger> => {
+  const submissionTarget = routableSubmissionTarget(options.ownsThread)
+
+  return Effect.fnUntraced(function*(submissionId: SubmissionId) {
+    const operation = 'local Submission lookup'
+    const target = yield* submissionTarget(operation, submissionId)
+
+    if (target._tag === 'foreign') {
+      return yield* LedgerError.make({
+        operation,
+        message: 'The Submission belongs to another Thread Object',
+      })
+    }
+
+    const local = yield* SubmissionLedger
+    const submission = yield* local.lookup(SubmissionLookupById.make({ submissionId }))
+
+    if (Option.isSome(submission) && !options.ownsThread(submission.value.threadId)) {
+      return yield* LedgerError.make({
+        operation,
+        message: 'The stored Submission belongs to another Thread Object',
+      })
+    }
+
+    return submission
+  })
+}
+
+const NoAdditionalPortFailure = Schema.Never
+const AbortPortFailure = Schema.Union([SettlementConflict, JoinedToHost])
+const AppendPortFailure = Schema.Union([ThreadNotMaterialized, AppendConflict, OwnershipLost])
+
+/**
+ * The fail-fast refusal for any foreign operation OUTSIDE the closed route-capable subset
+ * (plan §1.3): honesty over accidental distribution.
+ */
+const crossThreadLedgerError = (operation: string, target: string): LedgerError =>
+  LedgerError.make({
+    operation,
+    message: `${operation} addressed to foreign Thread ${target} is not route-capable; the ` +
+      'closed cross-Object subset is admit, markReady, lookup, resolveAdmission, ' +
+      'requestAbort, and recordChildSettled. Every other ledger operation is lane-local by ' +
+      "construction and must execute inside the owning Thread's Durable Object.",
+  })
+
+const crossThreadStoreError = (operation: string, target: string): ThreadStoreError =>
+  ThreadStoreError.make({
+    operation,
+    message: `${operation} addressed to foreign Thread ${target} is not route-capable; the ` +
+      'closed cross-Object subset is materialize, append, read and readPrompt (paged), inspectTail, and ' +
+      'export. Observation and Prompt checkpoints are lane-local by construction and must execute ' +
+      "inside the owning Thread's Durable Object.",
+  })
+
+const makeTransportCall = (transport: ThreadPortTransport['Service']) =>
+  Effect.fnUntraced(function*(target: ThreadId, call: PortRequest) {
+    const encoded = yield* encodePortRequest(call).pipe(
+      Effect.mapError((error) =>
+        PortProtocolError.make({
+          message: boundPortDiagnostic(`The port request could not be encoded: ${error.message}`),
+        })
+      ),
+    )
+
+    const raw = yield* transport.call(target, encoded)
+
+    return yield* decodePortResponse(raw).pipe(
+      Effect.mapError((error) =>
+        PortProtocolError.make({
+          message: boundPortDiagnostic(`The port response could not be decoded: ${error.message}`),
+        })
+      ),
+    )
+  })
+
+type TransportCall = ReturnType<typeof makeTransportCall>
+
+const makeRoutedLedgerServices = Effect.fnUntraced(function*(options: RoutedPortOptions) {
+  const local = yield* SubmissionLedger
+  const transport = yield* ThreadPortTransport
+  const transportCall: TransportCall = makeTransportCall(transport)
+  const submissionTarget = routableSubmissionTarget(options.ownsThread)
+
+  const routeFailure =
+    (operation: string, target: string) => (error: PortTransportError | PortProtocolError): LedgerError =>
+      LedgerError.make({
+        operation,
+        message: boundPortDiagnostic(
+          `Routed ${operation} to the Thread Object owning ${target} failed: ${error.message}`,
+        ),
+        cause: error,
+      })
+
+  /**
+   * One routed ledger call: encode, deliver, decode, then narrow the uniform envelope to the
+   * operation's own result and failure surface. A foreign `LedgerError` is always in-channel;
+   * any failure outside the operation's declared surface — including protocol anomalies — is
+   * folded into a `LedgerError` naming the anomaly instead of being erased or re-thrown raw.
+   */
+  const foreignLedgerCall = <ResultSchema extends Schema.Top, FailureSchema extends Schema.Top>(
+    operation: string,
+    target: ThreadId,
+    call: PortRequest,
+    resultSchema: ResultSchema,
+    failureSchema: FailureSchema,
+  ): Effect.Effect<ResultSchema['Type'], FailureSchema['Type'] | LedgerError> => {
+    const isExpectedResult = Schema.is(resultSchema)
+    const isExpectedFailure = Schema.is(failureSchema)
+
+    return transportCall(target, call).pipe(
+      Effect.mapError(routeFailure(operation, target)),
+      Effect.flatMap(
+        (response): Effect.Effect<ResultSchema['Type'], FailureSchema['Type'] | LedgerError> => {
+          if (response._tag === 'PortFailed') {
+            const failure = response.failure
+
+            if (isExpectedFailure(failure)) return Effect.fail(failure)
+            if (failure._tag === 'LedgerError') return Effect.fail(failure)
+
+            return Effect.fail(
+              LedgerError.make({
+                operation,
+                message: boundPortDiagnostic(
+                  `The Thread Object owning ${target} answered ${operation} with the ` +
+                    `out-of-contract failure ${failure._tag}`,
+                ),
+                cause: failure,
+              }),
+            )
+          }
+          const result = response.result
+
+          if (!isExpectedResult(result)) {
+            return Effect.fail(
+              LedgerError.make({
+                operation,
+                message: `The Thread Object owning ${target} answered ${operation} with the ` +
+                  `mismatched result ${result._tag}.`,
+              }),
+            )
+          }
+
+          return Effect.succeed(result)
+        },
+      ),
+      Effect.withSpan('DoPortRouting.foreignLedgerCall', {
+        attributes: { operation, target },
+      }),
+    )
+  }
+
+  /**
+   * Routed `resolveAdmission` — where the S2 tri-state becomes real (plan §1.3): when the
+   * owning Object cannot be reached, or its answer cannot be understood, the routed adapter
+   * answers `AdmissionIndeterminate{reason}` and NEVER `NotAdmitted` — an unreachable
+   * authority proves nothing, and only `NotAdmitted` permits an admission attempt (SUB-031).
+   * A typed `LedgerError` answered BY the authority still fails typed: the authority was
+   * reached and reported its own storage failure.
+   */
+  const resolveForeignAdmission = (
+    target: ThreadId,
+    request: SubmissionLookupByKey,
+  ): Effect.Effect<
+    | AdmissionIndeterminate
+    | Extract<PortResult, { readonly _tag: 'LedgerResolveAdmissionResult' }>['resolution'],
+    LedgerError
+  > =>
+    transportCall(target, LedgerResolveAdmissionCall.make({ request })).pipe(
+      Effect.flatMap((response) => {
+        if (response._tag === 'PortFailed') {
+          if (response.failure._tag === 'LedgerError') return Effect.fail(response.failure)
+
+          return Effect.succeed(
+            AdmissionIndeterminate.make({
+              reason: boundPortDiagnostic(
+                `The Thread Object owning ${target} answered resolveAdmission with the ` +
+                  `out-of-contract failure ${response.failure._tag}: ${response.failure.message}`,
+              ),
+            }),
+          )
+        }
+        if (response.result._tag !== 'LedgerResolveAdmissionResult') {
+          return Effect.succeed(
+            AdmissionIndeterminate.make({
+              reason: boundPortDiagnostic(
+                `The Thread Object owning ${target} answered resolveAdmission with the ` +
+                  `mismatched result ${response.result._tag}.`,
+              ),
+            }),
+          )
+        }
+
+        return Effect.succeed(response.result.resolution)
+      }),
+      Effect.catchTags({
+        PortTransportError: (error) =>
+          Effect.succeed(
+            AdmissionIndeterminate.make({
+              reason: boundPortDiagnostic(
+                `The Thread Object owning ${target} is unreachable: ${error.message}`,
+              ),
+            }),
+          ),
+        PortProtocolError: (error) =>
+          Effect.succeed(
+            AdmissionIndeterminate.make({
+              reason: boundPortDiagnostic(
+                `The answer of the Thread Object owning ${target} could not be ` +
+                  `understood: ${error.message}`,
+              ),
+            }),
+          ),
+      }),
+      Effect.withSpan('DoPortRouting.resolveForeignAdmission', { attributes: { target } }),
+    )
+
+  const foreignLookupById = (
+    operation: string,
+    target: ThreadId,
+    submissionId: SubmissionId,
+  ): Effect.Effect<Option.Option<SubmissionSnapshot>, LedgerError> =>
+    foreignLedgerCall(
+      operation,
+      target,
+      LedgerLookupCall.make({ request: SubmissionLookupById.make({ submissionId }) }),
+      LedgerLookupResult,
+      NoAdditionalPortFailure,
+    ).pipe(
+      Effect.map((result) => result.submission === undefined ? Option.none() : Option.some(result.submission)),
+    )
+
+  /**
+   * Enrich a LOCAL parent's recovery snapshot with the lane state of attached children whose
+   * rows live in other Durable Objects (plan §1.3): markers first (the local facet already
+   * consulted them), then a routed per-child `lookup` for any attached child that is neither
+   * local nor marker-settled. A transport failure surfaces as `LedgerError` so the alarm
+   * pass retries; the child's canonical Settlement remains the only authority (DUR-015).
+   */
+  const enrichChildAttachments = Effect.fnUntraced(function*(
+    snapshot: RecoverySnapshot,
+  ): Effect.fn.Return<RecoverySnapshot, LedgerError> {
+    const operation = 'ledger load recovery snapshot'
+
+    const attachments = new Map(
+      snapshot.childAttachments.map((attachment) => [attachment.childSubmissionId, attachment]),
+    )
+
+    let enriched = false
+
+    for (const reservation of snapshot.childReservations) {
+      const childSubmissionId = reservation.childSubmissionId
+
+      if (childSubmissionId === undefined || attachments.has(childSubmissionId)) continue
+      const target = yield* submissionTarget(operation, childSubmissionId)
+
+      // A local or opaque child identity was already answered authoritatively by the local
+      // facet; absence there means the child admission never committed.
+      if (target._tag !== 'foreign') continue
+      const child = yield* foreignLookupById(operation, target.threadId, childSubmissionId)
+
+      if (Option.isNone(child)) continue
+      attachments.set(
+        childSubmissionId,
+        ChildAttachmentSnapshot.make({
+          toolCallId: reservation.parentToolCallId,
+          childSubmissionId,
+          childState: child.value.state,
+          ...(child.value.settledOutcome === undefined
+            ? {}
+            : { childOutcome: child.value.settledOutcome }),
+        }),
+      )
+      enriched = true
+    }
+    if (!enriched) return snapshot
+    // Rebuild in reservation (parent Tool Call) order, the order the local facet documents.
+    const ordered: Array<ChildAttachmentSnapshot> = []
+
+    for (const reservation of snapshot.childReservations) {
+      if (reservation.childSubmissionId === undefined) continue
+      const attachment = attachments.get(reservation.childSubmissionId)
+
+      if (attachment !== undefined) ordered.push(attachment)
+    }
+
+    return RecoverySnapshot.make({ ...snapshot, childAttachments: ordered })
+  })
+
+  const routed = SubmissionLedger.of({
+    capabilities: local.capabilities,
+
+    admit: (request, admissionOptions) =>
+      options.ownsThread(request.threadId)
+        ? local.admit(request, admissionOptions)
+        : foreignLedgerCall(
+          'ledger admit',
+          request.threadId,
+          LedgerAdmitCall.make({ request }),
+          LedgerAdmitResult,
+          Schema.Union([AdmissionConflict, AdmissionPolicyError]),
+        ).pipe(Effect.map((reply) => reply.result)),
+
+    markReady: (request) =>
+      submissionTarget('ledger mark ready', request.submissionId).pipe(
+        Effect.flatMap((target) =>
+          target._tag === 'local'
+            ? local.markReady(request)
+            : foreignLedgerCall(
+              'ledger mark ready',
+              target.threadId,
+              LedgerMarkReadyCall.make({ request }),
+              LedgerMarkReadyResult,
+              NoAdditionalPortFailure,
+            ).pipe(Effect.asVoid)
+        ),
+      ),
+
+    lookup: (request) =>
+      request._tag === 'SubmissionLookupById'
+        ? submissionTarget('ledger lookup', request.submissionId).pipe(
+          Effect.flatMap((target) =>
+            target._tag === 'local'
+              ? local.lookup(request)
+              : foreignLookupById('ledger lookup', target.threadId, request.submissionId)
+          ),
+        )
+        : options.ownsThread(request.threadId)
+        ? local.lookup(request)
+        : foreignLedgerCall(
+          'ledger lookup',
+          request.threadId,
+          LedgerLookupCall.make({ request }),
+          LedgerLookupResult,
+          NoAdditionalPortFailure,
+        ).pipe(
+          Effect.map((result) => result.submission === undefined ? Option.none() : Option.some(result.submission)),
+        ),
+
+    resolveFundingOwner: (request) =>
+      (options.ownsThread(request.threadId)
+        ? local.resolveFundingOwner === undefined
+          ? Effect.fail(
+            LedgerError.make({
+              operation: 'resolve funding owner',
+              message: 'Native funding-owner lookup unavailable.',
+            }),
+          )
+          : local.resolveFundingOwner(request)
+        : foreignLedgerCall(
+          'resolve funding owner',
+          request.threadId,
+          LedgerFundingOwnerCall.make({ request }),
+          LedgerFundingOwnerResult,
+          NoAdditionalPortFailure,
+        ).pipe(Effect.map((reply) => reply.funding))).pipe(
+          Effect.filterOrFail(
+            (funding) =>
+              funding.selected.submissionId === request.submissionId &&
+              funding.selected.threadId === request.threadId &&
+              funding.owner.threadId === request.threadId,
+            () =>
+              LedgerError.make({
+                operation: 'resolve funding owner',
+                message: 'Funding-owner response belongs to another input or Thread.',
+              }),
+          ),
+        ),
+
+    resolveAdmission: (request) =>
+      options.ownsThread(request.threadId)
+        ? local.resolveAdmission(request)
+        : resolveForeignAdmission(request.threadId, request),
+
+    inspectWorker: (threadId) =>
+      options.ownsThread(threadId)
+        ? local.inspectWorker === undefined
+          ? Effect.fail(
+            LedgerError.make({
+              operation: 'inspectWorker',
+              message: 'Worker inspection unavailable',
+            }),
+          )
+          : local.inspectWorker(threadId)
+        : foreignLedgerCall(
+          'inspect worker',
+          threadId,
+          LedgerInspectWorkerCall.make({ request: { threadId } }),
+          LedgerInspectWorkerResult,
+          NoAdditionalPortFailure,
+        ).pipe(Effect.map((reply) => reply.state)),
+
+    stopWorker: (request) =>
+      options.ownsThread(request.threadId)
+        ? local.stopWorker === undefined
+          ? Effect.fail(
+            LedgerError.make({ operation: 'stopWorker', message: 'Worker stop unavailable' }),
+          )
+          : local.stopWorker(request)
+        : foreignLedgerCall(
+          'ledger stop worker',
+          request.threadId,
+          LedgerStopWorkerCall.make({ request }),
+          LedgerStopWorkerResult,
+          NoAdditionalPortFailure,
+        ).pipe(Effect.map((reply) => reply.owned)),
+
+    requestAbort: (request) =>
+      submissionTarget('ledger request abort', request.submissionId).pipe(
+        Effect.flatMap((target) =>
+          target._tag === 'local'
+            ? local.requestAbort(request)
+            : foreignLedgerCall(
+              'ledger request abort',
+              target.threadId,
+              LedgerRequestAbortCall.make({ request }),
+              LedgerRequestAbortResult,
+              AbortPortFailure,
+            ).pipe(Effect.map((reply) => reply.intent))
+        ),
+      ),
+
+    recordChildSettled: (request) =>
+      submissionTarget('ledger record child settled', request.parentSubmissionId).pipe(
+        Effect.flatMap((target) =>
+          target._tag === 'local'
+            ? local.recordChildSettled(request)
+            : foreignLedgerCall(
+              'ledger record child settled',
+              target.threadId,
+              LedgerRecordChildSettledCall.make({ request }),
+              LedgerRecordChildSettledResult,
+              NoAdditionalPortFailure,
+            ).pipe(Effect.map((reply) => reply.outcome))
+        ),
+      ),
+
+    // Every operation below is lane-local by construction (plan §1.3): a foreign address is
+    // an out-of-contract call and fails fast typed instead of being quietly distributed.
+    selectHead: (request) =>
+      options.ownsThread(request.threadId)
+        ? local.selectHead(request)
+        : Effect.fail(crossThreadLedgerError('ledger claim', request.threadId)),
+
+    claimJoining: (request) =>
+      options.ownsThread(request.threadId)
+        ? local.claimJoining(request)
+        : Effect.fail(crossThreadLedgerError('ledger claim joining', request.threadId)),
+
+    ...(local.appendInput === undefined
+      ? {}
+      : {
+        appendInput: (
+          submissionId: SubmissionSnapshot['submissionId'],
+          request: Parameters<NonNullable<SubmissionLedger['Service']['appendInput']>>[1],
+        ) =>
+          options.ownsThread(request.threadId)
+            ? local.appendInput!(submissionId, request)
+            : Effect.fail(
+              ThreadStoreError.make({
+                operation: 'append original input',
+                message: 'Original input publication is lane-local',
+              }),
+            ),
+      }),
+
+    markInputApplied: (request) =>
+      submissionTarget('ledger mark input applied', request.submissionId).pipe(
+        Effect.flatMap((target) =>
+          target._tag === 'local'
+            ? local.markInputApplied(request)
+            : Effect.fail(crossThreadLedgerError('ledger mark input applied', target.threadId))
+        ),
+      ),
+
+    finalizeSettlement: (request) =>
+      submissionTarget('ledger finalize settlement', request.submissionId).pipe(
+        Effect.flatMap((target) =>
+          target._tag === 'local'
+            ? local.finalizeSettlement(request)
+            : Effect.fail(crossThreadLedgerError('ledger finalize settlement', target.threadId))
+        ),
+      ),
+
+    markJoined: (request) =>
+      submissionTarget('ledger mark joined', request.submissionId).pipe(
+        Effect.flatMap((target) =>
+          target._tag === 'local'
+            ? local.markJoined(request)
+            : Effect.fail(crossThreadLedgerError('ledger mark joined', target.threadId))
+        ),
+      ),
+
+    revertJoining: (request) =>
+      submissionTarget('ledger revert joining', request.submissionId).pipe(
+        Effect.flatMap((target) =>
+          target._tag === 'local'
+            ? local.revertJoining(request)
+            : Effect.fail(crossThreadLedgerError('ledger revert joining', target.threadId))
+        ),
+      ),
+
+    suspend: (request) =>
+      submissionTarget('ledger suspend', request.submissionId).pipe(
+        Effect.flatMap((target) =>
+          target._tag === 'local'
+            ? local.suspend(request)
+            : Effect.fail(crossThreadLedgerError('ledger suspend', target.threadId))
+        ),
+      ),
+
+    recordApprovalDecision: (command) =>
+      submissionTarget('ledger record approval decision', command.submissionId).pipe(
+        Effect.flatMap((target) =>
+          target._tag === 'local'
+            ? local.recordApprovalDecision(command)
+            : Effect.fail(
+              crossThreadLedgerError('ledger record approval decision', target.threadId),
+            )
+        ),
+      ),
+
+    markUnknown: (request) =>
+      submissionTarget('ledger mark unknown', request.submissionId).pipe(
+        Effect.flatMap((target) =>
+          target._tag === 'local'
+            ? local.markUnknown(request)
+            : Effect.fail(crossThreadLedgerError('ledger mark unknown', target.threadId))
+        ),
+      ),
+
+    recordUnknownResolution: (command) =>
+      submissionTarget('ledger record unknown resolution', command.submissionId).pipe(
+        Effect.flatMap((target) =>
+          target._tag === 'local'
+            ? local.recordUnknownResolution(command)
+            : Effect.fail(
+              crossThreadLedgerError('ledger record unknown resolution', target.threadId),
+            )
+        ),
+      ),
+
+    reserveChildBudget: (request) =>
+      submissionTarget('ledger reserve child budget', request.parentSubmissionId).pipe(
+        Effect.flatMap((target) =>
+          target._tag === 'local'
+            ? local.reserveChildBudget(request)
+            : Effect.fail(crossThreadLedgerError('ledger reserve child budget', target.threadId))
+        ),
+      ),
+
+    // Reservation identities carry no Thread address; the reservation row lives in the
+    // parent's own Object and these transitions are parent-lane-local by construction, so
+    // they always execute on the local facet (which fails typed for an unknown row).
+    attachChildToReservation: local.attachChildToReservation,
+    beginChildBudgetRelease: local.beginChildBudgetRelease,
+    releaseChildBudget: local.releaseChildBudget,
+
+    // The local scan IS the whole worklist: one Thread per Object (durability §5).
+    scanNonterminal: local.scanNonterminal,
+    ...(local.listNonterminal === undefined ? {} : { listNonterminal: local.listNonterminal }),
+
+    readAbortIntent: (request) =>
+      submissionTarget('ledger read abort intent', request.submissionId).pipe(
+        Effect.flatMap((target) =>
+          target._tag === 'local'
+            ? local.readAbortIntent(request)
+            : Effect.fail(crossThreadLedgerError('ledger read abort intent', target.threadId))
+        ),
+      ),
+
+    loadRecoverySnapshot: (request) =>
+      submissionTarget('ledger load recovery snapshot', request.submissionId).pipe(
+        Effect.flatMap((target) =>
+          target._tag === 'local'
+            ? local.loadRecoverySnapshot(request).pipe(Effect.flatMap(enrichChildAttachments))
+            : Effect.fail(crossThreadLedgerError('ledger load recovery snapshot', target.threadId))
+        ),
+      ),
+  })
+
+  return Context.make(SubmissionLedger, routed)
+})
+
+/** Route the data-only atomic publication to the same owner as its canonical Thread. */
+export const routedSettlementPublisherLayer = (options: RoutedPortOptions) =>
+  Layer.effect(SettlementPublisher)(
+    Effect.gen(function*() {
+      const local = yield* SettlementPublisher
+      const call = makeTransportCall(yield* ThreadPortTransport)
+
+      const isFailure = Schema.is(
+        Schema.Union([
+          LedgerError,
+          OwnershipLost,
+          SettlementConflict,
+          ThreadStoreError,
+          ThreadNotMaterialized,
+          AppendConflict,
+        ]),
+      )
+
+      return SettlementPublisher.of({
+        publish: (request) => {
+          if (options.ownsThread(request.append.threadId)) return local.publish(request)
+
+          return call(request.append.threadId, SettlementPublishCall.make({ request })).pipe(
+            Effect.mapError((cause) =>
+              LedgerError.make({
+                operation: 'route settlement publication',
+                message: cause.message,
+                cause,
+              })
+            ),
+            Effect.flatMap(
+              (
+                response,
+              ): Effect.Effect<SettlementPublicationResult, SettlementPublicationFailure> => {
+                if (response._tag === 'PortFailed') {
+                  return isFailure(response.failure)
+                    ? Effect.fail(response.failure)
+                    : Effect.fail(
+                      LedgerError.make({
+                        operation: 'route settlement publication',
+                        message: 'Unexpected publication failure',
+                        cause: response.failure,
+                      }),
+                    )
+                }
+
+                return response.result._tag === 'SettlementPublishResult'
+                  ? Effect.succeed(response.result.result)
+                  : Effect.fail(
+                    LedgerError.make({
+                      operation: 'route settlement publication',
+                      message: 'Mismatched publication result',
+                    }),
+                  )
+              },
+            ),
+          )
+        },
+      })
+    }),
+  )
+
+const makeRoutedStoreServices = Effect.fnUntraced(function*(options: RoutedPortOptions) {
+  const local = yield* ThreadStore
+  const promptCheckpoints = local.promptCheckpoints
+  const lifecyclePublications = local.lifecyclePublications
+  const acknowledgeMany = lifecyclePublications?.acknowledgeMany
+  const transport = yield* ThreadPortTransport
+  const transportCall: TransportCall = makeTransportCall(transport)
+
+  const routeFailure =
+    (operation: string, target: string) => (error: PortTransportError | PortProtocolError): ThreadStoreError =>
+      ThreadStoreError.make({
+        operation,
+        message: boundPortDiagnostic(
+          `Routed ${operation} to the Thread Object owning ${target} failed: ${error.message}`,
+        ),
+        cause: error,
+      })
+
+  /** The store twin of `foreignLedgerCall` with `ThreadStoreError` as the base error. */
+  const foreignStoreCall = <ResultSchema extends Schema.Top, FailureSchema extends Schema.Top>(
+    operation: string,
+    target: ThreadId,
+    call: PortRequest,
+    resultSchema: ResultSchema,
+    failureSchema: FailureSchema,
+  ): Effect.Effect<ResultSchema['Type'], FailureSchema['Type'] | ThreadStoreError> => {
+    const isExpectedResult = Schema.is(resultSchema)
+    const isExpectedFailure = Schema.is(failureSchema)
+
+    return transportCall(target, call).pipe(
+      Effect.mapError(routeFailure(operation, target)),
+      Effect.flatMap(
+        (
+          response,
+        ): Effect.Effect<ResultSchema['Type'], FailureSchema['Type'] | ThreadStoreError> => {
+          if (response._tag === 'PortFailed') {
+            const failure = response.failure
+
+            if (isExpectedFailure(failure)) return Effect.fail(failure)
+            if (failure._tag === 'ThreadStoreError') return Effect.fail(failure)
+
+            return Effect.fail(
+              ThreadStoreError.make({
+                operation,
+                message: boundPortDiagnostic(
+                  `The Thread Object owning ${target} answered ${operation} with the ` +
+                    `out-of-contract failure ${failure._tag}`,
+                ),
+                cause: failure,
+              }),
+            )
+          }
+          const result = response.result
+
+          if (!isExpectedResult(result)) {
+            return Effect.fail(
+              ThreadStoreError.make({
+                operation,
+                message: `The Thread Object owning ${target} answered ${operation} with the ` +
+                  `mismatched result ${result._tag}.`,
+              }),
+            )
+          }
+
+          return Effect.succeed(result)
+        },
+      ),
+      Effect.withSpan('DoPortRouting.foreignStoreCall', {
+        attributes: { operation, target },
+      }),
+    )
+  }
+
+  const routed = ThreadStore.of({
+    readFreshRun: (request) =>
+      options.ownsThread(request.threadId) && local.readFreshRun !== undefined
+        ? local.readFreshRun(request)
+        : Effect.succeedNone,
+    readExecution: (request) =>
+      options.ownsThread(request.threadId)
+        ? local.readExecution(request)
+        : foreignStoreCall(
+          'read execution',
+          request.threadId,
+          StoreReadExecutionCall.make({ request }),
+          StoreReadExecutionResult,
+          ThreadNotMaterialized,
+        ).pipe(Effect.map((reply) => reply.checkpoint)),
+    archives: {
+      page: (request) =>
+        options.ownsThread(request.threadId)
+          ? local.archives === undefined
+            ? Effect.fail(crossThreadStoreError('archive unavailable', request.threadId))
+            : local.archives.page(request)
+          : foreignStoreCall(
+            'archive page',
+            request.threadId,
+            StoreRangePageCall.make({ request }),
+            StoreRangePageResult,
+            ThreadNotMaterialized,
+          ).pipe(Effect.map((reply) => reply.page)),
+      seal: (request) =>
+        options.ownsThread(request.threadId)
+          ? local.archives === undefined
+            ? Effect.fail(crossThreadStoreError('archive unavailable', request.threadId))
+            : local.archives.seal(request)
+          : foreignStoreCall(
+            'archive seal',
+            request.threadId,
+            StoreRangeSealCall.make({ request }),
+            StoreRangeSealResult,
+            ThreadNotMaterialized,
+          ).pipe(Effect.map((reply) => reply.range)),
+      archive: (request) =>
+        options.ownsThread(request.threadId)
+          ? local.archives === undefined
+            ? Effect.fail(crossThreadStoreError('archive unavailable', request.threadId))
+            : local.archives.archive(request)
+          : foreignStoreCall(
+            'archive archive',
+            request.threadId,
+            StoreRangeArchiveCall.make({ request }),
+            StoreRangeArchiveResult,
+            ThreadNotMaterialized,
+          ).pipe(Effect.map((reply) => reply.range)),
+      verify: (request) =>
+        options.ownsThread(request.threadId)
+          ? local.archives === undefined
+            ? Effect.fail(crossThreadStoreError('archive unavailable', request.threadId))
+            : local.archives.verify(request)
+          : foreignStoreCall(
+            'archive verify',
+            request.threadId,
+            StoreRangeVerifyCall.make({ request }),
+            StoreRangeVerifyResult,
+            ThreadNotMaterialized,
+          ).pipe(Effect.map((reply) => reply.range)),
+    },
+    work: {
+      isOnlyFreshAdmission: (request) => {
+        const prove = local.work?.isOnlyFreshAdmission
+
+        return prove !== undefined && options.ownsThread(request.threadId)
+          ? prove(request)
+          : Effect.succeed(false)
+      },
+      threads: (request) =>
+        Effect.flatMap(CurrentNativeSource, (nativeSource) =>
+          nativeSource && local.work !== undefined
+            ? local.work.threads(request)
+            : Effect.fail(
+              ThreadStoreError.make({
+                operation: 'work threads',
+                message: nativeSource
+                  ? 'The local Thread owner does not provide work inventory.'
+                  : "Global Thread enumeration is unsupported by the owner-local Durable Object namespace. Use the local owner's work storage.",
+              }),
+            )),
+      page: (request) =>
+        options.ownsThread(request.threadId)
+          ? local.work === undefined
+            ? Effect.fail(
+              WorkDiscoveryUnavailable.make({
+                threadId: request.threadId,
+                reason: 'unsupported',
+              }),
+            )
+            : local.work.page(request)
+          : foreignStoreCall(
+            'work page',
+            request.threadId,
+            StoreWorkPageCall.make({ request }),
+            StoreWorkPageResult,
+            WorkDiscoveryUnavailable,
+          ).pipe(Effect.map((reply) => reply.page)),
+      rebuild: (request) =>
+        options.ownsThread(request.threadId)
+          ? local.work === undefined
+            ? Effect.fail(
+              WorkDiscoveryUnavailable.make({
+                threadId: request.threadId,
+                reason: 'unsupported',
+              }),
+            )
+            : local.work.rebuild(request)
+          : foreignStoreCall(
+            'rebuild work',
+            request.threadId,
+            StoreWorkRebuildCall.make({ request }),
+            StoreWorkRebuildResult,
+            WorkDiscoveryUnavailable,
+          ).pipe(
+            Effect.flatMap((reply) =>
+              reply.progress.threadId === request.threadId
+                ? Effect.succeed(reply.progress)
+                : Effect.fail(
+                  ThreadStoreError.make({
+                    operation: 'rebuild work',
+                    message: 'The rebuild progress belongs to another Thread.',
+                  }),
+                )
+            ),
+          ),
+    },
+    readWorkerCapacity: (request) =>
+      (options.ownsThread(request.threadId)
+        ? local.readWorkerCapacity === undefined
+          ? Effect.fail(crossThreadStoreError('worker capacity unavailable', request.threadId))
+          : local.readWorkerCapacity(request)
+        : foreignStoreCall(
+          'worker capacity',
+          request.threadId,
+          StoreWorkerCapacityCall.make({ request }),
+          StoreWorkerCapacityResult,
+          ThreadNotMaterialized,
+        ).pipe(Effect.map((reply) => reply.capacity))).pipe(
+          Effect.filterOrFail(
+            (capacity) =>
+              capacity.threadId === request.threadId &&
+              capacity.tailSequence === request.expectedTailSequence,
+            () => crossThreadStoreError('worker capacity response mismatch', request.threadId),
+          ),
+        ),
+    verification: {
+      verify: (request) =>
+        options.ownsThread(request.threadId)
+          ? local.verification === undefined
+            ? Effect.fail(crossThreadStoreError('verification unavailable', request.threadId))
+            : local.verification.verify(request)
+          : foreignStoreCall(
+            'thread verification',
+            request.threadId,
+            StoreVerificationCall.make({ request }),
+            StoreVerificationResult,
+            ThreadNotMaterialized,
+          ).pipe(Effect.map((reply) => reply.report)),
+    },
+
+    countPeerMessages: (request) =>
+      options.ownsThread(request.threadId)
+        ? local.countPeerMessages === undefined
+          ? Effect.fail(crossThreadStoreError('peer count unavailable', request.threadId))
+          : local.countPeerMessages(request)
+        : foreignStoreCall(
+          'thread countPeerMessages',
+          request.threadId,
+          StoreCountPeerMessagesCall.make({ request }),
+          StoreCountPeerMessagesResult,
+          ThreadNotMaterialized,
+        ).pipe(Effect.map((reply) => reply.count)),
+
+    materialize: (request) =>
+      options.ownsThread(request.threadId)
+        ? local.materialize(request)
+        : foreignStoreCall(
+          'thread materialize',
+          request.threadId,
+          StoreMaterializeCall.make({ request }),
+          StoreMaterializeResult,
+          NoAdditionalPortFailure,
+        ).pipe(Effect.asVoid),
+
+    append: (request) =>
+      options.ownsThread(request.threadId)
+        ? local.append(request)
+        : foreignStoreCall(
+          'thread append',
+          request.threadId,
+          StoreAppendCall.make({ request }),
+          StoreAppendResult,
+          AppendPortFailure,
+        ).pipe(Effect.map((reply) => reply.result)),
+
+    read: (request) =>
+      options.ownsThread(request.threadId)
+        ? local.read(request)
+        : Stream.unwrap(
+          foreignStoreCall(
+            'thread read',
+            request.threadId,
+            StoreReadPageCall.make({ request }),
+            StoreReadPageResult,
+            ThreadNotMaterialized,
+          ).pipe(Effect.map((reply) => Stream.fromIterable(reply.records))),
+        ),
+
+    readPrompt: (request) =>
+      options.ownsThread(request.threadId)
+        ? local.readPrompt(request)
+        : Stream.unwrap(
+          foreignStoreCall(
+            'thread read prompt',
+            request.threadId,
+            StoreReadPromptCall.make({ request }),
+            StoreReadPromptResult,
+            ThreadNotMaterialized,
+          ).pipe(Effect.map((reply) => Stream.fromIterable(reply.records))),
+        ),
+
+    inspectTail: (request) =>
+      options.ownsThread(request.threadId)
+        ? local.inspectTail(request)
+        : foreignStoreCall(
+          'thread inspect tail',
+          request.threadId,
+          StoreInspectTailCall.make({ request }),
+          StoreInspectTailResult,
+          ThreadNotMaterialized,
+        ).pipe(Effect.map((reply) => reply.tail)),
+
+    readIdentity: (request) =>
+      options.ownsThread(request.threadId)
+        ? local.readIdentity(request)
+        : foreignStoreCall(
+          'thread read identity',
+          request.threadId,
+          StoreReadIdentityCall.make({ request }),
+          StoreReadIdentityResult,
+          ThreadNotMaterialized,
+        ).pipe(
+          Effect.flatMap((reply) =>
+            reply.identity.threadId === request.threadId
+              ? Effect.succeed(reply.identity)
+              : Effect.fail(
+                ThreadStoreError.make({
+                  operation: 'thread read identity',
+                  message: 'The identity snapshot belongs to another Thread.',
+                }),
+              )
+          ),
+        ),
+
+    export: (request) =>
+      checkExportSource(request.threadId).pipe(
+        Effect.andThen(
+          options.ownsThread(request.threadId)
+            ? local.export(request)
+            : foreignStoreCall(
+              'thread export',
+              request.threadId,
+              StoreExportCall.make({ request }),
+              StoreExportResult,
+              Schema.Union([ThreadNotMaterialized, ThreadExportRejected]),
+            ).pipe(Effect.map((reply) => reply.export)),
+        ),
+      ),
+
+    // Observation and Prompt checkpoints are lane-local: the closed route-capable store subset
+    // includes exact-Thread work pages and rebuild, but no global Object enumeration.
+    observe: (request) =>
+      options.ownsThread(request.threadId)
+        ? local.observe(request)
+        : Stream.unwrap(Effect.fail(crossThreadStoreError('thread observe', request.threadId))),
+
+    // Publication obligations and operator retries stay with their native owner.
+    ...(lifecyclePublications === undefined
+      ? {}
+      : {
+        lifecyclePublications: {
+          ...lifecyclePublications,
+          ...(acknowledgeMany === undefined
+            ? {}
+            : {
+              acknowledgeMany: (batches) =>
+                batches.every((batch) => batch.every((publication) => options.ownsThread(publication.ownerThreadId)))
+                  ? acknowledgeMany(batches)
+                  : Effect.fail(LifecyclePublicationError.make({ reason: 'unavailable' })),
+            }),
+          acknowledge: (batch) =>
+            batch.every((publication) => options.ownsThread(publication.ownerThreadId))
+              ? lifecyclePublications.acknowledge(batch)
+              : Effect.fail(LifecyclePublicationError.make({ reason: 'unavailable' })),
+          claim: (batch, nowMillis, timeoutMillis) =>
+            batch.every((publication) => options.ownsThread(publication.ownerThreadId))
+              ? lifecyclePublications.claim(batch, nowMillis, timeoutMillis)
+              : Effect.fail(LifecyclePublicationError.make({ reason: 'unavailable' })),
+          retryParked: (ownerThreadId, nowMillis) =>
+            options.ownsThread(ownerThreadId)
+              ? lifecyclePublications.retryParked(ownerThreadId, nowMillis)
+              : Effect.fail(LifecyclePublicationError.make({ reason: 'unavailable' })),
+        },
+      }),
+    ...(promptCheckpoints === undefined
+      ? {}
+      : {
+        promptCheckpoints: {
+          save: (request) =>
+            options.ownsThread(request.threadId)
+              ? promptCheckpoints.save(request)
+              : Effect.fail(crossThreadStoreError('save prompt checkpoint', request.threadId)),
+          load: (request) =>
+            options.ownsThread(request.threadId)
+              ? promptCheckpoints.load(request)
+              : Effect.fail(crossThreadStoreError('load prompt checkpoint', request.threadId)),
+        },
+      }),
+  })
+
+  return Context.make(ThreadStore, routed)
+})
+
+/**
+ * Routing decorator over the LOCAL `SubmissionLedger` facet (plan §1.3): a request addressing
+ * this Object's Thread executes locally; a route-capable request addressing another
+ * Thread is Schema-encoded onto the `ThreadPortTransport` and executed by the
+ * owning Object's local facet; any other foreign request fails fast typed. Provide the WP1
+ * local facet (`submissionLedgerLayer`/`ledgerLayer`) and a transport to close it.
+ */
+export const routedSubmissionLedgerLayer = (
+  options: RoutedPortOptions,
+): Layer.Layer<SubmissionLedger, never, SubmissionLedger | ThreadPortTransport> =>
+  Layer.effectContext(makeRoutedLedgerServices(options))
+
+/**
+ * Routing decorator over the LOCAL `ThreadStore` facet (plan §1.3): this-thread
+ * requests execute locally; foreign store reads, writes, and exact-Thread work pages/rebuild
+ * travel the transport. Work enumeration stays local under CurrentNativeSource; global
+ * enumeration, foreign Prompt checkpoints, and observation fail typed.
+ */
+export const routedThreadStoreLayer = (
+  options: RoutedPortOptions,
+): Layer.Layer<ThreadStore | ThreadReader, never, ThreadStore | ThreadPortTransport> =>
+  ThreadReader.layer().pipe(
+    Layer.provideMerge(Layer.effectContext(makeRoutedStoreServices(options))),
+  )
+
+/** Route validated worker admission as one operation; source policy hooks stay at the caller. */
+export const routedWorkerAdmissionLayer = (options: RoutedPortOptions) =>
+  Layer.effect(
+    WorkerAdmissionPort,
+    Effect.gen(function*() {
+      const call = makeTransportCall(yield* ThreadPortTransport)
+
+      return WorkerAdmissionPort.of({
+        admit: (request) =>
+          options.ownsThread(request.threadId)
+            ? admitWorker(request)
+            : call(request.threadId, WorkerAdmitCall.make({ request })).pipe(
+              Effect.mapError((cause) =>
+                LedgerError.make({
+                  operation: 'admit worker',
+                  message: 'Worker admission transport failed',
+                  cause,
+                })
+              ),
+              Effect.flatMap((response) => {
+                if (
+                  response._tag === 'PortSucceeded' &&
+                  response.result._tag === 'WorkerAdmitResult'
+                ) {
+                  return Effect.succeed(response.result.result)
+                }
+
+                return Effect.fail(
+                  response._tag === 'PortFailed' &&
+                    Schema.is(WorkerAdmissionFailure)(response.failure)
+                    ? response.failure
+                    : LedgerError.make({
+                      operation: 'admit worker',
+                      message: 'Unexpected worker admission response',
+                      cause: response,
+                    }),
+                )
+              }),
+            ),
+      })
+    }),
+  )
+
+/** Route the existing owner-scoped list; delivery mutations remain source local. */
+export const routedMessageDeliveryStoreLayer = (options: RoutedPortOptions) =>
+  Layer.effect(
+    MessageDeliveryStore,
+    Effect.gen(function*() {
+      const local = yield* MessageDeliveryStore
+      const call = makeTransportCall(yield* ThreadPortTransport)
+
+      return MessageDeliveryStore.of({
+        ...local,
+        change: (key, change) =>
+          options.ownsThread(key.ownerThreadId) || change._tag !== 'Complete'
+            ? local.change(key, change)
+            : call(
+              key.ownerThreadId,
+              MessageDeliveryCompleteCall.make({ key, completion: change }),
+            ).pipe(
+              Effect.catchCause((cause) =>
+                Effect.failCause(
+                  Cause.map(cause, (failure) =>
+                    MessageDeliveryError.make({
+                      reason: 'storage',
+                      operation: 'route delivery completion',
+                      cause: failure,
+                    })),
+                )
+              ),
+              Effect.flatMap((response) => {
+                if (
+                  response._tag === 'PortSucceeded' &&
+                  response.result._tag === 'MessageDeliveryCompleteResult'
+                ) {
+                  return Effect.succeed(response.result.record)
+                }
+                if (
+                  response._tag === 'PortFailed' &&
+                  (response.failure._tag === 'MessageDeliveryError' ||
+                    response.failure._tag === 'MessageDeliveryFailpointError')
+                ) {
+                  return Effect.fail(response.failure)
+                }
+
+                return Effect.fail(
+                  MessageDeliveryError.make({
+                    reason: 'storage',
+                    operation: 'route delivery completion',
+                    cause: response,
+                  }),
+                )
+              }),
+            ),
+        list: (request) =>
+          options.ownsThread(request.ownerThreadId)
+            ? local.list(request)
+            : call(request.ownerThreadId, MessageDeliveryListCall.make({ request })).pipe(
+              Effect.mapError(() =>
+                MessageDeliveryError.make({
+                  reason: 'storage',
+                  operation: 'route delivery list',
+                })
+              ),
+              Effect.flatMap((response) => {
+                if (
+                  response._tag === 'PortSucceeded' &&
+                  response.result._tag === 'MessageDeliveryListResult'
+                ) {
+                  return Effect.succeed(response.result.page)
+                }
+
+                return Effect.fail(
+                  response._tag === 'PortFailed' &&
+                    response.failure._tag === 'MessageDeliveryError'
+                    ? response.failure
+                    : MessageDeliveryError.make({
+                      reason: 'storage',
+                      operation: 'route delivery list',
+                    }),
+                )
+              }),
+            ),
+      })
+    }),
+  )
+
+// ---------------------------------------------------------------------------
+// Owner-side execution
+// ---------------------------------------------------------------------------
+
+/** Fold one port operation's typed failures into the uniform response envelope. */
+const capture = <Failure extends PortFailure, R>(
+  effect: Effect.Effect<PortResult, Failure, R>,
+): Effect.Effect<PortResponse, never, R> =>
+  effect.pipe(
+    Effect.map((result): PortResponse => PortSucceeded.make({ result })),
+    Effect.catch((failure) => Effect.succeed<PortResponse>(PortFailed.make({ failure }))),
+  )
+
+/**
+ * Execute one decoded port request against THIS Object's LOCAL facets — the owner-side half
+ * of the routed ports (plan §1.3). Callers must provide the WP1 local facets, never the
+ * routed decorators: the routing layer already established that this Object owns the
+ * addressed Thread, and re-routing here could bounce a request between Objects.
+ * Failures never escape — every typed port failure becomes a `PortFailed` envelope that
+ * re-decodes on the caller side.
+ */
+export const executePortRequest = Effect.fnUntraced(function*(
+  request: PortRequest,
+): Effect.fn.Return<
+  PortResponse,
+  never,
+  | SubmissionLedger
+  | SettlementPublisher
+  | ThreadStore
+  | MessageDeliveryStore
+  | WakeScheduler
+  | DurableRuntimeFailpoint
+> {
+  switch (request._tag) {
+    case 'StoreRangePage': {
+      const store = yield* ThreadStore
+
+      return yield* capture(
+        store.archives === undefined
+          ? crossThreadStoreError('archive unavailable', request.request.threadId)
+          : store.archives
+            .page(request.request)
+            .pipe(Effect.map((page) => StoreRangePageResult.make({ page }))),
+      )
+    }
+    case 'StoreRangeSeal': {
+      const store = yield* ThreadStore
+
+      return yield* capture(
+        store.archives === undefined
+          ? crossThreadStoreError('archive unavailable', request.request.threadId)
+          : store.archives
+            .seal(request.request)
+            .pipe(Effect.map((range) => StoreRangeSealResult.make({ range }))),
+      )
+    }
+    case 'StoreRangeArchive': {
+      const store = yield* ThreadStore
+
+      return yield* capture(
+        store.archives === undefined
+          ? crossThreadStoreError('archive unavailable', request.request.threadId)
+          : store.archives
+            .archive(request.request)
+            .pipe(Effect.map((range) => StoreRangeArchiveResult.make({ range }))),
+      )
+    }
+    case 'StoreRangeVerify': {
+      const store = yield* ThreadStore
+
+      return yield* capture(
+        store.archives === undefined
+          ? crossThreadStoreError('archive unavailable', request.request.threadId)
+          : store.archives
+            .verify(request.request)
+            .pipe(Effect.map((range) => StoreRangeVerifyResult.make({ range }))),
+      )
+    }
+
+    case 'StoreWorkPage': {
+      const store = yield* ThreadStore
+
+      return yield* capture(
+        store.work === undefined
+          ? Effect.fail(
+            WorkDiscoveryUnavailable.make({
+              threadId: request.request.threadId,
+              reason: 'unsupported',
+            }),
+          )
+          : store.work
+            .page(request.request)
+            .pipe(Effect.map((page) => StoreWorkPageResult.make({ page }))),
+      )
+    }
+    case 'StoreWorkRebuild': {
+      const store = yield* ThreadStore
+
+      return yield* capture(
+        store.work === undefined
+          ? Effect.fail(
+            WorkDiscoveryUnavailable.make({
+              threadId: request.request.threadId,
+              reason: 'unsupported',
+            }),
+          )
+          : store.work
+            .rebuild(request.request)
+            .pipe(Effect.map((progress) => StoreWorkRebuildResult.make({ progress }))),
+      )
+    }
+    case 'SettlementPublish': {
+      const publisher = yield* SettlementPublisher
+
+      return yield* capture(
+        publisher
+          .publish(request.request)
+          .pipe(Effect.map((result) => SettlementPublishResult.make({ result }))),
+      )
+    }
+    case 'MessageDeliveryComplete': {
+      const store = yield* MessageDeliveryStore
+
+      return yield* capture(
+        store
+          .change(request.key, {
+            _tag: 'Complete',
+            ...request.completion,
+            nowMillis: yield* Clock.currentTimeMillis,
+          })
+          .pipe(Effect.map((record) => MessageDeliveryCompleteResult.make({ record }))),
+      )
+    }
+    case 'WorkerAdmit':
+      return yield* capture(
+        admitWorker(request.request).pipe(
+          Effect.map((result) => WorkerAdmitResult.make({ result })),
+        ),
+      )
+    case 'MessageDeliveryList': {
+      const store = yield* MessageDeliveryStore
+
+      return yield* capture(
+        store
+          .list(request.request)
+          .pipe(Effect.map((page) => MessageDeliveryListResult.make({ page }))),
+      )
+    }
+    case 'StoreCountPeerMessages': {
+      const store = yield* ThreadStore
+
+      return yield* capture(
+        store.countPeerMessages === undefined
+          ? Effect.fail(crossThreadStoreError('native read unavailable', request.request.threadId))
+          : store
+            .countPeerMessages(request.request)
+            .pipe(Effect.map((count) => StoreCountPeerMessagesResult.make({ count }))),
+      )
+    }
+    case 'LedgerAdmit': {
+      const ledger = yield* SubmissionLedger
+
+      return yield* capture(
+        ledger
+          .admit(request.request)
+          .pipe(Effect.map((result) => LedgerAdmitResult.make({ result }))),
+      )
+    }
+    case 'LedgerMarkReady': {
+      const ledger = yield* SubmissionLedger
+
+      return yield* capture(
+        ledger.markReady(request.request).pipe(Effect.map(() => LedgerMarkReadyResult.make({}))),
+      )
+    }
+    case 'LedgerLookup': {
+      const ledger = yield* SubmissionLedger
+
+      return yield* capture(
+        ledger
+          .lookup(request.request)
+          .pipe(
+            Effect.map((submission) =>
+              Option.isSome(submission)
+                ? LedgerLookupResult.make({ submission: submission.value })
+                : LedgerLookupResult.make({})
+            ),
+          ),
+      )
+    }
+    case 'LedgerFundingOwner': {
+      const ledger = yield* SubmissionLedger
+
+      return yield* capture(
+        ledger.resolveFundingOwner === undefined
+          ? Effect.fail(
+            LedgerError.make({
+              operation: 'resolve funding owner',
+              message: 'Native funding-owner lookup unavailable.',
+            }),
+          )
+          : ledger
+            .resolveFundingOwner(request.request)
+            .pipe(Effect.map((funding) => LedgerFundingOwnerResult.make({ funding }))),
+      )
+    }
+    case 'LedgerResolveAdmission': {
+      const ledger = yield* SubmissionLedger
+
+      return yield* capture(
+        ledger
+          .resolveAdmission(request.request)
+          .pipe(Effect.map((resolution) => LedgerResolveAdmissionResult.make({ resolution }))),
+      )
+    }
+    case 'LedgerInspectWorker': {
+      const ledger = yield* SubmissionLedger
+
+      return yield* capture(
+        ledger.inspectWorker === undefined
+          ? Effect.fail(
+            LedgerError.make({
+              operation: 'inspectWorker',
+              message: 'Worker inspection unavailable',
+            }),
+          )
+          : ledger
+            .inspectWorker(request.request.threadId)
+            .pipe(Effect.map((state) => LedgerInspectWorkerResult.make({ state }))),
+      )
+    }
+    case 'LedgerStopWorker': {
+      const ledger = yield* SubmissionLedger
+
+      return yield* capture(
+        ledger.stopWorker === undefined
+          ? Effect.fail(
+            LedgerError.make({ operation: 'stopWorker', message: 'Worker stop unavailable' }),
+          )
+          : ledger
+            .stopWorker(request.request)
+            .pipe(Effect.map((owned) => LedgerStopWorkerResult.make({ owned }))),
+      )
+    }
+    case 'LedgerRequestAbort': {
+      const ledger = yield* SubmissionLedger
+
+      return yield* capture(
+        ledger
+          .requestAbort(request.request)
+          .pipe(Effect.map((intent) => LedgerRequestAbortResult.make({ intent }))),
+      )
+    }
+    case 'LedgerRecordChildSettled': {
+      const ledger = yield* SubmissionLedger
+
+      return yield* capture(
+        ledger
+          .recordChildSettled(request.request)
+          .pipe(Effect.map((outcome) => LedgerRecordChildSettledResult.make({ outcome }))),
+      )
+    }
+    case 'StoreMaterialize': {
+      const store = yield* ThreadStore
+
+      return yield* capture(
+        store.materialize(request.request).pipe(Effect.map(() => StoreMaterializeResult.make({}))),
+      )
+    }
+    case 'StoreAppend': {
+      const store = yield* ThreadStore
+
+      return yield* capture(
+        store
+          .append(request.request)
+          .pipe(Effect.map((result) => StoreAppendResult.make({ result }))),
+      )
+    }
+    case 'StoreReadPage': {
+      const store = yield* ThreadStore
+
+      return yield* capture(
+        store.read(request.request).pipe(
+          Stream.runCollect,
+          Effect.map((records) => StoreReadPageResult.make({ records: [...records] })),
+        ),
+      )
+    }
+    case 'StoreReadPrompt': {
+      const store = yield* ThreadStore
+
+      return yield* capture(
+        store.readPrompt(request.request).pipe(
+          Stream.runCollect,
+          Effect.map((records) => StoreReadPromptResult.make({ records })),
+        ),
+      )
+    }
+    case 'StoreInspectTail': {
+      const store = yield* ThreadStore
+
+      return yield* capture(
+        store
+          .inspectTail(request.request)
+          .pipe(Effect.map((tail) => StoreInspectTailResult.make({ tail }))),
+      )
+    }
+    case 'StoreReadExecution': {
+      const store = yield* ThreadStore
+
+      return yield* capture(
+        store
+          .readExecution(request.request)
+          .pipe(Effect.map((checkpoint) => StoreReadExecutionResult.make({ checkpoint }))),
+      )
+    }
+    case 'StoreReadIdentity': {
+      const store = yield* ThreadStore
+
+      return yield* capture(
+        store
+          .readIdentity(request.request)
+          .pipe(Effect.map((identity) => StoreReadIdentityResult.make({ identity }))),
+      )
+    }
+    case 'StoreWorkerCapacity': {
+      const store = yield* ThreadStore
+
+      return yield* capture(
+        store.readWorkerCapacity === undefined
+          ? Effect.fail(
+            crossThreadStoreError('worker capacity unavailable', request.request.threadId),
+          )
+          : store
+            .readWorkerCapacity(request.request)
+            .pipe(Effect.map((capacity) => StoreWorkerCapacityResult.make({ capacity }))),
+      )
+    }
+    case 'StoreVerification': {
+      const store = yield* ThreadStore
+
+      return yield* capture(
+        store.verification === undefined
+          ? Effect.fail(crossThreadStoreError('verification unavailable', request.request.threadId))
+          : store.verification
+            .verify(request.request)
+            .pipe(Effect.map((report) => StoreVerificationResult.make({ report }))),
+      )
+    }
+    case 'StoreExport': {
+      const store = yield* ThreadStore
+
+      return yield* capture(
+        store
+          .export(request.request)
+          .pipe(Effect.map((threadExport) => StoreExportResult.make({ export: threadExport }))),
+      )
+    }
+  }
+})
+
+/**
+ * The last-resort wire fallback when even encoding a response fails: the literal encoded
+ * form of `PortFailed(PortProtocolError)` — tagged classes of bounded strings encode to
+ * exactly this shape, so no Schema round trip is needed to produce it.
+ */
+const encodedProtocolFailure = (message: string): unknown => ({
+  _tag: 'PortFailed',
+  failure: { _tag: 'PortProtocolError', message: boundPortDiagnostic(message) },
+})
+
+/**
+ * The complete owner-side endpoint body for `portCall` (D-P6-3): decode the wire request,
+ * execute it against this Object's LOCAL facets, and answer with the encoded response
+ * envelope. Total by construction — a request that cannot be decoded, or a response that
+ * cannot be encoded, answers `PortFailed(PortProtocolError)` instead of throwing, so the
+ * transport never has to interpret exceptions as protocol answers.
+ */
+export const handleEncodedPortRequest = Effect.fnUntraced(function*(
+  encoded: unknown,
+): Effect.fn.Return<
+  unknown,
+  never,
+  | SubmissionLedger
+  | SettlementPublisher
+  | ThreadStore
+  | MessageDeliveryStore
+  | WakeScheduler
+  | DurableRuntimeFailpoint
+> {
+  const response = yield* decodePortRequest(encoded).pipe(
+    Effect.flatMap(executePortRequest),
+    Effect.catch((error) =>
+      Effect.succeed<PortResponse>(
+        PortFailed.make({
+          failure: PortProtocolError.make({
+            message: boundPortDiagnostic(`The port request could not be decoded: ${error.message}`),
+          }),
+        }),
+      )
+    ),
+  )
+
+  return yield* encodePortResponse(response).pipe(
+    Effect.catch((error) =>
+      Effect.succeed(
+        encodedProtocolFailure(`The port response could not be encoded: ${error.message}`),
+      )
+    ),
+  )
+})

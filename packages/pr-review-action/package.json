@@ -1,0 +1,28 @@
+{
+  "name": "@systemfsoftware/agent-pr-review-action",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./review-openai": "./src/review-openai.ts",
+    "./review-repository": "./src/review-repository.ts"
+  },
+  "scripts": {
+    "typecheck": "effect-tsgo tsrs --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@effect/ai-openai": "catalog:",
+    "@effect/platform-node": "catalog:",
+    "@systemfsoftware/agent-pr-review": "workspace:*",
+    "diff": "catalog:",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/vitest": "catalog:",
+    "@types/node": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

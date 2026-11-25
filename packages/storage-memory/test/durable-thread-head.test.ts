@@ -1,0 +1,1483 @@
+import * as NodeCrypto from '@effect/platform-node/NodeCrypto'
+import { expect, layer } from '@effect/vitest'
+import { MemorySubmissionLedgerLive } from '@systemfsoftware/agent-storage-memory/memory-submission-ledger'
+import { MemoryThreadStoreLive } from '@systemfsoftware/agent-storage-memory/memory-thread-store'
+import * as Agent from '@systemfsoftware/agent/agent'
+import { AgentPolicy } from '@systemfsoftware/agent/agent-policy'
+import {
+  CurrentBindingSelection,
+  DurableWorkerBinding,
+  type ResolvedBinding,
+} from '@systemfsoftware/agent/agent-registration'
+import { CompactionError, ContextCompactor } from '@systemfsoftware/agent/context-compactor'
+import { ModelCallContext } from '@systemfsoftware/agent/context-window'
+import { DurableAgentRuntime, DurableRuntimeConfig, Receipt } from '@systemfsoftware/agent/durable-agent-runtime'
+import { DurableRuntimeFailpointError } from '@systemfsoftware/agent/durable-failpoint'
+import { DurableStep, ToolExecutionClass } from '@systemfsoftware/agent/durable-step'
+import { ReceiptId, RunId, ThreadId, ToolCallId } from '@systemfsoftware/agent/identifiers'
+import { OperationAuthorizer, OperationDenied } from '@systemfsoftware/agent/operation-authorizer'
+import {
+  CanonicalBatch,
+  DefinitionDigests,
+  DeploymentId,
+  Digest,
+  ProducerId,
+  RecordEnvelope,
+} from '@systemfsoftware/agent/records'
+import {
+  projectRunJournal,
+  runIdForSubmission,
+  turnIdForRun,
+  turnResponseBatch,
+} from '@systemfsoftware/agent/run-journal'
+import { RunContextPreparation, RunToolAuthorization } from '@systemfsoftware/agent/run-options'
+import { layer as runStorageLayer, RunStorage } from '@systemfsoftware/agent/run-storage'
+import {
+  AbortCommand,
+  ClaimRequest,
+  IdempotencyKey,
+  LedgerError,
+  Principal,
+  QueueSequence,
+  RecoverySnapshotRequest,
+  SubmissionLedger,
+} from '@systemfsoftware/agent/submission-ledger'
+import { DurableRuntimeFailpointTestControl } from '@systemfsoftware/agent/testing/durable-failpoint-test-control'
+import { readTestThread } from '@systemfsoftware/agent/testing/thread-store-conformance'
+import {
+  AppendRequest,
+  type ExecutionCheckpoint,
+  ThreadExportRequest,
+  ThreadRead,
+  ThreadStore,
+  ThreadTailRequest,
+} from '@systemfsoftware/agent/thread-store'
+import { ToolReconciler } from '@systemfsoftware/agent/tool-reconciler'
+import { WakeScheduler } from '@systemfsoftware/agent/wake-scheduler'
+import * as LanguageModel from 'effect/ai/LanguageModel'
+import * as Model from 'effect/ai/Model'
+import * as Prompt from 'effect/ai/Prompt'
+import type * as Response from 'effect/ai/Response'
+import * as Tool from 'effect/ai/Tool'
+import * as Toolkit from 'effect/ai/Toolkit'
+import * as Cause from 'effect/Cause'
+import * as DateTime from 'effect/DateTime'
+import * as Deferred from 'effect/Deferred'
+import * as Duration from 'effect/Duration'
+import * as Effect from 'effect/Effect'
+import * as Exit from 'effect/Exit'
+import * as Fiber from 'effect/Fiber'
+import * as Layer from 'effect/Layer'
+import * as Logger from 'effect/Logger'
+import * as Option from 'effect/Option'
+import * as Ref from 'effect/Ref'
+import * as References from 'effect/References'
+import * as Schema from 'effect/Schema'
+import * as Stream from 'effect/Stream'
+import * as TestClock from 'effect/testing/TestClock'
+
+const digest = Schema.decodeSync(Digest)('a'.repeat(64))
+const digests = DefinitionDigests.make({ agent: digest, model: digest, tools: digest })
+
+const policy = AgentPolicy.make({
+  maxTurns: 2,
+  maxToolCalls: 2,
+  maxDuration: '30 seconds',
+  toolConcurrency: 1,
+})
+
+const definition = Agent.make('bounded-head', {
+  input: Schema.String,
+  output: Schema.String,
+  instructions: 'Answer as JSON.',
+  toolkit: Toolkit.empty,
+  policy,
+})
+
+const options = (thread: string, key: string) => ({
+  threadId: Schema.decodeSync(ThreadId)(thread),
+  principal: Schema.decodeSync(Principal)('head-test'),
+  idempotencyKey: Schema.decodeSync(IdempotencyKey)(key),
+  definitions: digests,
+})
+
+const finalParts: ReadonlyArray<Response.StreamPartEncoded> = [
+  { type: 'text-start', id: 'answer' },
+  { type: 'text-delta', id: 'answer', delta: '"done"' },
+  { type: 'text-end', id: 'answer' },
+  { type: 'finish', reason: 'stop', usage: { inputTokens: {}, outputTokens: {} } },
+]
+
+const makeModel = (
+  response: Stream.Stream<Response.StreamPartEncoded>,
+  close: Effect.Effect<void> = Effect.void,
+) =>
+  Model.make(
+    'scripted',
+    'bounded-head',
+    Layer.effect(
+      LanguageModel.LanguageModel,
+      Effect.gen(function*() {
+        yield* Effect.addFinalizer(() => close)
+
+        return yield* LanguageModel.make({
+          generateText: () => Effect.succeed([]),
+          streamText: () => response,
+        })
+      }),
+    ),
+  )
+
+const baseLayer = Layer.mergeAll(
+  MemorySubmissionLedgerLive.pipe(Layer.provideMerge(MemoryThreadStoreLive)),
+  WakeScheduler.layerNoop,
+  DurableRuntimeFailpointTestControl.layer,
+  ToolReconciler.uncertain,
+  DurableRuntimeConfig.layer({
+    deploymentId: Schema.decodeSync(DeploymentId)('head-test'),
+    producerId: Schema.decodeSync(ProducerId)('head-test'),
+    settlementPollInterval: Duration.millis(100),
+  }),
+).pipe(Layer.provideMerge(NodeCrypto.layer))
+
+const makeRuntime = (bindings: ReadonlyArray<ResolvedBinding> = []) =>
+  DurableAgentRuntime.pipe(
+    Effect.provide(
+      DurableAgentRuntime.layerWithBindings(bindings).pipe(
+        Layer.provide(runStorageLayer),
+        Layer.provide(RunToolAuthorization.allowAll),
+      ),
+    ),
+  )
+
+const snapshot = Effect.fn(function*(receipt: Receipt) {
+  const ledger = yield* SubmissionLedger
+
+  return yield* ledger.loadRecoverySnapshot(
+    RecoverySnapshotRequest.make({ submissionId: receipt.submissionId }),
+  )
+})
+
+layer(baseLayer)('bounded durable Thread processing', (it) => {
+  // Regression: https://github.com/reve-ai/kommunikasie/commit/b98ab37b8976c536e766bea8e51572d73fcb23f4
+  // A failed context preparation settled durably without reporting its live cause.
+  it.effect('reports a terminal preparation failure once with its cause and durable identity', () =>
+    Effect.gen(function*() {
+      const original = new Error('Tool schema cannot be estimated')
+
+      const failure = CompactionError.make({
+        message: 'Could not prepare context',
+        cause: original,
+      })
+
+      const events: Array<{
+        cause: Cause.Cause<unknown>
+        annotations: Readonly<Record<string, unknown>>
+      }> = []
+
+      const logger = Logger.make(({ logLevel, cause, fiber }) => {
+        if (logLevel === 'Error') {
+          events.push({ cause, annotations: fiber.getRef(References.CurrentLogAnnotations) })
+        }
+      })
+
+      const agent = Agent.withModel(definition, makeModel(Stream.die('provider must not start')))
+      const binding = yield* DurableWorkerBinding.make(agent, digests)
+
+      const runtime = yield* makeRuntime([binding]).pipe(
+        Effect.provideService(RunContextPreparation, {
+          hook: { prepare: () => Effect.fail(failure) },
+        }),
+      )
+
+      const receipt = yield* runtime.submit(
+        agent,
+        'private request',
+        options('failed-preparation', 'first'),
+      )
+
+      yield* runtime
+        .processThreadHead(receipt.threadId)
+        .pipe(Effect.provide(Logger.layer([logger])))
+      expect((yield* runtime.submissionStatus(receipt))._tag).toBe('settled')
+      expect(events).toHaveLength(1)
+      expect(Cause.squash(events[0]!.cause)).toBe(failure)
+      expect(Cause.pretty(events[0]!.cause)).toContain(original.message)
+      expect(events[0]!.annotations).toMatchObject({
+        threadId: receipt.threadId,
+        submissionId: receipt.submissionId,
+        agentId: definition.id,
+      })
+
+      const duplicate = yield* runtime.submit(
+        agent,
+        'private request',
+        options('failed-preparation', 'first'),
+      )
+
+      expect(duplicate).toEqual(receipt)
+      expect(
+        yield* runtime
+          .processThreadHead(receipt.threadId)
+          .pipe(Effect.provide(Logger.layer([logger]))),
+      ).toEqual(Option.none())
+      expect(events).toHaveLength(1)
+
+      const records = yield* readTestThread(
+        yield* ThreadStore,
+        ThreadExportRequest.make({ threadId: receipt.threadId }),
+      )
+
+      const settlements = records.records.filter(
+        ({ record }) => record.payload._tag === 'SubmissionSettled',
+      )
+
+      expect(settlements).toHaveLength(1)
+      expect(settlements[0]!.record.payload).toMatchObject({
+        outcome: 'failed',
+        result: {
+          errorTag: 'CompactionError',
+          message: failure.message,
+          diagnostic: {
+            _tag: 'Cause',
+            reasons: [
+              {
+                _tag: 'Fail',
+                error: {
+                  errorTag: 'CompactionError',
+                  cause: { message: original.message, stack: original.stack },
+                },
+              },
+            ],
+          },
+        },
+      })
+      expect(JSON.stringify(settlements)).not.toContain('private request')
+    }).pipe(Effect.annotateLogs({ hostContext: 'captured registration' })))
+
+  it.effect.each(['provider-failure', 'retained-incomplete'])(
+    'rolls over after terminal Tool failure without rewriting evidence: %s',
+    (scenario) =>
+      Effect.gen(function*() {
+        const store = yield* ThreadStore
+        const failpoints = yield* DurableRuntimeFailpointTestControl
+        const requests: Array<Prompt.Prompt> = []
+        let failTool = scenario !== 'retained-incomplete'
+        const providerFailure = scenario === 'provider-failure'
+        let handlerCalls = 0
+
+        const tools = Toolkit.make(
+          Tool.make('failing_action', {
+            parameters: Tool.EmptyParams,
+            success: Schema.String,
+            failure: Schema.Struct({ message: Schema.String }),
+            failureMode: 'return',
+          }),
+          Tool.providerDefined({
+            id: 'test.hosted_failure',
+            customName: 'HostedFailure',
+            providerName: 'hosted_failure',
+            parameters: Tool.EmptyParams,
+            success: Schema.Struct({ message: Schema.String }),
+            failure: Schema.Struct({ message: Schema.String }),
+          })(undefined),
+        )
+
+        const model = Model.make(
+          'scripted',
+          'terminal-history',
+          Layer.effect(
+            LanguageModel.LanguageModel,
+            LanguageModel.make({
+              generateText: () => Effect.succeed([]),
+              streamText: (request) => {
+                requests.push(request.prompt)
+
+                return Stream.fromIterable<Response.StreamPartEncoded>(
+                  failTool
+                    ? [
+                      {
+                        type: 'tool-call',
+                        id: 'failed-call',
+                        name: providerFailure ? 'HostedFailure' : 'failing_action',
+                        params: {},
+                        providerExecuted: providerFailure,
+                      },
+                      ...(providerFailure
+                        ? [
+                          {
+                            type: 'tool-result' as const,
+                            id: 'failed-call',
+                            name: 'HostedFailure',
+                            result: { message: 'Provider action failed conclusively' },
+                            isFailure: true,
+                            providerExecuted: true,
+                          },
+                        ]
+                        : []),
+                      {
+                        type: 'finish',
+                        reason: 'tool-calls',
+                        usage: { inputTokens: { total: 100 }, outputTokens: { total: 10 } },
+                      },
+                    ]
+                    : finalParts,
+                )
+              },
+            }),
+          ),
+        )
+
+        const agent = Agent.withModel(
+          Agent.make('terminal-history', {
+            input: Schema.String,
+            output: Schema.String,
+            instructions: 'Preserve current input.',
+            toolkit: tools,
+            policy: AgentPolicy.make({
+              ...policy,
+              repeatedFailureLimit: 1,
+              contextTokenLimit: 20_000,
+            }),
+          }),
+          model,
+        )
+
+        const freshRuntime = Effect.gen(function*() {
+          const binding = yield* DurableWorkerBinding.make(agent, digests).pipe(
+            Effect.provide(
+              tools.toLayer({
+                failing_action: () =>
+                  Effect.suspend(() => {
+                    handlerCalls += 1
+
+                    return Effect.fail({ message: 'Action failed conclusively' })
+                  }),
+              }),
+            ),
+          )
+
+          return yield* makeRuntime([binding]).pipe(
+            Effect.provideService(
+              RunContextPreparation,
+              RunContextPreparation.of({
+                hook: {
+                  prepare: (request) =>
+                    Effect.succeed({
+                      prompt: request.source,
+                      ...(request.turn === 1 && !failTool ? { rollover: {} } : {}),
+                    }),
+                },
+              }),
+            ),
+            Effect.provide(ContextCompactor.layerRollover),
+          )
+        })
+
+        const runtime = yield* freshRuntime
+        const thread = `terminal-history-${scenario}`
+
+        if (scenario !== 'retained-incomplete') {
+          const first = yield* runtime.submit(agent, 'OLD REQUEST', options(thread, 'first'))
+
+          yield* runtime.processThreadHead(first.threadId)
+
+          const original = yield* readTestThread(
+            store,
+            ThreadExportRequest.make({ threadId: first.threadId }),
+          )
+
+          const terminal = original.records.find(
+            (entry) => entry.record.payload._tag === 'SubmissionSettled',
+          )
+
+          expect(terminal?.record.payload).toMatchObject({
+            outcome: 'failed',
+            policyLimit: 'repeated-failures',
+          })
+
+          const projection = yield* projectRunJournal(
+            original.records,
+            yield* Schema.decodeEffect(RunId)(`run:${first.submissionId}`).pipe(Effect.orDie),
+          )
+
+          if (providerFailure) {
+            const assistant = projection.prompt.content.find(
+              (message) => message.role === 'assistant',
+            )
+
+            expect(assistant?.content).toEqual(
+              expect.arrayContaining([
+                expect.objectContaining({
+                  type: 'tool-result',
+                  id: 'failed-call',
+                  name: 'HostedFailure',
+                  isFailure: true,
+                  providerExecuted: true,
+                  result: { message: 'Provider action failed conclusively' },
+                }),
+              ]),
+            )
+            expect(
+              original.records.some((entry) => entry.record.payload._tag === 'ToolCallSettled'),
+            ).toBe(false)
+
+            const response = original.records.find(
+              (entry) => entry.record.payload._tag === 'ModelResponseRecorded',
+            )
+
+            expect(response!.sequence).toBeLessThan(terminal!.sequence)
+          } else {
+            const result = original.records.find(
+              (entry) => entry.record.payload._tag === 'ToolCallSettled',
+            )
+
+            expect(result?.record.payload).toMatchObject({
+              toolName: 'failing_action',
+              isFailure: true,
+            })
+            expect(result!.sequence).toBeLessThan(terminal!.sequence)
+          }
+          expect(projection.policyUsage.consecutiveToolFailures).toBe(1)
+          expect(projection.usage.inputTokens).toBe(100)
+          expect(projection.usage.outputTokens).toBe(10)
+          expect(handlerCalls).toBe(providerFailure ? 0 : 1)
+          expect(requests).toHaveLength(1)
+          failTool = false
+        }
+        const current = yield* runtime.submit(agent, 'CURRENT REQUEST', options(thread, 'current'))
+
+        if (scenario === 'retained-incomplete') {
+          const tail = yield* store.inspectTail(
+            ThreadTailRequest.make({ threadId: current.threadId }),
+          )
+
+          const record = (id: string, payload: (typeof RecordEnvelope.Encoded)['payload']) =>
+            Schema.decodeSync(RecordEnvelope)({
+              recordId: id,
+              family: 'thread',
+              schemaVersion: 1,
+              createdAt: '2026-09-01T00:00:00.000Z',
+              deploymentId: 'head-test',
+              payload,
+            })
+
+          const oldRunId = yield* Schema.decodeEffect(RunId)('run:old-submission').pipe(
+            Effect.orDie,
+          )
+
+          const response = yield* turnResponseBatch({
+            runId: oldRunId,
+            toolOperations: [
+              {
+                toolCallId: yield* Schema.decodeEffect(ToolCallId)('uncertain-call').pipe(
+                  Effect.orDie,
+                ),
+                toolName: 'failing_action',
+                executionClass: 'uncertain',
+                executionKind: 'ordinary',
+                replay: digest,
+              },
+            ],
+            turn: 1,
+            turnId: turnIdForRun(oldRunId, 1),
+            producerId: yield* Schema.decodeEffect(ProducerId)('head-test').pipe(Effect.orDie),
+            deploymentId: yield* Schema.decodeEffect(DeploymentId)('head-test').pipe(Effect.orDie),
+            createdAt: DateTime.toUtc(DateTime.makeUnsafe(1_000)),
+            responseMessages: Prompt.make([
+              { role: 'user', content: 'OLD RETAINED EVIDENCE' },
+              {
+                role: 'assistant',
+                content: [
+                  {
+                    type: 'tool-call',
+                    id: 'uncertain-call',
+                    name: 'failing_action',
+                    params: {},
+                    providerExecuted: false,
+                  },
+                ],
+              },
+            ]).content,
+            toolResults: [],
+            usage: { inputTokens: 100, outputTokens: 10 },
+          })
+
+          yield* store.append(
+            AppendRequest.make({
+              threadId: current.threadId,
+              expectedTailSequence: tail.tailSequence,
+
+              batch: CanonicalBatch.make({
+                batchId: yield* Schema.decodeEffect(CanonicalBatch.fields.batchId)(
+                  'retained-history',
+                ).pipe(Effect.orDie),
+                producerId: yield* Schema.decodeEffect(ProducerId)('head-test').pipe(Effect.orDie),
+                records: [
+                  ...response.records,
+                  record('settled-old', {
+                    _tag: 'SubmissionSettled',
+                    submissionId: 'old-submission',
+                    settlementId: 'settled-old',
+                    receiptId: 'receipt-old',
+                    runId: 'run:old-submission',
+                    outcome: 'failed',
+                    result: { errorTag: 'AgentPolicyError', message: 'Repeated failure limit' },
+                  }),
+                ],
+              }),
+            }),
+          )
+        }
+
+        const before = yield* readTestThread(
+          store,
+          ThreadExportRequest.make({ threadId: current.threadId }),
+        )
+
+        const priorResponse = before.records.find(
+          (entry) => entry.record.payload._tag === 'ModelResponseRecorded',
+        )?.record.payload
+
+        if (priorResponse?._tag !== 'ModelResponseRecorded') {
+          throw new Error("Expected the prior Run's canonical response")
+        }
+        const priorJournal = yield* projectRunJournal(before.records, priorResponse.runId)
+
+        const callsBefore = requests.length
+
+        yield* failpoints.setHandler((location) =>
+          location === 'compaction:after-canonical-append'
+            ? DurableRuntimeFailpointError.make({ location })
+            : Effect.void
+        )
+        const attempt = yield* Effect.exit(runtime.processThreadHead(current.threadId))
+
+        expect(requests).toHaveLength(callsBefore)
+
+        const interrupted = yield* readTestThread(
+          store,
+          ThreadExportRequest.make({ threadId: current.threadId }),
+        )
+
+        expect(Exit.isFailure(attempt)).toBe(true)
+        expect(
+          interrupted.records.filter((entry) => entry.record.payload._tag === 'CompactionCreated'),
+        ).toHaveLength(1)
+        yield* failpoints.clear
+        const resumed = yield* freshRuntime
+
+        yield* resumed.processThreadHead(current.threadId)
+        expect(requests).toHaveLength(callsBefore + 1)
+        expect(JSON.stringify(requests.at(-1))).toContain('CURRENT REQUEST')
+        expect(JSON.stringify(requests.at(-1))).not.toContain('OLD')
+
+        const after = yield* readTestThread(
+          store,
+          ThreadExportRequest.make({ threadId: current.threadId }),
+        )
+
+        expect(after.records.slice(0, before.records.length)).toEqual(before.records)
+        expect(
+          after.records.filter((entry) => entry.record.payload._tag === 'CompactionCreated'),
+        ).toHaveLength(1)
+        expect(
+          after.records.find(
+            (entry) =>
+              entry.record.payload._tag === 'SubmissionSettled' &&
+              entry.record.payload.submissionId === current.submissionId,
+          )?.record.payload,
+        ).toMatchObject({ outcome: 'completed' })
+        const retainedJournal = yield* projectRunJournal(after.records, priorResponse.runId)
+
+        expect(retainedJournal.usage).toEqual(priorJournal.usage)
+        expect(retainedJournal.usage).toMatchObject({ inputTokens: 100, outputTokens: 10 })
+        expect(retainedJournal.policyUsage).toEqual(priorJournal.policyUsage)
+        expect(handlerCalls).toBe(0)
+        if (providerFailure) {
+          expect(
+            after.records.some((entry) => entry.record.payload._tag === 'ToolCallSettled'),
+          ).toBe(false)
+        }
+        if (scenario === 'retained-incomplete') {
+          expect(
+            after.records.some(
+              (entry) =>
+                entry.record.payload._tag === 'ToolCallSettled' &&
+                entry.record.payload.toolCallId === 'uncertain-call',
+            ),
+          ).toBe(false)
+        }
+      }),
+  )
+
+  // Regression seam: https://linear.app/reve/issue/KOM-125
+  it.effect('resets completed Run context below capacity and recovers the canonical reset', () =>
+    Effect.gen(function*() {
+      const store = yield* ThreadStore
+      const failpoints = yield* DurableRuntimeFailpointTestControl
+
+      for (const restart of [true]) {
+        const requests: Array<Prompt.Prompt> = []
+        const completing: Array<ExecutionCheckpoint> = []
+
+        const observeCompletion = (receipt: Receipt) =>
+          failpoints.setHandler((location) =>
+            location === 'terminalize:before-publication'
+              ? store
+                .readExecution({
+                  threadId: receipt.threadId,
+                  runId: runIdForSubmission(receipt.submissionId),
+                })
+                .pipe(
+                  Effect.map((execution) => {
+                    if (Option.isSome(execution)) completing.push(execution.value)
+                  }),
+                  Effect.orDie,
+                )
+              : Effect.void
+          )
+
+        const model = Model.make(
+          'scripted',
+          'fresh-request',
+          Layer.effect(
+            LanguageModel.LanguageModel,
+            LanguageModel.make({
+              generateText: () => Effect.succeed([]),
+              streamText: (request) => {
+                requests.push(request.prompt)
+
+                return Stream.fromIterable<Response.StreamPartEncoded>([
+                  { type: 'text-start', id: 'answer' },
+                  {
+                    type: 'text-delta',
+                    id: 'answer',
+                    delta: JSON.stringify(requests.length === 1 ? 'OBSOLETE COMPLETION' : 'done'),
+                  },
+                  ...finalParts.slice(2),
+                ])
+              },
+            }),
+          ),
+        )
+
+        const agent = Agent.withModel(
+          Agent.make('fresh-request-reset', {
+            input: Schema.String,
+            output: Schema.String,
+            instructions: 'Preserve the current request and return a JSON string.',
+            toolkit: Toolkit.empty,
+            policy: AgentPolicy.make({ ...policy, contextTokenLimit: 20_000 }),
+          }),
+          model,
+        )
+
+        const freshRuntime = Effect.gen(function*() {
+          const binding = yield* DurableWorkerBinding.make(agent, digests)
+
+          return yield* makeRuntime([binding]).pipe(
+            Effect.provideService(
+              RunContextPreparation,
+              RunContextPreparation.of({
+                hook: {
+                  prepare: (request) =>
+                    Effect.succeed({
+                      prompt: request.source,
+                      ...(request.turn === 1 ? { rollover: {} } : {}),
+                    }),
+                },
+              }),
+            ),
+            Effect.provide(ContextCompactor.layerRollover),
+          )
+        })
+
+        const runtime = yield* freshRuntime
+
+        const first = yield* runtime.submit(
+          agent,
+          'OBSOLETE REQUEST',
+          options(`fresh-reset-${restart}`, 'first'),
+        )
+
+        yield* observeCompletion(first)
+        expect(Option.isSome(yield* runtime.processThreadHead(first.threadId))).toBe(true)
+        yield* failpoints.clear
+
+        const original = yield* readTestThread(
+          store,
+          ThreadExportRequest.make({ threadId: first.threadId }),
+        )
+
+        expect(
+          original.records.some((entry) => entry.record.payload._tag === 'CompactionCreated'),
+        ).toBe(false)
+
+        const second = yield* runtime.submit(
+          agent,
+          'CURRENT REQUEST: explain the new result',
+          options(`fresh-reset-${restart}`, 'second'),
+        )
+
+        if (restart) {
+          yield* failpoints.setHandler((location) =>
+            location === 'compaction:after-canonical-append'
+              ? DurableRuntimeFailpointError.make({ location })
+              : Effect.void
+          )
+          expect(
+            Exit.isFailure(yield* Effect.exit(runtime.processThreadHead(second.threadId))),
+          ).toBe(true)
+          expect(requests).toHaveLength(1)
+          expect((yield* snapshot(second)).hasOwner).toBe(false)
+
+          const interrupted = yield* readTestThread(
+            store,
+            ThreadExportRequest.make({ threadId: second.threadId }),
+          )
+
+          expect(
+            interrupted.records.filter(
+              (entry) => entry.record.payload._tag === 'CompactionCreated',
+            ),
+          ).toHaveLength(1)
+          yield* failpoints.clear
+        }
+
+        const resumed = restart ? yield* freshRuntime : runtime
+
+        yield* observeCompletion(second)
+        expect(Option.isSome(yield* resumed.processThreadHead(second.threadId))).toBe(true)
+        yield* failpoints.clear
+        expect(requests).toHaveLength(2)
+        const outgoing = JSON.stringify(requests[1])
+
+        expect(outgoing).toContain('CURRENT REQUEST: explain the new result')
+        expect(outgoing).toContain('Preserve the current request and return a JSON string.')
+        expect(outgoing).not.toContain('OBSOLETE REQUEST')
+        expect(outgoing).not.toContain('OBSOLETE COMPLETION')
+
+        const final = yield* readTestThread(
+          store,
+          ThreadExportRequest.make({ threadId: second.threadId }),
+        )
+
+        expect(final.records.slice(0, original.records.length)).toEqual(original.records)
+        expect(completing).toHaveLength(2)
+        expect(
+          completing.flatMap((execution) =>
+            execution.operational.filter(({ payload }) => payload._tag === 'RunStarted')
+          ),
+        ).toHaveLength(2)
+        expect(completing.map((execution) => execution.progress.runId)).toEqual(
+          [first, second].map((receipt) => runIdForSubmission(receipt.submissionId)),
+        )
+        for (const receipt of [first, second]) {
+          const runId = runIdForSubmission(receipt.submissionId)
+
+          expect(yield* store.readExecution({ threadId: receipt.threadId, runId })).toEqual(
+            Option.none(),
+          )
+
+          const settlements = final.records.filter(
+            ({ record: { payload } }) =>
+              payload._tag === 'SubmissionSettled' && payload.submissionId === receipt.submissionId,
+          )
+
+          expect(settlements).toHaveLength(1)
+          expect(settlements[0]?.record.payload).toMatchObject({
+            runId,
+            outcome: 'completed',
+            historyRecordCount: final.records.filter(
+              ({ record: { payload } }) => 'runId' in payload && payload.runId === runId,
+            ).length,
+          })
+        }
+
+        const resets = final.records.filter(
+          (entry) => entry.record.payload._tag === 'CompactionCreated',
+        )
+
+        expect(resets).toHaveLength(1)
+        expect(resets[0]?.record.payload).toMatchObject({ kind: 'rollover', turn: 1 })
+        expect(JSON.stringify(final.records)).toContain('OBSOLETE COMPLETION')
+      }
+    }))
+
+  // Regression seam: https://linear.app/reve/issue/KOM-125
+  it.effect.each(['append-interruption', 'after-append-failure', 'failed-tool'])(
+    'prepares from canonical profile evidence after %s',
+    (scenario) =>
+      Effect.gen(function*() {
+        const restart = scenario !== 'failed-tool'
+
+        const profileReceipt = Schema.Struct({
+          profile: Schema.Literal('small'),
+          evidence: Schema.String,
+        })
+
+        const selectModel = Tool.make('select_model', {
+          parameters: Schema.Struct({}),
+          success: profileReceipt,
+          failure: Schema.Struct({ message: Schema.String }),
+          failureMode: 'return',
+          dependencies: [DurableStep],
+        }).annotate(ToolExecutionClass, 'idempotent')
+
+        const tools = Toolkit.make(selectModel)
+
+        const routedDefinition = Agent.make('recover-routed-context', {
+          input: Schema.String,
+          output: Schema.String,
+          instructions: 'Preserve the current request and return a JSON string.',
+          toolkit: tools,
+          policy: AgentPolicy.make({
+            ...policy,
+            runStatus: 'appended',
+            tokenBudget: 5_000,
+            completionReserveTokens: 500,
+          }),
+        })
+
+        const store = yield* ThreadStore
+        const requests: Array<{ model: string; prompt: Prompt.Prompt }> = []
+        const preparations: Array<string> = []
+        let handlerCalls = 0
+        let appendFault = scenario === 'append-interruption'
+
+        const faultingStore = ThreadStore.of({
+          ...store,
+          append: (request) =>
+            Effect.suspend(() => {
+              if (
+                appendFault &&
+                request.batch.records.some((record) => record.payload._tag === 'ToolCallSettled')
+              ) {
+                appendFault = false
+
+                return Effect.interrupt
+              }
+
+              return store.append(request)
+            }),
+        })
+
+        const nativeModel = (name: 'large' | 'small') =>
+          Model.make(
+            'scripted',
+            name,
+            Layer.effect(
+              LanguageModel.LanguageModel,
+              LanguageModel.make({
+                generateText: () => Effect.succeed([]),
+                streamText: (request) => {
+                  requests.push({ model: name, prompt: request.prompt })
+
+                  return Stream.fromIterable<Response.StreamPartEncoded>(
+                    requests.length === 1
+                      ? [
+                        {
+                          type: 'tool-call',
+                          id: 'select-small',
+                          name: 'select_model',
+                          params: {},
+                          providerExecuted: false,
+                        },
+                        {
+                          type: 'finish',
+                          reason: 'tool-calls',
+                          usage: { inputTokens: { total: 100 }, outputTokens: { total: 10 } },
+                        },
+                      ]
+                      : [
+                        ...finalParts.slice(0, -1),
+                        {
+                          type: 'finish',
+                          reason: 'stop',
+                          usage: { inputTokens: { total: 75 }, outputTokens: { total: 5 } },
+                        },
+                      ],
+                  )
+                },
+              }),
+            ),
+          )
+
+        const agent = Agent.withModel(routedDefinition, makeModel(Stream.empty))
+
+        const freshRuntime = Effect.gen(function*() {
+          // Each runtime has fresh host services. The only route state crosses the restart
+          // in a successful canonical Tool result, not an incarnation-local Ref.
+          const preparation = RunContextPreparation.of({
+            hook: {
+              prepare: Effect.fnUntraced(function*(request) {
+                const records = yield* store
+                  .read(ThreadRead.make({ threadId: request.threadId, limit: 128 }))
+                  .pipe(
+                    Stream.runCollect,
+                    Effect.mapError((cause) =>
+                      CompactionError.make({ message: 'Profile receipt is unavailable', cause })
+                    ),
+                  )
+
+                const receipt = records.findLast(
+                  (entry) =>
+                    entry.record.payload._tag === 'ToolCallSettled' &&
+                    entry.record.payload.runId === request.runId &&
+                    entry.record.payload.toolName === 'select_model' &&
+                    !entry.record.payload.isFailure,
+                )?.record.payload
+
+                const profile = receipt?._tag === 'ToolCallSettled'
+                  ? (yield* Schema.decodeUnknownEffect(profileReceipt)(receipt.result).pipe(
+                    Effect.mapError((cause) => CompactionError.make({ message: 'Invalid profile receipt', cause })),
+                  )).profile
+                  : 'large'
+
+                preparations.push(profile)
+
+                return {
+                  prompt: request.source,
+                  modelCall: {
+                    model: nativeModel(profile),
+                    context: ModelCallContext.make({
+                      contextCapacity: profile === 'large' ? 12_000 : 4_000,
+                      maxInputTokens: profile === 'large' ? 9_000 : 2_000,
+                      outputReserveTokens: 400,
+                      uncountedOverheadTokens: 100,
+                    }),
+                  },
+                }
+              }),
+            },
+          })
+
+          const binding = yield* DurableWorkerBinding.make(agent, digests).pipe(
+            Effect.provide(
+              tools.toLayer({
+                select_model: Effect.fnUntraced(function*() {
+                  const steps = yield* DurableStep
+
+                  const selected = yield* steps.do(
+                    'select-profile',
+                    profileReceipt,
+                    Effect.sync(() => {
+                      handlerCalls += 1
+
+                      return {
+                        profile: 'small' as const,
+                        evidence: 'completed action evidence '.repeat(600),
+                      }
+                    }),
+                  )
+
+                  if (scenario === 'failed-tool') {
+                    return yield* Effect.fail({ message: 'Profile selection was rejected' })
+                  }
+
+                  return selected
+                }),
+              }),
+            ),
+          )
+
+          return yield* makeRuntime([binding]).pipe(
+            Effect.provideService(RunContextPreparation, preparation),
+            Effect.provideService(ThreadStore, faultingStore),
+            Effect.provide(ContextCompactor.layerRollover),
+          )
+        })
+
+        const first = yield* freshRuntime
+
+        const receipt = yield* first.submit(
+          agent,
+          'CURRENT REQUEST: investigate the connection pool',
+          options(`routed-${scenario}`, 'first'),
+        )
+
+        const failpoints = yield* DurableRuntimeFailpointTestControl
+
+        if (restart) {
+          yield* failpoints.setHandler((location) =>
+            scenario === 'after-append-failure' && location === 'turn:after-results-append'
+              ? DurableRuntimeFailpointError.make({ location })
+              : Effect.void
+          )
+          const interrupted = yield* Effect.exit(first.processThreadHead(receipt.threadId))
+
+          expect(Exit.isFailure(interrupted)).toBe(true)
+          expect(preparations).toEqual(['large'])
+          expect(requests.map((request) => request.model)).toEqual(['large'])
+          expect((yield* snapshot(receipt)).hasOwner).toBe(false)
+        }
+
+        const runId = runIdForSubmission(receipt.submissionId)
+        const executionBefore = yield* store.readExecution({ threadId: receipt.threadId, runId })
+
+        const startedBefore = Option.isSome(executionBefore)
+          ? executionBefore.value.operational.filter(({ payload }) => payload._tag === 'RunStarted')
+          : []
+
+        expect(startedBefore).toHaveLength(restart ? 1 : 0)
+
+        yield* failpoints.clear
+        if (restart) yield* TestClock.adjust('5 seconds')
+        const resumed = restart ? yield* freshRuntime : first
+        const completing: Array<ExecutionCheckpoint> = []
+
+        yield* failpoints.setHandler((location) =>
+          location === 'terminalize:before-publication'
+            ? store.readExecution({ threadId: receipt.threadId, runId }).pipe(
+              Effect.map((execution) => {
+                if (Option.isSome(execution)) completing.push(execution.value)
+              }),
+              Effect.orDie,
+            )
+            : Effect.void
+        )
+        const settled = yield* resumed.processThreadHead(receipt.threadId)
+
+        yield* failpoints.clear
+        expect(Option.isSome(settled)).toBe(true)
+        const selected = scenario === 'failed-tool' ? 'large' : 'small'
+
+        expect(preparations).toEqual(['large', selected])
+        expect(requests.map((request) => request.model)).toEqual(['large', selected])
+        expect(handlerCalls).toBe(1)
+        const second = requests[1]
+
+        if (second === undefined) throw new Error('Expected the resumed smaller-model call')
+        const text = JSON.stringify(second.prompt)
+
+        expect(text).toContain('CURRENT REQUEST: investigate the connection pool')
+        if (selected === 'small') {
+          expect(text).toContain('A fresh context window has started.')
+          expect(text).toContain('turn 2/2')
+          expect(text).toContain('tool-calls 1/2')
+          expect(text).toContain('tokens 110/5000')
+          expect(text).toContain(`elapsed ${restart ? 5 : 0}s/30s`)
+        }
+
+        const after = yield* readTestThread(
+          store,
+          ThreadExportRequest.make({ threadId: receipt.threadId }),
+        )
+
+        expect(completing).toHaveLength(1)
+
+        const startedAfter = completing[0]!.operational.filter(
+          ({ payload }) => payload._tag === 'RunStarted',
+        )
+
+        expect(startedAfter).toHaveLength(1)
+        if (restart) expect(startedAfter).toEqual(startedBefore)
+        expect(yield* store.readExecution({ threadId: receipt.threadId, runId })).toEqual(
+          Option.none(),
+        )
+        expect(
+          after.records.filter((entry) => entry.record.payload._tag === 'ToolStepSettled'),
+        ).toHaveLength(1)
+
+        const profileResults = after.records.filter(
+          (entry) => entry.record.payload._tag === 'ToolCallSettled',
+        )
+
+        expect(profileResults).toHaveLength(1)
+        expect(profileResults[0]?.record.payload).toMatchObject({
+          toolName: 'select_model',
+          isFailure: scenario === 'failed-tool',
+        })
+
+        const rollovers = after.records.filter(
+          (entry) => entry.record.payload._tag === 'CompactionCreated',
+        )
+
+        expect(rollovers).toHaveLength(selected === 'small' ? 1 : 0)
+        if (selected === 'small') {
+          expect(rollovers[0]?.record.payload).toMatchObject({ kind: 'rollover', turn: 2 })
+        }
+
+        const terminal = after.records.find(
+          (entry) => entry.record.payload._tag === 'SubmissionSettled',
+        )?.record.payload
+
+        expect(terminal).toMatchObject({
+          outcome: 'completed',
+          historyRecordCount: after.records.filter(
+            ({ record: { payload } }) => 'runId' in payload && payload.runId === runId,
+          ).length,
+          usageSummary: {
+            modelCalls: 2,
+            inputTokens: { total: 175 },
+            outputTokens: { total: 15 },
+            byModel: selected === 'small'
+              ? [
+                { model: 'large', modelCalls: 1 },
+                { model: 'small', modelCalls: 1 },
+              ]
+              : [{ model: 'large', modelCalls: 2 }],
+          },
+        })
+      }),
+  )
+
+  it.effect('settles only the FIFO head and closes its provider before returning', () =>
+    Effect.gen(function*() {
+      const closed = yield* Ref.make(0)
+
+      const model = makeModel(
+        Stream.fromIterable(finalParts),
+        Ref.update(closed, (n) => n + 1),
+      )
+
+      const agent = Agent.withModel(definition, model)
+      const binding = yield* DurableWorkerBinding.make(agent, digests)
+      const bindings = [binding]
+      const runtime = yield* makeRuntime(bindings)
+
+      bindings.length = 0
+      const first = yield* runtime.submit(agent, 'first', options('bounded', 'first'))
+      const publishing = yield* Deferred.make<void>()
+      const finish = yield* Deferred.make<void>()
+      const control = yield* DurableRuntimeFailpointTestControl
+
+      yield* control.setHandler((location) =>
+        location === 'terminalize:before-publication'
+          ? Deferred.succeed(publishing, undefined).pipe(Effect.andThen(Deferred.await(finish)))
+          : Effect.void
+      )
+
+      expect((yield* runtime.submissionStatus(first))._tag).toBe('pending')
+
+      const worker = yield* runtime.processThreadHead(first.threadId).pipe(Effect.forkChild)
+
+      yield* Deferred.await(publishing)
+      // Admission after the final Turn cannot join that Run and must remain FIFO work.
+      const second = yield* runtime.submit(agent, 'second', options('bounded', 'second'))
+
+      yield* control.clear
+      yield* Deferred.succeed(finish, undefined)
+      const result = yield* Fiber.join(worker)
+
+      expect(Option.isSome(result)).toBe(true)
+      if (Option.isSome(result)) expect(result.value.submissionId).toBe(first.submissionId)
+      expect((yield* runtime.submissionStatus(first))._tag).toBe('settled')
+      expect((yield* runtime.submissionStatus(second))._tag).toBe('pending')
+      expect((yield* snapshot(second)).hasOwner).toBe(false)
+      expect((yield* snapshot(second)).submission.state).toBe('ready')
+      expect(yield* Ref.get(closed)).toBe(1)
+
+      const remainder = yield* runtime.processThreadResolved(first.threadId)
+
+      expect(remainder.map((settlement) => settlement.submissionId)).toEqual([second.submissionId])
+      expect(yield* Ref.get(closed)).toBe(2)
+    }))
+
+  it.effect.each(['lookup'])('releases a claim after an early %s failure', (failure) =>
+    Effect.gen(function*() {
+      const ledger = yield* SubmissionLedger
+      const armed = yield* Ref.make(false)
+
+      const runtime = yield* makeRuntime().pipe(
+        Effect.provideService(SubmissionLedger, {
+          ...ledger,
+          lookup: (request) =>
+            Ref.get(armed).pipe(
+              Effect.flatMap((enabled) => {
+                if (!enabled) return ledger.lookup(request)
+
+                return Effect.fail(
+                  LedgerError.make({ operation: 'lookup', message: 'unavailable' }),
+                )
+              }),
+            ),
+        }),
+      )
+
+      const receipt = yield* runtime.submit(
+        { definition },
+        'first',
+        options(`early-${failure}`, 'first'),
+      )
+
+      yield* Ref.set(armed, true)
+      const result = yield* Effect.exit(runtime.processThreadHead(receipt.threadId))
+
+      expect(Exit.isFailure(result)).toBe(true)
+      expect((yield* snapshot(receipt)).hasOwner).toBe(false)
+
+      yield* Ref.set(armed, false)
+      expect((yield* runtime.submissionStatus(receipt))._tag).toBe('pending')
+    }))
+
+  it.effect('registers claim cleanup even when interrupted during the acquisition handoff', () =>
+    Effect.gen(function*() {
+      const ledger = yield* SubmissionLedger
+      const acquired = yield* Deferred.make<void>()
+      const handoff = yield* Deferred.make<void>()
+
+      const runtime = yield* makeRuntime().pipe(
+        Effect.provideService(SubmissionLedger, {
+          ...ledger,
+          selectHead: (request) =>
+            ledger.selectHead(request).pipe(
+              Effect.tap(() => Deferred.succeed(acquired, undefined)),
+              Effect.tap(() => Deferred.await(handoff)),
+            ),
+        }),
+      )
+
+      const receipt = yield* runtime.submit({ definition }, 'first', options('handoff', 'first'))
+
+      const worker = yield* runtime.processThreadHead(receipt.threadId).pipe(Effect.forkChild)
+
+      yield* Deferred.await(acquired)
+      const interrupt = yield* Fiber.interrupt(worker).pipe(Effect.forkChild)
+
+      yield* Effect.yieldNow
+      yield* Deferred.succeed(handoff, undefined)
+      yield* Fiber.join(interrupt)
+      expect((yield* snapshot(receipt)).hasOwner).toBe(false)
+      expect((yield* runtime.submissionStatus(receipt))._tag).toBe('pending')
+    }))
+
+  // Slow setup must keep exclusive ownership even after an arbitrary amount of time.
+  it.effect('keeps its claim live after slow binding selection', () =>
+    Effect.gen(function*() {
+      const storage = yield* RunStorage.pipe(Effect.provide(runStorageLayer))
+      const selecting = yield* Deferred.make<void>()
+      const started = yield* Deferred.make<void>()
+      const release = yield* Deferred.make<void>()
+      const selected = yield* Ref.make(false)
+
+      const agent = Agent.withModel(
+        definition,
+        makeModel(
+          Stream.fromEffect(Deferred.succeed(started, undefined)).pipe(
+            Stream.drain,
+            Stream.concat(Stream.fromEffect(Deferred.await(release)).pipe(Stream.drain)),
+            Stream.concat(Stream.fromIterable(finalParts)),
+          ),
+        ),
+      )
+
+      const binding = yield* DurableWorkerBinding.make(agent, digests)
+
+      const runtime = yield* makeRuntime([binding]).pipe(
+        Effect.provideService(CurrentBindingSelection, {
+          key: 'slow-selection',
+          select: Effect.fnUntraced(function*() {
+            if (!(yield* Ref.getAndSet(selected, true))) {
+              yield* Deferred.succeed(selecting, undefined)
+              yield* Effect.sleep('25 seconds')
+            }
+
+            return definition
+          }),
+        }),
+      )
+
+      const receipt = yield* runtime.submit(agent, 'first', options('slow-selection', 'first'))
+      const worker = yield* runtime.processThreadHead(receipt.threadId).pipe(Effect.forkChild)
+
+      yield* Deferred.await(selecting)
+      yield* TestClock.adjust('25 seconds')
+      yield* Deferred.await(started)
+      yield* TestClock.adjust('6 seconds')
+
+      const competitor = yield* storage.claim(ClaimRequest.make({ threadId: receipt.threadId }))
+
+      try {
+        expect(Option.isNone(competitor)).toBe(true)
+        yield* Deferred.succeed(release, undefined)
+        expect(Option.isSome(yield* Fiber.join(worker))).toBe(true)
+      } finally {
+        yield* Fiber.interrupt(worker)
+      }
+    }))
+
+  it.effect('detaches a waiter and releases the owner when its Attempt is interrupted', () =>
+    Effect.gen(function*() {
+      const started = yield* Deferred.make<void>()
+      const closed = yield* Ref.make(false)
+
+      const agent = Agent.withModel(
+        definition,
+        makeModel(
+          Stream.fromEffect(Deferred.succeed(started, undefined)).pipe(
+            Stream.drain,
+            Stream.concat(Stream.never),
+          ),
+          Ref.set(closed, true),
+        ),
+      )
+
+      const binding = yield* DurableWorkerBinding.make(agent, digests)
+      const runtime = yield* makeRuntime([binding])
+      const receipt = yield* runtime.submit(agent, 'first', options('owner-interrupt', 'first'))
+      const worker = yield* runtime.processThreadHead(receipt.threadId).pipe(Effect.forkChild)
+
+      yield* Deferred.await(started)
+      const waiter = yield* runtime.awaitSettlement(receipt).pipe(Effect.forkChild)
+
+      yield* Fiber.interrupt(waiter)
+      expect((yield* snapshot(receipt)).hasOwner).toBe(true)
+      expect(yield* Ref.get(closed)).toBe(false)
+      yield* Fiber.interrupt(worker)
+      expect((yield* snapshot(receipt)).hasOwner).toBe(false)
+      expect(yield* Ref.get(closed)).toBe(true)
+      expect((yield* runtime.submissionStatus(receipt))._tag).toBe('pending')
+    }))
+
+  it.effect(
+    'releases recovery ownership when settlement publication fails before its canonical append',
+    () =>
+      Effect.gen(function*() {
+        const runtime = yield* makeRuntime()
+        const control = yield* DurableRuntimeFailpointTestControl
+
+        const receipt = yield* runtime.submit(
+          { definition },
+          'first',
+          options('recovery-failure', 'first'),
+        )
+
+        yield* runtime.abort(
+          AbortCommand.make({
+            submissionId: receipt.submissionId,
+            author: 'test',
+            reason: 'cancel',
+          }),
+        )
+        yield* control.setHandler((location) =>
+          location === 'terminalize:before-publication'
+            ? Effect.fail(DurableRuntimeFailpointError.make({ location }))
+            : Effect.void
+        )
+
+        expect(
+          (yield* runtime.recoverSubmission(receipt.submissionId).pipe(Effect.flip))._tag,
+        ).toBe('DurableRuntimeFailpointError')
+        expect((yield* snapshot(receipt)).hasOwner).toBe(false)
+        expect((yield* runtime.submissionStatus(receipt))._tag).toBe('pending')
+        yield* control.clear
+        yield* runtime.recoverSubmission(receipt.submissionId)
+        expect((yield* runtime.submissionStatus(receipt))._tag).toBe('settled')
+      }),
+  )
+
+  for (
+    const location of [
+      'terminalize:before-publication',
+      'terminalize:after-canonical-append',
+    ] as const
+  ) {
+    it.effect(`holds admission group through ${location} until canonical repair finalizes`, () =>
+      Effect.gen(function*() {
+        const runtime = yield* makeRuntime()
+        const control = yield* DurableRuntimeFailpointTestControl
+        const original = { ...options(`group-${location}`, 'first'), admissionGroup: 'entity' }
+        const receipt = yield* runtime.submit({ definition }, 'first', original)
+
+        yield* runtime.abort(
+          AbortCommand.make({
+            submissionId: receipt.submissionId,
+            author: 'test',
+            reason: 'cancel',
+          }),
+        )
+        yield* control.setHandler((point) =>
+          point === location ? DurableRuntimeFailpointError.make({ location }) : Effect.void
+        )
+        expect(
+          (yield* runtime.recoverSubmission(receipt.submissionId).pipe(Effect.flip))._tag,
+        ).toBe('DurableRuntimeFailpointError')
+        expect((yield* runtime.submissionStatus(receipt))._tag).toBe('pending')
+        expect(
+          yield* runtime
+            .submit({ definition }, 'second', {
+              ...original,
+              idempotencyKey: yield* Schema.decodeEffect(IdempotencyKey)('second').pipe(
+                Effect.orDie,
+              ),
+            })
+            .pipe(Effect.flip),
+        ).toMatchObject({ reason: 'occupied' })
+        expect((yield* runtime.submit({ definition }, 'first', original)).receiptId).toBe(
+          receipt.receiptId,
+        )
+        yield* control.clear
+        yield* runtime.recoverSubmission(receipt.submissionId)
+        expect((yield* runtime.submissionStatus(receipt))._tag).toBe('settled')
+        expect(
+          (yield* runtime.submit({ definition }, 'second', {
+            ...original,
+            idempotencyKey: yield* Schema.decodeEffect(IdempotencyKey)('second').pipe(Effect.orDie),
+          })).submissionId,
+        ).not.toBe(receipt.submissionId)
+      }))
+  }
+
+  it.effect('authorizes status before ledger reads and rejects a mismatched receipt Thread', () =>
+    Effect.gen(function*() {
+      const runtime = yield* makeRuntime()
+
+      const receipt = yield* runtime.submit(
+        { definition },
+        'first',
+        options('authorized', 'first'),
+      )
+
+      const ledger = yield* SubmissionLedger
+      const reads = yield* Ref.make(0)
+
+      const agent = Agent.withModel(definition, makeModel(Stream.fromIterable(finalParts)))
+      const binding = yield* DurableWorkerBinding.make(agent, digests)
+
+      const denied = yield* makeRuntime([binding]).pipe(
+        Effect.provideService(OperationAuthorizer, {
+          authorize: (request) => Effect.fail(OperationDenied.make({ operation: request.operation, reason: 'denied' })),
+        }),
+        Effect.provideService(SubmissionLedger, {
+          ...ledger,
+          lookup: (request) => Ref.update(reads, (n) => n + 1).pipe(Effect.andThen(ledger.lookup(request))),
+        }),
+      )
+
+      expect((yield* denied.submissionStatus(receipt).pipe(Effect.flip))._tag).toBe(
+        'OperationDenied',
+      )
+      expect(yield* Ref.get(reads)).toBe(0)
+      expect((yield* denied.inspectSubmissionStatus(receipt))._tag).toBe('pending')
+
+      expect(Option.isSome(yield* denied.processThreadHead(receipt.threadId))).toBe(true)
+      expect((yield* denied.inspectSubmissionStatus(receipt))._tag).toBe('settled')
+
+      const mismatched = Receipt.make({
+        ...receipt,
+        threadId: yield* Schema.decodeEffect(ThreadId)('other').pipe(Effect.orDie),
+      })
+
+      expect((yield* runtime.submissionStatus(mismatched).pipe(Effect.flip))._tag).toBe(
+        'OperationDenied',
+      )
+      for (
+        const altered of [
+          Receipt.make({
+            ...receipt,
+            receiptId: yield* Schema.decodeEffect(ReceiptId)('wrong-receipt').pipe(Effect.orDie),
+          }),
+          Receipt.make({
+            ...receipt,
+            queueSequence: yield* Schema.decodeEffect(QueueSequence)(999).pipe(Effect.orDie),
+          }),
+        ]
+      ) {
+        expect((yield* runtime.submissionStatus(altered).pipe(Effect.flip))._tag).toBe(
+          'OperationDenied',
+        )
+      }
+    }))
+})

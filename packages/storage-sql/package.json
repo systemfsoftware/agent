@@ -1,17 +1,13 @@
 {
   "name": "@systemfsoftware/agent-storage-sql",
-  "version": "0.1.0",
+  "version": "0.1.0-beta.192",
   "description": "Shared SQL persistence implementations for Effect Agent storage adapters.",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/systemfsoftware/agent.git",
+    "url": "git+https://github.com/yielded-dev/agent.git",
     "directory": "packages/storage-sql"
   },
-  "bugs": {
-    "url": "https://github.com/systemfsoftware/agent/issues"
-  },
-  "homepage": "https://github.com/systemfsoftware/agent/tree/main/packages/storage-sql#readme",
   "files": [
     "dist",
     "src"

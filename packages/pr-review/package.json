@@ -1,0 +1,60 @@
+{
+  "name": "@systemfsoftware/agent-pr-review",
+  "version": "0.1.0-beta.192",
+  "description": "A provider-neutral, source-backed pull-request reviewer.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/systemfsoftware/agent.git",
+    "directory": "packages/pr-review"
+  },
+  "files": [
+    "dist",
+    "src",
+    "NOTICE"
+  ],
+  "type": "module",
+  "sideEffects": [],
+  "exports": {
+    ".": "./src/index.ts",
+    "./review": "./src/Review.ts",
+    "./review-repository": "./src/ReviewRepository.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "./review": {
+        "types": "./dist/Review.d.mts",
+        "default": "./dist/Review.mjs"
+      },
+      "./review-repository": {
+        "types": "./dist/ReviewRepository.d.mts",
+        "default": "./dist/ReviewRepository.mjs"
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "effect-tsgo tsrs --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "check:pack": "pnpm pack --pack-destination .pack && attw .pack/*.tgz --profile esm-only; s=$?; rm -rf .pack; exit $s"
+  },
+  "dependencies": {
+    "@systemfsoftware/agent": "workspace:*"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "catalog:",
+    "@effect/vitest": "catalog:",
+    "effect": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "effect": "^4.1.0"
+  }
+}

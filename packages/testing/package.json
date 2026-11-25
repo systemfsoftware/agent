@@ -1,0 +1,88 @@
+{
+  "name": "@systemfsoftware/agent-testing",
+  "version": "0.1.0-beta.192",
+  "description": "Scripted models, deterministic fixtures, and adapter conformance kits for testing Effect Agent applications.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/systemfsoftware/agent.git",
+    "directory": "packages/testing"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "type": "module",
+  "sideEffects": [],
+  "exports": {
+    ".": "./src/index.ts",
+    "./durable-coordinator-conformance": "./src/DurableCoordinatorConformance.ts",
+    "./code-executor-conformance": "./src/CodeExecutorConformance.ts",
+    "./code-executor-substitute": "./src/CodeExecutorSubstitute.ts",
+    "./docs-researcher": "./src/DocsResearcher.ts",
+    "./scripted-model": "./src/ScriptedModel.ts",
+    "./travel-planner": "./src/TravelPlanner.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "./durable-coordinator-conformance": {
+        "types": "./dist/DurableCoordinatorConformance.d.mts",
+        "default": "./dist/DurableCoordinatorConformance.mjs"
+      },
+      "./code-executor-conformance": {
+        "types": "./dist/CodeExecutorConformance.d.mts",
+        "default": "./dist/CodeExecutorConformance.mjs"
+      },
+      "./code-executor-substitute": {
+        "types": "./dist/CodeExecutorSubstitute.d.mts",
+        "default": "./dist/CodeExecutorSubstitute.mjs"
+      },
+      "./docs-researcher": {
+        "types": "./dist/DocsResearcher.d.mts",
+        "default": "./dist/DocsResearcher.mjs"
+      },
+      "./scripted-model": {
+        "types": "./dist/ScriptedModel.d.mts",
+        "default": "./dist/ScriptedModel.mjs"
+      },
+      "./travel-planner": {
+        "types": "./dist/TravelPlanner.d.mts",
+        "default": "./dist/TravelPlanner.mjs"
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "effect-tsgo tsrs --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "check:pack": "pnpm pack --pack-destination .pack && attw .pack/*.tgz --profile esm-only; s=$?; rm -rf .pack; exit $s"
+  },
+  "dependencies": {
+    "@systemfsoftware/agent": "workspace:*"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "catalog:",
+    "@effect/ai-openai": "catalog:",
+    "@effect/platform-node": "catalog:",
+    "@effect/sql-pg": "catalog:",
+    "@effect/sql-sqlite-node": "catalog:",
+    "@effect/vitest": "catalog:",
+    "@systemfsoftware/agent-ai-decision": "workspace:*",
+    "@systemfsoftware/agent-platform-node": "workspace:*",
+    "@systemfsoftware/agent-storage-memory": "workspace:*",
+    "@systemfsoftware/agent-storage-postgres": "workspace:*",
+    "@systemfsoftware/agent-storage-sqlite": "workspace:*",
+    "effect": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "effect": "^4.1.0"
+  }
+}

@@ -130,7 +130,7 @@ const failure = <E>(exit: Exit.Exit<unknown, E>) =>
   Exit.isFailure(exit) ? Option.getOrUndefined(Cause.findErrorOption(exit.cause)) : undefined
 
 layer(Layer.mergeAll(identifiers, ThreadHistory.layer))('native Tool exposure', (it) => {
-  // Regression: https://github.com/systemfsoftware/agent/issues/496
+  // Regression: https://github.com/yielded-dev/agent/issues/496
   {
     it.effect(
       'continues after discovery result-byte overflow with only documented selections',

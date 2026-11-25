@@ -1,0 +1,15 @@
+import { prepareSqlAppend } from '@systemfsoftware/agent-storage-sql/sql-thread-store'
+import type { AppendRequest } from '@systemfsoftware/agent/thread-store'
+import { PreparedAppend } from '@systemfsoftware/agent/thread-store'
+import * as Effect from 'effect/Effect'
+
+export const DO_OFFSET_PREFIX = 'effect-agent-do@1:'
+
+/** Prepare the publisher's privately captured canonical request before the writer. */
+export const prepareCanonicalAppend = Effect.fnUntraced(function*(input: AppendRequest) {
+  const request: PreparedAppend = yield* PreparedAppend.capture(input)
+
+  const raw = yield* prepareSqlAppend(request, DO_OFFSET_PREFIX)
+
+  return { request, raw }
+})

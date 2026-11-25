@@ -1,0 +1,136 @@
+import { expect, it } from '@effect/vitest'
+import {
+  BrowserQuickActionBrowserBinding,
+  browserQuickActionCaptureLayer,
+  type BrowserQuickActionClient,
+  browserQuickActionScreenshotLayer,
+} from '@systemfsoftware/agent-platform-cloudflare/cloudflare-browser'
+import {
+  CapturePageMarkdown,
+  PageCapture,
+  type PageCaptureError,
+  PageCaptureRequest,
+  PageUrlTarget,
+} from '@systemfsoftware/agent/page-capture'
+import { PageScreenshot, type PageScreenshotError, PageScreenshotRequest } from '@systemfsoftware/agent/page-screenshot'
+import * as Cause from 'effect/Cause'
+import * as Deferred from 'effect/Deferred'
+import * as Effect from 'effect/Effect'
+import * as Exit from 'effect/Exit'
+import * as Fiber from 'effect/Fiber'
+import * as Layer from 'effect/Layer'
+import * as Logger from 'effect/Logger'
+import * as TestClock from 'effect/testing/TestClock'
+
+const capture = (
+  kind: 'capture' | 'screenshot',
+  response: Response,
+): Effect.Effect<unknown, PageCaptureError | PageScreenshotError> => {
+  const client: BrowserQuickActionClient = {
+    content: () => Effect.succeed(response),
+    markdown: () => Effect.succeed(response),
+    links: () => Effect.succeed(response),
+    scrape: () => Effect.succeed(response),
+    screenshot: () => Effect.succeed(response),
+  }
+
+  const binding = Layer.succeed(BrowserQuickActionBrowserBinding)(client)
+
+  const common = {
+    target: PageUrlTarget.make({ url: 'https://example.com' }),
+    engine: 'chromium' as const,
+    limits: { maxOutputBytes: 8 },
+  }
+
+  return kind === 'capture'
+    ? Effect.gen(function*() {
+      return yield* (yield* PageCapture).capture(
+        PageCaptureRequest.make({ ...common, action: CapturePageMarkdown.make({}) }),
+      )
+    }).pipe(Effect.provide(browserQuickActionCaptureLayer.pipe(Layer.provide(binding))))
+    : Effect.gen(function*() {
+      return yield* (yield* PageScreenshot).capture(
+        PageScreenshotRequest.make({ ...common, fullPage: false }),
+      )
+    }).pipe(Effect.provide(browserQuickActionScreenshotLayer.pipe(Layer.provide(binding))))
+}
+
+it.effect.each(
+  [
+    { kind: 'capture', failure: 'interruption' },
+    { kind: 'screenshot', failure: 'overflow' },
+    { kind: 'screenshot', failure: 'content-type' },
+  ] as const,
+)('bounds stalled $kind response cancellation after $failure', ({ kind, failure }) =>
+  Effect.gen(function*() {
+    const reading = yield* Deferred.make<void>()
+    const canceling = yield* Deferred.make<void>()
+    const runSync = Effect.runSyncWith(yield* Effect.context<never>())
+    const warnings: Array<unknown> = []
+    let cancelCalls = 0
+
+    const body = new ReadableStream<Uint8Array>(
+      {
+        pull(controller) {
+          runSync(Deferred.succeed(reading, undefined))
+          if (failure === 'overflow') controller.enqueue(new Uint8Array(16))
+        },
+        cancel() {
+          cancelCalls++
+          runSync(Deferred.succeed(canceling, undefined))
+
+          return new Promise<void>(() => {})
+        },
+      },
+      { highWaterMark: 0 },
+    )
+
+    const response = new Response(body, {
+      headers: {
+        'content-type': kind === 'screenshot' && failure !== 'content-type' ? 'image/png' : 'application/json',
+      },
+    })
+
+    const fiber = yield* capture(kind, response).pipe(
+      Effect.provide(
+        Logger.layer([
+          Logger.make((event) => {
+            warnings.push(event.message)
+          }),
+        ]),
+      ),
+      Effect.forkChild,
+    )
+
+    if (failure === 'interruption') {
+      yield* Deferred.await(reading)
+      yield* Fiber.interrupt(fiber).pipe(Effect.forkChild)
+    }
+    yield* Deferred.await(canceling)
+    yield* TestClock.adjust('1 second')
+    const exit = yield* Fiber.await(fiber)
+
+    expect(Exit.isFailure(exit)).toBe(true)
+    if (Exit.isFailure(exit)) {
+      if (failure === 'interruption') {
+        expect(Cause.hasInterrupts(exit.cause)).toBe(true)
+        expect(Cause.hasFails(exit.cause)).toBe(false)
+      } else {
+        expect(Cause.squash(exit.cause)).toMatchObject({
+          _tag: failure === 'content-type'
+            ? 'PageCaptureProtocolError'
+            : 'PageScreenshotOutputLimitError',
+        })
+      }
+      expect(Cause.hasDies(exit.cause)).toBe(false)
+    }
+    expect(cancelCalls).toBe(1)
+    expect(body.locked).toBe(false)
+    expect(warnings).toEqual([
+      [
+        kind === 'capture'
+          ? 'Canceling the Quick Action response failed'
+          : 'Canceling the screenshot response failed',
+      ],
+    ])
+  }))

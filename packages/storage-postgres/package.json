@@ -1,0 +1,62 @@
+{
+  "name": "@systemfsoftware/agent-storage-postgres",
+  "version": "0.1.0-beta.192",
+  "description": "Postgres persistence adapters for the Effect Agent durable runtime.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/systemfsoftware/agent.git",
+    "directory": "packages/storage-postgres"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "type": "module",
+  "sideEffects": [],
+  "exports": {
+    ".": "./src/index.ts",
+    "./postgres-storage": "./src/PostgresStorage.ts",
+    "./postgres-storage-error": "./src/PostgresStorageError.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "./postgres-storage": {
+        "types": "./dist/PostgresStorage.d.mts",
+        "default": "./dist/PostgresStorage.mjs"
+      },
+      "./postgres-storage-error": {
+        "types": "./dist/PostgresStorageError.d.mts",
+        "default": "./dist/PostgresStorageError.mjs"
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "effect-tsgo tsrs --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "check:pack": "pnpm pack --pack-destination .pack && attw .pack/*.tgz --profile esm-only; s=$?; rm -rf .pack; exit $s"
+  },
+  "dependencies": {
+    "@systemfsoftware/agent": "workspace:*",
+    "@systemfsoftware/agent-storage-sql": "workspace:*"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "catalog:",
+    "@effect/platform-node": "catalog:",
+    "@effect/sql-pg": "catalog:",
+    "@effect/vitest": "catalog:",
+    "effect": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "effect": "^4.1.0"
+  }
+}

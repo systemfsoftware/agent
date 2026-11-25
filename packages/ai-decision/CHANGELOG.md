@@ -1,0 +1,272 @@
+# @yielded/agent-ai-decision
+
+## 0.1.0-beta.192
+
+No changes in this release.
+
+## 0.1.0-beta.191
+
+### Patch Changes
+
+- [#1117](https://github.com/yielded-dev/agent/pull/1117) [`c056984`](https://github.com/yielded-dev/agent/commit/c0569842948f9d3674f41c5334228f496df2e889) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Upgrade to Effect 4.1 and effect-cf 0.59. BEHAVIOR CHANGE: Replace custom Crypto layers with the required `Digest` and `SecureRandom` services from `effect/crypto`; `NodeCrypto.layer` and `BrowserCrypto.layer` supply both.
+
+## 0.1.0-beta.190
+
+No changes in this release.
+
+## 0.1.0-beta.189
+
+### Patch Changes
+
+- [#1095](https://github.com/yielded-dev/agent/pull/1095) [`37b958b`](https://github.com/yielded-dev/agent/commit/37b958b321a0db45f4a907aedeb8f2bc38defd9b) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Resolve AutoModel choices explicitly before passing the returned native model to `Agent.withModel` or a durable registration.
+  **BEHAVIOR CHANGE:** authorize and validate selection input in the host, and apply a Scope and timeout around selection plus execution; `AutoModel.make` no longer returns a model Layer.
+
+## 0.1.0-beta.188
+
+No changes in this release.
+
+## 0.1.0-beta.187
+
+No changes in this release.
+
+## 0.1.0-beta.186
+
+No changes in this release.
+
+## 0.1.0-beta.185
+
+No changes in this release.
+
+## 0.1.0-beta.184
+
+### Patch Changes
+
+- [#1003](https://github.com/yielded-dev/agent/pull/1003) [`03066c6`](https://github.com/yielded-dev/agent/commit/03066c600441c19c585e0e8f5daaed4b3ed333b2) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Support labeled rating criteria and structured descriptions in the language-model decision adapter. Require Effect 4.0.5 or later.
+
+## 0.1.0-beta.183
+
+No changes in this release.
+
+## 0.1.0-beta.182
+
+No changes in this release.
+
+## 0.1.0-beta.181
+
+No changes in this release.
+
+## 0.1.0-beta.180
+
+No changes in this release.
+
+## 0.1.0-beta.179
+
+No changes in this release.
+
+## 0.1.0-beta.178
+
+No changes in this release.
+
+## 0.1.0-beta.177
+
+No changes in this release.
+
+## 0.1.0-beta.176
+
+No changes in this release.
+
+## 0.1.0-beta.175
+
+No changes in this release.
+
+## 0.1.0-beta.174
+
+No changes in this release.
+
+## 0.1.0-beta.173
+
+No changes in this release.
+
+## 0.1.0-beta.172
+
+No changes in this release.
+
+## 0.1.0-beta.171
+
+No changes in this release.
+
+## 0.1.0-beta.170
+
+No changes in this release.
+
+## 0.1.0-beta.169
+
+No changes in this release.
+
+## 0.1.0-beta.168
+
+### Patch Changes
+
+- [#784](https://github.com/yielded-dev/agent/pull/784) [`80deef0`](https://github.com/yielded-dev/agent/commit/80deef0af2af790c68c2fda8701b3fed77c07db9) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Reduce tracing overhead by keeping operation spans and removing private helper spans and stack frames. BEHAVIOR CHANGE: Update filters that use private helper span names to use the enclosing agent, model, tool, storage, or recovery operation.
+
+## 0.1.0-beta.167
+
+## 0.1.0-beta.166
+
+### Minor Changes
+
+- [#766](https://github.com/yielded-dev/agent/pull/766) [`a1fb42a`](https://github.com/yielded-dev/agent/commit/a1fb42a651eccef46b8775fe4373d3f04d85e8de) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Move Effect Agent to `@yielded/agent` and its `@yielded/agent-*` adapters. Update dependencies and import prefixes together; APIs, service identities, and stored formats remain unchanged.
+
+### Patch Changes
+
+- [#749](https://github.com/yielded-dev/agent/pull/749) [`08d1384`](https://github.com/yielded-dev/agent/commit/08d1384e625091d83a6cb6eeb9c95e28cff2cc69) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Require Effect 4.0.0 and use its current module paths and encoding APIs. Require `effect-cf@^0.53.0` for the Cloudflare adapter.
+
+  BEHAVIOR CHANGE: upgrade Effect and matching provider, platform, SQL, and Atom packages to 4.0.0; replace `effect/unstable/*` imports with `effect/*` and use `effect/http-api` for HTTP APIs. Cloudflare logical alarms now back off from one second and park for hourly recovery after eight attempts without reported source progress.
+
+## 0.1.0-beta.165
+
+## 0.1.0-beta.164
+
+## 0.1.0-beta.163
+
+## 0.1.0-beta.162
+
+## 0.1.0-beta.161
+
+## 0.1.0-beta.160
+
+## 0.1.0-beta.159
+
+## 0.1.0-beta.158
+
+## 0.1.0-beta.157
+
+## 0.1.0-beta.156
+
+## 0.1.0-beta.155
+
+## 0.1.0-beta.154
+
+## 0.1.0-beta.153
+
+## 0.1.0-beta.152
+
+## 0.1.0-beta.151
+
+## 0.1.0-beta.150
+
+## 0.1.0-beta.149
+
+## 0.1.0-beta.148
+
+## 0.1.0-beta.147
+
+## 0.1.0-beta.146
+
+## 0.1.0-beta.145
+
+## 0.1.0-beta.144
+
+## 0.1.0-beta.143
+
+## 0.1.0-beta.142
+
+## 0.1.0-beta.141
+
+## 0.1.0-beta.140
+
+## 0.1.0-beta.139
+
+## 0.1.0-beta.138
+
+## 0.1.0-beta.137
+
+### Minor Changes
+
+- [#642](https://github.com/danieljvdm/effect-agent/pull/642) [`bc7eee7`](https://github.com/danieljvdm/effect-agent/commit/bc7eee7713e84c185fd953f540af2be7bfd52a44) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Add `LanguageModelDecisionModel.layer` to answer native Effect decisions through any structured-output language model.
+
+## 0.1.0-beta.136
+
+## 0.1.0-beta.135
+
+## 0.1.0-beta.134
+
+### Patch Changes
+
+- [#631](https://github.com/danieljvdm/effect-agent/pull/631) [`d210027`](https://github.com/danieljvdm/effect-agent/commit/d210027cd1103cb5a13da03e7054e504c0159e2d) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Require Effect 4.0.0-rc.117 and update the model examples to GPT-6.
+
+## 0.1.0-beta.133
+
+## 0.1.0-beta.132
+
+## 0.1.0-beta.131
+
+## 0.1.0-beta.130
+
+## 0.1.0-beta.129
+
+## 0.1.0-beta.128
+
+## 0.1.0-beta.127
+
+## 0.1.0-beta.126
+
+## 0.1.0-beta.125
+
+## 0.1.0-beta.124
+
+## 0.1.0-beta.123
+
+## 0.1.0-beta.122
+
+## 0.1.0-beta.121
+
+## 0.1.0-beta.120
+
+## 0.1.0-beta.119
+
+## 0.1.0-beta.118
+
+## 0.1.0-beta.117
+
+## 0.1.0-beta.116
+
+## 0.1.0-beta.115
+
+## 0.1.0-beta.114
+
+## 0.1.0-beta.113
+
+## 0.1.0-beta.112
+
+### Minor Changes
+
+- [#558](https://github.com/danieljvdm/effect-agent/pull/558) [`6716f8c`](https://github.com/danieljvdm/effect-agent/commit/6716f8c5915fee466c89d9d82159fd8f2b67ece4) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Require Effect rc.116 and replace the local decision and TypeSafe APIs with native `Decision`, `DecisionModel`, and `@effect/ai-typesafe`, retaining `AutoModel` for thread selection.
+
+  BEHAVIOR CHANGE: Import decisions from `effect/unstable/ai` and configure TypeSafe with `TypeSafeClient.layerConfig()`; AutoModel requires at least two profiles, writes version 2 selection records, and rejects version 1 records without reselection or mutation. Retain the previous runtime for active version 1 threads or explicitly upgrade their records in your storage adapter; native probability sums must be within `1e-6` of 1.
+
+## 0.1.0-beta.111
+
+## 0.1.0-beta.110
+
+## 0.1.0-beta.109
+
+## 0.1.0-beta.108
+
+### Minor Changes
+
+- [#539](https://github.com/danieljvdm/effect-agent/pull/539) [`92bd9e2`](https://github.com/danieljvdm/effect-agent/commit/92bd9e26c181c07f84371a372d8885cd4db4667a) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Provide AutoModel as a native Effect model Layer to select through DecisionModel automatically on each parent or subagent thread's first turn. Retain selections across follow-ups through a shared SelectionStore, with an in-memory Layer and schema-backed records for host-owned persistence.
+
+## 0.1.0-beta.107
+
+## 0.1.0-beta.106
+
+## 0.1.0-beta.105
+
+## 0.1.0-beta.104
+
+## 0.1.0-beta.103
+
+### Minor Changes
+
+- [#527](https://github.com/danieljvdm/effect-agent/pull/527) [`f030933`](https://github.com/danieljvdm/effect-agent/commit/f030933c16926171436b4f92e7b920a8fbc89184) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Add provider-neutral Decision Models with reusable, schema-encoded decision sets and typed choice, score, and probability queries. Supply Jev evaluations through the TypeSafe adapter with separate provider statistics and bounded support for rounded Choice probability totals in both the client and shared model.

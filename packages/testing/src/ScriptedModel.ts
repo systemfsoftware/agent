@@ -1,0 +1,304 @@
+import * as AiError from 'effect/ai/AiError'
+import * as LanguageModel from 'effect/ai/LanguageModel'
+import * as Response from 'effect/ai/Response'
+import * as Toolkit from 'effect/ai/Toolkit'
+import * as Context from 'effect/Context'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
+import * as Ref from 'effect/Ref'
+import * as Schema from 'effect/Schema'
+import * as Stream from 'effect/Stream'
+
+const ScriptedPartMetadata = Schema.Record(Schema.String, Schema.NullOr(Schema.Json))
+
+const ScriptedPartBase = {
+  metadata: Schema.optionalKey(ScriptedPartMetadata),
+}
+
+const ScriptedToolCallPart = Schema.Struct({
+  ...ScriptedPartBase,
+  type: Schema.Literal('tool-call'),
+  id: Schema.String,
+  name: Schema.String,
+  params: Schema.Unknown,
+  providerExecuted: Schema.optionalKey(Schema.Boolean),
+})
+
+const ScriptedToolResultPart = Schema.Struct({
+  ...ScriptedPartBase,
+  type: Schema.Literal('tool-result'),
+  id: Schema.String,
+  name: Schema.String,
+  result: Schema.Unknown,
+  isFailure: Schema.Boolean,
+  providerExecuted: Schema.optionalKey(Schema.Boolean),
+  preliminary: Schema.optionalKey(Schema.Boolean),
+})
+
+/**
+ * Schema for encoded, non-streaming Effect AI response parts.
+ *
+ * Generic Tool payloads remain explicitly unknown here. `LanguageModel.make`
+ * performs the toolkit-specific decode when the scripted response is consumed.
+ */
+export const ScriptedGeneratePart = Schema.Union([
+  Schema.toEncoded(Response.Part(Toolkit.empty)),
+  // PartEncoded also admits these reasoning markers, which the Part schema omits.
+  Schema.toEncoded(Response.ReasoningDeltaPart),
+  Schema.toEncoded(Response.ReasoningEndPart),
+  ScriptedToolCallPart,
+  ScriptedToolResultPart,
+]).annotate({ identifier: 'ScriptedGeneratePart' })
+
+export type ScriptedGeneratePart = typeof ScriptedGeneratePart.Type
+
+/**
+ * Schema for encoded Effect AI streaming response parts.
+ */
+export const ScriptedStreamPart = Schema.Union([
+  Schema.toEncoded(Response.StreamPart(Toolkit.empty)),
+  ScriptedToolCallPart,
+  ScriptedToolResultPart,
+]).annotate({ identifier: 'ScriptedStreamPart' })
+
+export type ScriptedStreamPart = typeof ScriptedStreamPart.Type
+
+/** Controls whether a scripted stream completes, fails, or waits for interruption. */
+export const ScriptedStreamTermination = Schema.Union([
+  Schema.TaggedStruct('Complete', {}),
+  Schema.TaggedStruct('Fail', {
+    description: Schema.String,
+  }),
+  Schema.TaggedStruct('Hang', {}),
+])
+
+export type ScriptedStreamTermination = typeof ScriptedStreamTermination.Type
+
+/** One non-streaming invocation and the encoded response parts it returns. */
+export const ScriptedGenerateTurn = Schema.TaggedStruct('Generate', {
+  parts: Schema.Array(ScriptedGeneratePart),
+})
+
+export type ScriptedGenerateTurn = typeof ScriptedGenerateTurn.Type
+
+/** One streaming invocation with its encoded parts and terminal behavior. */
+export const ScriptedStreamTurn = Schema.TaggedStruct('Stream', {
+  parts: Schema.Array(ScriptedStreamPart),
+  termination: ScriptedStreamTermination,
+})
+
+export type ScriptedStreamTurn = typeof ScriptedStreamTurn.Type
+
+/**
+ * Serializable grammar for one finite scripted provider invocation.
+ */
+export const ScriptedTurn = Schema.Union([ScriptedGenerateTurn, ScriptedStreamTurn])
+export type ScriptedTurn = typeof ScriptedTurn.Type
+
+export type ScriptedRequestKind = 'generate' | 'stream'
+
+/**
+ * A request after Effect AI has normalized its prompt, tools, response format,
+ * tool choice, span, and incremental-response fields.
+ */
+export interface ScriptedRequest {
+  readonly kind: ScriptedRequestKind
+  readonly options: LanguageModel.ProviderOptions
+}
+
+/** Optional request assertions and stream lifecycle effects for one scripted turn. */
+export interface ScriptedTurnHooks {
+  /** Runs against the normalized provider request before producing the response. */
+  readonly assertRequest?: (
+    request: LanguageModel.ProviderOptions,
+  ) => Effect.Effect<void, AiError.AiError> | void
+  /** Runs immediately before the scripted stream begins emitting parts. */
+  readonly onStreamStart?: Effect.Effect<void> | undefined
+  /** Runs when the scripted stream completes, fails, or is interrupted. */
+  readonly onStreamFinalize?: Effect.Effect<void> | undefined
+}
+
+/**
+ * Runtime hooks are deliberately separate from the serializable turn grammar.
+ */
+export type ScriptedTurnInput = ScriptedTurn & ScriptedTurnHooks
+
+interface ScriptState {
+  readonly remaining: ReadonlyArray<ScriptedTurnInput>
+  readonly requests: ReadonlyArray<ScriptedRequest>
+}
+
+const scriptedError = (method: string, description: string): AiError.AiError =>
+  AiError.AiError.make({
+    module: '@effect-agent/testing/ScriptedModel',
+    method,
+    reason: AiError.UnknownError.make({ description }),
+  })
+
+const runAssertion = Effect.fnUntraced(function*(
+  assertion: ScriptedTurnHooks['assertRequest'],
+  request: LanguageModel.ProviderOptions,
+): Effect.fn.Return<void, AiError.AiError> {
+  if (assertion === undefined) {
+    return yield* Effect.void
+  }
+
+  return yield* Effect.suspend(() => {
+    const result = assertion(request)
+
+    return Effect.isEffect(result) ? result : Effect.void
+  })
+})
+
+const takeTurn = (
+  state: Ref.Ref<ScriptState>,
+  kind: ScriptedRequestKind,
+  options: LanguageModel.ProviderOptions,
+): Effect.Effect<ScriptedTurnInput, AiError.AiError> =>
+  Ref.modify(state, (current) => {
+    const turn = current.remaining[0]
+
+    if (turn === undefined) {
+      return [
+        undefined,
+        {
+          ...current,
+          requests: [...current.requests, { kind, options }],
+        },
+      ] as const
+    }
+
+    return [
+      turn,
+      {
+        remaining: current.remaining.slice(1),
+        requests: [...current.requests, { kind, options }],
+      },
+    ] as const
+  }).pipe(
+    Effect.filterOrFail(
+      (turn) => turn !== undefined,
+      () => scriptedError(kind, `Script exhausted before the ${kind} request`),
+    ),
+  )
+
+const requireGenerateTurn = (
+  turn: ScriptedTurnInput,
+): Effect.Effect<ScriptedGenerateTurn & ScriptedTurnHooks, AiError.AiError> =>
+  turn._tag === 'Generate'
+    ? Effect.succeed(turn)
+    : Effect.fail(scriptedError('generate', `Expected a Generate turn but found ${turn._tag}`))
+
+const requireStreamTurn = (
+  turn: ScriptedTurnInput,
+): Effect.Effect<ScriptedStreamTurn & ScriptedTurnHooks, AiError.AiError> =>
+  turn._tag === 'Stream'
+    ? Effect.succeed(turn)
+    : Effect.fail(scriptedError('stream', `Expected a Stream turn but found ${turn._tag}`))
+
+const streamForTurn = (
+  turn: ScriptedStreamTurn & ScriptedTurnHooks,
+): Stream.Stream<Response.StreamPartEncoded, AiError.AiError> => {
+  let stream: Stream.Stream<Response.StreamPartEncoded, AiError.AiError> = Stream.fromIterable(
+    turn.parts,
+  )
+
+  switch (turn.termination._tag) {
+    case 'Complete': {
+      break
+    }
+    case 'Fail': {
+      stream = stream.pipe(
+        Stream.concat(Stream.fail(scriptedError('stream', turn.termination.description))),
+      )
+      break
+    }
+    case 'Hang': {
+      stream = stream.pipe(Stream.concat(Stream.never))
+      break
+    }
+  }
+  if (turn.onStreamStart !== undefined) {
+    stream = Stream.fromEffectDrain(turn.onStreamStart).pipe(Stream.concat(stream))
+  }
+  if (turn.onStreamFinalize !== undefined) {
+    stream = stream.pipe(Stream.ensuring(turn.onStreamFinalize))
+  }
+
+  return stream
+}
+
+/** Inspection service for a deterministic LanguageModel backed by finite scripted turns. */
+export class ScriptedModel extends Context.Service<
+  ScriptedModel,
+  {
+    /** Normalized provider requests captured in invocation order. */
+    readonly requests: Effect.Effect<ReadonlyArray<ScriptedRequest>>
+    /** Number of scripted turns not yet consumed. */
+    readonly remaining: Effect.Effect<number>
+    /** Fails with `AiError` when any scripted turns remain. */
+    readonly assertExhausted: Effect.Effect<void, AiError.AiError>
+  }
+>()('@effect-agent/testing/ScriptedModel') {
+  /**
+   * Provides the native Effect AI `LanguageModel` and this inspection service.
+   * Supplying the extra inspection service does not add it to model-call
+   * requirements. Each model invocation consumes one turn before assertion and
+   * turn-kind validation.
+   */
+  static layer(
+    turns: ReadonlyArray<ScriptedTurnInput>,
+  ): Layer.Layer<LanguageModel.LanguageModel | ScriptedModel, never, never> {
+    return Layer.effectContext(
+      Effect.gen(function*() {
+        const state = yield* Ref.make<ScriptState>({
+          remaining: [...turns],
+          requests: [],
+        })
+
+        const languageModel = yield* LanguageModel.make({
+          generateText: Effect.fnUntraced(function*(options) {
+            const turn = yield* takeTurn(state, 'generate', options)
+
+            yield* runAssertion(turn.assertRequest, options)
+            const generateTurn = yield* requireGenerateTurn(turn)
+
+            return [...generateTurn.parts]
+          }),
+          streamText: (options) =>
+            Stream.unwrap(
+              Effect.gen(function*() {
+                const turn = yield* takeTurn(state, 'stream', options)
+
+                yield* runAssertion(turn.assertRequest, options)
+                const streamTurn = yield* requireStreamTurn(turn)
+
+                return streamForTurn(streamTurn)
+              }),
+            ),
+        })
+
+        const inspection = ScriptedModel.of({
+          requests: Ref.get(state).pipe(Effect.map((current) => current.requests)),
+          remaining: Ref.get(state).pipe(Effect.map((current) => current.remaining.length)),
+          assertExhausted: Ref.get(state).pipe(
+            Effect.flatMap((current) =>
+              current.remaining.length === 0
+                ? Effect.void
+                : Effect.fail(
+                  scriptedError(
+                    'assertExhausted',
+                    `${current.remaining.length} scripted turn(s) remain`,
+                  ),
+                )
+            ),
+          ),
+        })
+
+        return Context.make(LanguageModel.LanguageModel, languageModel).pipe(
+          Context.add(ScriptedModel, inspection),
+        )
+      }),
+    )
+  }
+}

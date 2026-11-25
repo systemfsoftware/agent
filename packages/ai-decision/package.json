@@ -1,0 +1,57 @@
+{
+  "name": "@systemfsoftware/agent-ai-decision",
+  "version": "0.1.0-beta.192",
+  "description": "Native Effect decision adapters and thread-owned automatic model selection.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/systemfsoftware/agent.git",
+    "directory": "packages/ai-decision"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "type": "module",
+  "sideEffects": [],
+  "exports": {
+    ".": "./src/index.ts",
+    "./auto-model": "./src/AutoModel.ts",
+    "./language-model-decision-model": "./src/LanguageModelDecisionModel.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "./auto-model": {
+        "types": "./dist/AutoModel.d.mts",
+        "default": "./dist/AutoModel.mjs"
+      },
+      "./language-model-decision-model": {
+        "types": "./dist/LanguageModelDecisionModel.d.mts",
+        "default": "./dist/LanguageModelDecisionModel.mjs"
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "effect-tsgo tsrs --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "check:pack": "pnpm pack --pack-destination .pack && attw .pack/*.tgz --profile esm-only; s=$?; rm -rf .pack; exit $s"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "catalog:",
+    "@effect/ai-typesafe": "catalog:",
+    "@effect/vitest": "catalog:",
+    "effect": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "effect": "^4.1.0"
+  }
+}

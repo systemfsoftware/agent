@@ -1,0 +1,925 @@
+import * as NodeCrypto from '@effect/platform-node/NodeCrypto'
+import { describe, expect, it } from '@effect/vitest'
+import * as Agent from '@systemfsoftware/agent/agent'
+import { DurableWorkerBinding } from '@systemfsoftware/agent/agent-registration'
+import { ContextCompactor } from '@systemfsoftware/agent/context-compactor'
+import { DurableAgentRuntime, DurableRuntimeConfig } from '@systemfsoftware/agent/durable-agent-runtime'
+import { DurableRuntimeFailpointError } from '@systemfsoftware/agent/durable-failpoint'
+import { DurableStep, DurableStepError, ToolExecutionClass } from '@systemfsoftware/agent/durable-step'
+import { ThreadId, ToolCallId } from '@systemfsoftware/agent/identifiers'
+import type { CanonicalRecordEnvelope } from '@systemfsoftware/agent/records'
+import {
+  DefinitionDigests,
+  DeploymentId,
+  Digest,
+  ProducerId,
+  RecordEnvelope,
+  RunContextRecorded,
+} from '@systemfsoftware/agent/records'
+import { canonicalRecordBytes } from '@systemfsoftware/agent/run-continuation'
+import { runIdForSubmission } from '@systemfsoftware/agent/run-journal'
+import { RunContextPreparation, RunToolAuthorization } from '@systemfsoftware/agent/run-options'
+import { layer as runStorageLayer } from '@systemfsoftware/agent/run-storage'
+import {
+  ApprovalDecisionCommand,
+  IdempotencyKey,
+  Principal,
+  RecoverySnapshotRequest,
+  ResolutionCompletedWithResult,
+  submissionInputRecordId,
+  SubmissionLedger,
+  UnknownResolutionCommand,
+} from '@systemfsoftware/agent/submission-ledger'
+import { DurableRuntimeFailpointTestControl } from '@systemfsoftware/agent/testing/durable-failpoint-test-control'
+import { reencodeThread } from '@systemfsoftware/agent/thread-import'
+import {
+  ExecutionCheckpoint,
+  streamExport,
+  ThreadExportRequest,
+  ThreadExportSource,
+  ThreadRead,
+  ThreadStore,
+  ThreadTailRequest,
+} from '@systemfsoftware/agent/thread-store'
+import { ToolReconciler } from '@systemfsoftware/agent/tool-reconciler'
+import { WakeScheduler } from '@systemfsoftware/agent/wake-scheduler'
+import * as LanguageModel from 'effect/ai/LanguageModel'
+import * as Model from 'effect/ai/Model'
+import type * as Prompt from 'effect/ai/Prompt'
+import type * as Response from 'effect/ai/Response'
+import * as Tool from 'effect/ai/Tool'
+import * as Toolkit from 'effect/ai/Toolkit'
+import * as Context from 'effect/Context'
+import * as Effect from 'effect/Effect'
+import * as Exit from 'effect/Exit'
+import * as Layer from 'effect/Layer'
+import * as Option from 'effect/Option'
+import * as Result from 'effect/Result'
+import * as Schema from 'effect/Schema'
+import * as Stream from 'effect/Stream'
+
+import { MemorySubmissionLedgerLive } from '../src/MemorySubmissionLedger.ts'
+import { MemoryThreadStoreLive } from '../src/MemoryThreadStore.ts'
+
+const digest = Schema.decodeSync(Digest)('a'.repeat(64))
+const definitions = DefinitionDigests.make({ agent: digest, model: digest, tools: digest })
+
+const fixtureHistory = Effect.fnUntraced(function*(
+  store: ThreadStore['Service'],
+  request: ThreadExportRequest,
+) {
+  const page = yield* store.inspectTail(ThreadTailRequest.make({ threadId: request.threadId }))
+
+  if (page.tailSequence > 1024) return yield* Effect.die('Fixture history exceeds 1024 records')
+  let bytes = 0
+  const records: Array<CanonicalRecordEnvelope> = []
+
+  yield* Stream.runForEach(
+    store.read(ThreadRead.make({ threadId: request.threadId, limit: 1024 })),
+    (entry) => {
+      bytes += canonicalRecordBytes(entry.record)
+      if (bytes > 32 * 1024 * 1024) return Effect.die('Fixture history exceeds 32 MiB')
+      records.push(entry)
+
+      return Effect.void
+    },
+  )
+
+  return { ...page, records }
+})
+
+const base = Layer.mergeAll(
+  MemorySubmissionLedgerLive.pipe(Layer.provideMerge(MemoryThreadStoreLive)),
+  DurableRuntimeFailpointTestControl.layer,
+  WakeScheduler.layerNoop,
+  ToolReconciler.uncertain,
+  DurableRuntimeConfig.layer({
+    deploymentId: DeploymentId.make('checkpoint-test'),
+    producerId: ProducerId.make('checkpoint-test'),
+  }),
+).pipe(Layer.provideMerge(NodeCrypto.layer))
+
+const finish = {
+  type: 'finish',
+  reason: 'tool-calls',
+  usage: { inputTokens: { total: 100 }, outputTokens: { total: 10 } },
+} satisfies Response.StreamPartEncoded
+
+const final: ReadonlyArray<Response.StreamPartEncoded> = [
+  { type: 'text-start', id: 'answer' },
+  { type: 'text-delta', id: 'answer', delta: '"done"' },
+  { type: 'text-end', id: 'answer' },
+  { ...finish, reason: 'stop' },
+]
+
+const scenarios = [
+  'missing-evidence',
+  'corrupt-evidence',
+  'uncertain',
+  'approval',
+  'reused-call-id',
+]
+
+describe('retained Run recovery', () => {
+  // #692/#731: keep the public prompt/compaction workflow after retiring its cache mechanism.
+  it.effect('retains original context across rollover, summary and cold recovery', () =>
+    Effect.gen(function*() {
+      const store = yield* ThreadStore
+      const failpoints = yield* DurableRuntimeFailpointTestControl
+      const threadId = ThreadId.make('fresh-checkpoint')
+      const requests: Array<Prompt.Prompt> = []
+
+      const model = Model.make(
+        'scripted',
+        'fresh-checkpoint',
+        Layer.effect(
+          LanguageModel.LanguageModel,
+          LanguageModel.make({
+            generateText: () => Effect.succeed([]),
+            streamText: (request) => {
+              requests.push(request.prompt)
+
+              return Stream.fromIterable(final)
+            },
+          }),
+        ),
+      )
+
+      const agent = Agent.withModel(
+        Agent.make('fresh-checkpoint', {
+          input: Schema.String,
+          output: Schema.String,
+          instructions: 'Use the instructions for this Run.',
+          toolkit: Toolkit.empty,
+          policy: { maxTurns: 1, maxDuration: '30 seconds', contextTokenLimit: 20_000 },
+        }),
+        model,
+      )
+
+      const binding = yield* DurableWorkerBinding.make(agent, definitions)
+
+      const process = Effect.fnUntraced(
+        function*(input: string, rollover: boolean, summarize = false) {
+          const compactor = yield* ContextCompactor.pipe(
+            Effect.provide(ContextCompactor.layerRollover),
+          )
+
+          const runtime = yield* DurableAgentRuntime.pipe(
+            Effect.provide(
+              DurableAgentRuntime.layerWithBindings([binding]).pipe(
+                Layer.provide(runStorageLayer),
+                Layer.provide(
+                  Layer.mergeAll(
+                    RunToolAuthorization.allowAll,
+                    Layer.succeed(ContextCompactor, {
+                      estimate: (messages) =>
+                        summarize &&
+                          messages.some((message) => JSON.stringify(message).includes('new window request'))
+                          ? 25_000
+                          : compactor.estimate(messages),
+                      compact: (request) =>
+                        summarize
+                          ? Stream.succeed({
+                            kind: 'summarize',
+                            through: request.source.content.findLastIndex(
+                              (message) => message.role === 'assistant',
+                            ) + 1,
+                            summary: 'Completed conversation.',
+                          })
+                          : compactor.compact(request),
+                    }),
+                  ),
+                ),
+              ),
+            ),
+            Effect.provideService(RunContextPreparation, {
+              hook: {
+                prepare: (request) =>
+                  Effect.succeed({
+                    prompt: request.source,
+                    ...(rollover ? { rollover: { handoff: 'Retained handoff.' } } : {}),
+                  }),
+              },
+            }),
+          )
+
+          const receipt = yield* runtime.submit(agent, input, {
+            threadId,
+            principal: Principal.make('test'),
+            idempotencyKey: IdempotencyKey.make(input),
+            definitions,
+          })
+
+          const result = yield* runtime.processThreadHead(threadId)
+
+          expect(Option.isSome(result) && result.value).toMatchObject({
+            submissionId: receipt.submissionId,
+            receiptId: receipt.receiptId,
+            outcome: 'completed',
+          })
+          expect((yield* runtime.verify(threadId)).ok).toBe(true)
+        },
+        (effect) => effect.pipe(Effect.scoped),
+      )
+
+      yield* process('retired request', false)
+      yield* process('begin compacted conversation', true)
+      const original = yield* fixtureHistory(store, ThreadExportRequest.make({ threadId }))
+
+      for (const input of ['first fresh request', 'second fresh request']) {
+        yield* process(input, false)
+        const prompt = requests.at(-1)
+
+        if (prompt === undefined) return yield* Effect.die('Missing fresh-Run model request')
+        expect(JSON.stringify(prompt)).toContain('Retained handoff.')
+        expect(JSON.stringify(prompt)).toContain('begin compacted conversation')
+        expect(JSON.stringify(prompt)).toContain(input)
+        expect(JSON.stringify(prompt)).not.toContain('retired request')
+        expect(
+          prompt.content.filter(
+            (message) =>
+              message.role === 'system' &&
+              JSON.stringify(message).includes('Use the instructions for this Run.'),
+          ),
+        ).toHaveLength(1)
+      }
+      expect(JSON.stringify(requests.at(-1))).toContain('first fresh request')
+      yield* process('new window request', true)
+      expect(JSON.stringify(requests.at(-1))).toContain('new window request')
+      expect(JSON.stringify(requests.at(-1))).not.toContain('first fresh request')
+      const completed = yield* fixtureHistory(store, ThreadExportRequest.make({ threadId }))
+
+      expect(completed.records.slice(0, original.records.length)).toEqual(original.records)
+
+      yield* process('summarize completed windows', false, true)
+      const summarized = yield* fixtureHistory(store, ThreadExportRequest.make({ threadId }))
+
+      const rollover = summarized.records.findLast(
+        ({ record: { payload } }) => payload._tag === 'CompactionCreated' && payload.kind === 'rollover',
+      )
+
+      const summary = summarized.records.findLast(
+        ({ record: { payload } }) => payload._tag === 'CompactionCreated' && payload.kind === 'summarize',
+      )
+
+      if (rollover === undefined || summary?.record.payload._tag !== 'CompactionCreated') {
+        return yield* Effect.die('Missing rollover and covering summary')
+      }
+      expect(summary.record.payload.coversThrough).toBeGreaterThan(rollover.sequence)
+
+      // Stop after start/context co-commit, then rebuild only their saved references in a new runtime.
+      yield* failpoints.setHandler((location) =>
+        location === 'run:after-start-append'
+          ? DurableRuntimeFailpointError.make({ location })
+          : Effect.void
+      )
+      const requestsBefore = requests.length
+      const stopped = yield* Effect.exit(process('resume summarized window', false))
+
+      expect(Exit.isFailure(stopped)).toBe(true)
+      expect(requests).toHaveLength(requestsBefore)
+      yield* failpoints.clear
+      yield* process('resume summarized window', false)
+      expect(requests).toHaveLength(requestsBefore + 1)
+      expect(JSON.stringify(requests.at(-1))).toContain('Completed conversation.')
+      expect(JSON.stringify(requests.at(-1))).toContain('resume summarized window')
+      expect(JSON.stringify(requests.at(-1))).not.toContain('Retained handoff.')
+      const archive = yield* fixtureHistory(store, ThreadExportRequest.make({ threadId }))
+
+      const pages = yield* Stream.runCollect(
+        streamExport({ threadId }).pipe(
+          Stream.provideService(ThreadExportSource, { export: store.export }),
+        ),
+      )
+
+      const imported = yield* reencodeThread(Stream.fromIterable(pages)).pipe(
+        Effect.provide(Layer.fresh(base)),
+      )
+
+      expect(imported.recordCount).toBe(archive.tailSequence)
+    }).pipe(Effect.provide(base)))
+
+  it.effect('resumes retained older work after a later Run settles', () =>
+    Effect.gen(function*() {
+      const store = yield* ThreadStore
+      const ledger = yield* SubmissionLedger
+      const failpoints = yield* DurableRuntimeFailpointTestControl
+      const threadId = ThreadId.make('checkpoint-foreign-owner')
+      let phase: 'prefix' | 'unknown' | 'later' | 'resume' = 'prefix'
+      let laterTurns = 0
+      let handlerCalls = 0
+      const requests: Array<Prompt.Prompt> = []
+
+      const tools = Toolkit.make(
+        Tool.make('write', { parameters: Tool.EmptyParams, success: Schema.String }),
+      )
+
+      const handlers = tools.toLayer({
+        write: () =>
+          Effect.sync(() => {
+            handlerCalls++
+
+            return 'recorded'
+          }),
+      })
+
+      const model = Model.make(
+        'scripted',
+        'foreign-checkpoint',
+        Layer.effect(
+          LanguageModel.LanguageModel,
+          LanguageModel.make({
+            generateText: () => Effect.succeed([]),
+            streamText: (request) => {
+              requests.push(request.prompt)
+              if (phase === 'later') laterTurns++
+
+              const call = phase === 'unknown'
+                ? 'call-a'
+                : phase === 'later' && laterTurns <= 2
+                ? `call-b-${laterTurns}`
+                : undefined
+
+              return Stream.fromIterable<Response.StreamPartEncoded>(
+                call === undefined
+                  ? final
+                  : [{ type: 'tool-call', id: call, name: 'write', params: {} }, finish],
+              )
+            },
+          }),
+        ),
+      )
+
+      const agent = Agent.withModel(
+        Agent.make('foreign-checkpoint', {
+          input: Schema.String,
+          output: Schema.String,
+          instructions: 'Keep original instructions.',
+          toolkit: tools,
+          policy: {
+            maxTurns: 10,
+            maxToolCalls: 10,
+            maxDuration: '30 seconds',
+            contextTokenLimit: 20_000,
+          },
+        }),
+        model,
+      )
+
+      const binding = yield* DurableWorkerBinding.make(agent, definitions).pipe(
+        Effect.provide(handlers),
+      )
+
+      const runtime = yield* Layer.build(
+        DurableAgentRuntime.layerWithBindings([binding]).pipe(
+          Layer.provide(runStorageLayer),
+          Layer.provide(
+            Layer.mergeAll(RunToolAuthorization.allowAll, ContextCompactor.layerRollover),
+          ),
+        ),
+      ).pipe(
+        Effect.map((services) => Context.get(services, DurableAgentRuntime)),
+        Effect.provideService(RunContextPreparation, {
+          hook: {
+            prepare: (request) =>
+              Effect.sync(() => {
+                const compactPrefix = phase === 'later' && request.turn === 3
+
+                if (compactPrefix) {
+                  expect(request.source.content.slice(0, 2).map((message) => message.role)).toEqual(
+                    ['user', 'assistant'],
+                  )
+                }
+
+                return {
+                  prompt: request.source,
+                  ...(compactPrefix
+                    ? { rollover: { handoff: 'The initial request completed.', through: 2 } }
+                    : {}),
+                }
+              }),
+          },
+        }),
+      )
+
+      const submit = (input: string) =>
+        runtime.submit(agent, input, {
+          threadId,
+          principal: Principal.make('test'),
+          idempotencyKey: IdempotencyKey.make(input),
+          definitions,
+        })
+
+      const prefix = yield* submit('settled prefix')
+
+      yield* runtime.processThreadHead(threadId)
+      phase = 'unknown'
+      const older = yield* submit('older unresolved input')
+
+      yield* failpoints.setHandler((location) =>
+        location === 'tools:after-dispatch-fence'
+          ? DurableRuntimeFailpointError.make({ location })
+          : Effect.void
+      )
+      expect(Exit.isFailure(yield* Effect.exit(runtime.processThreadHead(threadId)))).toBe(true)
+      yield* failpoints.clear
+      yield* runtime.runRecovery()
+      expect(
+        (yield* ledger.loadRecoverySnapshot(
+          RecoverySnapshotRequest.make({ submissionId: older.submissionId }),
+        )).submission.state,
+      ).toBe('unknown')
+      expect(handlerCalls).toBe(0)
+
+      phase = 'later'
+      const later = yield* submit('later input')
+      const laterExecutions: Array<ExecutionCheckpoint> = []
+
+      yield* failpoints.setHandler((location) =>
+        location === 'terminalize:before-publication'
+          ? store.readExecution({ threadId, runId: runIdForSubmission(later.submissionId) }).pipe(
+            Effect.map((execution) => {
+              if (Option.isSome(execution)) laterExecutions.push(execution.value)
+            }),
+            Effect.orDie,
+          )
+          : Effect.void
+      )
+      const laterOutcome = yield* runtime.processThreadHead(threadId)
+
+      yield* failpoints.clear
+      expect(Option.isSome(laterOutcome) && laterOutcome.value.submissionId).toBe(
+        later.submissionId,
+      )
+      expect(handlerCalls).toBe(2)
+
+      const before = yield* fixtureHistory(store, ThreadExportRequest.make({ threadId }))
+
+      const olderExecution = yield* store.readExecution({
+        threadId,
+        runId: runIdForSubmission(older.submissionId),
+      })
+
+      expect(laterExecutions).toHaveLength(1)
+      const laterProgress = laterExecutions[0]?.progress
+
+      if (Option.isNone(olderExecution) || laterProgress === undefined) {
+        return yield* Effect.die('Missing exact older/later execution checkpoint')
+      }
+      const olderProgress = olderExecution.value.progress
+
+      expect(
+        yield* store.readExecution({ threadId, runId: runIdForSubmission(later.submissionId) }),
+      ).toEqual(Option.none())
+      expect(olderProgress.originalInput.recordId).toBe(
+        submissionInputRecordId(older.submissionId),
+      )
+      expect(laterProgress.originalInput.recordId).toBe(
+        submissionInputRecordId(later.submissionId),
+      )
+      expect(olderProgress.savedContext).toBeDefined()
+      expect(olderProgress.savedContext).not.toEqual(laterProgress.savedContext)
+      expect(
+        olderExecution.value.operational.find(
+          (record) => record.recordId === olderProgress.savedContext?.recordId,
+        )?.payload,
+      ).toMatchObject({
+        _tag: 'RunContextRecorded',
+        runId: runIdForSubmission(older.submissionId),
+      })
+
+      yield* ledger.recordUnknownResolution(
+        UnknownResolutionCommand.make({
+          submissionId: older.submissionId,
+          toolCallId: ToolCallId.make('call-a'),
+          author: 'operator',
+          reason: 'The service confirmed completion',
+          resolution: ResolutionCompletedWithResult.make({
+            result: 'confirmed older result',
+            isFailure: false,
+          }),
+        }),
+      )
+      phase = 'resume'
+      const resumedExecutions: Array<ExecutionCheckpoint> = []
+
+      yield* failpoints.setHandler((location) =>
+        location === 'terminalize:before-publication'
+          ? store.readExecution({ threadId, runId: runIdForSubmission(older.submissionId) }).pipe(
+            Effect.map((execution) => {
+              if (Option.isSome(execution)) resumedExecutions.push(execution.value)
+            }),
+            Effect.orDie,
+          )
+          : Effect.void
+      )
+      const resumed = yield* runtime.processThreadHead(threadId)
+
+      yield* failpoints.clear
+      expect(Option.isSome(resumed) && resumed.value).toMatchObject({
+        submissionId: older.submissionId,
+        receiptId: older.receiptId,
+        outcome: 'completed',
+        usageSummary: {
+          modelCalls: 2,
+          inputTokens: { total: 200 },
+          outputTokens: { total: 20 },
+        },
+      })
+      expect(handlerCalls).toBe(2)
+      expect(JSON.stringify(requests.at(-1))).toContain('confirmed older result')
+      expect(JSON.stringify(requests.at(-1))).toContain('older unresolved input')
+      expect(JSON.stringify(requests.at(-1))).toContain('Keep original instructions.')
+      expect(JSON.stringify(requests.at(-1))).not.toContain('later input')
+      const completed = yield* fixtureHistory(store, ThreadExportRequest.make({ threadId }))
+
+      expect(completed.records.slice(0, before.records.length)).toEqual(before.records)
+      expect(
+        completed.records.flatMap(({ record: { payload } }) =>
+          payload._tag === 'ToolCallSettled' ? [payload.toolCallId] : []
+        ),
+      ).toEqual(['call-b-1', 'call-b-2', 'call-a'])
+      expect(
+        completed.records.flatMap(({ record: { payload } }) =>
+          payload._tag === 'SubmissionSettled' ? [payload.submissionId] : []
+        ),
+      ).toEqual([prefix.submissionId, later.submissionId, older.submissionId])
+      expect(resumedExecutions).toHaveLength(1)
+
+      const resumedStarts = resumedExecutions[0]!.operational.filter(
+        ({ payload }) => payload._tag === 'RunStarted',
+      )
+
+      expect(resumedStarts).toHaveLength(1)
+      expect(resumedStarts).toEqual(
+        olderExecution.value.operational.filter(({ payload }) => payload._tag === 'RunStarted'),
+      )
+      expect(
+        yield* store.readExecution({ threadId, runId: runIdForSubmission(older.submissionId) }),
+      ).toEqual(Option.none())
+    }).pipe(Effect.provide(base)))
+
+  it.effect.each(scenarios)('preserves canonical obligations across %s', (scenario) =>
+    Effect.gen(function*() {
+      const store = yield* ThreadStore
+      const ledger = yield* SubmissionLedger
+      const failpoints = yield* DurableRuntimeFailpointTestControl
+      const requests: Array<Prompt.Prompt> = []
+      let calls = 0
+      let stepEffects = 0
+
+      const tools = Toolkit.make(
+        Tool.make('write', {
+          parameters: Tool.EmptyParams,
+          success: Schema.String,
+          dependencies: [DurableStep],
+          failure: DurableStepError,
+        }).annotate(ToolExecutionClass, scenario === 'reused-call-id' ? 'idempotent' : 'uncertain'),
+        Tool.make('approve', {
+          parameters: Tool.EmptyParams,
+          success: Schema.String,
+          needsApproval: true,
+        }),
+      )
+
+      const handlers = tools.toLayer({
+        write: Effect.fnUntraced(function*() {
+          calls++
+          if (scenario !== 'reused-call-id') return 'recorded'
+          const steps = yield* DurableStep
+
+          return yield* steps.do(
+            'write-once',
+            Schema.String,
+            Effect.sync(() => {
+              stepEffects++
+
+              return 'recorded'
+            }),
+          )
+        }),
+        approve: () =>
+          Effect.sync(() => {
+            calls++
+
+            return 'approved'
+          }),
+      })
+
+      const model = Model.make(
+        'scripted',
+        'checkpoint',
+        Layer.effect(
+          LanguageModel.LanguageModel,
+          LanguageModel.make({
+            generateText: () => Effect.succeed([]),
+            streamText: (request) => {
+              requests.push(request.prompt)
+
+              return Stream.fromIterable<Response.StreamPartEncoded>(
+                requests.length <= 4
+                  ? [
+                    {
+                      type: 'tool-call',
+                      id: scenario === 'reused-call-id' && requests.length === 4
+                        ? 'call-1'
+                        : `call-${requests.length}`,
+                      name: scenario === 'approval' && requests.length === 4 ? 'approve' : 'write',
+                      params: {},
+                    },
+                    finish,
+                  ]
+                  : final,
+              )
+            },
+          }),
+        ),
+      )
+
+      const agent = Agent.withModel(
+        Agent.make('checkpoint', {
+          input: Schema.String,
+          output: Schema.String,
+          instructions: 'Keep original instructions.',
+          toolkit: tools,
+          policy: {
+            maxTurns: 10,
+            maxToolCalls: 10,
+            maxDuration: '30 seconds',
+            runStatus: 'appended',
+            contextTokenLimit: 20_000,
+          },
+        }),
+        model,
+      )
+
+      const makeRuntime = Effect.gen(function*() {
+        const binding = yield* DurableWorkerBinding.make(agent, definitions).pipe(
+          Effect.provide(handlers),
+        )
+
+        return yield* DurableAgentRuntime.pipe(
+          Effect.provide(
+            DurableAgentRuntime.layerWithBindings([binding]).pipe(
+              Layer.provide(runStorageLayer),
+              Layer.provide(
+                Layer.mergeAll(RunToolAuthorization.allowAll, ContextCompactor.layerRollover),
+              ),
+            ),
+          ),
+          Effect.provideService(RunContextPreparation, {
+            hook: {
+              prepare: (request) =>
+                Effect.succeed({
+                  prompt: request.source,
+                  ...(request.turn === 3 &&
+                      !JSON.stringify(request.source).includes('Keep the continuation.')
+                    ? {
+                      rollover: {
+                        handoff: 'Keep the continuation.',
+                        through: request.source.content.length,
+                      },
+                    }
+                    : {}),
+                }),
+            },
+          }),
+        )
+      })
+
+      const runtime = yield* makeRuntime
+
+      const receipt = yield* runtime.submit(agent, 'Original input', {
+        threadId: ThreadId.make(`checkpoint-${scenario}`),
+        principal: Principal.make('test'),
+        idempotencyKey: IdempotencyKey.make('work'),
+        definitions,
+      })
+
+      yield* failpoints.setHandler((location) => {
+        const atBatch = requests.length === (scenario === 'reused-call-id' ? 2 : 4) &&
+          location ===
+            (scenario === 'uncertain'
+              ? 'tools:after-dispatch-fence'
+              : scenario === 'approval'
+              ? 'approval:after-request-append'
+              : 'turn:after-results-append')
+
+        if (!atBatch) return Effect.void
+
+        return DurableRuntimeFailpointError.make({ location })
+      })
+
+      const stopped = yield* Effect.exit(
+        runtime.processThreadHead(receipt.threadId).pipe(Effect.provide(handlers)),
+      )
+
+      expect(Exit.isFailure(stopped)).toBe(true)
+
+      const snapshot = yield* ledger.loadRecoverySnapshot(
+        RecoverySnapshotRequest.make({ submissionId: receipt.submissionId }),
+      )
+
+      expect(snapshot.hasOwner).toBe(false)
+      if (scenario === 'uncertain' || scenario === 'approval') {
+        const refused = yield* Effect.result(
+          store.export(ThreadExportRequest.make({ threadId: receipt.threadId })),
+        )
+
+        expect(Result.isFailure(refused)).toBe(true)
+        if (Result.isFailure(refused)) {
+          expect(refused.failure).toMatchObject({
+            _tag: 'ThreadExportRejected',
+            reason: 'non-idle',
+          })
+        }
+      }
+
+      const original = yield* fixtureHistory(
+        store,
+        ThreadExportRequest.make({ threadId: receipt.threadId }),
+      )
+
+      const requestsBefore = requests.length
+      const callsBefore = calls
+
+      yield* failpoints.clear
+
+      const execution = yield* store.readExecution({
+        threadId: receipt.threadId,
+        runId: runIdForSubmission(receipt.submissionId),
+      })
+
+      if (Option.isNone(execution) || execution.value.progress.savedContext === undefined) {
+        return yield* Effect.die('Missing current Run continuation/context reference')
+      }
+      const contextId = execution.value.progress.savedContext.recordId
+
+      const observed = ThreadStore.of({
+        ...store,
+        readExecution: (request) =>
+          store.readExecution(request).pipe(
+            Effect.map(
+              Option.map((checkpoint) =>
+                ExecutionCheckpoint.make({
+                  ...checkpoint,
+                  operational: checkpoint.operational
+                    .filter(
+                      (record) => scenario !== 'missing-evidence' || record.recordId !== contextId,
+                    )
+                    .map((record) =>
+                      scenario === 'corrupt-evidence' &&
+                        record.recordId === contextId &&
+                        record.payload._tag === 'RunContextRecorded'
+                        ? RecordEnvelope.make({
+                          ...record,
+                          payload: RunContextRecorded.make({
+                            ...record.payload,
+                            runScopedInput: 'altered required evidence',
+                          }),
+                        })
+                        : record
+                    ),
+                })
+              ),
+            ),
+          ),
+      })
+
+      const resumed = yield* makeRuntime.pipe(Effect.provideService(ThreadStore, observed))
+
+      if (scenario === 'missing-evidence' || scenario === 'corrupt-evidence') {
+        const report = yield* resumed.runRecovery()
+
+        expect(report.blocked).toMatchObject([{ _tag: 'RecoveryBlocked' }])
+        expect(requests).toHaveLength(requestsBefore)
+        expect(calls).toBe(callsBefore)
+        expect(
+          yield* fixtureHistory(store, ThreadExportRequest.make({ threadId: receipt.threadId })),
+        ).toEqual(original)
+
+        return
+      }
+
+      yield* resumed.runRecovery()
+      if (scenario === 'approval') {
+        yield* resumed.resolveApproval(
+          ApprovalDecisionCommand.make({
+            submissionId: receipt.submissionId,
+            toolCallId: ToolCallId.make('call-4'),
+            decision: 'approved',
+            resolver: 'test',
+            reason: 'resume retained approval',
+          }),
+        )
+      }
+
+      if (scenario === 'reused-call-id') {
+        const failure = yield* resumed
+          .processThreadHead(receipt.threadId)
+          .pipe(Effect.provide(handlers), Effect.flip)
+
+        expect(failure._tag).toBe('RunJournalError')
+        expect(requests).toHaveLength(4)
+        // Recovery may finish call-3 before rejecting the reused call identity.
+        expect(callsBefore).toBe(2)
+        expect(calls).toBe(3)
+        expect(stepEffects).toBe(3)
+
+        const after = yield* fixtureHistory(
+          store,
+          ThreadExportRequest.make({ threadId: receipt.threadId }),
+        )
+
+        expect(after.records.slice(0, original.records.length)).toEqual(original.records)
+        expect(
+          after.records.flatMap(({ record }) =>
+            record.payload._tag === 'ModelResponseRecorded'
+              ? record.payload.toolOperations.filter(
+                (operation) => operation.toolCallId === 'call-1',
+              )
+              : []
+          ),
+        ).toHaveLength(1)
+
+        return
+      }
+
+      const completing: Array<ExecutionCheckpoint> = []
+
+      yield* failpoints.setHandler((location) =>
+        location === 'terminalize:before-publication'
+          ? store
+            .readExecution({
+              threadId: receipt.threadId,
+              runId: runIdForSubmission(receipt.submissionId),
+            })
+            .pipe(
+              Effect.map((checkpoint) => {
+                if (Option.isSome(checkpoint)) completing.push(checkpoint.value)
+              }),
+              Effect.orDie,
+            )
+          : Effect.void
+      )
+
+      const outcome = yield* resumed
+        .processThreadHead(receipt.threadId)
+        .pipe(Effect.provide(handlers))
+
+      yield* failpoints.clear
+      if (scenario === 'uncertain') {
+        expect(Option.isNone(outcome)).toBe(true)
+        expect(requests).toHaveLength(requestsBefore)
+        expect(calls).toBe(callsBefore)
+
+        const pending = yield* ledger.loadRecoverySnapshot(
+          RecoverySnapshotRequest.make({ submissionId: receipt.submissionId }),
+        )
+
+        expect(pending.submission.state).toBe('unknown')
+      } else {
+        expect(Option.isSome(outcome) && outcome.value.outcome).toBe('completed')
+        expect(calls).toBe(4)
+        expect(requests).toHaveLength(5)
+        const prompt = JSON.stringify(requests.at(-1))
+
+        expect(prompt).toContain('Original input')
+        expect(prompt).toContain('Keep original instructions.')
+        expect(prompt).toContain('Keep the continuation.')
+        expect(prompt).toContain('turn 5/10')
+        expect(prompt).toContain('tokens 440/')
+        expect(prompt).not.toContain('"id":"call-1"')
+        if (Option.isSome(outcome)) expect(outcome.value.usageSummary?.modelCalls).toBe(5)
+      }
+
+      const completed = yield* fixtureHistory(
+        store,
+        ThreadExportRequest.make({ threadId: receipt.threadId }),
+      )
+
+      expect(completed.records.slice(0, original.records.length)).toEqual(original.records)
+
+      const retained = yield* store.readExecution({
+        threadId: receipt.threadId,
+        runId: runIdForSubmission(receipt.submissionId),
+      })
+
+      if (scenario === 'uncertain') {
+        expect(Option.isSome(retained)).toBe(true)
+        if (Option.isSome(retained)) completing.push(retained.value)
+      } else {
+        expect(retained).toEqual(Option.none())
+      }
+      expect(completing).toHaveLength(1)
+
+      const starts = completing[0]!.operational.filter(
+        ({ payload }) => payload._tag === 'RunStarted',
+      )
+
+      expect(starts).toHaveLength(1)
+      expect(starts).toEqual(
+        execution.value.operational.filter(({ payload }) => payload._tag === 'RunStarted'),
+      )
+    }).pipe(Effect.provide(base)))
+})

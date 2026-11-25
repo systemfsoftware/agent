@@ -1,0 +1,80 @@
+{
+  "name": "@systemfsoftware/agent-storage-memory",
+  "version": "0.1.0-beta.192",
+  "description": "In-memory Thread store and submission ledger reference adapters for Effect Agent tests and conformance suites.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/systemfsoftware/agent.git",
+    "directory": "packages/storage-memory"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "type": "module",
+  "sideEffects": [],
+  "exports": {
+    ".": "./src/index.ts",
+    "./memory-message-delivery-store": "./src/MemoryMessageDeliveryStore.ts",
+    "./memory-schedule-store": "./src/MemoryScheduleStore.ts",
+    "./memory-semantic-index": "./src/MemorySemanticIndex.ts",
+    "./memory-submission-ledger": "./src/MemorySubmissionLedger.ts",
+    "./memory-subscription-store": "./src/MemorySubscriptionStore.ts",
+    "./memory-thread-store": "./src/MemoryThreadStore.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "./memory-message-delivery-store": {
+        "types": "./dist/MemoryMessageDeliveryStore.d.mts",
+        "default": "./dist/MemoryMessageDeliveryStore.mjs"
+      },
+      "./memory-schedule-store": {
+        "types": "./dist/MemoryScheduleStore.d.mts",
+        "default": "./dist/MemoryScheduleStore.mjs"
+      },
+      "./memory-semantic-index": {
+        "types": "./dist/MemorySemanticIndex.d.mts",
+        "default": "./dist/MemorySemanticIndex.mjs"
+      },
+      "./memory-submission-ledger": {
+        "types": "./dist/MemorySubmissionLedger.d.mts",
+        "default": "./dist/MemorySubmissionLedger.mjs"
+      },
+      "./memory-subscription-store": {
+        "types": "./dist/MemorySubscriptionStore.d.mts",
+        "default": "./dist/MemorySubscriptionStore.mjs"
+      },
+      "./memory-thread-store": {
+        "types": "./dist/MemoryThreadStore.d.mts",
+        "default": "./dist/MemoryThreadStore.mjs"
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "effect-tsgo tsrs --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "check:pack": "pnpm pack --pack-destination .pack && attw .pack/*.tgz --profile esm-only; s=$?; rm -rf .pack; exit $s"
+  },
+  "dependencies": {
+    "@systemfsoftware/agent": "workspace:*"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "catalog:",
+    "@effect/platform-node": "catalog:",
+    "@effect/vitest": "catalog:",
+    "effect": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "effect": "^4.1.0"
+  }
+}

@@ -1,0 +1,21 @@
+import { layer } from '@effect/vitest'
+import { codeExecutorConformanceCases } from '@systemfsoftware/agent-testing/code-executor-conformance'
+import {
+  inProcessCodeExecutorImplementation,
+  inProcessCodeExecutorLayer,
+} from '@systemfsoftware/agent-testing/code-executor-substitute'
+
+// The wall-clock conformance case needs the live Clock, so the suite opts out
+// of the injected test services.
+layer(inProcessCodeExecutorLayer, { excludeTestServices: true })(
+  'CAP-015 in-process CodeExecutor substitute',
+  (it) => {
+    for (
+      const conformanceCase of codeExecutorConformanceCases({
+        implementation: inProcessCodeExecutorImplementation,
+      })
+    ) {
+      it.effect(conformanceCase.name, () => conformanceCase.run)
+    }
+  },
+)
