@@ -52,6 +52,7 @@ it('upgrades a released work index without losing unknown operations or rewritin
       storage.sql.exec(
         'CREATE TABLE effect_agent_checkpoints ( thread_id TEXT NOT NULL, through_sequence INTEGER NOT NULL, checkpoint_json TEXT NOT NULL, PRIMARY KEY (thread_id, through_sequence), FOREIGN KEY (thread_id) REFERENCES effect_agent_threads(thread_id) ON DELETE RESTRICT )',
       )
+      storage.sql.exec('ALTER TABLE effect_agent_submissions DROP COLUMN run_settings_json')
       storage.sql.exec('UPDATE effect_agent_schema SET layout_version=28')
       storage.sql.exec("UPDATE effect_agent_meta SET value='28' WHERE key='storage_version'")
       storage.sql.exec('UPDATE effect_agent_threads SET work_version=3')
@@ -92,6 +93,7 @@ it('continues a long upgrade after cold opens and records only actual page progr
             batch: batch('prefix', [unknown('prefix-unknown')]),
           }),
         )
+        storage.sql.exec('ALTER TABLE effect_agent_submissions DROP COLUMN run_settings_json')
         storage.sql.exec('UPDATE effect_agent_schema SET layout_version=30')
         storage.sql.exec("UPDATE effect_agent_meta SET value='30' WHERE key='storage_version'")
         storage.sql.exec('UPDATE effect_agent_threads SET work_version=3')

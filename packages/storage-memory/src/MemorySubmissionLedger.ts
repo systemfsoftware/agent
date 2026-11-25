@@ -176,6 +176,7 @@ interface SubmissionRow {
   readonly parentLinkage: ParentLinkage | undefined
   readonly admissionGroup?: string
   readonly admissionFence?: AdmissionRequest['admissionFence']
+  readonly runSettings?: AdmissionRequest['runSettings']
   readonly workerAdmissionJson?: string
   readonly messageAdmissionJson?: string
 }
@@ -371,6 +372,7 @@ const toSnapshot = (row: SubmissionRow): SubmissionSnapshot =>
     createdAt: utc(row.createdAtMillis),
     ...(row.admissionGroup === undefined ? {} : { admissionGroup: row.admissionGroup }),
     ...(row.admissionFence === undefined ? {} : { admissionFence: row.admissionFence }),
+    ...(row.runSettings === undefined ? {} : { runSettings: row.runSettings }),
     ...(row.workerAdmissionJson === undefined
       ? {}
       : {
@@ -452,6 +454,9 @@ const fromRebuilt = (rebuilt: RebuiltSubmission): StoredSubmission => {
       ...(admission.admissionFence === undefined
         ? {}
         : { admissionFence: admission.admissionFence }),
+      ...(admission.runSettings === undefined
+        ? {}
+        : { runSettings: admission.runSettings }),
     },
     inputApplied: rebuilt.inputApplied,
     finalization: settlement === undefined ||
@@ -988,6 +993,9 @@ const makeSubmissionLedger = Effect.fnUntraced(
             ...(request.admissionFence === undefined
               ? {}
               : { admissionFence: request.admissionFence }),
+            ...(request.runSettings === undefined
+              ? {}
+              : { runSettings: request.runSettings }),
           }
 
           const stored: StoredSubmission = {
