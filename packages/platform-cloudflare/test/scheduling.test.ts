@@ -369,9 +369,12 @@ describe('Cloudflare Schedule Owner', () => {
         state.storage.sql.exec(
           "UPDATE effect_agent_schedules SET deadline_at_millis = 0, record_json = json_set(record_json, '$.nextAtMillis', 0)",
         )
-        state.storage.sql.exec('UPDATE effect_cf_scheduled_alarms SET run_at = 0, wake_at = 0, retry_at = NULL')
+        state.storage.sql.exec(
+          'UPDATE effect_cf_scheduled_alarms SET run_at = 0, wake_at = 0, retry_at = CASE WHEN retry_at IS NULL THEN NULL ELSE 0 END',
+        )
       })
-      await runDurableObjectAlarm(stub)
+      // A missing native alarm means the failure dropped its recovery wake.
+      expect(await runDurableObjectAlarm(stub)).toBe(true)
     }
 
     await manage(data, Date.now() + 86_400_000, 'recover beyond bounded native retries')
