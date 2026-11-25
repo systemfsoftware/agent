@@ -2,8 +2,12 @@
   "$schema": "./node_modules/@effect/tsgo/schema.json",
   "compilerOptions": {
     "target": "es2023",
-    "lib": ["ES2023"],
-    "types": ["node"],
+    "lib": [
+      "ES2023"
+    ],
+    "types": [
+      "node"
+    ],
     "module": "esnext",
     "moduleResolution": "bundler",
     "esModuleInterop": true,
@@ -19,7 +23,10 @@
       {
         "name": "@effect/language-service",
         "ignoreEffectWarningsInTscExitCode": true,
-        "effectFn": ["span", "untraced"],
+        "effectFn": [
+          "span",
+          "untraced"
+        ],
         "allowedUnstableApis": [
           "@effect/ai-anthropic",
           "@effect/ai-openai",
@@ -138,16 +145,25 @@
         },
         "overrides": [
           {
-            "include": ["packages/**/*", "../packages/**/*", "../../packages/**/*"],
+            "include": [
+              "packages/**/*",
+              "../packages/**/*",
+              "../../packages/**/*"
+            ],
             "options": {
-              "namespaceImportPackages": ["effect", "@effect/*"],
+              "namespaceImportPackages": [
+                "effect",
+                "@effect/*"
+              ],
               "diagnosticSeverity": {
                 "preferNamespaceImport": "error"
               }
             }
           },
           {
-            "include": ["**/src/**/*.ts"],
+            "include": [
+              "**/src/**/*.ts"
+            ],
             "options": {
               "diagnosticSeverity": {
                 "nodeBuiltinImport": "warning",
@@ -157,6 +173,9 @@
           }
         ]
       }
+    ],
+    "customConditions": [
+      "@systemfsoftware/source"
     ]
   }
 }

@@ -5,7 +5,10 @@
     "noEmit": false,
     "emitDeclarationOnly": true,
     "outDir": "node_modules/.cache/tsc/app",
-    "tsBuildInfoFile": "node_modules/.cache/tsconfig.app.tsbuildinfo"
+    "tsBuildInfoFile": "node_modules/.cache/tsconfig.app.tsbuildinfo",
+    "customConditions": [
+      "@systemfsoftware/source"
+    ]
   },
   "include": [
     ".astro/types.d.ts",

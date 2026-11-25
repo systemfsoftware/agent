@@ -6,9 +6,18 @@
   "packs": {
     "build-output-imports": {},
     "cell-architecture": {},
-    "npm-provenance": { "repositoryUrl": "`\"git+https://github.com/systemfsoftware/agent.git\"`" },
+    "npm-provenance": {
+      "repositoryUrl": "`\"git+https://github.com/systemfsoftware/agent.git\"`"
+    },
     "ts-extensions": {},
     "tsconfig-roles": {},
-    "typecheck-build-mode": {}
+    "typecheck-build-mode": {},
+    "source-resolution": {
+      "condition": "r\"['\\\"]@systemfsoftware/source['\\\"]\"",
+      "presets": "r\"\\\"@systemfsoftware/tsconfig/.*\\\"\"",
+      "presetFiles": "r\"(?:.*/)?tsconfig/(?:(?:bundler|tsc)/.*|node)\\.json\"",
+      "sharedVitestConfig": "r\"['\\\"]@systemfsoftware/vitest-config['\\\"]\"",
+      "sharedVitestConfigFile": "r\"(?:.*/)?vitest-config/lib/base\\.js\""
+    }
   }
 }
