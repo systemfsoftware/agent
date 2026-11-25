@@ -103,7 +103,7 @@
               },
               "outcome": {
                 "type": "string",
-                "enum": ["completed", "failed", "aborted"]
+                "enum": ["completed", "failed", "aborted", "stopped"]
               },
               "runId": {
                 "type": "string",
@@ -141,6 +141,9 @@
                 ]
               },
               "hostFailure": {
+                "$ref": "#/$defs/@effect-agent~1thread~1PersistedJsonEncoded"
+              },
+              "hostStop": {
                 "$ref": "#/$defs/@effect-agent~1thread~1PersistedJsonEncoded"
               },
               "usageSummary": {
@@ -2120,7 +2123,7 @@
         },
         "childOutcome": {
           "type": "string",
-          "enum": ["completed", "failed", "aborted"]
+          "enum": ["completed", "failed", "aborted", "stopped"]
         },
         "usageSummary": {
           "$ref": "#/$defs/@effect-agent~1thread~1PersistedJsonEncoded"

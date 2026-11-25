@@ -1799,6 +1799,10 @@ export const makeWorkerRuntime = Effect.fnUntraced(function*(options: WorkerRunt
     )?.record.payload
 
     if (host?._tag !== 'SubmissionSettled') return yield* failure('inspect', 'corrupt')
+    const hostOutcome = host.outcome
+
+    // A host halt settles only root Runs; a worker Run never settles `stopped`.
+    if (hostOutcome === 'stopped') return yield* failure('inspect', 'corrupt')
 
     const messageId = yield* withCrypto(
       digestJson(['worker-report', submission.threadId, runId]),
@@ -1896,7 +1900,7 @@ export const makeWorkerRuntime = Effect.fnUntraced(function*(options: WorkerRunt
           }),
           runId,
           settlementId: host.settlementId,
-          outcome: host.outcome,
+          outcome: hostOutcome,
           encodedParameters: hostAdmission.parameters,
           encodedResult: host.result ?? null,
           ...(host.outcome === 'failed' ? { diagnostic: host.result } : {}),
@@ -2783,13 +2787,16 @@ export const makeWorkerRuntime = Effect.fnUntraced(function*(options: WorkerRunt
       const result = host?._tag === 'SubmissionSettled' ? host : record
 
       if (result.outcome !== record.outcome) return yield* failure('inspect', 'corrupt')
+      const settledOutcome = settlement.outcome
+
+      if (settledOutcome === 'stopped') return yield* failure('inspect', 'corrupt')
 
       return {
         _tag: 'Settled',
         receipt: request.receipt,
         settlementId: settlement.settlementId,
         ...(result.runId === undefined ? {} : { runId: result.runId }),
-        outcome: settlement.outcome,
+        outcome: settledOutcome,
         encodedParameters: admission.parameters,
         encodedResult: result.result ?? null,
         ...(result.outcome === 'failed' ? { diagnostic: result.result } : {}),
@@ -3093,10 +3100,14 @@ export const makeWorkerRuntime = Effect.fnUntraced(function*(options: WorkerRunt
             return yield* failure(operation, 'corrupt')
           }
 
+          const terminalOutcome = terminal?.outcome ?? null
+
+          if (terminalOutcome === 'stopped') return yield* failure(operation, 'corrupt')
+
           run = {
             runId: latestRunId,
             hostReceipt: host.receipt,
-            outcome: terminal?.outcome ?? null,
+            outcome: terminalOutcome,
             disposition: terminal?.runDisposition ?? null,
           }
         }
