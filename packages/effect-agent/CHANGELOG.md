@@ -1,4 +1,4 @@
-# @yielded/agent
+# @systemfsoftware/agent
 
 ## 0.3.0
 

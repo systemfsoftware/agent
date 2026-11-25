@@ -1,4 +1,4 @@
-# @yielded/agent-platform-node
+# @systemfsoftware/agent-platform-node
 
 ## 0.1.2
 

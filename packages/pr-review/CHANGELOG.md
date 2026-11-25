@@ -1,4 +1,4 @@
-# @yielded/agent-pr-review
+# @systemfsoftware/agent-pr-review
 
 ## 0.1.2
 

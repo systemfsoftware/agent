@@ -1,4 +1,4 @@
-# @yielded/agent-ai-decision
+# @systemfsoftware/agent-ai-decision
 
 ## 0.1.0-beta.192
 

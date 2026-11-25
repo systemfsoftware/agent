@@ -1,4 +1,4 @@
-# @yielded/agent-storage-cloudflare
+# @systemfsoftware/agent-storage-cloudflare
 
 ## 0.2.1
 

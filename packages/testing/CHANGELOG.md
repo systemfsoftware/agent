@@ -1,4 +1,4 @@
-# @yielded/agent-testing
+# @systemfsoftware/agent-testing
 
 ## 0.2.0
 
