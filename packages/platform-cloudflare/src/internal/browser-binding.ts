@@ -13,7 +13,7 @@ import puppeteer, {
   type ConnectionTransport,
 } from 'puppeteer-core/lib/esm/puppeteer/puppeteer-core-browser.js'
 
-import { browserFailure, BrowserRunFailure, reportBrowserCause, reportedBrowserError } from './browser-failure.ts'
+import { browserFailure, BrowserRunFailure, reportBrowserCause, reportedBrowserError } from './browser-failure'
 
 /** Headers establish a failure before optional diagnostic I/O; owners retain it during interruption. */
 export class BrowserRunRefusal {

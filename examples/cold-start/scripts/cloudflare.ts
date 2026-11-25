@@ -16,8 +16,8 @@ import {
 } from 'effect'
 import { HttpClient, HttpClientRequest } from 'effect/http'
 
-import { type Bundle, State, type Upload } from './evidence.ts'
-import { BenchError, check, hash, nonce, read, save, workspace } from './platform.ts'
+import { type Bundle, State, type Upload } from './evidence'
+import { BenchError, check, hash, nonce, read, save, workspace } from './platform'
 
 const Namespaces = Schema.Array(
   Schema.Struct({

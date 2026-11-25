@@ -20,8 +20,8 @@ import * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'
 import * as SqlClient from 'effect/sql/SqlClient'
 
-import { makeSqlQuery, SqlInteger } from './SqlStorage.ts'
-import { SqlStorageProgress } from './SqlStorageProgress.ts'
+import { makeSqlQuery, SqlInteger } from './SqlStorage'
+import { SqlStorageProgress } from './SqlStorageProgress'
 
 const codec = Schema.fromJsonString(LifecyclePublication)
 const maxPendingPayloadBytes = 4 * 1024 * 1024

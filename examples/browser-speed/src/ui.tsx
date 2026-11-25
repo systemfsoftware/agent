@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import { useAtom, useAtomSet, useAtomValue } from '@effect/atom-react'
 import { Option, Predicate, Redacted, Schema } from 'effect'
 import { AsyncResult } from 'effect/reactivity'
@@ -41,7 +42,7 @@ import {
   type Span,
   StartUrl,
   supportsUltrafast,
-} from './contract.ts'
+} from './contract'
 import {
   accountAtom,
   cancelPrivateEntryAtom,
@@ -74,7 +75,7 @@ import {
   verifiedMillis,
   viewAtom,
   watchingAtom,
-} from './state.ts'
+} from './state'
 
 // Native provider citation IDs have no meaning outside their response; source links carry the references.
 const formatReply = (text: string) =>

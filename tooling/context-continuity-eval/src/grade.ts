@@ -4,9 +4,9 @@ import { project } from '@systemfsoftware/agent/thread-context-history-projectio
 import type { ExecutionCheckpoint } from '@systemfsoftware/agent/thread-store'
 import { Effect, Option, Schema } from 'effect'
 
-import { type Check, check, type ProjectStatus, type WindowEvidence } from './contracts.ts'
-import { hasSearchPathToRead, originalArchiveRecord } from './evidence.ts'
-import { gradeStatus, type ScenarioPhase } from './scenario.ts'
+import { type Check, check, type ProjectStatus, type WindowEvidence } from './contracts'
+import { hasSearchPathToRead, originalArchiveRecord } from './evidence'
+import { gradeStatus, type ScenarioPhase } from './scenario'
 
 export const gradePhase = Effect.fn('ContextContinuity.gradePhase')(function*(
   phase: ScenarioPhase,

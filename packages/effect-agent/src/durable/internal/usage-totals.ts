@@ -1,6 +1,6 @@
 import * as Effect from 'effect/Effect'
 
-import { type ModelCallUsage, summarizeModelUsage } from '../../core/Usage.ts'
+import { type ModelCallUsage, summarizeModelUsage } from '../../core/Usage'
 
 /** Captured calls are additive and nonnegative; progress does not need attribution groups. */
 export const continuationUsage = (calls: ReadonlyArray<ModelCallUsage>) =>

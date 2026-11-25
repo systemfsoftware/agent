@@ -3,9 +3,9 @@ import { Context, DateTime, Effect, Layer, Redacted, Schema } from 'effect'
 import { FetchHttpClient, HttpClient, HttpClientRequest } from 'effect/http'
 import { SqlClient } from 'effect/sql/SqlClient'
 
-import type { OpenAiConnection } from '../credential-domain.ts'
-import { PlannerError } from '../domain.ts'
-import { ownerOfThread } from './tenancy.ts'
+import type { OpenAiConnection } from '../credential-domain'
+import { PlannerError } from '../domain'
+import { ownerOfThread } from './tenancy'
 
 export interface CredentialEnvironment extends AuthEnvironment {
   readonly AUTH_YIELDED_CLIENT_SECRET?: string

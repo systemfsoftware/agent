@@ -3,17 +3,17 @@ import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
-import type { HostProtocolError } from './internal/host-protocol-error.ts'
+import type { HostProtocolError } from './internal/host-protocol-error'
 import {
   Frame as LiveTextFrame,
   isBoundedEvent,
   liveTextProtocolFailure,
   MAX_DRAFT_PARTS,
   MAX_FRAME_BYTES,
-} from './internal/live-text-protocol.ts'
+} from './internal/live-text-protocol'
 
-export { HostProtocolError } from './internal/host-protocol-error.ts'
-export { Frame as LiveTextFrame } from './internal/live-text-protocol.ts'
+export { HostProtocolError } from './internal/host-protocol-error'
+export { Frame as LiveTextFrame } from './internal/live-text-protocol'
 
 const decodeLiveTextFrame = Schema.decodeUnknownSync(Schema.fromJsonString(LiveTextFrame))
 

@@ -4,7 +4,7 @@ import type { ThreadStore } from '@systemfsoftware/agent/thread-store'
 import * as Effect from 'effect/Effect'
 import * as String from 'effect/String'
 
-import { storage as makeStorage, withTemporaryDatabase } from './harness.ts'
+import { storage as makeStorage, withTemporaryDatabase } from './harness'
 
 const withStorage = <A, E>(url: string, effect: Effect.Effect<A, E, ThreadStore>) =>
   Effect.provide(

@@ -1,7 +1,7 @@
 import * as Response from 'effect/ai/Response'
 
-import { utf8ByteLength } from '../../core/internal/utf8.ts'
-import { boundedValueFootprint } from './bounded-value.ts'
+import { utf8ByteLength } from '../../core/internal/utf8'
+import { boundedValueFootprint } from './bounded-value'
 
 const brand = '~effect/ai/Response/Part'
 const keys = [brand, 'type', 'id', 'delta', 'metadata']

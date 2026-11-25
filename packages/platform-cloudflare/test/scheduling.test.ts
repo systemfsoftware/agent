@@ -13,7 +13,7 @@ import * as Schema from 'effect/Schema'
 import * as TestClock from 'effect/testing/TestClock'
 import { describe, expect, it } from 'vitest'
 
-import { scheduleAlarmHandler } from '../src/CloudflareScheduling.ts'
+import { scheduleAlarmHandler } from '../src/CloudflareScheduling'
 import {
   armScheduleAdmissionPause,
   armScheduleEviction,
@@ -26,8 +26,8 @@ import {
   schedulePrepareHolds,
   TEST_DIGESTS,
   TEST_PRINCIPAL,
-} from './fixtures.ts'
-import { laneRows, runScheduleClient, scheduleStubFor } from './harness.ts'
+} from './fixtures'
+import { laneRows, runScheduleClient, scheduleStubFor } from './harness'
 
 const AlarmRow = Schema.Struct({ run_at: Schema.Finite, payload: Schema.String })
 

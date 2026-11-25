@@ -14,7 +14,7 @@ import {
   MeasureRequest,
   StoredMeasurement,
   StoredMeasureResponse,
-} from './model.ts'
+} from './model'
 import {
   AwaitResult,
   ColdResult,
@@ -34,7 +34,7 @@ import {
   TransientObjectTransport,
   UnknownOutcome,
   WorkerStart,
-} from './worker/protocol.ts'
+} from './worker/protocol'
 
 class ObservationError extends Schema.TaggedError<ObservationError>()('ObservationError', {
   message: Schema.String,

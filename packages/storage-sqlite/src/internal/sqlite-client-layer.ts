@@ -2,7 +2,7 @@ import * as SqliteClient from '@effect/sql-sqlite-node/SqliteClient'
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 
-import { SqliteStorageError } from '../SqliteStorageError.ts'
+import { SqliteStorageError } from '../SqliteStorageError'
 
 export const sqliteClientLayer = (
   options: Parameters<typeof SqliteClient.layer>[0],

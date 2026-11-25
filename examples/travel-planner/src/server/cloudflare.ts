@@ -16,8 +16,8 @@ import type { Tool } from 'effect/ai'
 import { FetchHttpClient, HttpRouter } from 'effect/http'
 import { RpcSerialization, RpcServer } from 'effect/rpc'
 
-import { TripToolsLive } from '../agent.ts'
-import type { TripSiteStore } from '../domain.ts'
+import { TripToolsLive } from '../agent'
+import type { TripSiteStore } from '../domain'
 import {
   defaultPlannerSettings,
   PlannerError,
@@ -26,27 +26,27 @@ import {
   PlannerRpcs,
   PlannerSnapshot,
   PlannerWorkerDetail,
-} from '../domain.ts'
-import { ReadTravelPageLive } from '../research.ts'
-import { ResearchAuthorizationLive, scoutAttemptLayer } from '../research/runtime.ts'
+} from '../domain'
+import { ReadTravelPageLive } from '../research'
+import { ResearchAuthorizationLive, scoutAttemptLayer } from '../research/runtime'
 import {
   updatingResearchScout,
   UpdatingResearchScoutActions,
   UpdatingResearchScoutBackground,
   UpdatingResearchScoutReporting,
-} from '../research/scout.ts'
-import { AppBuildBucketLive } from '../trip-app/bindings.ts'
-import { editorAttemptLayer, EditorHostLive } from '../trip-app/editor-runtime.ts'
+} from '../research/scout'
+import { AppBuildBucketLive } from '../trip-app/bindings'
 import {
   appEditor,
   AppEditorReporting,
   ReportingAppEditorActions,
   ReportingAppEditorBackground,
-} from '../trip-app/editor.ts'
-import { OwnerAppRepositoryLive, serveAppRepository } from '../trip-app/remote.ts'
-import { AppSourceLive, createTripApp, restoreTripApp, retryTripAppBuild } from '../trip-app/service.ts'
-import { AppToolsLive } from '../trip-app/tools-live.ts'
-import { PlannerModel, plannerSnapshot, sendMessage, voiceWork } from './application.ts'
+} from '../trip-app/editor'
+import { editorAttemptLayer, EditorHostLive } from '../trip-app/editor-runtime'
+import { OwnerAppRepositoryLive, serveAppRepository } from '../trip-app/remote'
+import { AppSourceLive, createTripApp, restoreTripApp, retryTripAppBuild } from '../trip-app/service'
+import { AppToolsLive } from '../trip-app/tools-live'
+import { PlannerModel, plannerSnapshot, sendMessage, voiceWork } from './application'
 import {
   CredentialSource,
   credentialSourceLayer,
@@ -54,22 +54,22 @@ import {
   credentialStoreLayer,
   encodeStoredCredential,
   validateOpenAiKey,
-} from './credentials.ts'
+} from './credentials'
 import {
   DiagnosticContext,
   DiagnosticObserverLive,
   FailureDiagnosticsLive,
   readDiagnostics,
   RecordedDiagnostics,
-} from './diagnostics.ts'
-import { liveModel } from './models.ts'
-import { planner } from './planner.ts'
-import { PlannerAttempt, ProgressStore } from './progress.ts'
-import { PlannerSettingsStore, PlannerSettingsStoreLive } from './settings.ts'
-import { ownerOfThread, privateConversation, publicSnapshot } from './tenancy.ts'
-import { OwnerTripRepositoryLive, serveTripRepository } from './trip-rpc.ts'
-import { publishTrip, TripRepository } from './trips.ts'
-import { plannerWorker, WorkerLocator, workerStatus, WorkerStatusRequest } from './worker-state.ts'
+} from './diagnostics'
+import { liveModel } from './models'
+import { planner } from './planner'
+import { PlannerAttempt, ProgressStore } from './progress'
+import { PlannerSettingsStore, PlannerSettingsStoreLive } from './settings'
+import { ownerOfThread, privateConversation, publicSnapshot } from './tenancy'
+import { OwnerTripRepositoryLive, serveTripRepository } from './trip-rpc'
+import { publishTrip, TripRepository } from './trips'
+import { plannerWorker, WorkerLocator, workerStatus, WorkerStatusRequest } from './worker-state'
 
 declare global {
   namespace Cloudflare {
@@ -443,8 +443,9 @@ export const plannerApplication = <E, R>(
 const PlannerLive = Layer.unwrap(
   Effect.gen(function*() {
     const env = yield* WorkerEnvironment
+    const browser: BrowserQuickActionCaptureOptions['browser'] | undefined = env.BROWSER
 
-    if (env.BROWSER === undefined) {
+    if (browser === undefined) {
       return yield* PlannerError.make({
         code: 'unavailable',
         message: 'The planner requires a Browser Run binding.',
@@ -460,7 +461,7 @@ const PlannerLive = Layer.unwrap(
       ReadTravelPageLive.pipe(
         Layer.provide(
           browserQuickActionCaptureLayer.pipe(
-            Layer.provide(BrowserQuickActionBrowserBinding.layer({ browser: env.BROWSER })),
+            Layer.provide(BrowserQuickActionBrowserBinding.layer({ browser })),
           ),
         ),
       ),

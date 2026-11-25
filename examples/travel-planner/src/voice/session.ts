@@ -9,10 +9,10 @@ import {
   type SpokenMessage,
   type VoiceWork,
   type VoiceWorkRequest,
-} from '../domain.ts'
-import { type VoiceBackground, websiteContext, websiteUpdate } from './background.ts'
-import { appendCaption, delegationMessage, isCaption, type VoiceRequest, voiceUpdate } from './delegation.ts'
-import { type Caption, contextParts, type LiveEvent, shortContext, VoiceError } from './protocol.ts'
+} from '../domain'
+import { type VoiceBackground, websiteContext, websiteUpdate } from './background'
+import { appendCaption, delegationMessage, isCaption, type VoiceRequest, voiceUpdate } from './delegation'
+import { type Caption, contextParts, type LiveEvent, shortContext, VoiceError } from './protocol'
 
 const randomUUID = SecureRandom.SecureRandom.use((crypto) => crypto.uuidV4()).pipe(
   Effect.provide(BrowserCrypto.layer),

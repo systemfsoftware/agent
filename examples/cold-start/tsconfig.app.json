@@ -1,0 +1,29 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": [
+      "ES2023"
+    ],
+    "types": [
+      "node",
+      "@cloudflare/workers-types"
+    ],
+    "composite": true,
+    "noEmit": false,
+    "emitDeclarationOnly": true,
+    "outDir": "node_modules/.cache/tsc/app",
+    "tsBuildInfoFile": "node_modules/.cache/tsconfig.app.tsbuildinfo"
+  },
+  "include": [
+    "src",
+    "scripts/*.ts"
+  ],
+  "references": [
+    {
+      "path": "../../packages/effect-agent/tsconfig.app.json"
+    },
+    {
+      "path": "../../packages/platform-cloudflare/tsconfig.app.json"
+    }
+  ]
+}

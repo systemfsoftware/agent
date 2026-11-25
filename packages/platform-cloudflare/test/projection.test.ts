@@ -35,8 +35,8 @@ import * as Stream from 'effect/Stream'
 import * as TestClock from 'effect/testing/TestClock'
 import { describe, expect, it } from 'vitest'
 
-import { DurableAlarmError, ThreadMaintenance, ThreadMaintenanceFailpoint, ThreadMutationGate } from '../src/Alarm.ts'
-import { CloudflareThreadClient } from '../src/CloudflareThreadClient.ts'
+import { DurableAlarmError, ThreadMaintenance, ThreadMaintenanceFailpoint, ThreadMutationGate } from '../src/Alarm'
+import { CloudflareThreadClient } from '../src/CloudflareThreadClient'
 import {
   approvalDefinition,
   armMaintenancePause,
@@ -48,7 +48,7 @@ import {
   plannerDefinition,
   releaseMaintenancePause,
   submitOptions,
-} from './fixtures.ts'
+} from './fixtures'
 import {
   allSettled,
   anyInState,
@@ -58,14 +58,14 @@ import {
   runClient,
   scheduledAlarm,
   stubFor,
-} from './harness.ts'
+} from './harness'
 import {
   hostMaintenanceControls,
   hostMutationControls,
   projectionControls,
   ProjectionIndex,
-} from './projection-fixture.ts'
-import { PUBLICATION_KEY, PublicationCursor } from './publication-fixture.ts'
+} from './projection-fixture'
+import { PUBLICATION_KEY, PublicationCursor } from './publication-fixture'
 
 const randomUUID = SecureRandom.SecureRandom.use((crypto) => crypto.uuidV4()).pipe(
   Effect.provide(BrowserCrypto.layer),

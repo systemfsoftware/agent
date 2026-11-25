@@ -9,32 +9,32 @@ import * as Schema from 'effect/Schema'
 import * as Scope from 'effect/Scope'
 import * as Tracer from 'effect/Tracer'
 
-import type * as Agent from '../../core/Agent.ts'
+import type * as Agent from '../../core/Agent'
 import {
   type InputPromptSource,
   type InstructionSource,
   type ModelServices,
   type RunDispositionDeclaration,
-} from '../../core/Agent.ts'
-import { AgentId, type ThreadId } from '../../core/Identifiers.ts'
-import { getToolExecutionKind } from '../../core/SubagentContract.ts'
+} from '../../core/Agent'
+import { AgentId, type ThreadId } from '../../core/Identifiers'
+import { getToolExecutionKind } from '../../core/SubagentContract'
 import {
   AdditionalToolCatalog,
   DiscoveryTool,
   IncludesCatalogDocumentation,
   PinnedTool,
   ToolNamespace,
-} from '../../core/ToolExposure.ts'
-import { type RuntimeBinding } from '../../engine/AgentRuntime.ts'
-import { ContextRolloverTool } from '../../engine/ContextWindow.ts'
-import { getToolExecutionClass } from '../../engine/DurableStep.ts'
-import { withAttempt as withProvisionalTextAttempt } from '../../engine/internal/provisional-text.ts'
-import { type WorkerReporting, WorkerReportPreparationFailure } from '../../engine/SubagentHost.ts'
-import { digestDefinitions, DigestError, digestJson } from '../Digest.ts'
-import type { DurableWorkerFailure, DurableWorkerRequirements } from '../DurableAgentRuntime.ts'
-import type { DefinitionDigestInput, Digest, PersistedJson } from '../Records.ts'
-import { DefinitionDigests, ReplayContract } from '../Records.ts'
-import type { Claim, Settlement, SubmissionSnapshot } from '../SubmissionLedger.ts'
+} from '../../core/ToolExposure'
+import { type RuntimeBinding } from '../../engine/AgentRuntime'
+import { ContextRolloverTool } from '../../engine/ContextWindow'
+import { getToolExecutionClass } from '../../engine/DurableStep'
+import { withAttempt as withProvisionalTextAttempt } from '../../engine/internal/provisional-text'
+import { type WorkerReporting, WorkerReportPreparationFailure } from '../../engine/SubagentHost'
+import { digestDefinitions, DigestError, digestJson } from '../Digest'
+import type { DurableWorkerFailure, DurableWorkerRequirements } from '../DurableAgentRuntime'
+import type { DefinitionDigestInput, Digest, PersistedJson } from '../Records'
+import { DefinitionDigests, ReplayContract } from '../Records'
+import type { Claim, Settlement, SubmissionSnapshot } from '../SubmissionLedger'
 
 /** No unique current Binding can execute the stable Agent identity or decode its accepted input. */
 export class BindingUnavailable extends Schema.TaggedError<BindingUnavailable>()(

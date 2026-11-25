@@ -39,7 +39,7 @@ import {
   decodeThreadId,
   makeCheckpointToolLayer,
   supplierCounts,
-} from './fixtures.ts'
+} from './fixtures'
 import {
   assertConvergence,
   expectKilled,
@@ -48,7 +48,7 @@ import {
   runWorkerToExit,
   withCrashSite,
   withHost,
-} from './harness.ts'
+} from './harness'
 
 const openDatabase = (filename: string) =>
   Effect.acquireRelease(

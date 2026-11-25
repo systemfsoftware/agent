@@ -19,7 +19,7 @@ import * as Schema from 'effect/Schema'
 import * as SqlClient from 'effect/sql/SqlClient'
 import type * as SqlError from 'effect/sql/SqlError'
 
-import { DoStorageCompatibilityError, DoStorageCorruptionError, DoStorageError } from '../DoStorageError.ts'
+import { DoStorageCompatibilityError, DoStorageCorruptionError, DoStorageError } from '../DoStorageError'
 
 export const CurrentDoStorageVersion = 31
 

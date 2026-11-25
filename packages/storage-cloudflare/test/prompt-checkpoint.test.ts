@@ -22,15 +22,7 @@ import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 import { expect, it } from 'vitest'
 
-import {
-  id,
-  TEST_DEPLOYMENT,
-  TEST_DIGESTS,
-  TEST_PRINCIPAL,
-  TEST_PRODUCER,
-  thread,
-  withThreadStorage,
-} from './harness.ts'
+import { id, TEST_DEPLOYMENT, TEST_DIGESTS, TEST_PRINCIPAL, TEST_PRODUCER, thread, withThreadStorage } from './harness'
 
 // Requested cold-checkpoint seam: native persisted bytes and a real reopen distinguish
 // a verified hit from a silently stale prompt or an implementation that always rescans.

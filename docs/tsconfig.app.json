@@ -1,0 +1,19 @@
+{
+  "extends": "astro/tsconfigs/strict",
+  "compilerOptions": {
+    "composite": true,
+    "noEmit": false,
+    "emitDeclarationOnly": true,
+    "outDir": "node_modules/.cache/tsc/app",
+    "tsBuildInfoFile": "node_modules/.cache/tsconfig.app.tsbuildinfo"
+  },
+  "include": [
+    ".astro/types.d.ts",
+    "src/**/*.ts",
+    "integrations/**/*.ts"
+  ],
+  "exclude": [
+    "dist",
+    "snippets"
+  ]
+}

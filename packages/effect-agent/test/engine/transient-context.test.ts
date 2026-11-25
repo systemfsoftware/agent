@@ -20,7 +20,7 @@ import * as Ref from 'effect/Ref'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
-import { ThreadHistory } from '../../src/engine/ThreadHistory.ts'
+import { ThreadHistory } from '../../src/engine/ThreadHistory'
 
 let threadSequence = 0
 

@@ -17,8 +17,8 @@ import * as Option from 'effect/Option'
 import * as PubSub from 'effect/PubSub'
 import * as Result from 'effect/Result'
 
-import type { NodeDurableHost } from './NodeDurableHost.ts'
-import { nodePreparedInputAdmissionLayer } from './NodeSubscriptions.ts'
+import type { NodeDurableHost } from './NodeDurableHost'
+import { nodePreparedInputAdmissionLayer } from './NodeSubscriptions'
 
 /** One bounded hint slot for the single supported Node scheduler. Indexed polling repairs loss. */
 export const nodeScheduleWakeLayer: Layer.Layer<ScheduleWake> = Layer.effect(

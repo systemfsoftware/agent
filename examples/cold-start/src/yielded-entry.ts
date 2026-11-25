@@ -1,3 +1,3 @@
-export { default } from './front.ts'
-export { EmptyObject } from './identity.ts'
-export { YieldedObject as Thread } from './yielded.ts'
+export { default } from './front'
+export { EmptyObject } from './identity'
+export { YieldedObject as Thread } from './yielded'

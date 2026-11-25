@@ -10,13 +10,13 @@ import { getRunInput, ThreadReader, ThreadStore, ThreadTailRequest } from '@syst
 import { FrameworkMessage } from '@systemfsoftware/agent/worker'
 import { Effect, Layer, Option, Schema, Stream } from 'effect'
 
-import { PlannerError, PlannerInput } from '../domain.ts'
-import { PlannerAttempt, ProgressStore } from '../server/progress.ts'
-import { publicationAuthorization } from '../server/security.ts'
-import { ownerOfThread } from '../server/tenancy.ts'
-import { CheckedFinishResearchLive } from './completion.ts'
-import { researchCoordinatorId, ScoutInput } from './contracts.ts'
-import { UpdatingResearchScout, updatingResearchScout } from './scout.ts'
+import { PlannerError, PlannerInput } from '../domain'
+import { PlannerAttempt, ProgressStore } from '../server/progress'
+import { publicationAuthorization } from '../server/security'
+import { ownerOfThread } from '../server/tenancy'
+import { CheckedFinishResearchLive } from './completion'
+import { researchCoordinatorId, ScoutInput } from './contracts'
+import { UpdatingResearchScout, updatingResearchScout } from './scout'
 
 const unavailable = () =>
   PlannerError.make({

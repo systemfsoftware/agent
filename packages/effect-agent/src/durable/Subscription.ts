@@ -2,13 +2,13 @@ import * as Context from 'effect/Context'
 import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 
-import { AgentId, ThreadId } from '../core/Identifiers.ts'
-import { Receipt } from '../core/Receipt.ts'
-import type { PreparedInputAuthorizationDecision } from './PreparedInputAdmission.ts'
-import { PreparedInput } from './PreparedInputAdmission.ts'
-import { DefinitionDigests, Digest, PersistedJson } from './Records.ts'
-import { ScheduleDestination, ScheduleInstant, ScheduleRetry } from './Schedule.ts'
-import { AdmissionFence, AdmissionGroup, IdempotencyKey, Principal } from './SubmissionLedger.ts'
+import { AgentId, ThreadId } from '../core/Identifiers'
+import { Receipt } from '../core/Receipt'
+import type { PreparedInputAuthorizationDecision } from './PreparedInputAdmission'
+import { PreparedInput } from './PreparedInputAdmission'
+import { DefinitionDigests, Digest, PersistedJson } from './Records'
+import { ScheduleDestination, ScheduleInstant, ScheduleRetry } from './Schedule'
+import { AdmissionFence, AdmissionGroup, IdempotencyKey, Principal } from './SubmissionLedger'
 
 export const SubscriptionName = Schema.NonEmptyString.check(
   Schema.isMaxLength(256),

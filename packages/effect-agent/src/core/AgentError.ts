@@ -1,7 +1,7 @@
 import * as Schema from 'effect/Schema'
 
-import * as FailureDiagnostic from './FailureDiagnostic.ts'
-import { ToolCallId } from './Identifiers.ts'
+import * as FailureDiagnostic from './FailureDiagnostic'
+import { ToolCallId } from './Identifiers'
 
 /** Input projection, encoding, or host preparation failed during a Run. */
 export class AgentInputError extends Schema.TaggedError<AgentInputError>()('AgentInputError', {

@@ -1,15 +1,9 @@
 import { Config, Context, type Duration, Effect, Layer, Option, Redacted, Schedule, Schema, Stream } from 'effect'
 import { Ndjson } from 'effect/encoding'
 
-import {
-  DriverRecovery,
-  DriverRequest,
-  MeasureOutcome,
-  type MeasureRequest,
-  type StoredMeasureResponse,
-} from './model.ts'
-import { BenchError, redact } from './platform.ts'
-import { errorText, Failure, UnknownOutcome } from './worker/protocol.ts'
+import { DriverRecovery, DriverRequest, MeasureOutcome, type MeasureRequest, type StoredMeasureResponse } from './model'
+import { BenchError, redact } from './platform'
+import { errorText, Failure, UnknownOutcome } from './worker/protocol'
 
 /** A transient transport failure; only callers with an idempotent operation may retry. */
 export class RequestError extends Schema.TaggedError<RequestError>()('RequestError', {

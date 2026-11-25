@@ -27,9 +27,9 @@ import * as Redacted from 'effect/Redacted'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
-import { reviewActionProgram, reviewPublicationFailure } from '../src/action.ts'
-import { makeReviewOpenAi } from '../src/review-openai.ts'
-import { reviewMarker } from '../src/selection.ts'
+import { reviewActionProgram, reviewPublicationFailure } from '../src/action'
+import { makeReviewOpenAi } from '../src/review-openai'
+import { reviewMarker } from '../src/selection'
 
 // Exercise tight admission independently of the configurable production default.
 const tightCostLimitMicrousd = 499_999

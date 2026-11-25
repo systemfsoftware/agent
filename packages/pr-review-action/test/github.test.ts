@@ -11,8 +11,8 @@ import * as Redacted from 'effect/Redacted'
 import * as Schema from 'effect/Schema'
 import * as TestClock from 'effect/testing/TestClock'
 
-import { makeGitHubClient } from '../src/github.ts'
-import { type ReviewHistoryItem, reviewMarker, reviewPauseMarker } from '../src/selection.ts'
+import { makeGitHubClient } from '../src/github'
+import { type ReviewHistoryItem, reviewMarker, reviewPauseMarker } from '../src/selection'
 
 const repository = 'reve-ai/example'
 const baseRevision = '1'.repeat(40)

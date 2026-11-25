@@ -17,7 +17,7 @@
   },
   "scripts": {
     "build": "tsdown",
-    "typecheck": "effect-tsgo tsrs --noEmit -p tsconfig.json",
+    "typecheck": "tsc -b",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {

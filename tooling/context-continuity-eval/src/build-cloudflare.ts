@@ -3,7 +3,7 @@ import { Effect, FileSystem, Path } from 'effect'
 import { ChildProcess, ChildProcessSpawner } from 'effect/process'
 import { build } from 'esbuild'
 
-import { EvaluationError } from './contracts.ts'
+import { EvaluationError } from './contracts'
 
 /** Bundle only; deployment remains an explicit operation against a selected account. */
 export const buildCloudflare = Effect.fn('ContextContinuity.buildCloudflare')(function*() {

@@ -2,8 +2,8 @@ import { Clock, Context, Effect, Layer, Schema } from 'effect'
 import git, { type HttpClient, type TreeEntry } from 'isomorphic-git'
 import { memfs } from 'memfs'
 
-import { AppCommit, AppFile, PlannerError } from '../domain.ts'
-import { TripFailpoint } from '../server/trips.ts'
+import { AppCommit, AppFile, PlannerError } from '../domain'
+import { TripFailpoint } from '../server/trips'
 
 export class AppSourceStore extends Context.Service<
   AppSourceStore,

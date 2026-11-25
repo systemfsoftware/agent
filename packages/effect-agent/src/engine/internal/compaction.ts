@@ -2,10 +2,10 @@ import * as Prompt from 'effect/ai/Prompt'
 import * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'
 
-import { utf8ByteLength } from '../../core/internal/utf8.ts'
-import type { ContextMessageTokenEstimator } from '../ContextCompactor.ts'
-import { estimateImageTokens } from './image-tokens.ts'
-import { boundedCanonicalJsonSnapshot } from './provider-result-staging.ts'
+import { utf8ByteLength } from '../../core/internal/utf8'
+import type { ContextMessageTokenEstimator } from '../ContextCompactor'
+import { estimateImageTokens } from './image-tokens'
+import { boundedCanonicalJsonSnapshot } from './provider-result-staging'
 
 /**
  * Pure helpers for engine-native context compaction (RUN-026/RUN-027). Everything here is deterministic and side-effect free:

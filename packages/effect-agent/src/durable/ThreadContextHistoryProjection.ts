@@ -2,11 +2,11 @@ import * as Prompt from 'effect/ai/Prompt'
 import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 
-import { RunId } from '../core/Identifiers.ts'
-import { contextWindowId } from '../engine/Compaction.ts'
-import { ContextHistoryError, ContextHistorySearch } from '../engine/ContextHistory.ts'
-import type { CanonicalRecordEnvelope } from './Records.ts'
-import { CanonicalSequence, PersistedJson, RecordId } from './Records.ts'
+import { RunId } from '../core/Identifiers'
+import { contextWindowId } from '../engine/Compaction'
+import { ContextHistoryError, ContextHistorySearch } from '../engine/ContextHistory'
+import type { CanonicalRecordEnvelope } from './Records'
+import { CanonicalSequence, PersistedJson, RecordId } from './Records'
 
 /** Full retained recall text from one canonical record; never raw discarded Tool output. */
 export class ContextHistoryEvidence extends Schema.Class<ContextHistoryEvidence>(

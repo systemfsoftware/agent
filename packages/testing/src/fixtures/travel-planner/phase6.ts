@@ -9,9 +9,9 @@ import * as Layer from 'effect/Layer'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
-import { TravelPlan } from './definition.ts'
-import { phase4TravelPlannerDefinitionDigests, phase4TravelPlannerWorkerLayer, TravelPlannerPhase4 } from './phase4.ts'
-import { expectedTravelPlan } from './scenarios.ts'
+import { TravelPlan } from './definition'
+import { phase4TravelPlannerDefinitionDigests, phase4TravelPlannerWorkerLayer, TravelPlannerPhase4 } from './phase4'
+import { expectedTravelPlan } from './scenarios'
 
 /** Stable deployment identity for the persisted-runtime restart fixture. */
 export const phase6TravelPlannerDeploymentId = Schema.decodeSync(DeploymentId)(

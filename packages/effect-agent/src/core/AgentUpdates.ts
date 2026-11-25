@@ -4,8 +4,8 @@ import * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
-import { AgentId, RunId, ThreadId } from './Identifiers.ts'
-import { IdempotencyKey } from './Receipt.ts'
+import { AgentId, RunId, ThreadId } from './Identifiers'
+import { IdempotencyKey } from './Receipt'
 
 /** Canonical schema-encoded intermediate output, scoped to one logical Run. */
 export class Update extends Schema.Class<Update>('@effect-agent/core/AgentUpdates/Update')({

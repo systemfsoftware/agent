@@ -7,8 +7,8 @@ import * as Effect from 'effect/Effect'
 import * as Fiber from 'effect/Fiber'
 import { describe, expect, it, onTestFinished } from 'vitest'
 
-import { ProgressWaitRegistry } from '../src/internal/progress-wait.ts'
-import { approvalDefinition, BOOK_TOOL_CALL_ID, decodeThreadId, submitOptions } from './fixtures.ts'
+import { ProgressWaitRegistry } from '../src/internal/progress-wait'
+import { approvalDefinition, BOOK_TOOL_CALL_ID, decodeThreadId, submitOptions } from './fixtures'
 import {
   allSettled,
   anyInState,
@@ -18,8 +18,8 @@ import {
   runClient,
   runClientFiber,
   stubFor,
-} from './harness.ts'
-import type { TestThreadObject } from './worker.ts'
+} from './harness'
+import type { TestThreadObject } from './worker'
 let laneCounter = 0
 const lane = (label: string): string => `cf-progress-${label}-${laneCounter++}`
 

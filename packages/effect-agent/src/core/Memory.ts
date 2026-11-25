@@ -3,8 +3,8 @@ import * as Predicate from 'effect/Predicate'
 import * as Schema from 'effect/Schema'
 import type * as Scope from 'effect/Scope'
 
-import { utf8ByteLength as bytes } from './internal/utf8.ts'
-import { MemoryLookup, MemoryPassage, MemoryRecallError, MemoryRecallLimits } from './MemoryReference.ts'
+import { utf8ByteLength as bytes } from './internal/utf8'
+import { MemoryLookup, MemoryPassage, MemoryRecallError, MemoryRecallLimits } from './MemoryReference'
 
 /**
  * Host-selected read capability. Close over authorization and query policy here; neither

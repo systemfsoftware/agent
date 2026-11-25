@@ -5,7 +5,7 @@ import * as Effect from 'effect/Effect'
 import * as FetchHttpClient from 'effect/http/FetchHttpClient'
 import * as Layer from 'effect/Layer'
 
-import { reviewActionProgram, withActionInputs } from './action.ts'
+import { reviewActionProgram, withActionInputs } from './action'
 
 const configProvider = withActionInputs(ConfigProvider.fromEnv())
 

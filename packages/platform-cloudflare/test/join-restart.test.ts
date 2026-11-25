@@ -25,8 +25,8 @@ import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 import { expect, it } from 'vitest'
 
-import { submitOptions } from './fixtures.ts'
-import { stubFor } from './harness.ts'
+import { submitOptions } from './fixtures'
+import { stubFor } from './harness'
 
 // Requested Cloudflare seam: authoritative join claims, canonical reply coverage and
 // eviction during replacement. Gated provider/handlers force the side-effect race.

@@ -12,8 +12,8 @@ import {
   MemoryProjects,
   memoryPut,
   memoryRecallLimits,
-} from './memory-fixtures.ts'
-import type { TestMemoryObject } from './worker.ts'
+} from './memory-fixtures'
+import type { TestMemoryObject } from './worker'
 
 let counter = 0
 const project = () => `memory-${counter++}`

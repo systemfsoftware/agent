@@ -10,13 +10,13 @@ import * as Scope from 'effect/Scope'
 import * as Stream from 'effect/Stream'
 import * as TestClock from 'effect/testing/TestClock'
 
-import { InputMessage, MessageAdmission } from '../capabilities/Messaging.ts'
-import { AgentPolicy } from '../core/AgentPolicy.ts'
-import { type ReceiptId } from '../core/Identifiers.ts'
-import { AgentId, DelegationId, SubmissionId, ThreadId, ToolCallId } from '../core/Identifiers.ts'
-import { SubagentDelegationCaps, SubagentGrant, SubagentReservationAmounts } from '../core/SubagentContract.ts'
-import { WorkerCompletion, WorkerUpdate } from '../core/Worker.ts'
-import { type DigestError, digestJson } from './Digest.ts'
+import { InputMessage, MessageAdmission } from '../capabilities/Messaging'
+import { AgentPolicy } from '../core/AgentPolicy'
+import { type ReceiptId } from '../core/Identifiers'
+import { AgentId, DelegationId, SubmissionId, ThreadId, ToolCallId } from '../core/Identifiers'
+import { SubagentDelegationCaps, SubagentGrant, SubagentReservationAmounts } from '../core/SubagentContract'
+import { WorkerCompletion, WorkerUpdate } from '../core/Worker'
+import { type DigestError, digestJson } from './Digest'
 import {
   CanonicalBatch,
   CanonicalSequence,
@@ -30,15 +30,15 @@ import {
   SubmissionSettled,
   SubmissionSettledRecord,
   WorkerAdmission,
-} from './Records.ts'
-import { runIdForSubmission } from './RunJournal.ts'
-import { make as makeRunStorage, type RunStorageSession, type StorageOwner } from './RunStorage.ts'
+} from './Records'
+import { runIdForSubmission } from './RunJournal'
+import { make as makeRunStorage, type RunStorageSession, type StorageOwner } from './RunStorage'
 import {
   SettlementPublication,
   type SettlementPublicationAuthority,
   type SettlementPublicationFailure,
   SettlementPublisher,
-} from './SettlementPublisher.ts'
+} from './SettlementPublisher'
 import {
   AbortCommand,
   AbortIntentRequest,
@@ -88,7 +88,7 @@ import {
   UnknownResolutionConflict,
   WaitingChild,
   WaitingForChildSuspension,
-} from './SubmissionLedger.ts'
+} from './SubmissionLedger'
 import {
   AppendRequest,
   getRecord,
@@ -96,7 +96,7 @@ import {
   ThreadReader,
   ThreadStore,
   ThreadTailRequest,
-} from './ThreadStore.ts'
+} from './ThreadStore'
 
 /** A SubmissionLedger contract invariant that an adapter under test violated. */
 export class SubmissionLedgerConformanceViolation extends Schema.TaggedError<SubmissionLedgerConformanceViolation>()(

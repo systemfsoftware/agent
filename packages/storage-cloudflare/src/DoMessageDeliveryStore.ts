@@ -10,9 +10,9 @@ import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import * as SqlClient from 'effect/sql/SqlClient'
 
-import { DoStorageConfig } from './DoStorageConfig.ts'
-import { DoStorageFailpoint } from './DoStorageFailpoint.ts'
-import { initializeDoJournal } from './internal/do-journal.ts'
+import { DoStorageConfig } from './DoStorageConfig'
+import { DoStorageFailpoint } from './DoStorageFailpoint'
+import { initializeDoJournal } from './internal/do-journal'
 
 /**
  * Message obligations paired with the Thread Object's physical storage owner. Canonical

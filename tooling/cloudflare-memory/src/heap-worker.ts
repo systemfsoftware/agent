@@ -10,7 +10,7 @@ import { Context, Deferred, Effect, Layer, Ref, Schema, Stream } from 'effect'
 import { DurableObject } from 'effect-cf'
 import { LanguageModel, Model, type Response as AiResponse, Tool, Toolkit } from 'effect/ai'
 
-import { ObjectStatus } from './heap-contracts.ts'
+import { ObjectStatus } from './heap-contracts'
 
 class Gate extends Context.Service<
   Gate,

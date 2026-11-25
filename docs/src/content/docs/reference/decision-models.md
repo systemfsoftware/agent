@@ -39,7 +39,7 @@ task context to `resolve`. Bind its returned native model to the Agent before ru
 import { Agent, AgentRuntime, Identifiers } from '@systemfsoftware/agent'
 import { Effect, Schema } from 'effect'
 
-import { Assistant, ThreadAuthorization, ThreadModels } from './auto-model.ts'
+import { Assistant, ThreadAuthorization, ThreadModels } from './auto-model'
 declare const threadId: Identifiers.ThreadId
 declare const rawInput: unknown
 // ---cut---

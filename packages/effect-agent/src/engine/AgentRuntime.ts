@@ -2,10 +2,10 @@ import type * as Effect from 'effect/Effect'
 import type * as Scope from 'effect/Scope'
 import type * as Stream from 'effect/Stream'
 
-import type * as Agent from '../core/Agent.ts'
-import type { RunEvent } from '../core/RunEvent.ts'
-import * as Internal from './internal/agent-runtime.ts'
-import type { RunOptions } from './RunOptions.ts'
+import type * as Agent from '../core/Agent'
+import type { RunEvent } from '../core/RunEvent'
+import * as Internal from './internal/agent-runtime'
+import type { RunOptions } from './RunOptions'
 
 /** Public AgentRuntime API. Implementation helpers remain private. */
 export {
@@ -31,7 +31,7 @@ export {
   SubagentDurabilityError,
   type SubagentDurabilityService,
   ToolCallWaiting,
-} from './internal/agent-runtime.ts'
+} from './internal/agent-runtime'
 
 /** Accept schema-encoded input, retaining runtime validation. */
 export const run: <A extends Internal.ExecutableAgent, H = never, R = never>(

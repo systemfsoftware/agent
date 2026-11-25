@@ -42,10 +42,10 @@ import * as SqlError from 'effect/sql/SqlError'
 import * as Stream from 'effect/Stream'
 import * as Struct from 'effect/Struct'
 
-import { DurableAlarmError, DurableObjectContext, ThreadObjectPlacement } from './CloudflareBindings.ts'
-import { AuxiliaryDispatchMillis, CloudflareDurableRuntimeConfig } from './CloudflareConfig.ts'
-import { safeCauseMessage } from './internal/boundary.ts'
-import * as DueQueue from './internal/due-queue.ts'
+import { DurableAlarmError, DurableObjectContext, ThreadObjectPlacement } from './CloudflareBindings'
+import { AuxiliaryDispatchMillis, CloudflareDurableRuntimeConfig } from './CloudflareConfig'
+import { safeCauseMessage } from './internal/boundary'
+import * as DueQueue from './internal/due-queue'
 
 /**
  * The maintenance queue owns lease expiry, settlement, retries and dirty generations.
@@ -57,7 +57,7 @@ import * as DueQueue from './internal/due-queue.ts'
  * restores the alarm atomically.
  */
 
-export { DurableAlarmError } from './CloudflareBindings.ts'
+export { DurableAlarmError } from './CloudflareBindings'
 
 /** Content-free operational notice: pending work now retries at the hourly ceiling. */
 class MaintenanceRetryParked extends Schema.TaggedError<MaintenanceRetryParked>()(

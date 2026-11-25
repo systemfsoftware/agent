@@ -28,7 +28,7 @@ import * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
-import { finalParts, TEST_DIGESTS, TEST_PRINCIPAL } from './fixtures.ts'
+import { finalParts, TEST_DIGESTS, TEST_PRINCIPAL } from './fixtures'
 
 /** Callee-side observation of real port RPCs for the worker launch budget proof. */
 export const workerLaunchProbe: {

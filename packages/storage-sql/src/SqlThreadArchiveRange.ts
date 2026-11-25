@@ -19,8 +19,8 @@ import * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'
 import * as SqlClient from 'effect/sql/SqlClient'
 
-import { hotRecordJson, recordBatchId, storedBatchHeader } from './SqlCanonicalStorage.ts'
-import { makeSqlQuery, SqlInteger } from './SqlStorage.ts'
+import { hotRecordJson, recordBatchId, storedBatchHeader } from './SqlCanonicalStorage'
+import { makeSqlQuery, SqlInteger } from './SqlStorage'
 
 const bytes = utf8ByteLength
 const maxVerificationPageBytes = 1024 * 1024

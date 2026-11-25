@@ -4,9 +4,9 @@ import * as Layer from 'effect/Layer'
 import * as Schema from 'effect/Schema'
 import type * as Scope from 'effect/Scope'
 
-import { SubagentReservationsMemoryLive } from './capabilities/SubagentReservations.ts'
-import { Store } from './core/Thread.ts'
-import { layer as historyLayer, ThreadHistory } from './engine/ThreadHistory.ts'
+import { SubagentReservationsMemoryLive } from './capabilities/SubagentReservations'
+import { Store } from './core/Thread'
+import { layer as historyLayer, ThreadHistory } from './engine/ThreadHistory'
 
 /**
  * Run agents and attached subagents with in-memory conversation history.

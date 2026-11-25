@@ -1,6 +1,6 @@
 import * as Schema from 'effect/Schema'
 
-import { PageScrapeCaptured } from '../sandbox/PageCapture.ts'
+import { PageScrapeCaptured } from '../sandbox/PageCapture'
 
 const maxResponseBytesLimit = 5 * 1024 * 1024
 const maxFailureTextLength = 4 * 1024

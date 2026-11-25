@@ -23,15 +23,11 @@ import * as Ref from 'effect/Ref'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
-import * as AgentRuntime from '../../src/engine/internal/agent-runtime.ts'
-import {
-  CLEARED_TOOL_RESULT,
-  estimatePromptTokens,
-  initialCompactionState,
-} from '../../src/engine/internal/compaction.ts'
-import { type RunCompactionCommit, type RunDurabilityHook } from '../../src/engine/internal/interpreter-options.ts'
-import { RunContextPreparationPassthrough } from '../../src/engine/RunOptions.ts'
-import { ThreadHistory } from '../../src/engine/ThreadHistory.ts'
+import * as AgentRuntime from '../../src/engine/internal/agent-runtime'
+import { CLEARED_TOOL_RESULT, estimatePromptTokens, initialCompactionState } from '../../src/engine/internal/compaction'
+import { type RunCompactionCommit, type RunDurabilityHook } from '../../src/engine/internal/interpreter-options'
+import { RunContextPreparationPassthrough } from '../../src/engine/RunOptions'
+import { ThreadHistory } from '../../src/engine/ThreadHistory'
 
 let threadSequence = 0
 

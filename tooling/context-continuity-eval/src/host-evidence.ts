@@ -12,7 +12,7 @@ import {
 } from '@systemfsoftware/agent/thread-store'
 import { Effect, Option, Schema, Stream } from 'effect'
 
-import { EvaluationError, type RunContinuationEvidence } from './contracts.ts'
+import { EvaluationError, type RunContinuationEvidence } from './contracts'
 
 export const notesNamespace = MemoryNamespace.define({
   name: 'example/context-continuity-notes',

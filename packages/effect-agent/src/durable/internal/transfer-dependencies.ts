@@ -1,4 +1,4 @@
-import type { RecordEnvelope, RecordId } from '../Records.ts'
+import type { RecordEnvelope, RecordId } from '../Records'
 
 /** Exact references outside one complete canonical batch. */
 export const transferRecordDependencies = (

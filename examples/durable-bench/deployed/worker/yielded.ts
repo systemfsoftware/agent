@@ -15,12 +15,12 @@ import { DurableObject, DurableObjectAlarm, DurableObjectState } from 'effect-cf
 import { Model, Tool, Toolkit } from 'effect/ai'
 import { FetchHttpClient } from 'effect/http'
 
-import { payload, type Turn } from '../../src/plan.ts'
-import { INSTRUCTIONS } from '../text.ts'
-import { Host } from './host.ts'
-import { observation } from './observe.ts'
-import { type Env, type Query } from './protocol.ts'
-import { installUsage } from './usage.ts'
+import { payload, type Turn } from '../../src/plan'
+import { INSTRUCTIONS } from '../text'
+import { Host } from './host'
+import { observation } from './observe'
+import { type Env, type Query } from './protocol'
+import { installUsage } from './usage'
 
 export const tools = Toolkit.make(
   Tool.make('lookup', {

@@ -1,13 +1,24 @@
-import { ThreadObjectNamespace } from '@systemfsoftware/agent-platform-cloudflare/cloudflare-bindings'
+import {
+  ThreadObjectNamespace,
+  type ThreadObjectRpc,
+} from '@systemfsoftware/agent-platform-cloudflare/cloudflare-bindings'
 import {
   CloudflareSchedulingClient,
   makeScheduleOwnerObjectClass,
   ScheduleOwnerNamespace,
+  type ScheduleOwnerObjectRpc,
 } from '@systemfsoftware/agent-platform-cloudflare/cloudflare-scheduling'
 import { type DurableSubmitAgent } from '@systemfsoftware/agent/durable-agent-runtime'
 import { type ScheduleAuthorizer } from '@systemfsoftware/agent/schedule'
 import { type ScheduleCreateOptions, Scheduling } from '@systemfsoftware/agent/scheduling'
 import { WorkerEnvironment } from 'effect-cf'
+
+// This example is typechecked in its own project, so it names the bindings it reads instead of
+// relying on a test file elsewhere in the program to merge them into the worker `Env`.
+type ExampleEnv = Cloudflare.Env & {
+  readonly THREADS: DurableObjectNamespace<ThreadObjectRpc>
+  readonly SCHEDULES: DurableObjectNamespace<ScheduleOwnerObjectRpc>
+}
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import type * as Schema from 'effect/Schema'
@@ -24,10 +35,13 @@ export const makeSchedulingOwner = <E>(
       authorizer,
       Layer.effect(
         ThreadObjectNamespace,
-        Effect.map(WorkerEnvironment, (env) =>
-          ThreadObjectNamespace.of({
-            get: (threadId) => env.THREADS.get(env.THREADS.idFromName(threadId)),
-          })),
+        Effect.map(WorkerEnvironment, (env) => {
+          const bindings = env as ExampleEnv
+
+          return ThreadObjectNamespace.of({
+            get: (threadId) => bindings.THREADS.get(bindings.THREADS.idFromName(threadId)),
+          })
+        }),
       ),
     ),
   )
@@ -37,7 +51,7 @@ export const schedulingClientLayer = CloudflareSchedulingClient.layer.pipe(
   Layer.provide(
     Layer.effect(
       ScheduleOwnerNamespace,
-      Effect.map(WorkerEnvironment, (env) => ({ namespace: env.SCHEDULES })),
+      Effect.map(WorkerEnvironment, (env) => ({ namespace: (env as ExampleEnv).SCHEDULES })),
     ),
   ),
 )

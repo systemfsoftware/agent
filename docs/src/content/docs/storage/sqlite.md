@@ -15,7 +15,7 @@ import { AgentRuntime, PersistentHistory } from '@systemfsoftware/agent'
 import { SqliteThreadStore } from '@systemfsoftware/agent-storage-sqlite'
 import { Effect, Layer } from 'effect'
 
-import { planner } from './node-agent.ts'
+import { planner } from './node-agent'
 
 const History = PersistentHistory.layer.pipe(
   Layer.provide(SqliteThreadStore.layer({ filename: './history.sqlite' })),

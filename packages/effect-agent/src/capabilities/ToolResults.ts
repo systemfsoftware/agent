@@ -3,9 +3,9 @@ import * as Toolkit from 'effect/ai/Toolkit'
 import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 
-import { ToolResultPage, ToolResultRead, ToolResultStorage, ToolResultStorageError } from '../core/ToolResultStorage.ts'
-import { ContextWindow } from '../engine/ContextWindow.ts'
-import { ToolExecutionClass } from '../engine/DurableStep.ts'
+import { ToolResultPage, ToolResultRead, ToolResultStorage, ToolResultStorageError } from '../core/ToolResultStorage'
+import { ContextWindow } from '../engine/ContextWindow'
+import { ToolExecutionClass } from '../engine/DurableStep'
 
 /** Read full output saved before the engine bounded its model-visible preview. */
 export const ReadToolResult = Tool.make('read_tool_result', {

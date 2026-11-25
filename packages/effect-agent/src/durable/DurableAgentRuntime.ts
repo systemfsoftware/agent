@@ -19,9 +19,9 @@ import type * as Scope from 'effect/Scope'
 import * as Semaphore from 'effect/Semaphore'
 import * as Stream from 'effect/Stream'
 
-import { type InputMessage, MessageAdmission, type MessagingError } from '../capabilities/Messaging.ts'
-import type * as Agent from '../core/Agent.ts'
-import { type InputPromptSource, type RunDispositionDeclaration } from '../core/Agent.ts'
+import { type InputMessage, MessageAdmission, type MessagingError } from '../capabilities/Messaging'
+import type * as Agent from '../core/Agent'
+import { type InputPromptSource, type RunDispositionDeclaration } from '../core/Agent'
 import {
   AgentApprovalDenied,
   AgentApprovalPending,
@@ -31,10 +31,10 @@ import {
   type AgentToolAuthorizationCheckError,
   AgentToolAuthorizationDenied,
   PolicyLimit,
-} from '../core/AgentError.ts'
-import { AgentPolicy } from '../core/AgentPolicy.ts'
-import { UpdateError } from '../core/AgentUpdates.ts'
-import * as FailureDiagnostic from '../core/FailureDiagnostic.ts'
+} from '../core/AgentError'
+import { AgentPolicy } from '../core/AgentPolicy'
+import { UpdateError } from '../core/AgentUpdates'
+import * as FailureDiagnostic from '../core/FailureDiagnostic'
 import {
   type AgentId,
   type AttemptId,
@@ -44,12 +44,12 @@ import {
   ThreadId,
   ToolCallId,
   type TurnId,
-} from '../core/Identifiers.ts'
-import { IdGenerator } from '../core/IdGenerator.ts'
-import { copyJson } from '../core/internal/json.ts'
-import { utf8ByteLength } from '../core/internal/utf8.ts'
-import { Receipt } from '../core/Receipt.ts'
-import type { ExhaustedLimit } from '../core/RunEvent.ts'
+} from '../core/Identifiers'
+import { IdGenerator } from '../core/IdGenerator'
+import { copyJson } from '../core/internal/json'
+import { utf8ByteLength } from '../core/internal/utf8'
+import { Receipt } from '../core/Receipt'
+import type { ExhaustedLimit } from '../core/RunEvent'
 import {
   DelegationDepth,
   getToolExecutionKind,
@@ -57,11 +57,11 @@ import {
   SubagentGrant,
   SubagentParentLink,
   SubagentReservationAmounts,
-} from '../core/SubagentContract.ts'
-import { makeMemoryStore, Store as ConversationStore } from '../core/Thread.ts'
-import { Selection, Snapshot } from '../core/ToolExposure.ts'
-import type { ToolParameterRejection } from '../core/ToolResult.ts'
-import { ToolResultStorage } from '../core/ToolResultStorage.ts'
+} from '../core/SubagentContract'
+import { makeMemoryStore, Store as ConversationStore } from '../core/Thread'
+import { Selection, Snapshot } from '../core/ToolExposure'
+import type { ToolParameterRejection } from '../core/ToolResult'
+import { ToolResultStorage } from '../core/ToolResultStorage'
 import {
   ChildRunUsage,
   emptyRunTotals,
@@ -76,20 +76,20 @@ import {
   summarizeModelUsage,
   sumRunTotals,
   unknownRunTotals,
-} from '../core/Usage.ts'
-import { FrameworkMessage } from '../core/Worker.ts'
-import type { WorkerError } from '../core/Worker.ts'
+} from '../core/Usage'
+import { FrameworkMessage } from '../core/Worker'
+import type { WorkerError } from '../core/Worker'
 import {
   AgentChildPending,
   type AgentCompletionProjectionRequirements,
   type AgentRuntimeRequirements,
   renderInputPrompt,
   type RuntimeBinding,
-} from '../engine/AgentRuntime.ts'
-import { CompactionError, ContextCompactor } from '../engine/ContextCompactor.ts'
-import { ContextRolloverTool } from '../engine/ContextWindow.ts'
-import { getToolExecutionClass } from '../engine/DurableStep.ts'
-import { executeWithUsageAccountingUnknown } from '../engine/internal/agent-runtime.ts'
+} from '../engine/AgentRuntime'
+import { CompactionError, ContextCompactor } from '../engine/ContextCompactor'
+import { ContextRolloverTool } from '../engine/ContextWindow'
+import { getToolExecutionClass } from '../engine/DurableStep'
+import { executeWithUsageAccountingUnknown } from '../engine/internal/agent-runtime'
 import {
   AgentUpdateAcceptance,
   type ChildEstablishStatus,
@@ -99,8 +99,8 @@ import {
   type RunSubagentEstablishRequest,
   type RunSubagentHook,
   type RunSubagentJoinRequest,
-} from '../engine/internal/interpreter-options.ts'
-import { MessagingHost } from '../engine/MessagingHost.ts'
+} from '../engine/internal/interpreter-options'
+import { MessagingHost } from '../engine/MessagingHost'
 import {
   CurrentToolFailureObserver,
   type RunApprovalHook,
@@ -115,10 +115,10 @@ import {
   type RunToolAuthorizationHook,
   type RunToolAuthorizationRequest,
   RunToolScheduling,
-} from '../engine/RunOptions.ts'
-import { SubagentHost } from '../engine/SubagentHost.ts'
-import { ThreadHistory } from '../engine/ThreadHistory.ts'
-import { RunToolVisibility } from '../engine/ToolExposure.ts'
+} from '../engine/RunOptions'
+import { SubagentHost } from '../engine/SubagentHost'
+import { ThreadHistory } from '../engine/ThreadHistory'
+import { RunToolVisibility } from '../engine/ToolExposure'
 import {
   ExplainedEvidence,
   ExplainedSubmission,
@@ -134,13 +134,13 @@ import {
   RecoveryExplanation,
   type RetryCommand,
   RetryRefused,
-} from './Admin.ts'
-import { canonicalJson, type DigestError, digestJson } from './Digest.ts'
+} from './Admin'
+import { canonicalJson, type DigestError, digestJson } from './Digest'
 import {
   DurableRuntimeFailpoint,
   type DurableRuntimeFailpointError,
   type DurableRuntimeFailpointLocation,
-} from './DurableFailpoint.ts'
+} from './DurableFailpoint'
 import {
   type AgentRegistration,
   BindingUnavailable,
@@ -153,12 +153,12 @@ import {
   resolveDefinitionBinding,
   resolveWorkerBinding,
   toolReplayContracts,
-} from './internal/agent-registration.ts'
-import { makeAgentUpdateRuntime, nativeUpdateAccepted } from './internal/agent-updates.ts'
-import { inspectForeignDiagnostic, safeUnknownString } from './internal/foreign-diagnostic.ts'
-import { initialContext, type InitialContextInput } from './internal/initial-context.ts'
-import { type JournalMetadata, type JournalRecordEnvelope, makeJournalMetadata } from './internal/journal-metadata.ts'
-import { makeMessagingRuntime } from './internal/messaging-host.ts'
+} from './internal/agent-registration'
+import { makeAgentUpdateRuntime, nativeUpdateAccepted } from './internal/agent-updates'
+import { inspectForeignDiagnostic, safeUnknownString } from './internal/foreign-diagnostic'
+import { initialContext, type InitialContextInput } from './internal/initial-context'
+import { type JournalMetadata, type JournalRecordEnvelope, makeJournalMetadata } from './internal/journal-metadata'
+import { makeMessagingRuntime } from './internal/messaging-host'
 import {
   type CachedPromptHistory,
   type CommittedPromptSuffix,
@@ -167,20 +167,16 @@ import {
   makePromptHistoryCache,
   preparePromptHistory,
   type PromptHistory,
-} from './internal/prompt-history-cache.ts'
-import { captureRecord } from './internal/record-encoding.ts'
-import { RunContextReader } from './internal/run-context-reader.ts'
-import { readRunContext } from './internal/run-context.ts'
-import * as ThreadInitialization from './internal/thread-initialization.ts'
-import {
-  initialDispatchBlockedTurns,
-  isUnresolvedToolOperation,
-  toolOperationStates,
-} from './internal/tool-operations.ts'
-import { makeWorkerRuntime, WorkerInputControl } from './internal/worker-host.ts'
-import { WorkerRuntime } from './internal/worker-runtime.ts'
-import { MessageDeliveryStore } from './MessageDelivery.ts'
-import { OperationAuthorizationRequest, OperationAuthorizer, OperationDenied } from './OperationAuthorizer.ts'
+} from './internal/prompt-history-cache'
+import { captureRecord } from './internal/record-encoding'
+import { readRunContext } from './internal/run-context'
+import { RunContextReader } from './internal/run-context-reader'
+import * as ThreadInitialization from './internal/thread-initialization'
+import { initialDispatchBlockedTurns, isUnresolvedToolOperation, toolOperationStates } from './internal/tool-operations'
+import { makeWorkerRuntime, WorkerInputControl } from './internal/worker-host'
+import { WorkerRuntime } from './internal/worker-runtime'
+import { MessageDeliveryStore } from './MessageDelivery'
+import { OperationAuthorizationRequest, OperationAuthorizer, OperationDenied } from './OperationAuthorizer'
 import {
   AbortRequested,
   type ApprovalDecision,
@@ -230,7 +226,7 @@ import {
   UserInputRecorded,
   WorkerAdmission,
   WorkHandoffCompleted,
-} from './Records.ts'
+} from './Records'
 import {
   classifyRecovery,
   DeclaredPendingBatchEvidence,
@@ -243,7 +239,7 @@ import {
   RecoveryDecision,
   RecoveryEvidence,
   type SettleAborted as SettleAbortedDecision,
-} from './Recovery.ts'
+} from './Recovery'
 import {
   canonicalRecordBytes,
   canonicalRunIds,
@@ -259,7 +255,7 @@ import {
   runEvidence,
   terminalUsageCharge,
   validateSuffix,
-} from './RunContinuation.ts'
+} from './RunContinuation'
 import {
   approvalDecisionBatchId,
   childIdempotencyKeyFor,
@@ -306,7 +302,7 @@ import {
   turnResponseBatch,
   turnResponseBatchId,
   turnResultsBatch,
-} from './RunJournal.ts'
+} from './RunJournal'
 import {
   makeRunWriter,
   type RunOwnership,
@@ -314,13 +310,13 @@ import {
   type RunStorageSession,
   type RunWriter,
   StorageOwner,
-} from './RunStorage.ts'
+} from './RunStorage'
 import {
   SettlementPublication,
   type SettlementPublicationAuthority,
   type SettlementPublicationFailure,
   type SettlementPublicationResult,
-} from './SettlementPublisher.ts'
+} from './SettlementPublisher'
 import {
   AbortCommand,
   type AbortIntent,
@@ -375,8 +371,8 @@ import {
   unknownResolutionKind,
   WaitingChild,
   WaitingForChildSuspension,
-} from './SubmissionLedger.ts'
-import { PendingSubmission, SettledSubmission, type SubmissionStatus } from './SubmissionStatus.ts'
+} from './SubmissionLedger'
+import { PendingSubmission, SettledSubmission, type SubmissionStatus } from './SubmissionStatus'
 import {
   type AppendConflict,
   AppendRequest,
@@ -395,7 +391,7 @@ import {
   ThreadStoreDiagnostic,
   ThreadStoreError,
   ThreadTailRequest,
-} from './ThreadStore.ts'
+} from './ThreadStore'
 import {
   decodeWorkCursor,
   MAX_RECOVERY_PAGES,
@@ -414,10 +410,10 @@ import {
   type WorkIndexRebuildRequest,
   type WorkThreadsPage,
   type WorkThreadsRequest,
-} from './ThreadWork.ts'
-import { DeclaredToolCallEvidence, ToolReconciler } from './ToolReconciler.ts'
-import { WakeScheduler } from './WakeScheduler.ts'
-import { WorkerAdmissionPort, WorkerAdmissionRequest } from './WorkerAdmission.ts'
+} from './ThreadWork'
+import { DeclaredToolCallEvidence, ToolReconciler } from './ToolReconciler'
+import { WakeScheduler } from './WakeScheduler'
+import { WorkerAdmissionPort, WorkerAdmissionRequest } from './WorkerAdmission'
 
 // Capture the tracing call site once; each application still creates a fresh Attempt span.
 const withThreadHeadSpan = Effect.withSpan('DurableAgentRuntime.processThreadHead')
@@ -571,7 +567,7 @@ const childUsageReportsOf = (state: SubagentCallRecords): ReadonlyArray<ChildRun
     })
   })
 
-export { threadCreatedBatchId, threadCreatedRecordId } from './internal/thread-initialization.ts'
+export { threadCreatedBatchId, threadCreatedRecordId } from './internal/thread-initialization'
 
 /** Deterministic batch identity of one executed recovery decision's audit append (DUR-013). */
 export const recoveryRepairBatchId = (submissionId: SubmissionId, decisionTag: string): BatchId =>
@@ -590,7 +586,7 @@ export const recoveryRepairRecordId = (submissionId: SubmissionId, decisionTag: 
  * readiness are committed (DUR-001). It is an identifier for observation and reattachment, not
  * an authorization capability.
  */
-export { Receipt } from '../core/Receipt.ts'
+export { Receipt } from '../core/Receipt'
 
 // Foreign names and tags may contain payloads. Retain only these static classifications.
 const RecoveryCauseTag = Schema.Literals([

@@ -18,4 +18,4 @@ export {
   ThreadTail,
   ThreadTailRequest,
   ThreadWorkerStateRequest,
-} from './ThreadStore.ts'
+} from './ThreadStore'

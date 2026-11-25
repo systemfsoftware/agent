@@ -3,9 +3,9 @@ import { Effect, Ref, Schema, Semaphore, Stream } from 'effect'
 import { AiError } from 'effect/ai'
 import { HttpBody, HttpClientResponse } from 'effect/http'
 
-import { type ModelUsage, type ServiceTier } from './contracts.ts'
-import { MAX_COST_MICROUSD } from './profiles.ts'
-import { type RequestAudit, RequestAuditSink } from './request-audit.ts'
+import { type ModelUsage, type ServiceTier } from './contracts'
+import { MAX_COST_MICROUSD } from './profiles'
+import { type RequestAudit, RequestAuditSink } from './request-audit'
 
 export const MODEL_IDS = ['gpt-6.1-sol', 'gpt-6-astra', 'gpt-6-sol', 'gpt-6-luna'] as const
 

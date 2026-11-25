@@ -2,7 +2,7 @@ import * as Alchemy from 'alchemy'
 import * as Cloudflare from 'alchemy/Cloudflare'
 import { Config, Effect } from 'effect'
 
-import { ReplayCpuStage } from './replay-cpu-contracts.ts'
+import { ReplayCpuStage } from './replay-cpu-contracts'
 
 /** Run each baseline/candidate/control stage from the same private state directory. */
 export default Alchemy.Stack(

@@ -4,9 +4,9 @@ import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import * as Schema from 'effect/Schema'
 
-import { type RunId, ThreadId } from '../core/Identifiers.ts'
-import { type RunCompleted } from '../core/RunEvent.ts'
-import { layerMemory, Store as ConversationStore, type ThreadError, toPrompt } from '../core/Thread.ts'
+import { type RunId, ThreadId } from '../core/Identifiers'
+import { type RunCompleted } from '../core/RunEvent'
+import { layerMemory, Store as ConversationStore, type ThreadError, toPrompt } from '../core/Thread'
 
 /** A history adapter rejected a read, staged value, or completed Run commit. */
 export class ThreadHistoryError extends Schema.TaggedError<ThreadHistoryError>()(

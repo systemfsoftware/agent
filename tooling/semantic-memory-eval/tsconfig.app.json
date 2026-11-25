@@ -1,0 +1,27 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "node_modules/.cache/tsconfig.app.tsbuildinfo",
+    "types": [
+      "node"
+    ],
+    "composite": true,
+    "noEmit": false,
+    "emitDeclarationOnly": true,
+    "outDir": "node_modules/.cache/tsc/app"
+  },
+  "include": [
+    "src"
+  ],
+  "references": [
+    {
+      "path": "../../packages/effect-agent/tsconfig.app.json"
+    },
+    {
+      "path": "../../packages/storage-memory/tsconfig.app.json"
+    },
+    {
+      "path": "../../packages/storage-sqlite/tsconfig.app.json"
+    }
+  ]
+}

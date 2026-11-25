@@ -1,6 +1,6 @@
 import { Schema } from 'effect'
 
-import { type Env, errorText, type Identity, type ProviderCall, ProviderReceipt, type Query } from './protocol.ts'
+import { type Env, errorText, type Identity, type ProviderCall, ProviderReceipt, type Query } from './protocol'
 
 /** One recorded provider call, with the readonly modifiers dropped so the record can be filled in. */
 type BenchCall = { -readonly [K in keyof ProviderCall]: ProviderCall[K] }

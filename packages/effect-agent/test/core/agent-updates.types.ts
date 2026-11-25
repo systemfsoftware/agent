@@ -5,9 +5,9 @@ import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 import * as SchemaGetter from 'effect/SchemaGetter'
 
-import * as Agent from '../../src/core/Agent.ts'
-import * as AgentUpdates from '../../src/core/AgentUpdates.ts'
-import { IdempotencyKey } from '../../src/core/Receipt.ts'
+import * as Agent from '../../src/core/Agent'
+import * as AgentUpdates from '../../src/core/AgentUpdates'
+import { IdempotencyKey } from '../../src/core/Receipt'
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false
 type Assert<A extends true> = A

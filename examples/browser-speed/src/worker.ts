@@ -17,10 +17,10 @@ import { DurableObjectState as EffectDurableObjectState } from 'effect-cf'
 import { FetchHttpClient, HttpRouter, HttpServer } from 'effect/http'
 import { HttpApiBuilder } from 'effect/http-api'
 
-import { type Account, defaultModel, LabApi, LabError, ModelApi, modelChoices } from './contract.ts'
-import { connectKitesurf } from './kitesurf.ts'
-import { Control, emptyControl, makeOwner } from './owner.ts'
-import { makeTraceStore, TraceStore } from './trace-store.ts'
+import { type Account, defaultModel, LabApi, LabError, ModelApi, modelChoices } from './contract'
+import { connectKitesurf } from './kitesurf'
+import { Control, emptyControl, makeOwner } from './owner'
+import { makeTraceStore, TraceStore } from './trace-store'
 
 export interface Env extends AuthEnvironment {
   readonly AUTH_YIELDED_CLIENT_SECRET?: string

@@ -3,18 +3,18 @@ import type * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import type * as Stream from 'effect/Stream'
 
-import type { AgentId, RunId, SubmissionId, ThreadId } from '../../core/Identifiers.ts'
-import type { IdempotencyKey } from '../../core/Receipt.ts'
-import type { MessageDeliveryRecord } from '../MessageDelivery.ts'
-import type { CanonicalRecordEnvelope, RecordEnvelope, RecordId } from '../Records.ts'
+import type { AgentId, RunId, SubmissionId, ThreadId } from '../../core/Identifiers'
+import type { IdempotencyKey } from '../../core/Receipt'
+import type { MessageDeliveryRecord } from '../MessageDelivery'
+import type { CanonicalRecordEnvelope, RecordEnvelope, RecordId } from '../Records'
 import type {
   ExecutionCheckpoint,
   ThreadAdmission,
   ThreadCommands,
   ThreadReadRequest,
   ThreadStoreError,
-} from '../ThreadStore.ts'
-import { RunContextReader } from './run-context-reader.ts'
+} from '../ThreadStore'
+import { RunContextReader } from './run-context-reader'
 
 /** Exact indexes for one captured Thread transaction. Run records and commands enforce count and byte bounds. */
 export class ThreadImportReader extends Context.Service<

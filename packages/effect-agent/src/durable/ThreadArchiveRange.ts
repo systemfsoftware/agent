@@ -2,9 +2,9 @@ import type * as Effect from 'effect/Effect'
 import type * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'
 
-import { ThreadId } from '../core/Identifiers.ts'
-import { CanonicalSequence } from './Records.ts'
-import type { ThreadNotMaterialized, ThreadStoreError } from './ThreadStore.ts'
+import { ThreadId } from '../core/Identifiers'
+import { CanonicalSequence } from './Records'
+import type { ThreadNotMaterialized, ThreadStoreError } from './ThreadStore'
 
 export const MAX_ARCHIVE_RANGE_RECORDS = 1_024
 export const MAX_ARCHIVE_RANGE_BYTES = 32 * 1024 * 1024

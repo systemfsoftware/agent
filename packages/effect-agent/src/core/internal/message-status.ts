@@ -1,7 +1,7 @@
 import * as Schema from 'effect/Schema'
 
-import { SettlementId, ThreadId } from '../Identifiers.ts'
-import { IdempotencyKey, Receipt } from '../Receipt.ts'
+import { SettlementId, ThreadId } from '../Identifiers'
+import { IdempotencyKey, Receipt } from '../Receipt'
 
 /** A retained outbound delivery identity, not a destination Receipt or access grant. */
 export const MessageRef = Schema.Struct({ ownerThreadId: ThreadId, messageId: IdempotencyKey })

@@ -1,10 +1,10 @@
 import { Effect, Layer, Schema } from 'effect'
 import { CloudflareTracer, Worker, WorkerEnvironment } from 'effect-cf'
 
-import { PlannerError, TripApp, TripAppData, TripId } from '../domain.ts'
-import { appNameFromHost, readTripAppAddress } from './addresses.ts'
-import { buildPrefix, readBuild } from './build.ts'
-import { callAppRepository } from './remote.ts'
+import { PlannerError, TripApp, TripAppData, TripId } from '../domain'
+import { appNameFromHost, readTripAppAddress } from './addresses'
+import { buildPrefix, readBuild } from './build'
+import { callAppRepository } from './remote'
 
 const TripScope = Schema.Struct({ owner: Schema.String, tripId: TripId })
 

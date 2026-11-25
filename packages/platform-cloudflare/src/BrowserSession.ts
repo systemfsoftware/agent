@@ -22,25 +22,25 @@ import {
   type CredentialFillResult,
   type CredentialForm,
   type FillCredentialRequest,
-} from './BrowserCredentials.ts'
+} from './BrowserCredentials'
 import {
   BrowserRunHandoffRequest,
   BrowserRunHandoffResult,
   BrowserRunHandoffState,
   BrowserRunLiveViewRequest,
   BrowserRunLiveViewResult,
-} from './InteractiveBrowser.ts'
-import { type BrowserRunAttachment, BrowserRunBinding, BrowserRunRefusal } from './internal/browser-binding.ts'
-import { BrowserSessionPage, fillCredential, prepareCredential } from './internal/browser-credentials.ts'
+} from './InteractiveBrowser'
+import { type BrowserRunAttachment, BrowserRunBinding, BrowserRunRefusal } from './internal/browser-binding'
+import { BrowserSessionPage, fillCredential, prepareCredential } from './internal/browser-credentials'
 import {
   BrowserRunFailure,
   inheritBrowserReport,
   mapBrowserError,
   reportBrowserCause,
   reportedBrowserError,
-} from './internal/browser-failure.ts'
-import { BrowserRunReadonlyLiveView } from './internal/browser-readonly-live-view.ts'
-import { type BrowserRunLifecycleOptions, BrowserRunSessionLifecycle } from './internal/browser-session-lifecycle.ts'
+} from './internal/browser-failure'
+import { BrowserRunReadonlyLiveView } from './internal/browser-readonly-live-view'
+import { type BrowserRunLifecycleOptions, BrowserRunSessionLifecycle } from './internal/browser-session-lifecycle'
 
 export {
   BrowserRunHandoffRequest,

@@ -2,7 +2,7 @@ import * as Context from 'effect/Context'
 import type * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 
-import { ThreadId } from './Identifiers.ts'
+import { ThreadId } from './Identifiers'
 
 /** Content identity within a host-authorized Thread, never a storage URL or key. */
 export const ToolResultId = Schema.String.check(Schema.isPattern(/^[a-f0-9]{64}$/))

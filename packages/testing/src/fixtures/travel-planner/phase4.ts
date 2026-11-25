@@ -27,13 +27,13 @@ import {
   TravelGuidance,
   TravelPlan,
   TripRequest,
-} from './definition.ts'
+} from './definition'
 import {
   ActivityCatalogLayer,
   FlightCatalogLayer,
   LodgingCatalogLayer,
   TravelGuidanceLayer,
-} from './deterministic-layers.ts'
+} from './deterministic-layers'
 
 export const phase4TravelPlannerDeploymentId = Schema.decodeSync(DeploymentId)(
   'travel-planner-p4-deployment',

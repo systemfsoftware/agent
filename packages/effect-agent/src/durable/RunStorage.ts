@@ -6,15 +6,15 @@ import * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'
 import type * as Scope from 'effect/Scope'
 
-import type { SubmissionId, ThreadId } from '../core/Identifiers.ts'
-import { StorageOwner } from './internal/StorageOwner.ts'
-import type { CanonicalBatch, CanonicalSequence } from './Records.ts'
+import type { SubmissionId, ThreadId } from '../core/Identifiers'
+import { StorageOwner } from './internal/StorageOwner'
+import type { CanonicalBatch, CanonicalSequence } from './Records'
 import {
   SettlementPublication,
   type SettlementPublicationFailure,
   type SettlementPublicationResult,
   SettlementPublisher,
-} from './SettlementPublisher.ts'
+} from './SettlementPublisher'
 import {
   AttachChildToReservationRequest,
   ChildBudgetReservationRequest,
@@ -33,7 +33,7 @@ import {
   SubmissionLedger,
   SuspendRequest,
   type SuspensionReason,
-} from './SubmissionLedger.ts'
+} from './SubmissionLedger'
 import {
   AppendConflict,
   AppendRequest,
@@ -49,7 +49,7 @@ import {
   ThreadStoreError,
   type ThreadStoreFailure,
   ThreadTailRequest,
-} from './ThreadStore.ts'
+} from './ThreadStore'
 
 export {
   makeStorageOwner,
@@ -57,7 +57,7 @@ export {
   type OwnerGeneration,
   StorageOwner,
   type StorageOwnerService,
-} from './internal/StorageOwner.ts'
+} from './internal/StorageOwner'
 
 export const RunChildBudgetReservation = Schema.Struct({
   reservationId: ChildBudgetReservationRequest.fields.reservationId,

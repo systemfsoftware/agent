@@ -2,16 +2,64 @@
   "files": [],
   "references": [
     {
+      "path": "./examples/cold-start"
+    },
+    {
+      "path": "./packages/ai-decision"
+    },
+    {
       "path": "./packages/effect-agent"
     },
     {
+      "path": "./packages/platform-cloudflare"
+    },
+    {
       "path": "./packages/platform-node"
+    },
+    {
+      "path": "./packages/pr-review"
+    },
+    {
+      "path": "./packages/pr-review-action"
+    },
+    {
+      "path": "./packages/storage-cloudflare"
+    },
+    {
+      "path": "./packages/storage-memory"
+    },
+    {
+      "path": "./packages/storage-postgres"
     },
     {
       "path": "./packages/storage-sql"
     },
     {
       "path": "./packages/storage-sqlite"
+    },
+    {
+      "path": "./packages/testing"
+    },
+    {
+      "path": "./packages/ui"
+    },
+    {
+      "path": "./scripts"
+    },
+    {
+      "path": "./tooling/browser-run-worker-proof"
+    },
+    {
+      "path": "./tooling/cloudflare-memory"
+    },
+    {
+      "path": "./tooling/context-continuity-eval"
+    },
+    {
+      "path": "./tooling/pr-review-eval"
+    },
+    {
+      "path": "./tooling/semantic-memory-eval"
     }
   ]
 }

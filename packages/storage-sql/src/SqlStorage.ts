@@ -8,7 +8,7 @@ import * as SqlClient from 'effect/sql/SqlClient'
 import * as SqlError from 'effect/sql/SqlError'
 import type * as Statement from 'effect/sql/Statement'
 
-import type { SqlStorageFailpointLocation } from './SqlStorageFailpoint.ts'
+import type { SqlStorageFailpointLocation } from './SqlStorageFailpoint'
 
 /** Decode finite SQL numbers and safe native bigints without rounding integer values. */
 export const SqlNumber = Schema.Union([

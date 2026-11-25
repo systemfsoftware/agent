@@ -8,13 +8,13 @@ import * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
-import type { AnyDefinition } from '../../core/Agent.ts'
-import * as FailureDiagnostic from '../../core/FailureDiagnostic.ts'
-import { RunId, SettlementId, ThreadId } from '../../core/Identifiers.ts'
-import { utf8ByteLength, utf8Bytes } from '../../core/internal/utf8.ts'
-import { MessageRef, MessageStatus } from '../../core/Messaging.ts'
-import { IdempotencyKey, JoinedToHost, Receipt } from '../../core/Receipt.ts'
-import { BackgroundSpawnTool, narrowSubagentGrant, SubagentGrant } from '../../core/SubagentContract.ts'
+import type { AnyDefinition } from '../../core/Agent'
+import * as FailureDiagnostic from '../../core/FailureDiagnostic'
+import { RunId, SettlementId, ThreadId } from '../../core/Identifiers'
+import { utf8ByteLength, utf8Bytes } from '../../core/internal/utf8'
+import { MessageRef, MessageStatus } from '../../core/Messaging'
+import { IdempotencyKey, JoinedToHost, Receipt } from '../../core/Receipt'
+import { BackgroundSpawnTool, narrowSubagentGrant, SubagentGrant } from '../../core/SubagentContract'
 import {
   type WorkerBudgetScope,
   WorkerContext,
@@ -26,10 +26,10 @@ import {
   WorkerStop,
   WorkerStopped,
   WorkerSummary,
-} from '../../core/Worker.ts'
-import { SubagentHost } from '../../engine/SubagentHost.ts'
-import type { SubagentDefineOptions, SubagentPrepareContext } from '../Subagent.ts'
-import { SubagentExecutionFailure, SubagentPrestartDenied, SubagentProjectionFailure } from './subagent-contract.ts'
+} from '../../core/Worker'
+import { SubagentHost } from '../../engine/SubagentHost'
+import type { SubagentDefineOptions, SubagentPrepareContext } from '../Subagent'
+import { SubagentExecutionFailure, SubagentPrestartDenied, SubagentProjectionFailure } from './subagent-contract'
 
 export type Declaration<
   Name extends string,

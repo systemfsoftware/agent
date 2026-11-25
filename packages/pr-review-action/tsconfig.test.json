@@ -1,0 +1,24 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "node_modules/.cache/tsconfig.test.tsbuildinfo",
+    "types": [
+      "node"
+    ],
+    "composite": true,
+    "noEmit": false,
+    "emitDeclarationOnly": true,
+    "outDir": "node_modules/.cache/tsc/test"
+  },
+  "include": [
+    "test"
+  ],
+  "references": [
+    {
+      "path": "../pr-review/tsconfig.app.json"
+    },
+    {
+      "path": "./tsconfig.app.json"
+    }
+  ]
+}

@@ -20,7 +20,7 @@ import {
   QuoteId,
   TravelGuidance,
   TravelPlannerToolkitLayer,
-} from './definition.ts'
+} from './definition'
 
 const flight = FlightOption.make({
   quoteId: Schema.decodeSync(QuoteId)('quote-sfo-lhr-001'),

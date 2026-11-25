@@ -1,5 +1,5 @@
-import type { RunId, TurnId } from '../../core/Identifiers.ts'
-import type { CanonicalRecordEnvelope, ToolOperation } from '../Records.ts'
+import type { RunId, TurnId } from '../../core/Identifiers'
+import type { CanonicalRecordEnvelope, ToolOperation } from '../Records'
 
 /** Derived from a validated canonical response; never a second persisted execution record. */
 export interface ToolOperationState {

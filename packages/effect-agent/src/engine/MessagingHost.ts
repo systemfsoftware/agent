@@ -1,17 +1,17 @@
 import * as Context from 'effect/Context'
 import * as Effect from 'effect/Effect'
 
-import type { AnyDefinition } from '../core/Agent.ts'
-import type { ThreadId } from '../core/Identifiers.ts'
+import type { AnyDefinition } from '../core/Agent'
+import type { ThreadId } from '../core/Identifiers'
 import {
   type InboxPage,
   type MessageAddress,
   type MessageRef,
   type MessageStatus,
   MessagingError,
-} from '../core/Messaging.ts'
-import type { IdempotencyKey, Principal } from '../core/Receipt.ts'
-import type { WorkerSource } from '../core/Worker.ts'
+} from '../core/Messaging'
+import type { IdempotencyKey, Principal } from '../core/Receipt'
+import type { WorkerSource } from '../core/Worker'
 
 export interface PeerTarget {
   readonly name: string

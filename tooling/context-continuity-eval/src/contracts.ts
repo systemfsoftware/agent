@@ -1,7 +1,7 @@
 import { ExecutionCheckpoint } from '@systemfsoftware/agent/thread-store'
 import { Schema } from 'effect'
 
-import { ProfileId } from './profiles.ts'
+import { ProfileId } from './profiles'
 
 export class EvaluationError extends Schema.TaggedError<EvaluationError>()('EvaluationError', {
   stage: Schema.String,

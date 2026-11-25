@@ -5,9 +5,9 @@ import * as Result from 'effect/Result'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
-import type { RunId, ThreadId } from '../../core/Identifiers.ts'
-import { boundedValueFootprint } from '../../engine/internal/bounded-value.ts'
-import { canonicalJson, digestCanonicalJson, utf8ByteLength } from '../Digest.ts'
+import type { RunId, ThreadId } from '../../core/Identifiers'
+import { boundedValueFootprint } from '../../engine/internal/bounded-value'
+import { canonicalJson, digestCanonicalJson, utf8ByteLength } from '../Digest'
 import {
   type CanonicalRecordEnvelope,
   CanonicalSequence,
@@ -16,23 +16,23 @@ import {
   PromptRecord,
   type PromptRecordEnvelope,
   type RecordEnvelope,
-} from '../Records.ts'
-import { CurrentRunWriter } from '../RunContinuation.ts'
-import { projectRunJournalStream, RunJournalError } from '../RunJournal.ts'
-import type { RunWriter } from '../RunStorage.ts'
+} from '../Records'
+import { CurrentRunWriter } from '../RunContinuation'
+import { projectRunJournalStream, RunJournalError } from '../RunJournal'
+import type { RunWriter } from '../RunStorage'
 import {
   MAX_PROMPT_CHECKPOINT_BYTES,
   MAX_PROMPT_CHECKPOINT_RUNS,
   ThreadPromptRead,
   ThreadStore,
   ThreadTailRequest,
-} from '../ThreadStore.ts'
-import { HistoryMessage, restoreHistoryMessage } from './history-prompt.ts'
-import type { InitialContextInput } from './initial-context.ts'
-import { type JournalRecordEnvelope, makeJournalMetadata } from './journal-metadata.ts'
-import { promptJsonFootprint } from './prompt-footprint.ts'
-import { captureRecord } from './record-encoding.ts'
-import { digestRunHistory } from './run-context.ts'
+} from '../ThreadStore'
+import { HistoryMessage, restoreHistoryMessage } from './history-prompt'
+import type { InitialContextInput } from './initial-context'
+import { type JournalRecordEnvelope, makeJournalMetadata } from './journal-metadata'
+import { promptJsonFootprint } from './prompt-footprint'
+import { captureRecord } from './record-encoding'
+import { digestRunHistory } from './run-context'
 
 // One Scope-owned Thread, including native values and encoded text. Compaction reconstructs
 // its canonical boundary map on demand; neither cache retains a second copy of that map.

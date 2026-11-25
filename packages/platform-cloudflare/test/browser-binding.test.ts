@@ -11,11 +11,11 @@ import * as Redacted from 'effect/Redacted'
 import * as Schema from 'effect/Schema'
 import * as TestClock from 'effect/testing/TestClock'
 
-import { BrowserSessionError, BrowserSessionReference, BrowserSessions } from '../src/BrowserSession.ts'
-import { BrowserRunBinding, BrowserRunRefusal } from '../src/internal/browser-binding.ts'
-import { browserFailure } from '../src/internal/browser-failure.ts'
-import { BrowserRunReadonlyLiveView } from '../src/internal/browser-readonly-live-view.ts'
-import { BrowserRunSessionLifecycle } from '../src/internal/browser-session-lifecycle.ts'
+import { BrowserSessionError, BrowserSessionReference, BrowserSessions } from '../src/BrowserSession'
+import { BrowserRunBinding, BrowserRunRefusal } from '../src/internal/browser-binding'
+import { browserFailure } from '../src/internal/browser-failure'
+import { BrowserRunReadonlyLiveView } from '../src/internal/browser-readonly-live-view'
+import { BrowserRunSessionLifecycle } from '../src/internal/browser-session-lifecycle'
 
 const identity = {
   sessionId: Redacted.make('00000000-0000-4000-8000-000000000091'),

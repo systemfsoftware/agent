@@ -3,7 +3,7 @@ import { Effect, Fiber, Redacted, Result } from 'effect'
 import { FetchHttpClient } from 'effect/http'
 import { TestClock } from 'effect/testing'
 
-import { request } from '../live/request.ts'
+import { request } from '../live/request'
 
 const evidence = {
   phase: 'idle',

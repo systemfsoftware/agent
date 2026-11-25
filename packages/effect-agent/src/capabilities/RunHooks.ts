@@ -10,7 +10,7 @@ import {
   type ThreadNotFound,
   type ThreadOwnershipError,
   toPrompt,
-} from '../core/Thread.ts'
+} from '../core/Thread'
 import {
   type PreparedRunContext,
   type RunBudgetHook,
@@ -18,8 +18,8 @@ import {
   type RunContextRequest,
   type RunOptions,
   type RunSchedulingHook,
-} from '../engine/RunOptions.ts'
-import { type BudgetExceeded, type UsageBudgetNode, UsageDelta } from './Budget.ts'
+} from '../engine/RunOptions'
+import { type BudgetExceeded, type UsageBudgetNode, UsageDelta } from './Budget'
 
 /** Engine usage data did not satisfy the non-negative budget delta Schema. */
 export class BudgetAdapterError extends Schema.TaggedError<BudgetAdapterError>()(
@@ -73,8 +73,8 @@ export type ThreadAdapterError =
  * with a memory or SQLite store instead. This adapter does not provide durable recovery.
  */
 export const toRunThreadOptions = Effect.fnUntraced(function*(
-  threadId: import('../core/Identifiers.ts').ThreadId,
-  runId: import('../core/Identifiers.ts').RunId,
+  threadId: import('../core/Identifiers').ThreadId,
+  runId: import('../core/Identifiers').RunId,
 ): Effect.fn.Return<
   Pick<RunOptions<ThreadAdapterError>, 'threadId' | 'history' | 'onHistory'>,
   ThreadNotFound | ThreadOwnershipError,

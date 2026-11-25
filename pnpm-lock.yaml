@@ -1071,6 +1071,9 @@ importers:
       effect:
         specifier: 4.1.2
         version: 4.1.2
+      esbuild:
+        specifier: 'catalog:'
+        version: 0.28.1
       tsdown:
         specifier: 'catalog:'
         version: 0.23.7(@arethetypeswrong/core@0.18.5)(@vue/language-core@3.3.14)(tsrs@0.18.0-ts7.1.0-dev.20260929)(typescript@7.0.2)

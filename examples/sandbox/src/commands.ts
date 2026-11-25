@@ -13,17 +13,17 @@ import { Clock, Context, Effect, Layer, Option, Schedule, Schema, Stream, Struct
 import { DurableObjectState } from 'effect-cf'
 import { SqlClient } from 'effect/sql'
 
-import type { CommandInput } from './contract.ts'
+import type { CommandInput } from './contract'
 import {
   CODING_ADMISSION_GROUP,
   CommandRejected,
   SHELL_ACTIVE_KEY,
   SHELL_COMMAND_PREFIX,
   ShellCommand,
-} from './contract.ts'
-import { snapshotLane, snapshotRestoring, WorkspaceSnapshots } from './snapshots.ts'
-import { allocateCommand, Allocation, executeCommand, readCommandOutput } from './tools.ts'
-import { Workspace } from './workspace.ts'
+} from './contract'
+import { snapshotLane, snapshotRestoring, WorkspaceSnapshots } from './snapshots'
+import { allocateCommand, Allocation, executeCommand, readCommandOutput } from './tools'
+import { Workspace } from './workspace'
 
 const lane = 'sandbox-shell'
 const activeKey = SHELL_ACTIVE_KEY

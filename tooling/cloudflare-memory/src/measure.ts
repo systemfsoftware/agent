@@ -2,7 +2,7 @@ import { Clock, Config, Console, Effect, FileSystem, Schema } from 'effect'
 import { Command, Flag } from 'effect/cli'
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http'
 
-import { BenchmarkCase, cases, Sample } from './contracts.ts'
+import { BenchmarkCase, cases, Sample } from './contracts'
 
 class BenchmarkFailure extends Schema.TaggedError<BenchmarkFailure>()('BenchmarkFailure', {
   reason: Schema.Literals(['transport', 'timeout']),

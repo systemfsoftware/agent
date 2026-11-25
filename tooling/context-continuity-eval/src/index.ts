@@ -1,2 +1,2 @@
-export { command } from './command.ts'
-export { EvaluationReport, ProjectStatus } from './contracts.ts'
+export { command } from './command'
+export { EvaluationReport, ProjectStatus } from './contracts'

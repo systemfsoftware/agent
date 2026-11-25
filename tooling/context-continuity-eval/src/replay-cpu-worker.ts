@@ -49,7 +49,7 @@ import {
   ReplayCpuIncarnation,
   ReplayCpuObjectName,
   ReplayCpuOperation,
-} from './replay-cpu-contracts.ts'
+} from './replay-cpu-contracts'
 
 declare const BENCH_REVISION: string
 declare const BENCH_FIXTURE_SHA256: string

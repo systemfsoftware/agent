@@ -5,7 +5,7 @@ import { Command } from 'effect/cli'
 import { FetchHttpClient } from 'effect/http'
 import { Socket } from 'effect/socket'
 
-import { command } from './heap.ts'
+import { command } from './heap'
 
 NodeRuntime.runMain(
   Command.run(command, { version: '0.0.0' }).pipe(

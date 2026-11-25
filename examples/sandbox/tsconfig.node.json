@@ -1,0 +1,30 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "allowJs": true,
+    "types": [
+      "node",
+      "@cloudflare/workers-types"
+    ]
+  },
+  "include": [
+    "src/agent.ts",
+    "src/commands.ts",
+    "src/diagnostics.ts",
+    "src/preview-proxy.ts",
+    "src/preview-server.ts",
+    "src/previews.ts",
+    "src/recovery.ts",
+    "src/runtime.ts",
+    "src/schema.ts",
+    "src/snapshots.ts",
+    "src/sql.d.ts",
+    "src/tools.ts",
+    "src/web.ts",
+    "src/worker.ts",
+    "src/workspace.ts",
+    "src/workspaces.ts",
+    "vite.config.ts"
+  ]
+}

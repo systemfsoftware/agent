@@ -5,9 +5,9 @@ import * as Effect from 'effect/Effect'
 import * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'
 
-import * as FailureDiagnostic from '../core/FailureDiagnostic.ts'
-import type { CodeExecutionLimits } from '../sandbox/CodeExecutor.ts'
-import * as CodeMode from './CodeMode.ts'
+import * as FailureDiagnostic from '../core/FailureDiagnostic'
+import type { CodeExecutionLimits } from '../sandbox/CodeExecutor'
+import * as CodeMode from './CodeMode'
 
 export const TargetId = Schema.NonEmptyString.check(Schema.isMaxLength(256))
 

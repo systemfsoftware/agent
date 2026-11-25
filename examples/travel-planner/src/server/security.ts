@@ -1,7 +1,7 @@
 import { RunToolAuthorization } from '@systemfsoftware/agent/run-options'
 import { Effect, Layer, Schema } from 'effect'
 
-import { PlannerInput, PublishTripRequest } from '../domain.ts'
+import { PlannerInput, PublishTripRequest } from '../domain'
 
 const PublicationCommand = Schema.String.check(
   Schema.isPattern(

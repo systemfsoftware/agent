@@ -7,11 +7,11 @@ import * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'
 import * as Tracer from 'effect/Tracer'
 
-import * as Agent from '../../src/core/Agent.ts'
-import { AttemptId, SubmissionId, ThreadId } from '../../src/core/Identifiers.ts'
-import { DurableWorkerBinding } from '../../src/durable/AgentRegistration.ts'
-import { DefinitionDigests, Digest } from '../../src/durable/Records.ts'
-import { Claim } from '../../src/durable/SubmissionLedger.ts'
+import * as Agent from '../../src/core/Agent'
+import { AttemptId, SubmissionId, ThreadId } from '../../src/core/Identifiers'
+import { DurableWorkerBinding } from '../../src/durable/AgentRegistration'
+import { DefinitionDigests, Digest } from '../../src/durable/Records'
+import { Claim } from '../../src/durable/SubmissionLedger'
 
 class Dependency extends Context.Service<Dependency, string>()('test/registered-dependency') {}
 

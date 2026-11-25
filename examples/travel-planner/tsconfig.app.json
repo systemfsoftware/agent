@@ -1,0 +1,53 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "jsx": "react-jsx",
+    "types": [
+      "vite/client"
+    ],
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ]
+    }
+  },
+  "include": [
+    "src/auth/account.ts",
+    "src/auth/client.ts",
+    "src/components/activity-panel.tsx",
+    "src/components/agent-progress.tsx",
+    "src/components/funding-panel.tsx",
+    "src/components/message-text.tsx",
+    "src/components/openai-connection.tsx",
+    "src/components/pending-messages.tsx",
+    "src/components/research-scout-card.tsx",
+    "src/components/travel/photo-gallery.tsx",
+    "src/components/travel/travel-cards.tsx",
+    "src/components/trip-app-card.tsx",
+    "src/components/use-mobile-viewport.ts",
+    "src/components/voice-controls.tsx",
+    "src/conversation.ts",
+    "src/credential-domain.ts",
+    "src/domain.ts",
+    "src/planner.tsx",
+    "src/routeTree.gen.ts",
+    "src/router.tsx",
+    "src/routes/__root.tsx",
+    "src/routes/travel.conversations.$conversationId.tsx",
+    "src/routes/travel.index.tsx",
+    "src/state.ts",
+    "src/travel-content.ts",
+    "src/voice/background.ts",
+    "src/voice/browser.ts",
+    "src/voice/delegation.ts",
+    "src/voice/protocol.ts",
+    "src/voice/session.ts",
+    "src/voice/state.ts",
+    "src/voice/transcript.ts"
+  ]
+}

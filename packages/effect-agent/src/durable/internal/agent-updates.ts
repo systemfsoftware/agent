@@ -6,14 +6,14 @@ import * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
-import { Update, UpdateError } from '../../core/AgentUpdates.ts'
-import type { RunId, SubmissionId, ThreadId } from '../../core/Identifiers.ts'
-import { nativeUpdateId } from '../../core/internal/agent-updates.ts'
-import { utf8ByteLength } from '../../core/internal/utf8.ts'
-import { IdempotencyKey } from '../../core/Receipt.ts'
-import { digestJson } from '../Digest.ts'
-import { DurableRuntimeFailpoint } from '../DurableFailpoint.ts'
-import { MessageDeliveryStore } from '../MessageDelivery.ts'
+import { Update, UpdateError } from '../../core/AgentUpdates'
+import type { RunId, SubmissionId, ThreadId } from '../../core/Identifiers'
+import { nativeUpdateId } from '../../core/internal/agent-updates'
+import { utf8ByteLength } from '../../core/internal/utf8'
+import { IdempotencyKey } from '../../core/Receipt'
+import { digestJson } from '../Digest'
+import { DurableRuntimeFailpoint } from '../DurableFailpoint'
+import { MessageDeliveryStore } from '../MessageDelivery'
 import {
   AgentUpdateEmitted,
   BatchId,
@@ -26,14 +26,14 @@ import {
   type ProducerId,
   RecordEnvelope,
   RecordId,
-} from '../Records.ts'
-import { CurrentRunWriter, readRunEvidenceSnapshot } from '../RunContinuation.ts'
-import { runIdForSubmission } from '../RunJournal.ts'
-import { LedgerError, type SubmissionSnapshot } from '../SubmissionLedger.ts'
-import { getRecord, ThreadReader, ThreadStore, ThreadTailRequest } from '../ThreadStore.ts'
-import { deliveryPredecessor } from '../ThreadWork.ts'
-import { WakeScheduler } from '../WakeScheduler.ts'
-import { WorkerRuntime } from './worker-runtime.ts'
+} from '../Records'
+import { CurrentRunWriter, readRunEvidenceSnapshot } from '../RunContinuation'
+import { runIdForSubmission } from '../RunJournal'
+import { LedgerError, type SubmissionSnapshot } from '../SubmissionLedger'
+import { getRecord, ThreadReader, ThreadStore, ThreadTailRequest } from '../ThreadStore'
+import { deliveryPredecessor } from '../ThreadWork'
+import { WakeScheduler } from '../WakeScheduler'
+import { WorkerRuntime } from './worker-runtime'
 
 type Delivery = NonNullable<AgentUpdateEmitted['delivery']>
 

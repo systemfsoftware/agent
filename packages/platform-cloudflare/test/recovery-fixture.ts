@@ -15,9 +15,9 @@ import * as Layer from 'effect/Layer'
 import * as Option from 'effect/Option'
 import * as Stream from 'effect/Stream'
 
-import { DurableAlarmError, ThreadHostMaintenance, ThreadMaintenance, ThreadMutationGate } from '../src/Alarm.ts'
-import { DurableObjectContext, ThreadObjectIdentity, ThreadObjectPlacement } from '../src/CloudflareBindings.ts'
-import { cloudflareWakeSchedulerLayer } from '../src/WakeScheduler.ts'
+import { DurableAlarmError, ThreadHostMaintenance, ThreadMaintenance, ThreadMutationGate } from '../src/Alarm'
+import { DurableObjectContext, ThreadObjectIdentity, ThreadObjectPlacement } from '../src/CloudflareBindings'
+import { cloudflareWakeSchedulerLayer } from '../src/WakeScheduler'
 
 /** Only the history read is held; admission, control state and real SQLite remain available. */
 export const recoveryReadHolds = new Map<string, Effect.Effect<void>>()

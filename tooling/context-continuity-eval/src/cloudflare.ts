@@ -7,12 +7,12 @@ import { Clock, Config, DateTime, Effect, FileSystem, Path, Redacted, Schema } f
 import * as SecureRandom from 'effect/crypto/SecureRandom'
 import { HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http'
 
-import { CloudflareIdentity, CloudflareSnapshot } from './cloudflare-contracts.ts'
-import { EvaluationError, EvaluationReport, ProjectStatus } from './contracts.ts'
-import { type EvaluationOptions, gateChecks } from './evaluate.ts'
-import { gradePhase } from './grade.ts'
-import { MAX_MODEL_CALLS, MAX_OUTPUT_TOKENS } from './live-model.ts'
-import { pressureInstructions, pressureScenario } from './pressure.ts'
+import { CloudflareIdentity, CloudflareSnapshot } from './cloudflare-contracts'
+import { EvaluationError, EvaluationReport, ProjectStatus } from './contracts'
+import { type EvaluationOptions, gateChecks } from './evaluate'
+import { gradePhase } from './grade'
+import { MAX_MODEL_CALLS, MAX_OUTPUT_TOKENS } from './live-model'
+import { pressureInstructions, pressureScenario } from './pressure'
 
 /** One already deployed host, one fresh Thread, one $10 budget. Never deploys or retries inference. */
 export const runCloudflareEvaluation = Effect.fn('ContextContinuity.runCloudflareEvaluation')(

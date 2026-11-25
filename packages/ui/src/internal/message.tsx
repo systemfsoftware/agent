@@ -1,7 +1,7 @@
 import type { ComponentProps } from 'react'
 import { Streamdown, type StreamdownProps } from 'streamdown'
 
-import { cn } from './class-names.ts'
+import { cn } from './class-names'
 
 export function Message({
   from,

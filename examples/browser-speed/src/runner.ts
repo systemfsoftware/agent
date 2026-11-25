@@ -9,10 +9,10 @@ import { Duration, Effect, Layer, Redacted, Schema } from 'effect'
 import { Toolkit } from 'effect/ai'
 import { FetchHttpClient, HttpClient, HttpClientRequest } from 'effect/http'
 
-import { Browser, completionTools, TaskResult } from './browser.ts'
-import { defaultChallenge, LabError, type ModelApi, type RunInput } from './contract.ts'
-import { Trace, traceModels, traceModelStream, traceOpenAiClient } from './telemetry.ts'
-import { prepareWikipedia } from './wikipedia.ts'
+import { Browser, completionTools, TaskResult } from './browser'
+import { defaultChallenge, LabError, type ModelApi, type RunInput } from './contract'
+import { Trace, traceModels, traceModelStream, traceOpenAiClient } from './telemetry'
+import { prepareWikipedia } from './wikipedia'
 
 const browserCode = BrowserUse.make({
   limits: CodeExecutionLimits.make({

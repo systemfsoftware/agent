@@ -1,11 +1,11 @@
 import { Console, Effect, Schema } from 'effect'
 import { Argument, Command, Flag } from 'effect/cli'
 
-import { qualifyRun } from './analyze.ts'
-import { Cloudflare, makeRun, withRun } from './cloudflare.ts'
-import type { Cell } from './evidence.ts'
-import { arms, Capture, Health } from './evidence.ts'
-import { check, revision, save } from './platform.ts'
+import { qualifyRun } from './analyze'
+import { Cloudflare, makeRun, withRun } from './cloudflare'
+import type { Cell } from './evidence'
+import { arms, Capture, Health } from './evidence'
+import { check, revision, save } from './platform'
 
 const measure = Effect.fnUntraced(function*(out: string, blocks: number) {
   yield* withRun(out, (run) =>

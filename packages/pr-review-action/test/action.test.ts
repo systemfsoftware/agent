@@ -14,9 +14,9 @@ import * as Ref from 'effect/Ref'
 import * as Schema from 'effect/Schema'
 import * as TestClock from 'effect/testing/TestClock'
 
-import { GeneratedFileClassification, hydrateExactChanges, reviewActionProgram } from '../src/action.ts'
-import type { ChangedFile, RepositorySnapshot } from '../src/github.ts'
-import { reviewMarker } from '../src/selection.ts'
+import { GeneratedFileClassification, hydrateExactChanges, reviewActionProgram } from '../src/action'
+import type { ChangedFile, RepositorySnapshot } from '../src/github'
+import { reviewMarker } from '../src/selection'
 
 const PublishedReviewBody = Schema.Struct({
   commit_id: Schema.String,

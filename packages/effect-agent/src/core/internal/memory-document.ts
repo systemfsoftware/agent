@@ -1,7 +1,7 @@
 import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 
-import { MemoryDocument, type MemoryKey, MemoryReader, MemoryStorageError } from '../MemoryStore.ts'
+import { MemoryDocument, type MemoryKey, MemoryReader, MemoryStorageError } from '../MemoryStore'
 
 const decodeDocument = Schema.decodeUnknownEffect(Schema.NullOr(MemoryDocument.Wire))
 

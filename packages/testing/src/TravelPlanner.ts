@@ -25,7 +25,7 @@ export {
   TravelPlannerToolkit,
   TravelPlannerToolkitLayer,
   TripRequest,
-} from './fixtures/travel-planner/definition.ts'
+} from './fixtures/travel-planner/definition'
 
 export {
   ActivityCatalogLayer,
@@ -34,7 +34,7 @@ export {
   LodgingCatalogLayer,
   TravelGuidanceLayer,
   TravelPlannerRuntimeLayer,
-} from './fixtures/travel-planner/deterministic-layers.ts'
+} from './fixtures/travel-planner/deterministic-layers'
 
 export {
   DurableSearchActivities,
@@ -49,7 +49,7 @@ export {
   TravelPlannerPhase4,
   TravelPlannerPhase4Toolkit,
   TravelPlannerPhase4ToolkitLayer,
-} from './fixtures/travel-planner/phase4.ts'
+} from './fixtures/travel-planner/phase4'
 
 export {
   makePhase6TravelPlannerBindings,
@@ -59,9 +59,9 @@ export {
   phase6PlannerModel,
   phase6TravelPlannerDeploymentId,
   phase6TravelPlannerProducerPrefix,
-} from './fixtures/travel-planner/phase6.ts'
+} from './fixtures/travel-planner/phase6'
 
-export { expectedTravelPlan, phase1HappyPathTurns, phase1Trip } from './fixtures/travel-planner/scenarios.ts'
+export { expectedTravelPlan, phase1HappyPathTurns, phase1Trip } from './fixtures/travel-planner/scenarios'
 
 export {
   coordinatorConfidentialMarker,
@@ -102,7 +102,7 @@ export {
   researchMission,
   TravelCoordinator,
   TravelCoordinatorToolkit,
-} from './fixtures/travel-planner/subagents.ts'
+} from './fixtures/travel-planner/subagents'
 
 export {
   durableChildLookupCallId,
@@ -124,4 +124,4 @@ export {
   s2TravelPlannerPrincipal,
   s2TravelPlannerProducerId,
   s2TravelPlannerSubmitOptions,
-} from './fixtures/travel-planner/subagents-durable.ts'
+} from './fixtures/travel-planner/subagents-durable'

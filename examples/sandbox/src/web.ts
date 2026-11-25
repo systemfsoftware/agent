@@ -28,7 +28,7 @@ import { WorkerEnvironment } from 'effect-cf'
 import { Prompt, Tool, Toolkit } from 'effect/ai'
 import * as SecureRandom from 'effect/crypto/SecureRandom'
 
-import { ScreenshotEvidence, ScreenshotId, screenshotKey } from './contract.ts'
+import { ScreenshotEvidence, ScreenshotId, screenshotKey } from './contract'
 
 const randomUUID = SecureRandom.SecureRandom.use((crypto) => crypto.uuidV4()).pipe(
   Effect.provide(BrowserCrypto.layer),

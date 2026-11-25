@@ -1,6 +1,6 @@
 import { Context, Effect, FileSystem, Layer, Schema } from 'effect'
 
-import { EvaluationError } from './contracts.ts'
+import { EvaluationError } from './contracts'
 
 export const RequestAudit = Schema.Struct({
   kind: Schema.Literals(['request', 'response']),

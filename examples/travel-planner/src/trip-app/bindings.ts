@@ -2,8 +2,8 @@ import { Schema } from 'effect'
 import { R2, Workflow } from 'effect-cf'
 import * as Sandbox from 'effect-cf/sandbox'
 
-import { AppBuildRequest, AppCommit } from '../domain.ts'
-import { AppBuildBucket } from './bucket.ts'
+import { AppBuildRequest, AppCommit } from '../domain'
+import { AppBuildBucket } from './bucket'
 
 export const AppBuildBucketLive = R2.layer(AppBuildBucket, { binding: 'APP_BUILDS' })
 

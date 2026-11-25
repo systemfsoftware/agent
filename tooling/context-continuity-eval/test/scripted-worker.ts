@@ -6,10 +6,10 @@ import { CanonicalRecordEnvelope } from '@systemfsoftware/agent/records'
 import { Config, Console, Effect, FileSystem, Layer, Redacted, Schema } from 'effect'
 import { HttpClient, HttpClientResponse } from 'effect/http'
 
-import { runEvaluation } from '../src/evaluate.ts'
-import { WorkerOptions } from '../src/process-host.ts'
-import { RequestAudit } from '../src/request-audit.ts'
-import { scriptedResponse } from './scripted-model.ts'
+import { runEvaluation } from '../src/evaluate'
+import { WorkerOptions } from '../src/process-host'
+import { RequestAudit } from '../src/request-audit'
+import { scriptedResponse } from './scripted-model'
 
 // Test-only provider. No network transport is installed. It exercises the actual
 // native streaming decoder, budget ledger, runtime, SQLite, and supervisor.

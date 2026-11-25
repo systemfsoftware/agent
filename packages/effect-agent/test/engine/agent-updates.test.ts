@@ -16,10 +16,10 @@ import * as Ref from 'effect/Ref'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
-import * as AgentRuntime from '../../src/engine/AgentRuntime.ts'
-import { streamWithUsageAccountingUnknown } from '../../src/engine/internal/agent-runtime.ts'
-import { AgentUpdateAcceptance, ModelUsageAccounting } from '../../src/engine/internal/interpreter-options.ts'
-import { ThreadHistory } from '../../src/engine/ThreadHistory.ts'
+import * as AgentRuntime from '../../src/engine/AgentRuntime'
+import { streamWithUsageAccountingUnknown } from '../../src/engine/internal/agent-runtime'
+import { AgentUpdateAcceptance, ModelUsageAccounting } from '../../src/engine/internal/interpreter-options'
+import { ThreadHistory } from '../../src/engine/ThreadHistory'
 
 const usage = { inputTokens: {}, outputTokens: {} }
 

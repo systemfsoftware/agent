@@ -1,6 +1,6 @@
 import { DurableObject } from 'cloudflare:workers'
 
-import { encode, type Env } from './protocol.ts'
+import { encode, type Env } from './protocol'
 
 // Evaluated independently in the front Worker and the Object isolate.
 const moduleId = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)

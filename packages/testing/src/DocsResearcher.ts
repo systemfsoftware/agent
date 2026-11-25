@@ -35,7 +35,7 @@ export {
   SummaryBrief,
   SummaryFinding,
   SummaryRequest,
-} from './fixtures/docs-researcher/definition.ts'
+} from './fixtures/docs-researcher/definition'
 
 export {
   docsCoordinatorDigests,
@@ -51,4 +51,4 @@ export {
   makeDocsResearcherHarness,
   redactedDocumentPreview,
   summarizeCallId,
-} from './fixtures/docs-researcher/harness.ts'
+} from './fixtures/docs-researcher/harness'

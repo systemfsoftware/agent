@@ -1,8 +1,8 @@
 import { Effect, Schema } from 'effect'
 import { Tool, Toolkit } from 'effect/ai'
 
-import { PlannerError } from '../domain.ts'
-import { ScoutFindings } from './contracts.ts'
+import { PlannerError } from '../domain'
+import { ScoutFindings } from './contracts'
 
 // Accept a structurally valid model draft before checking publication limits. Provider-side
 // parameter decoding otherwise aborts the run before a tool can return corrective feedback.

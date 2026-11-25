@@ -19,6 +19,7 @@ import * as Schema from 'effect/Schema'
 import * as SqlClientService from 'effect/sql/SqlClient'
 import * as Stream from 'effect/Stream'
 
+import { bundledEntry } from './bundled-entry'
 import {
   schedulingCrashAgent,
   type SchedulingCrashBoundary,
@@ -26,7 +27,7 @@ import {
   SchedulingCrashMarker,
   schedulingCrashScheduleId,
   schedulingCrashScope,
-} from './scheduling-worker.ts'
+} from './scheduling-worker'
 
 class CountRow extends Schema.Class<CountRow>('SchedulingCrashTest/CountRow')({
   row_count: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
@@ -196,7 +197,7 @@ it.live(
 
           const child = yield* ChildProcess.make(
             process.execPath,
-            ['test/crash/scheduling-worker-entry.ts'],
+            [bundledEntry(`${import.meta.dirname}/scheduling-worker-entry.ts`)],
             {
               cwd: childCwd,
               env: {

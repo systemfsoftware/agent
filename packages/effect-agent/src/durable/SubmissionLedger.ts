@@ -5,14 +5,14 @@ import type * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'
 import type * as Stream from 'effect/Stream'
 
-import { InputMessage } from '../capabilities/Messaging.ts'
-import * as FailureDiagnostic from '../core/FailureDiagnostic.ts'
-import { AgentId, AttemptId, ReceiptId, SettlementId, SubmissionId, ThreadId, ToolCallId } from '../core/Identifiers.ts'
-import type { JoinedToHost } from '../core/Receipt.ts'
-import { IdempotencyKey, Principal, QueueSequence } from '../core/Receipt.ts'
-import { RunUsageSummary } from '../core/Usage.ts'
-import { AssignmentTerminal } from '../core/Worker.ts'
-import { canonicalJson } from './Digest.ts'
+import { InputMessage } from '../capabilities/Messaging'
+import * as FailureDiagnostic from '../core/FailureDiagnostic'
+import { AgentId, AttemptId, ReceiptId, SettlementId, SubmissionId, ThreadId, ToolCallId } from '../core/Identifiers'
+import type { JoinedToHost } from '../core/Receipt'
+import { IdempotencyKey, Principal, QueueSequence } from '../core/Receipt'
+import { RunUsageSummary } from '../core/Usage'
+import { AssignmentTerminal } from '../core/Worker'
+import { canonicalJson } from './Digest'
 import {
   AbortRequested,
   ApprovalDecision,
@@ -31,10 +31,10 @@ import {
   type ToolCallSettled,
   ToolCallUnknown,
   WorkerAdmission,
-} from './Records.ts'
-import type { AppendRequest, AppendResult, ThreadStoreFailure } from './ThreadStore.ts'
+} from './Records'
+import type { AppendRequest, AppendResult, ThreadStoreFailure } from './ThreadStore'
 
-export { IdempotencyKey, JoinedToHost, Principal, QueueSequence } from '../core/Receipt.ts'
+export { IdempotencyKey, JoinedToHost, Principal, QueueSequence } from '../core/Receipt'
 
 /**
  * Ledger lifecycle states for one Submission. `settled` is the only terminal state; every other

@@ -6,7 +6,7 @@ import { Hex } from 'effect/encoding'
 import { ChildProcess, ChildProcessSpawner } from 'effect/process'
 import { build } from 'esbuild'
 
-import { ReplayCpuBuild, ReplayCpuError } from './replay-cpu-contracts.ts'
+import { ReplayCpuBuild, ReplayCpuError } from './replay-cpu-contracts'
 
 const Manifest = Schema.Struct({
   name: Schema.String,

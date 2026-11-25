@@ -20,8 +20,8 @@ import {
 import { FetchHttpClient, HttpClient, HttpClientRequest } from 'effect/http'
 import { ChildProcess, ChildProcessSpawner } from 'effect/process'
 
-import { Evidence, type Receipt, RunId, WorkerFailure } from '../src/proof.ts'
-import { fail, Failure, GateFailure, request as checkoutRequest } from './request.ts'
+import { Evidence, type Receipt, RunId, WorkerFailure } from '../src/proof'
+import { fail, Failure, GateFailure, request as checkoutRequest } from './request'
 
 const Commit = Schema.String.check(Schema.isPattern(/^[a-f0-9]{40}$/))
 

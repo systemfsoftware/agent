@@ -3,7 +3,7 @@ import * as Cloudflare from 'alchemy/Cloudflare'
 import { Clock, Config, Console, Effect, Exit, Layer, Schema } from 'effect'
 import * as HttpClient from 'effect/http/HttpClient'
 
-import { WorkerBuild } from './model.ts'
+import { WorkerBuild } from './model'
 
 // Record API wall time without URLs, headers, account identifiers, or response bodies.
 const deploymentHttp = Layer.effect(

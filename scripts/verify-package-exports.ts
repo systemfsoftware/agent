@@ -142,7 +142,7 @@ const checkOperationSpans = (
           if (primitives[owner]?.includes(imported)) functions.set(binding.name.text, imported)
         }
       }
-    } else if (module.endsWith('/storage-span.ts') && ts.isNamedImports(bindings)) {
+    } else if (module.endsWith('/storage-span') && ts.isNamedImports(bindings)) {
       for (const binding of bindings.elements) {
         if ((binding.propertyName ?? binding.name).text === 'withStorageSpan') {
           functions.set(binding.name.text, 'withStorageSpan')
@@ -375,8 +375,8 @@ export const verifyPackageExports = Effect.fn('verifyPackageExports')(
           namespaces.add(name)
           if (
             !/^[A-Z][A-Za-z0-9]*$/.test(name) ||
-            !statement.moduleSpecifier.text.endsWith(`/${name}.ts`) ||
-            !targets.includes(`./src/${statement.moduleSpecifier.text.slice(2)}`)
+            !statement.moduleSpecifier.text.split('/').includes(name) ||
+            !targets.includes(`./src/${statement.moduleSpecifier.text.slice(2)}.ts`)
           ) {
             report(index.fileName, `${name} must reference a published same-name source module`)
           }

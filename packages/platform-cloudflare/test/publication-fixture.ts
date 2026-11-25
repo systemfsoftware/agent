@@ -11,8 +11,8 @@ import * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
-import { DurableAlarmError, ThreadPublication } from '../src/Alarm.ts'
-import { DurableObjectContext, ThreadObjectIdentity } from '../src/CloudflareBindings.ts'
+import { DurableAlarmError, ThreadPublication } from '../src/Alarm'
+import { DurableObjectContext, ThreadObjectIdentity } from '../src/CloudflareBindings'
 
 export const PublicationCursor = Schema.Struct({
   version: Schema.Literal(1),

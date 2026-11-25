@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@effect/vitest'
 
-import { inspectForeignDiagnostic, safeUnknownString } from '../../src/durable/internal/foreign-diagnostic.ts'
+import { inspectForeignDiagnostic, safeUnknownString } from '../../src/durable/internal/foreign-diagnostic'
 
 describe('foreign failure diagnostics', () => {
   it('keeps hostile getters, proxies, and coercion hooks total', () => {

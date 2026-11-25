@@ -71,8 +71,8 @@ import {
   type ThreadMaintenanceFailpointHandler,
   ThreadRecoveryEvents,
   type ThreadRecoveryFaultEvent,
-} from '../src/Alarm.ts'
-import type { submit as admitToThread } from '../src/ThreadObject.ts'
+} from '../src/Alarm'
+import type { submit as admitToThread } from '../src/ThreadObject'
 import {
   bookDefinition,
   decodeIdempotencyKey,
@@ -84,10 +84,10 @@ import {
   plannerDefinition,
   submitOptions,
   supplierCountsFor,
-} from './fixtures.ts'
-import { scheduledAlarm, stubFor } from './harness.ts'
-import { recoveryReadHolds, recoveryReplies } from './recovery-fixture.ts'
-import type { TestThreadObject } from './worker.ts'
+} from './fixtures'
+import { scheduledAlarm, stubFor } from './harness'
+import { recoveryReadHolds, recoveryReplies } from './recovery-fixture'
+import type { TestThreadObject } from './worker'
 
 const randomUUID = SecureRandom.SecureRandom.use((crypto) => crypto.uuidV4()).pipe(
   Effect.provide(BrowserCrypto.layer),

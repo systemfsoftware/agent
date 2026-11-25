@@ -9,8 +9,8 @@ import { type ReviewRepository } from '@systemfsoftware/agent-pr-review/review-r
 import { Effect, Path, Result, Schema, Stream } from 'effect'
 import { ChildProcess, ChildProcessSpawner } from 'effect/process'
 
-import { EvalConfigurationError, type EvalInputDigest } from './contracts.ts'
-import { digestText } from './corpus.ts'
+import { EvalConfigurationError, type EvalInputDigest } from './contracts'
+import { digestText } from './corpus'
 
 const MAX_TREE_BYTES = 16_000_000
 const MAX_TEXT_BLOB_BYTES = 2_000_000

@@ -26,7 +26,7 @@ import {
   TEST_DIGESTS,
   TEST_PRINCIPAL,
   testRuntimeLayer,
-} from '../fixtures.ts'
+} from '../fixtures'
 
 const threadOptions: ThreadObject.Options = {
   namespaceBinding: 'RESTART_THREADS',

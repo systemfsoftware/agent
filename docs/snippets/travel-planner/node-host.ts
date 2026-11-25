@@ -1,7 +1,7 @@
 import { NodeDurableHost } from '@systemfsoftware/agent-platform-node'
 import { Layer } from 'effect'
 
-import { definitions, ModelLive, OpenAiLive, planner } from './node-agent.ts'
+import { definitions, ModelLive, OpenAiLive, planner } from './node-agent'
 
 export const HostLive = NodeDurableHost.layer([{ agent: planner, model: ModelLive, definitions }], {
   filename: './agents.sqlite',

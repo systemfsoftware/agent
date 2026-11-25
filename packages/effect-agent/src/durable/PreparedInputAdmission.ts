@@ -2,14 +2,14 @@ import * as Context from 'effect/Context'
 import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 
-import * as FailureDiagnostic from '../core/FailureDiagnostic.ts'
-import { AgentId, ThreadId } from '../core/Identifiers.ts'
-import { InputMessage } from '../core/Messaging.ts'
-import type { Receipt } from '../core/Receipt.ts'
-import { DefinitionDigests, Digest, PersistedJson, WorkerAdmission } from './Records.ts'
-import type { ScheduleStorageError } from './Schedule.ts'
-import { AdmissionFence, AdmissionGroup, IdempotencyKey, Principal } from './SubmissionLedger.ts'
-import type { SubmissionStatus } from './SubmissionStatus.ts'
+import * as FailureDiagnostic from '../core/FailureDiagnostic'
+import { AgentId, ThreadId } from '../core/Identifiers'
+import { InputMessage } from '../core/Messaging'
+import type { Receipt } from '../core/Receipt'
+import { DefinitionDigests, Digest, PersistedJson, WorkerAdmission } from './Records'
+import type { ScheduleStorageError } from './Schedule'
+import { AdmissionFence, AdmissionGroup, IdempotencyKey, Principal } from './SubmissionLedger'
+import type { SubmissionStatus } from './SubmissionStatus'
 
 const Name = Schema.NonEmptyString.check(
   Schema.isMaxLength(128),

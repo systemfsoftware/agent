@@ -1,14 +1,14 @@
 import { Effect, Layer, Schema } from 'effect'
 import { WorkerEnvironment } from 'effect-cf'
 
-import { AccountError } from '../../src/auth/account.ts'
-import { PlannerError, TripSiteStore } from '../../src/domain.ts'
-import { makeTravelPlannerThread, plannerApplication } from '../../src/server/cloudflare.ts'
-import { TripFailpoint } from '../../src/server/trips.ts'
-import { makeWorker } from '../../src/worker.ts'
-import { FixtureBrowserLive } from './browser.ts'
-import { Email, fixtureSession, ownerEmail } from './identity.ts'
-import { advanceFixtureProgress, FixtureModel, fixtureProgressStatus } from './models.ts'
+import { AccountError } from '../../src/auth/account'
+import { PlannerError, TripSiteStore } from '../../src/domain'
+import { makeTravelPlannerThread, plannerApplication } from '../../src/server/cloudflare'
+import { TripFailpoint } from '../../src/server/trips'
+import { makeWorker } from '../../src/worker'
+import { FixtureBrowserLive } from './browser'
+import { Email, fixtureSession, ownerEmail } from './identity'
+import { advanceFixtureProgress, FixtureModel, fixtureProgressStatus } from './models'
 
 interface TestEnvironment extends Cloudflare.Env {
   readonly PLANNER_TOKEN?: string

@@ -10,7 +10,7 @@ import {
   type ScheduleTiming,
   type ScheduleTimingRequest,
   ScheduleValidationError,
-} from '../Schedule.ts'
+} from '../Schedule'
 
 const invalid = (message: string) => Result.fail(ScheduleValidationError.make({ message }))
 

@@ -33,7 +33,7 @@ import {
   MemoryActivityWorkerConfig,
   MemoryActivityWorkerResult,
   memoryKey,
-} from './memory-activity-fixtures.ts'
+} from './memory-activity-fixtures'
 
 const decodeConfig = Effect.fn('MemoryActivityWorker.decodeConfig')(function*() {
   const database = yield* Config.String('EFFECT_AGENT_MEMORY_ACTIVITY_DB')

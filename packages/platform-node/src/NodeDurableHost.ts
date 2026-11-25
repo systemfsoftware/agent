@@ -42,16 +42,16 @@ import * as Ref from 'effect/Ref'
 import * as Schema from 'effect/Schema'
 import type * as Stream from 'effect/Stream'
 
-import { applicationInvocationContext } from './internal/application-context.ts'
-import { ExclusiveSqliteHost } from './internal/exclusive-host.ts'
-import { runNodeMessageDeliveries } from './internal/message-delivery.ts'
-import { makeNodePreparedInputAdmission, NodeAdmission } from './internal/prepared-admission.ts'
-import { runNodeWorkerDispatch } from './internal/worker-dispatch.ts'
+import { applicationInvocationContext } from './internal/application-context'
+import { ExclusiveSqliteHost } from './internal/exclusive-host'
+import { runNodeMessageDeliveries } from './internal/message-delivery'
+import { makeNodePreparedInputAdmission, NodeAdmission } from './internal/prepared-admission'
+import { runNodeWorkerDispatch } from './internal/worker-dispatch'
 import {
   NodeDurableAgentRuntime,
   NodeDurableAgentRuntimeConfig,
   type NodeDurableAgentRuntimeOptions,
-} from './NodeDurableAgentRuntime.ts'
+} from './NodeDurableAgentRuntime'
 
 /**
  * Admission is not open on this host: it is shutting down (deployment §6 step 1, DEPLOY-005).

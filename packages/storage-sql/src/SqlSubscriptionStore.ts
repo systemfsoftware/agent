@@ -38,8 +38,8 @@ import * as SqlClientService from 'effect/sql/SqlClient'
 import type * as SqlError from 'effect/sql/SqlError'
 import type * as Statement from 'effect/sql/Statement'
 
-import { jsonIsValid, sqliteJsonIsTrue } from './internal/sql-json.ts'
-import { makeRowDecoder, makeSqlQuery, SqlInteger, SqlNumber } from './SqlStorage.ts'
+import { jsonIsValid, sqliteJsonIsTrue } from './internal/sql-json'
+import { makeRowDecoder, makeSqlQuery, SqlInteger, SqlNumber } from './SqlStorage'
 
 const CountRow = Schema.Struct({ count: SqlInteger.check(Schema.isGreaterThanOrEqualTo(0)) })
 const SequenceRow = Schema.Struct({ sequence: SqlInteger.pipe(Schema.decodeTo(Schema.Natural)) })

@@ -66,8 +66,8 @@ import {
   MODEL_ID,
   MODEL_REVISION,
   type QueryMeasurement,
-} from './contracts.ts'
-import { makeNativeEmbeddingLayer } from './native-embedding.ts'
+} from './contracts'
+import { makeNativeEmbeddingLayer } from './native-embedding'
 
 export interface EvaluationOptions {
   readonly cachePath: string

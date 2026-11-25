@@ -1,4 +1,4 @@
-import type { PlannerSnapshot, SpokenMessage, VoiceContext } from './domain.ts'
+import type { PlannerSnapshot, SpokenMessage, VoiceContext } from './domain'
 
 type Message = PlannerSnapshot['messages'][number]
 

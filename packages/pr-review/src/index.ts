@@ -1,2 +1,2 @@
-export * as Review from './Review.ts'
-export * as ReviewRepository from './ReviewRepository.ts'
+export * as Review from './Review'
+export * as ReviewRepository from './ReviewRepository'

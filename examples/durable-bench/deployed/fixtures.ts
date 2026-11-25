@@ -3,7 +3,7 @@ import { DatabaseSync } from 'node:sqlite'
 
 import { Effect, FileSystem, Schema } from 'effect'
 
-import { hash, read, workspace } from './platform.ts'
+import { hash, read, workspace } from './platform'
 import {
   type BulkFixture,
   Counts,
@@ -13,7 +13,7 @@ import {
   SqlValue,
   StorageFormat,
   type Target,
-} from './worker/protocol.ts'
+} from './worker/protocol'
 
 export class FixtureError extends Schema.TaggedError<FixtureError>()('FixtureError', {
   message: Schema.String,

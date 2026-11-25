@@ -111,23 +111,23 @@ import {
   ThreadNativeMaintenance,
   ThreadPublication,
   type ThreadRecoveryEvents,
-} from '../Alarm.ts'
-import { DurableObjectContext, ThreadObjectIdentity, ThreadObjectPlacement } from '../CloudflareBindings.ts'
+} from '../Alarm'
+import { DurableObjectContext, ThreadObjectIdentity, ThreadObjectPlacement } from '../CloudflareBindings'
 import {
   CLOUDFLARE_RUNTIME_DEFAULTS,
   CloudflareDurableRuntimeConfig,
   CloudflareDurableRuntimeConfigValue,
   CloudflarePlatformConfigError,
-} from '../CloudflareConfig.ts'
-import { CloudflareThreadClient } from '../CloudflareThreadClient.ts'
-import { cloudflareWakeSchedulerLayer } from '../WakeScheduler.ts'
-import { cloudflareCryptoLayer } from './crypto.ts'
-import * as DueQueue from './due-queue.ts'
-import { LiveTextHub } from './live-text.ts'
-import { guardedMessageDeliveryStoreLayer, lazyThreadMessageDeliveryLayer } from './message-delivery.ts'
-import { cloudflarePreparedInputAdmissionLayer } from './prepared-admission.ts'
-import { ProgressWaitRegistry } from './progress-wait.ts'
-import { threadPortTransportLayer } from './transport.ts'
+} from '../CloudflareConfig'
+import { CloudflareThreadClient } from '../CloudflareThreadClient'
+import { cloudflareWakeSchedulerLayer } from '../WakeScheduler'
+import { cloudflareCryptoLayer } from './crypto'
+import * as DueQueue from './due-queue'
+import { LiveTextHub } from './live-text'
+import { guardedMessageDeliveryStoreLayer, lazyThreadMessageDeliveryLayer } from './message-delivery'
+import { cloudflarePreparedInputAdmissionLayer } from './prepared-admission'
+import { ProgressWaitRegistry } from './progress-wait'
+import { threadPortTransportLayer } from './transport'
 
 /**
  * Raw (unvalidated) construction options for `ThreadObject.make`, mirroring

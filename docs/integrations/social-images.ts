@@ -4,7 +4,7 @@ import { NodeServices } from '@effect/platform-node'
 import type { AstroIntegration } from 'astro'
 import { Effect, FileSystem } from 'effect'
 
-import { type SocialPage, writeSocialImages } from './social-renderer.ts'
+import { type SocialPage, writeSocialImages } from './social-renderer'
 
 // Read the rendered metadata so crawlers and generated cards always share page copy.
 const decodeHtml = (text: string) =>

@@ -1,7 +1,7 @@
 import { Effect, Schema } from 'effect'
 
-import { AccountId } from '../auth/account.ts'
-import { PlannerError, type PlannerSnapshot } from '../domain.ts'
+import { AccountId } from '../auth/account'
+import { PlannerError, type PlannerSnapshot } from '../domain'
 
 export const StorageOwner = Schema.String.check(
   Schema.isPattern(/^account-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/),

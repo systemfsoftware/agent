@@ -1,7 +1,7 @@
-import { COLD_ABORT, Host } from '../../../deployed/worker/host.ts'
-import { attach, observation } from '../../../deployed/worker/observe.ts'
-import { type Env, type Query, type SqlDump } from '../../../deployed/worker/protocol.ts'
-import { payload, type Turn } from '../../../src/plan.ts'
+import { COLD_ABORT, Host } from '../../../deployed/worker/host'
+import { attach, observation } from '../../../deployed/worker/observe'
+import { type Env, type Query, type SqlDump } from '../../../deployed/worker/protocol'
+import { payload, type Turn } from '../../../src/plan'
 import { Effect, Layer, Schema } from '../../node_modules/effect/dist/index.js'
 import { FetchHttpClient, HttpClient } from '../../node_modules/effect/dist/unstable/http/index.js'
 import { Rpc } from '../../node_modules/effect/dist/unstable/rpc/index.js'
@@ -13,14 +13,14 @@ import {
   infer,
   messages,
   tools,
-} from '../../node_modules/tardie/src/agent/index.ts'
+} from '../../node_modules/tardie/src/agent/index'
 import {
   liveModelServices,
   modelActs,
   modelInfo,
   ModelLock,
   toolActs,
-} from '../../node_modules/tardie/src/agent/services/index.ts'
+} from '../../node_modules/tardie/src/agent/services/index'
 import {
   type Atom,
   atom,
@@ -32,11 +32,11 @@ import {
   type MethodOutput,
   type MethodResult,
   type ThreadCoordinate,
-} from '../../node_modules/tardie/src/core/index.ts'
-import { defineLibrary, MethodDescription, MethodHints } from '../../node_modules/tardie/src/libraries/index.ts'
-import { modelLockService } from '../../node_modules/tardie/src/model/lock.ts'
-import { providerLayer } from '../../node_modules/tardie/src/model/providers/openai-compat.ts'
-import { cloudflareThreadName, createActorWorker } from '../../node_modules/tardie/src/platform/cloudflare/index.ts'
+} from '../../node_modules/tardie/src/core/index'
+import { defineLibrary, MethodDescription, MethodHints } from '../../node_modules/tardie/src/libraries/index'
+import { modelLockService } from '../../node_modules/tardie/src/model/lock'
+import { providerLayer } from '../../node_modules/tardie/src/model/providers/openai-compat'
+import { cloudflareThreadName, createActorWorker } from '../../node_modules/tardie/src/platform/cloudflare/index'
 
 const SYSTEM = 'You are a benchmark agent. Call lookup as instructed, then answer briefly.'
 const MODEL = { provider: 'scripted', model_id: 'scripted-1' }

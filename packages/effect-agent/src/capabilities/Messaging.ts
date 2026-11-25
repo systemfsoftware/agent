@@ -7,14 +7,14 @@ import * as Hex from 'effect/encoding/Hex'
 import * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'
 
-import type { AnyDefinition } from '../core/Agent.ts'
-import { utf8Bytes } from '../core/internal/utf8.ts'
-import { InboxPage, MessageRef, MessageStatus, MessagingError, PeerName } from '../core/Messaging.ts'
-import { IdempotencyKey } from '../core/Receipt.ts'
-import { WorkerOperationTool } from '../core/SubagentContract.ts'
-import { MessagingHost } from '../engine/MessagingHost.ts'
+import type { AnyDefinition } from '../core/Agent'
+import { utf8Bytes } from '../core/internal/utf8'
+import { InboxPage, MessageRef, MessageStatus, MessagingError, PeerName } from '../core/Messaging'
+import { IdempotencyKey } from '../core/Receipt'
+import { WorkerOperationTool } from '../core/SubagentContract'
+import { MessagingHost } from '../engine/MessagingHost'
 
-export * from '../core/Messaging.ts'
+export * from '../core/Messaging'
 
 /** A fixed host route and its destination-owned input Schema. Construction acquires no resources. */
 export interface Peer<Name extends string, Input extends Schema.Top> {

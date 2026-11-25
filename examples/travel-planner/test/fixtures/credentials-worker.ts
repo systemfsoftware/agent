@@ -2,14 +2,14 @@ import { Effect, Layer, Redacted, Schema } from 'effect'
 import { DurableObject } from 'effect-cf'
 import { SqlClient } from 'effect/sql/SqlClient'
 
-import { PlannerError, TripSiteStore } from '../../src/domain.ts'
-import { makeTravelPlannerThread, plannerApplication } from '../../src/server/cloudflare.ts'
-import { credentialForOwner, credentialSourceLayer } from '../../src/server/credentials.ts'
-import { plannerOwner } from '../../src/server/tenancy.ts'
-import { FixtureBrowserLive } from './browser.ts'
-import { fixtureSubject, ownerEmail } from './identity.ts'
-import { FixtureModel } from './models.ts'
-import fixtureWorker from './worker.ts'
+import { PlannerError, TripSiteStore } from '../../src/domain'
+import { makeTravelPlannerThread, plannerApplication } from '../../src/server/cloudflare'
+import { credentialForOwner, credentialSourceLayer } from '../../src/server/credentials'
+import { plannerOwner } from '../../src/server/tenancy'
+import { FixtureBrowserLive } from './browser'
+import { fixtureSubject, ownerEmail } from './identity'
+import { FixtureModel } from './models'
+import fixtureWorker from './worker'
 
 const sites = Layer.succeed(TripSiteStore, {
   publish: () => Effect.fail(PlannerError.make({ code: 'publication', message: 'Unused fixture publication.' })),

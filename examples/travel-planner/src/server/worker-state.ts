@@ -11,14 +11,14 @@ import { WorkerHostAuthorizer } from '@systemfsoftware/agent/worker-host'
 import { Effect, Option, Schema, Stream } from 'effect'
 import { WorkerEnvironment } from 'effect-cf'
 
-import { PlannerError, PlannerWorkerDetail, PlannerWorkerRequest } from '../domain.ts'
-import { ScoutFindings } from '../research/contracts.ts'
-import { UpdatingResearchScout, updatingResearchScout } from '../research/scout.ts'
-import { plannerActivity } from './activity.ts'
-import { readDiagnostics } from './diagnostics.ts'
-import { ProgressStore } from './progress.ts'
-import { ownerOfThread } from './tenancy.ts'
-import { workerHistory } from './worker-history.ts'
+import { PlannerError, PlannerWorkerDetail, PlannerWorkerRequest } from '../domain'
+import { ScoutFindings } from '../research/contracts'
+import { UpdatingResearchScout, updatingResearchScout } from '../research/scout'
+import { plannerActivity } from './activity'
+import { readDiagnostics } from './diagnostics'
+import { ProgressStore } from './progress'
+import { ownerOfThread } from './tenancy'
+import { workerHistory } from './worker-history'
 
 export const WorkerLocator = Schema.Struct({
   workerId: PlannerWorkerRequest.fields.workerId,

@@ -3,13 +3,7 @@ import * as Schema from 'effect/Schema'
 import * as SchemaGetter from 'effect/SchemaGetter'
 import * as SchemaIssue from 'effect/SchemaIssue'
 
-import {
-  CanonicalBatch,
-  CanonicalRecordEnvelope,
-  CURRENT_RECORD_FORMAT,
-  RecordEnvelope,
-  RecordJson,
-} from './Records.ts'
+import { CanonicalBatch, CanonicalRecordEnvelope, CURRENT_RECORD_FORMAT, RecordEnvelope, RecordJson } from './Records'
 
 export class RecordFormatError extends Schema.TaggedError<RecordFormatError>()(
   'RecordFormatError',

@@ -54,7 +54,7 @@
   },
   "scripts": {
     "build": "tsdown",
-    "typecheck": "effect-tsgo tsrs --noEmit -p tsconfig.json",
+    "typecheck": "tsc -b",
     "test": "vitest run --passWithNoTests",
     "check:pack": "pnpm pack --pack-destination .pack && attw .pack/*.tgz --profile esm-only; s=$?; rm -rf .pack; exit $s"
   },
@@ -68,6 +68,7 @@
     "@arethetypeswrong/cli": "catalog:",
     "@effect/vitest": "catalog:",
     "effect": "catalog:",
+    "esbuild": "catalog:",
     "tsdown": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

@@ -3,12 +3,12 @@ import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 import * as Struct from 'effect/Struct'
 
-import { AgentId, ThreadId } from '../core/Identifiers.ts'
-import { Receipt } from '../core/Receipt.ts'
-import type { PreparedInputAuthorizationDecision } from './PreparedInputAdmission.ts'
-import { PreparedInput, PreparedInputRetryReason } from './PreparedInputAdmission.ts'
-import { DefinitionDigests, Digest, PersistedJson } from './Records.ts'
-import { AdmissionFence, AdmissionGroup, Principal } from './SubmissionLedger.ts'
+import { AgentId, ThreadId } from '../core/Identifiers'
+import { Receipt } from '../core/Receipt'
+import type { PreparedInputAuthorizationDecision } from './PreparedInputAdmission'
+import { PreparedInput, PreparedInputRetryReason } from './PreparedInputAdmission'
+import { DefinitionDigests, Digest, PersistedJson } from './Records'
+import { AdmissionFence, AdmissionGroup, Principal } from './SubmissionLedger'
 
 const Name = Schema.NonEmptyString.check(
   Schema.isMaxLength(128),

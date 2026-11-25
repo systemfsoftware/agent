@@ -1,7 +1,7 @@
 import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 
-import { RunId } from './Identifiers.ts'
+import { RunId } from './Identifiers'
 
 const UsageIdentity = Schema.NonEmptyString.check(Schema.isMaxLength(256))
 

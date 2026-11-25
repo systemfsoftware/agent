@@ -1,7 +1,7 @@
 import { Effect, Schema } from 'effect'
 
-import { requireReplayCpu } from './replay-cpu-build.ts'
-import { ReplayCpuOperation, ReplayCpuRole } from './replay-cpu-contracts.ts'
+import { requireReplayCpu } from './replay-cpu-build'
+import { ReplayCpuOperation, ReplayCpuRole } from './replay-cpu-contracts'
 
 const optionalString = Schema.optionalKey(Schema.NullOr(Schema.String))
 const optionalNumber = Schema.optionalKey(Schema.NullOr(Schema.Finite))

@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import * as BrowserCrypto from '@effect/platform-browser/BrowserCrypto'
 import { authenticatedHttpClient, sessionObservation } from '@systemfsoftware/agent-example-auth/client'
 import { Cause, Effect, Option, Predicate, Redacted, Schema } from 'effect'
@@ -16,7 +17,7 @@ import {
   serviceTierForModel,
   TraceArchive,
   VisitorKey,
-} from './contract.ts'
+} from './contract'
 
 const randomUUID = SecureRandom.SecureRandom.use((crypto) => crypto.uuidV4()).pipe(
   Effect.provide(BrowserCrypto.layer),

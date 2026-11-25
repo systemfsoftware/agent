@@ -16,7 +16,7 @@ import type * as Layer from 'effect/Layer'
 import * as ManagedRuntime from 'effect/ManagedRuntime'
 import * as Predicate from 'effect/Predicate'
 
-import { dynamicWorkerCodeExecutorLayer } from '../../src/CloudflareCodeMode.ts'
+import { dynamicWorkerCodeExecutorLayer } from '../../src/CloudflareCodeMode'
 
 interface WorkerEnv {
   readonly LOADER: WorkerLoader

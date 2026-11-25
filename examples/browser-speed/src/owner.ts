@@ -14,7 +14,7 @@ import type { ThreadHistory } from '@systemfsoftware/agent/thread-history'
 import { Cause, Clock, Effect, Exit, Fiber, type Layer, Option, Redacted, Schema } from 'effect'
 import * as SecureRandom from 'effect/crypto/SecureRandom'
 
-import { Browser, makeBrowser } from './browser.ts'
+import { Browser, makeBrowser } from './browser'
 import {
   browserCommandTimeoutMillis,
   coffeeDemo,
@@ -30,11 +30,11 @@ import {
   type Snapshot,
   supportsUltrafast,
   type ViewMode,
-} from './contract.ts'
-import type { connectKitesurf } from './kitesurf.ts'
-import { executeTask } from './runner.ts'
-import { makeTrace, Trace, traceOtlp } from './telemetry.ts'
-import { TraceStore } from './trace-store.ts'
+} from './contract'
+import type { connectKitesurf } from './kitesurf'
+import { executeTask } from './runner'
+import { makeTrace, Trace, traceOtlp } from './telemetry'
+import { TraceStore } from './trace-store'
 
 const randomUUID = SecureRandom.SecureRandom.use((crypto) => crypto.uuidV4()).pipe(
   Effect.provide(BrowserCrypto.layer),

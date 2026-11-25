@@ -26,7 +26,7 @@ import * as Schema from 'effect/Schema'
 import * as SqlClientService from 'effect/sql/SqlClient'
 import { expect } from 'vitest'
 
-import { decodeThreadId, supplierCountsFor, supplierValuesFor } from './fixtures.ts'
+import { decodeThreadId, supplierCountsFor, supplierValuesFor } from './fixtures'
 import type {
   ContextCompactorThreadObject,
   ProjectionThreadObject,
@@ -35,7 +35,7 @@ import type {
   TelemetryThreadObject,
   TestScheduleOwnerObject,
   TestThreadObject,
-} from './worker.ts'
+} from './worker'
 
 /**
  * Shared eviction-harness machinery (plan §3): fresh stubs per call (an aborted incarnation

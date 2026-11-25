@@ -14,9 +14,9 @@ import {
   EvalTrialFailed,
   EvalTrialSucceeded,
   type EvalVariantConfiguration,
-} from './contracts.ts'
-import { type LocalGitRepository } from './local-git-repository.ts'
-import { repositoryLayer } from './repository.ts'
+} from './contracts'
+import { type LocalGitRepository } from './local-git-repository'
+import { repositoryLayer } from './repository'
 
 const RunnerOptions = Schema.Struct({
   trials: EvalTrialCount,

@@ -2,8 +2,8 @@ import type { Effect } from 'effect'
 import { Context, Schema } from 'effect'
 import { Rpc, RpcGroup } from 'effect/rpc'
 
-import { ConnectOpenAi, OpenAiConnection } from './credential-domain.ts'
-import { TravelContent, TravelUrl } from './travel-content.ts'
+import { ConnectOpenAi, OpenAiConnection } from './credential-domain'
+import { TravelContent, TravelUrl } from './travel-content'
 
 export const ShortText = Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(240))
 export const Text = Schema.String.check(Schema.isMaxLength(4000))

@@ -1,7 +1,7 @@
 import { CanonicalBatch, CanonicalRecord, UserInputRecorded } from '@systemfsoftware/agent/records'
 import * as Schema from 'effect/Schema'
 
-import { at, id, TEST_DEPLOYMENT, TEST_PRODUCER } from './harness.ts'
+import { at, id, TEST_DEPLOYMENT, TEST_PRODUCER } from './harness'
 
 /** A minimal canonical `UserInputRecorded` record for store round-trip tests. */
 export const inputRecord = (recordId: string, input: string): CanonicalRecord =>

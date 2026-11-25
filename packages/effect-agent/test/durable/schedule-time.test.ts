@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@effect/vitest'
 import * as Result from 'effect/Result'
 
-import { scheduleDueOccurrence, scheduleNextAfter } from '../../src/durable/internal/schedule-time.ts'
+import { scheduleDueOccurrence, scheduleNextAfter } from '../../src/durable/internal/schedule-time'
 
 const success = Result.getOrThrow
 

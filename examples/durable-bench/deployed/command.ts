@@ -1,12 +1,12 @@
 import { Effect, Option, Schema } from 'effect'
 import { Command, Flag } from 'effect/cli'
 
-import { DEFAULT_ROW_LIMIT } from './budget.ts'
-import { Cloudflare } from './cloudflare.ts'
-import { type Options, ProfileType } from './model.ts'
-import { BenchError } from './platform.ts'
-import { previewCost, resume, run, teardown } from './run.ts'
-import { History, RESTORE_BYTES, Target } from './worker/protocol.ts'
+import { DEFAULT_ROW_LIMIT } from './budget'
+import { Cloudflare } from './cloudflare'
+import { type Options, ProfileType } from './model'
+import { BenchError } from './platform'
+import { previewCost, resume, run, teardown } from './run'
+import { History, RESTORE_BYTES, Target } from './worker/protocol'
 
 const positive = (name: string) => Flag.Int(name).pipe(Flag.withSchema(History))
 

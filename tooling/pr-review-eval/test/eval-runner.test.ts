@@ -40,7 +40,7 @@ import {
   makeCurrentOpenAiVariant,
   runEvalSuite,
   writeObservations,
-} from '../src/index.ts'
+} from '../src/index'
 
 const patch = `@@ -1 +1 @@
 -export const read = (value?: string) => value?.length ?? 0;

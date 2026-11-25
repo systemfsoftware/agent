@@ -49,8 +49,8 @@ import * as Schema from 'effect/Schema'
 import * as SqlClientService from 'effect/sql/SqlClient'
 import { describe, expect, it } from 'vitest'
 
-import { withSubmissionOwner } from '../../../test/fixtures/ledger-read-contracts.ts'
-import { admission, sequence, settlementPublication, thread, toolCall, withThreadStorage } from './harness.ts'
+import { withSubmissionOwner } from '../../../test/fixtures/ledger-read-contracts'
+import { admission, sequence, settlementPublication, thread, toolCall, withThreadStorage } from './harness'
 
 /**
  * Lost acknowledgements at durable ledger boundaries must converge on retry.

@@ -8,10 +8,10 @@ import * as ToolResults from '@systemfsoftware/agent/tool-results'
 import { Schema } from 'effect'
 import { Toolkit } from 'effect/ai'
 
-import { CodingInput, type ModelSettings } from './contract.ts'
-import { STATIC_PREVIEW_PORT } from './preview-server.ts'
-import { codingTools } from './tools.ts'
-import { webTools } from './web.ts'
+import { CodingInput, type ModelSettings } from './contract'
+import { STATIC_PREVIEW_PORT } from './preview-server'
+import { codingTools } from './tools'
+import { webTools } from './web'
 
 export const codingAgent = Agent.make('sandbox-coder', {
   input: CodingInput,

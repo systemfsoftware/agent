@@ -23,7 +23,7 @@ import {
   SqliteStorageCompatibilityError,
   SqliteStorageCorruptionError,
   SqliteStorageError,
-} from '../SqliteStorageError.ts'
+} from '../SqliteStorageError'
 
 export const CurrentSqliteStorageVersion = 31
 

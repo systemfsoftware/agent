@@ -1,13 +1,13 @@
 import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 
-import { readMemoryDocument } from './internal/memory-document.ts'
-import { utf8ByteLength as byteLength, utf8Bytes } from './internal/utf8.ts'
-import { MemoryLookup, MemoryPassage } from './MemoryReference.ts'
-import { MemoryAccess } from './MemoryRevalidation.ts'
-import type { MemoryKey } from './MemoryStore.ts'
-import type { MemoryIndexCandidate } from './SemanticMemoryIndex.ts'
-import { MemoryIndexError, MemoryIndexSearch, SemanticMemoryProfile } from './SemanticMemoryIndex.ts'
+import { readMemoryDocument } from './internal/memory-document'
+import { utf8ByteLength as byteLength, utf8Bytes } from './internal/utf8'
+import { MemoryLookup, MemoryPassage } from './MemoryReference'
+import { MemoryAccess } from './MemoryRevalidation'
+import type { MemoryKey } from './MemoryStore'
+import type { MemoryIndexCandidate } from './SemanticMemoryIndex'
+import { MemoryIndexError, MemoryIndexSearch, SemanticMemoryProfile } from './SemanticMemoryIndex'
 
 export class SemanticMemoryError extends Schema.TaggedError<SemanticMemoryError>()(
   'SemanticMemoryError',

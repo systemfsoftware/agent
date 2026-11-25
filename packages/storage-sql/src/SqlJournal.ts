@@ -5,9 +5,9 @@ import {
   executionStateKey,
   executionStates,
   retainExecutionState,
-} from './internal/SqlExecutionState.ts'
-import { sqlStorageOwner } from './internal/SqlOwner.ts'
-export { sqlStorageOwner } from './internal/SqlOwner.ts'
+} from './internal/SqlExecutionState'
+import { sqlStorageOwner } from './internal/SqlOwner'
+export { sqlStorageOwner } from './internal/SqlOwner'
 import { type RunId, ThreadId } from '@systemfsoftware/agent/identifiers'
 import { LifecyclePublicationFact } from '@systemfsoftware/agent/lifecycle-publication'
 import type { MessageDeliveryRecord } from '@systemfsoftware/agent/message-delivery'
@@ -31,9 +31,9 @@ import * as SqlClient from 'effect/sql/SqlClient'
 import type * as SqlError from 'effect/sql/SqlError'
 import type * as Statement from 'effect/sql/Statement'
 
-import { type CapturedRecordStorage, makeCanonicalStorage, recordBatchId, runKey } from './SqlCanonicalStorage.ts'
-import { makeSqlLifecyclePublication } from './SqlLifecyclePublication.ts'
-import { publishCanonicalDeliveries } from './SqlMessageDeliveryStore.ts'
+import { type CapturedRecordStorage, makeCanonicalStorage, recordBatchId, runKey } from './SqlCanonicalStorage'
+import { makeSqlLifecyclePublication } from './SqlLifecyclePublication'
+import { publishCanonicalDeliveries } from './SqlMessageDeliveryStore'
 import {
   type Diagnostic,
   makeRowDecoder,
@@ -42,16 +42,16 @@ import {
   type SqlStorageErrors,
   type SqlStorageFailpoint,
   type SqlTransactions,
-} from './SqlStorage.ts'
-import { canonicalBatchJson, canonicalRecordJson, makeSqlThreadArchiveRange } from './SqlThreadArchiveRange.ts'
+} from './SqlStorage'
+import { canonicalBatchJson, canonicalRecordJson, makeSqlThreadArchiveRange } from './SqlThreadArchiveRange'
 import {
   type CanonicalRecordMetadata,
   decodeStoredExecution,
   makeExecutionRead,
   makeInitialProgressRead,
   StoredExecution,
-} from './SqlThreadNativeReads.ts'
-import { makeSqlThreadWork } from './SqlThreadWork.ts'
+} from './SqlThreadNativeReads'
+import { makeSqlThreadWork } from './SqlThreadWork'
 
 export interface SqlJournalOptions<
   S extends Diagnostic,

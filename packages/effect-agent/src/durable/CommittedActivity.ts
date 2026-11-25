@@ -11,9 +11,9 @@ import {
   ActivityProgress,
   type ActivityStoreFailure,
   PreparedActivity,
-} from './ActivityStore.ts'
-import { type DigestError, digestJson } from './Digest.ts'
-import { CanonicalRecordEnvelope, CanonicalSequence, PersistedJson } from './Records.ts'
+} from './ActivityStore'
+import { type DigestError, digestJson } from './Digest'
+import { CanonicalRecordEnvelope, CanonicalSequence, PersistedJson } from './Records'
 import {
   type ThreadNotMaterialized,
   ThreadRead,
@@ -21,7 +21,7 @@ import {
   type ThreadStoreError,
   ThreadTail,
   ThreadTailRequest,
-} from './ThreadStore.ts'
+} from './ThreadStore'
 
 export class ActivityPassLimits extends Schema.Class<ActivityPassLimits>(
   '@effect-agent/thread/ActivityPassLimits',

@@ -3,13 +3,13 @@ import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 import type * as Scope from 'effect/Scope'
 
-import { PersistedJson } from './Records.ts'
+import { PersistedJson } from './Records'
 import {
   type AcceptedEvent,
   type EventSourceVersion,
   type SubscriptionRecord,
   SubscriptionSourceError,
-} from './Subscription.ts'
+} from './Subscription'
 
 export interface NormalizedEvent {
   readonly eventId: string

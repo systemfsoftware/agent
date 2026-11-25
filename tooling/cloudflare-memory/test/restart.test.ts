@@ -4,7 +4,7 @@ import { build } from 'esbuild'
 import { convertV4MiniflareOptions, Miniflare } from 'miniflare'
 import { expect, it } from 'vitest'
 
-import { Sample } from '../src/contracts.ts'
+import { Sample } from '../src/contracts'
 
 class ProbeFailure extends Schema.TaggedError<ProbeFailure>()('ProbeFailure', {
   operation: Schema.String,

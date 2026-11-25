@@ -42,7 +42,7 @@ import {
   submitOptions,
   supplierCountsFor,
   upgradedBookBindingThreads,
-} from './fixtures.ts'
+} from './fixtures'
 import {
   allSettled,
   anyInState,
@@ -54,7 +54,7 @@ import {
   runClient,
   scheduledAlarm,
   stubFor,
-} from './harness.ts'
+} from './harness'
 
 /**
  * Alarm semantics (plan §3, D-P6-2; exit gate 2): the single multiplexed alarm's maintenance

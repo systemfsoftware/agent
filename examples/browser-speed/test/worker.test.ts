@@ -7,7 +7,7 @@ import * as SecureRandom from 'effect/crypto/SecureRandom'
 import { build } from 'esbuild'
 import { convertV4MiniflareOptions, Miniflare } from 'miniflare'
 
-import { Report, Snapshot } from '../src/contract.ts'
+import { Report, Snapshot } from '../src/contract'
 
 const randomUUID = SecureRandom.SecureRandom.use((crypto) => crypto.uuidV4()).pipe(
   Effect.provide(BrowserCrypto.layer),

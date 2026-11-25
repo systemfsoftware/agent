@@ -16,9 +16,9 @@ import { WebCaptureFailure } from '@systemfsoftware/agent/web-capture'
 import { Clock, Effect, Option, Schema } from 'effect'
 import { Tool, Toolkit } from 'effect/ai'
 
-import { recordDiagnostic } from './server/diagnostics.ts'
-import { pageProgressLabel, trackTool } from './server/progress.ts'
-import { safeTravelUrl, TravelPhoto } from './travel-content.ts'
+import { recordDiagnostic } from './server/diagnostics'
+import { pageProgressLabel, trackTool } from './server/progress'
+import { safeTravelUrl, TravelPhoto } from './travel-content'
 
 // The same URL-level guard covers navigation, redirects, and page resources.
 // Any HTTPS DNS host is eligible; this is not a DNS-resolution firewall.

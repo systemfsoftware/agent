@@ -4,16 +4,16 @@ import * as Layer from 'effect/Layer'
 import * as Option from 'effect/Option'
 import type * as Stream from 'effect/Stream'
 
-import type { ThreadId } from '../../core/Identifiers.ts'
-import type { CanonicalRecordEnvelope, RecordId } from '../Records.ts'
+import type { ThreadId } from '../../core/Identifiers'
+import type { CanonicalRecordEnvelope, RecordId } from '../Records'
 import {
   getRecord,
   type ThreadNotMaterialized,
   type ThreadPromptRead,
   ThreadReader,
   type ThreadStoreError,
-} from '../ThreadStore.ts'
-import type { JournalRecordEnvelope } from './journal-metadata.ts'
+} from '../ThreadStore'
+import type { JournalRecordEnvelope } from './journal-metadata'
 
 /** Canonical history access bound by the recovery or verification-snapshot owner. */
 export class RunContextReader extends Context.Service<

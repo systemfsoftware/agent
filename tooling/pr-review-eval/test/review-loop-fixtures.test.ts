@@ -6,7 +6,7 @@ import { expect, it } from '@effect/vitest'
 import { Effect, FileSystem } from 'effect'
 import * as Layer from 'effect/Layer'
 
-import { loadEvalSuite } from '../src/index.ts'
+import { loadEvalSuite } from '../src/index'
 
 const fixtureDirectory = fileURLToPath(new URL('../fixtures/', import.meta.url))
 

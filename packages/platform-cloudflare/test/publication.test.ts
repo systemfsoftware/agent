@@ -18,9 +18,9 @@ import * as Schema from 'effect/Schema'
 import * as TestClock from 'effect/testing/TestClock'
 import { describe, expect, it, vi } from 'vitest'
 
-import { DurableAlarmService, ThreadMaintenance, ThreadMutationGate } from '../src/Alarm.ts'
-import { CloudflareThreadClient } from '../src/CloudflareThreadClient.ts'
-import * as DueQueue from '../src/internal/due-queue.ts'
+import { DurableAlarmService, ThreadMaintenance, ThreadMutationGate } from '../src/Alarm'
+import { CloudflareThreadClient } from '../src/CloudflareThreadClient'
+import * as DueQueue from '../src/internal/due-queue'
 import {
   approvalDefinition,
   armedEvictionsRemaining,
@@ -35,7 +35,7 @@ import {
   plannerDefinition,
   releaseMaintenancePause,
   submitOptions,
-} from './fixtures.ts'
+} from './fixtures'
 import {
   allSettled,
   anyInState,
@@ -45,7 +45,7 @@ import {
   runClient,
   scheduledAlarm,
   stubFor,
-} from './harness.ts'
+} from './harness'
 import {
   failedLifecycleThreads,
   lifecycleBatches,
@@ -55,7 +55,7 @@ import {
   PublicationCursor,
   publicationResources,
   SOURCE_KEY,
-} from './publication-fixture.ts'
+} from './publication-fixture'
 
 const randomUUID = SecureRandom.SecureRandom.use((crypto) => crypto.uuidV4()).pipe(
   Effect.provide(BrowserCrypto.layer),

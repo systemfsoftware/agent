@@ -9,8 +9,8 @@ import * as Schema from 'effect/Schema'
 import * as SqlClient from 'effect/sql/SqlClient'
 import type * as Statement from 'effect/sql/Statement'
 
-import { makeSqlQuery, SqlInteger } from './SqlStorage.ts'
-import type { CanonicalRecordMetadata } from './SqlThreadNativeReads.ts'
+import { makeSqlQuery, SqlInteger } from './SqlStorage'
+import type { CanonicalRecordMetadata } from './SqlThreadNativeReads'
 
 const Text = Schema.String.check(Schema.isMaxLength(16 * 1024 * 1024))
 const Key = SqlInteger.pipe(Schema.decodeTo(Schema.Int.check(Schema.isGreaterThan(0))))

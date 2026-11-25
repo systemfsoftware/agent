@@ -35,8 +35,8 @@ import * as Redacted from 'effect/Redacted'
 import * as Result from 'effect/Result'
 import * as Schema from 'effect/Schema'
 
-import { type DependencySnapshot, DependencySources, loadDependencySources } from './dependency-sources.ts'
-import { type GeneratedContentOmission, omitGeneratedSourceMaps } from './generated-content.ts'
+import { type DependencySnapshot, DependencySources, loadDependencySources } from './dependency-sources'
+import { type GeneratedContentOmission, omitGeneratedSourceMaps } from './generated-content'
 import {
   type ChangedFile,
   GitHubApiFailure,
@@ -48,7 +48,7 @@ import {
   type RepositorySnapshot,
   type ReviewCheckCompletion,
   StaleReviewHead,
-} from './github.ts'
+} from './github'
 import {
   renderDismissalHelp,
   renderFindingBody,
@@ -59,7 +59,7 @@ import {
   ReviewExclusion,
   withReviewMarker,
   withReviewPauseMarker,
-} from './presentation.ts'
+} from './presentation'
 import {
   makeReviewOpenAi,
   REVIEW_WEB_SEARCH_MAX_TOOL_CALLS,
@@ -71,14 +71,14 @@ import {
   reviewPriority,
   reviewReasoningEffort,
   reviewWebSearch,
-} from './review-openai.ts'
+} from './review-openai'
 import {
   dismissalFromCommand,
   reviewModeFromCommand,
   type ReviewSelection,
   selectReview,
   unresolvedChangeRequests as selectUnresolvedChangeRequests,
-} from './selection.ts'
+} from './selection'
 
 const MAX_GENERATED_CLASSIFICATIONS = 100
 const MAX_HYDRATED_SOURCE_BYTES = 16_000_000

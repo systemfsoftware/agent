@@ -6,13 +6,13 @@ import { SubagentGrant } from '@systemfsoftware/agent/subagent-contract'
 import { Effect, Schema } from 'effect'
 import { Tool, Toolkit } from 'effect/ai'
 
-import { DeliverResponse } from '../agent.ts'
-import { PlannerError, PlannerSettings, Text, Trip, TripId } from '../domain.ts'
-import { ReadTravelPage } from '../research.ts'
-import { PlannerAttempt } from '../server/progress.ts'
-import { TripRepository } from '../server/trips.ts'
-import { requireAppTrip } from './scope.ts'
-import { AppTools } from './tools.ts'
+import { DeliverResponse } from '../agent'
+import { PlannerError, PlannerSettings, Text, Trip, TripId } from '../domain'
+import { ReadTravelPage } from '../research'
+import { PlannerAttempt } from '../server/progress'
+import { TripRepository } from '../server/trips'
+import { requireAppTrip } from './scope'
+import { AppTools } from './tools'
 
 export const EditorRequest = Schema.Struct({ tripId: TripId, message: Text })
 

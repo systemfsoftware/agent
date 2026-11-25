@@ -14,9 +14,9 @@ import { Context, Effect, Layer, Redacted, Ref, Schema } from 'effect'
 import { DurableObject, WorkerEnvironment } from 'effect-cf'
 import { FetchHttpClient } from 'effect/http'
 
-import { EvaluationError, type ModelUsage } from './contracts.ts'
-import { readLog } from './host-evidence.ts'
-import { makeLiveClient } from './live-model.ts'
+import { EvaluationError, type ModelUsage } from './contracts'
+import { readLog } from './host-evidence'
+import { makeLiveClient } from './live-model'
 import {
   emptyPerformanceUsage,
   PERFORMANCE_BUDGET,
@@ -31,8 +31,8 @@ import {
   PerformanceSnapshot,
   PerformanceState,
   performanceToolkit,
-} from './performance-contracts.ts'
-import { RequestAudit, RequestAuditSink } from './request-audit.ts'
+} from './performance-contracts'
+import { RequestAudit, RequestAuditSink } from './request-audit'
 
 declare const PERFORMANCE_SOURCE_COMMIT: string
 declare const PERFORMANCE_DIRTY: boolean

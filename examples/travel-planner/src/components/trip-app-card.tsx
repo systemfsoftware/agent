@@ -14,10 +14,10 @@ import {
   X,
 } from 'lucide-react'
 
-import type { EditorActivity, TripApp } from '../domain.ts'
-import { changeTripAppAtom } from '../state.ts'
-import { ActivityEvents, ElapsedTime } from './activity-panel.tsx'
-import { MessageText } from './message-text.tsx'
+import type { EditorActivity, TripApp } from '../domain'
+import { changeTripAppAtom } from '../state'
+import { ActivityEvents, ElapsedTime } from './activity-panel'
+import { MessageText } from './message-text'
 
 const statusLabel = {
   building: 'Building your changes…',

@@ -8,11 +8,11 @@ import * as Layer from 'effect/Layer'
 import * as SqlClient from 'effect/sql/SqlClient'
 import { expect, it } from 'vitest'
 
-import { instrumentedStorage } from '../../../test/fixtures/instrumented-storage.ts'
-import { ThreadMutationGate } from '../src/Alarm.ts'
-import { DurableObjectContext } from '../src/CloudflareBindings.ts'
-import * as DueQueue from '../src/internal/due-queue.ts'
-import { stubFor } from './harness.ts'
+import { instrumentedStorage } from '../../../test/fixtures/instrumented-storage'
+import { ThreadMutationGate } from '../src/Alarm'
+import { DurableObjectContext } from '../src/CloudflareBindings'
+import * as DueQueue from '../src/internal/due-queue'
+import { stubFor } from './harness'
 
 // The library's empty required-publication handler has no debt to enroll.
 // Custom handlers still use the publication and retry-barrier workflows.

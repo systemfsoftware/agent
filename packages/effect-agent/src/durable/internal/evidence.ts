@@ -1,9 +1,9 @@
 import * as Effect from 'effect/Effect'
 import * as Option from 'effect/Option'
 
-import type { ThreadId } from '../../core/Identifiers.ts'
-import { EvidenceReference, type RecordEnvelope } from '../Records.ts'
-import { getRecord, ThreadStoreError } from '../ThreadStore.ts'
+import type { ThreadId } from '../../core/Identifiers'
+import { EvidenceReference, type RecordEnvelope } from '../Records'
+import { getRecord, ThreadStoreError } from '../ThreadStore'
 
 const failure = (message: string, cause?: unknown) =>
   ThreadStoreError.make({

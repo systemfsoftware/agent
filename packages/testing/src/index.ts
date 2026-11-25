@@ -1,1 +1,1 @@
-export * as ScriptedModel from './ScriptedModel.ts'
+export * as ScriptedModel from './ScriptedModel'

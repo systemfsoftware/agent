@@ -17,9 +17,9 @@ import {
 } from '@earendil-works/pi-durable'
 import { openDurableObjectSqliteStorage } from '@earendil-works/pi-durable/storage/sqlite/cloudflare'
 import { DurableObject } from 'cloudflare:workers'
-import { TEXT_OUTPUT_INSTRUCTIONS } from '../../deployed/text.ts'
-import { fingerprint, type Message, next, payload, type Turn } from '../../src/plan.ts'
-import { type Bench, serve, tables } from '../../src/serve.ts'
+import { TEXT_OUTPUT_INSTRUCTIONS } from '../../deployed/text'
+import { fingerprint, type Message, next, payload, type Turn } from '../../src/plan'
+import { type Bench, serve, tables } from '../../src/serve'
 
 const faux = fauxProvider({ models: [{ id: 'scripted-1', contextWindow: 1e9 }], tokenSize: { min: 1e9, max: 1e9 } })
 const models = createModels()

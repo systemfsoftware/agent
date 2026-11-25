@@ -23,8 +23,8 @@ import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 import * as Tracer from 'effect/Tracer'
 
-import { RunContextPreparationPassthrough } from '../../src/engine/RunOptions.ts'
-import { ThreadHistory } from '../../src/engine/ThreadHistory.ts'
+import { RunContextPreparationPassthrough } from '../../src/engine/RunOptions'
+import { ThreadHistory } from '../../src/engine/ThreadHistory'
 
 let threadSequence = 0
 

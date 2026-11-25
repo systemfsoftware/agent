@@ -5,25 +5,25 @@ import * as Effect from 'effect/Effect'
 import * as Hex from 'effect/encoding/Hex'
 import * as Schema from 'effect/Schema'
 
-import { readMemoryDocument } from '../core/internal/memory-document.ts'
-import { utf8ByteLength, utf8Bytes } from '../core/internal/utf8.ts'
-import type * as MemoryNamespace from '../core/MemoryNamespace.ts'
-import { MemoryLookup } from '../core/MemoryReference.ts'
-import { MemoryAccess } from '../core/MemoryRevalidation.ts'
-import type { MemoryDocument } from '../core/MemoryStore.ts'
-import { MemoryKey } from '../core/MemoryStore.ts'
+import { readMemoryDocument } from '../core/internal/memory-document'
+import { utf8ByteLength, utf8Bytes } from '../core/internal/utf8'
+import type * as MemoryNamespace from '../core/MemoryNamespace'
+import { MemoryLookup } from '../core/MemoryReference'
+import { MemoryAccess } from '../core/MemoryRevalidation'
+import type { MemoryDocument } from '../core/MemoryStore'
+import { MemoryKey } from '../core/MemoryStore'
 import {
   MemoryIndexQuery,
   MemoryIndexSource,
   SemanticMemoryChunk,
   SemanticMemoryIndex,
   SemanticMemoryProfile,
-} from '../core/SemanticMemoryIndex.ts'
+} from '../core/SemanticMemoryIndex'
 import {
   revalidateSemanticMemoryCandidates,
   SemanticCandidateLimits,
   SemanticMemoryError,
-} from '../core/SemanticMemoryRevalidation.ts'
+} from '../core/SemanticMemoryRevalidation'
 
 const Timestamp = Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0))
 const InputTokens = Schema.NullOr(Schema.Natural)

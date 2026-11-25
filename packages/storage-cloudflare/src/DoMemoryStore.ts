@@ -10,7 +10,7 @@ import * as Layer from 'effect/Layer'
 import * as Schema from 'effect/Schema'
 import * as SqlClientService from 'effect/sql/SqlClient'
 
-import { ownedState } from './internal/owned-state.ts'
+import { ownedState } from './internal/owned-state'
 
 export class DoMemoryStorageLimits extends Schema.Class<DoMemoryStorageLimits>(
   '@effect-agent/storage-cloudflare/DoMemoryStorageLimits',

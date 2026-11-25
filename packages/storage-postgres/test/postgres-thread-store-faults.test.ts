@@ -43,7 +43,7 @@ import {
   storage as makeStorage,
   whileHoldingTableLock,
   withTemporaryDatabase,
-} from './harness.ts'
+} from './harness'
 
 const threadId = Schema.decodeSync(ThreadMaterialization.fields.threadId)('thread-postgres-1')
 const runId = Schema.decodeSync(RunCompleted.fields.runId)('run-postgres-1')

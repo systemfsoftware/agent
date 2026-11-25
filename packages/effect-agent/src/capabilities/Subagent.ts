@@ -18,20 +18,20 @@ import {
   type InstructionSource,
   type ModelServices,
   type RunDispositionDeclaration,
-} from '../core/Agent.ts'
-import { AgentPolicyError } from '../core/AgentError.ts'
-import { DelegationId, ToolCallId } from '../core/Identifiers.ts'
-import { IdGenerator } from '../core/IdGenerator.ts'
-import { utf8ByteLength } from '../core/internal/utf8.ts'
-import type { SubagentDelegationCaps } from '../core/SubagentContract.ts'
+} from '../core/Agent'
+import { AgentPolicyError } from '../core/AgentError'
+import { DelegationId, ToolCallId } from '../core/Identifiers'
+import { IdGenerator } from '../core/IdGenerator'
+import { utf8ByteLength } from '../core/internal/utf8'
+import type { SubagentDelegationCaps } from '../core/SubagentContract'
 import {
   DelegationTool,
   narrowSubagentGrant,
   SubagentBudgetReservation,
   SubagentGrant,
   SubagentReservationAmounts,
-} from '../core/SubagentContract.ts'
-import { type RunTotals, RunUsageReport, unknownRunTotals } from '../core/Usage.ts'
+} from '../core/SubagentContract'
+import { type RunTotals, RunUsageReport, unknownRunTotals } from '../core/Usage'
 import {
   type AgentRuntimeFailure,
   type AgentRuntimeRequirements,
@@ -44,20 +44,20 @@ import {
   type SubagentDurabilityDurable,
   SubagentDurabilityError,
   ToolCallWaiting,
-} from '../engine/AgentRuntime.ts'
-import type { SpawnInterpreterOptions } from '../engine/internal/agent-runtime.ts'
-import type { RunSubagentChildIdentity } from '../engine/internal/interpreter-options.ts'
-import { RunEventSink, type SubagentEventBasePayload, type SubagentEventPayload } from '../engine/RunEventSink.ts'
-import { type RunBudgetHook, type RunContextPreparation, type RunUsageDelta } from '../engine/RunOptions.ts'
-import { type ThreadHistory } from '../engine/ThreadHistory.ts'
-import type { SubagentExecutionFailureClassification, SubagentPolicy } from './internal/subagent-contract.ts'
+} from '../engine/AgentRuntime'
+import type { SpawnInterpreterOptions } from '../engine/internal/agent-runtime'
+import type { RunSubagentChildIdentity } from '../engine/internal/interpreter-options'
+import { RunEventSink, type SubagentEventBasePayload, type SubagentEventPayload } from '../engine/RunEventSink'
+import { type RunBudgetHook, type RunContextPreparation, type RunUsageDelta } from '../engine/RunOptions'
+import { type ThreadHistory } from '../engine/ThreadHistory'
+import type { SubagentExecutionFailureClassification, SubagentPolicy } from './internal/subagent-contract'
 import {
   maxErrorTagLength,
   SubagentExecutionFailure,
   SubagentPrestartDenied,
   SubagentProjectionFailure,
-} from './internal/subagent-contract.ts'
-import { residualSubagentCaps, resolveSubagentPolicy } from './internal/subagent-policy.ts'
+} from './internal/subagent-contract'
+import { residualSubagentCaps, resolveSubagentPolicy } from './internal/subagent-policy'
 import {
   type BudgetReservationId,
   makeBudgetReservationId,
@@ -65,11 +65,11 @@ import {
   SubagentObservedUsage,
   SubagentReservationRequest,
   SubagentReservations,
-} from './SubagentReservations.ts'
+} from './SubagentReservations'
 
-export { WorkerCompletion } from '../core/Worker.ts'
+export { WorkerCompletion } from '../core/Worker'
 
-export { SubagentGrant } from '../core/SubagentContract.ts'
+export { SubagentGrant } from '../core/SubagentContract'
 
 export {
   delegationAllocationFromPolicy,
@@ -80,7 +80,7 @@ export {
   type SubagentPolicyInput,
   SubagentPrestartDenied,
   SubagentProjectionFailure,
-} from './internal/subagent-contract.ts'
+} from './internal/subagent-contract'
 
 const decodeDelegationId = Schema.decodeSync(DelegationId)
 
@@ -2320,7 +2320,7 @@ export function layer<
   return toolkit.toLayer(build)
 }
 
-export { reporting, type ReportingOptions, WorkerReport } from './internal/subagent-reporting.ts'
+export { reporting, type ReportingOptions, WorkerReport } from './internal/subagent-reporting'
 
 export {
   awaitWorker as await,
@@ -2340,4 +2340,4 @@ export {
   summaryTool,
   Worker,
   WorkerObservation,
-} from './internal/subagent-background.ts'
+} from './internal/subagent-background'

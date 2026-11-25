@@ -2,7 +2,7 @@ import * as Prompt from 'effect/ai/Prompt'
 import * as Tool from 'effect/ai/Tool'
 import * as Schema from 'effect/Schema'
 
-import type * as Agent from '../../core/Agent.ts'
+import type * as Agent from '../../core/Agent'
 
 const outputFormatAnnotation = '@effect-agent/engine/Output/format'
 

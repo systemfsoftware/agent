@@ -72,14 +72,14 @@ import * as Ref from 'effect/Ref'
 import * as Schema from 'effect/Schema'
 import * as SqlClientService from 'effect/sql/SqlClient'
 
-import { withSubmissionOwner } from '../../../test/fixtures/ledger-read-contracts.ts'
+import { withSubmissionOwner } from '../../../test/fixtures/ledger-read-contracts'
 import {
   clientLayer,
   singleConnectionStorage,
   storage as makeStorage,
   whileHoldingTableLock,
   withTemporaryDatabase,
-} from './harness.ts'
+} from './harness'
 
 const id = <A>(schema: Schema.Codec<A, string>, value: string): A => Schema.decodeSync(schema)(value)
 

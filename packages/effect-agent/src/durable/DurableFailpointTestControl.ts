@@ -3,7 +3,7 @@ import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import * as Ref from 'effect/Ref'
 
-import { DurableRuntimeFailpoint, type DurableRuntimeFailpointHandler } from './DurableFailpoint.ts'
+import { DurableRuntimeFailpoint, type DurableRuntimeFailpointHandler } from './DurableFailpoint'
 
 const noFailpoint: DurableRuntimeFailpointHandler = () => Effect.void
 

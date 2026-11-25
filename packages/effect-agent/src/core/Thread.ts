@@ -8,8 +8,8 @@ import * as Schema from 'effect/Schema'
 import type * as Scope from 'effect/Scope'
 import * as SynchronizedRef from 'effect/SynchronizedRef'
 
-import { RunId, ThreadId } from './Identifiers.ts'
-import { utf8ByteLength } from './internal/utf8.ts'
+import { RunId, ThreadId } from './Identifiers'
+import { utf8ByteLength } from './internal/utf8'
 
 /** Bound applied to one text projection before it can enter a model context. */
 export const ThreadText = Schema.String.check(Schema.isMaxLength(64 * 1024))

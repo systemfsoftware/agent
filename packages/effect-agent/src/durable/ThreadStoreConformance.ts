@@ -4,10 +4,10 @@ import * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
-import { AgentPolicy } from '../core/AgentPolicy.ts'
-import { AgentId, DelegationId, ReceiptId, RunId, SettlementId, SubmissionId, ThreadId } from '../core/Identifiers.ts'
-import { IdempotencyKey } from '../core/Receipt.ts'
-import { SubagentDelegationCaps, SubagentGrant, SubagentReservationAmounts } from '../core/SubagentContract.ts'
+import { AgentPolicy } from '../core/AgentPolicy'
+import { AgentId, DelegationId, ReceiptId, RunId, SettlementId, SubmissionId, ThreadId } from '../core/Identifiers'
+import { IdempotencyKey } from '../core/Receipt'
+import { SubagentDelegationCaps, SubagentGrant, SubagentReservationAmounts } from '../core/SubagentContract'
 import {
   BatchId,
   CanonicalBatch,
@@ -24,9 +24,9 @@ import {
   WorkerInputRequested,
   WorkerOriginRecorded,
   WorkerStopRequested,
-} from './Records.ts'
-import { canonicalRecordBytes } from './RunContinuation.ts'
-import { subagentLineageRecordId, workerOriginRecordId } from './RunJournal.ts'
+} from './Records'
+import { canonicalRecordBytes } from './RunContinuation'
+import { subagentLineageRecordId, workerOriginRecordId } from './RunJournal'
 import {
   AppendConflict,
   AppendRequest,
@@ -46,7 +46,7 @@ import {
   ThreadStoreError,
   type ThreadStoreFailure,
   ThreadTailRequest,
-} from './ThreadStore.ts'
+} from './ThreadStore'
 
 /** A ThreadStore contract invariant that an adapter under test violated. */
 export class ThreadStoreConformanceViolation extends Schema.TaggedError<ThreadStoreConformanceViolation>()(

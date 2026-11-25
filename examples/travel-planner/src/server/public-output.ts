@@ -1,8 +1,8 @@
 import { Cause, Effect, Exit, Layer, Stream } from 'effect'
 import { LanguageModel } from 'effect/ai'
 
-import { PlannerAttempt } from './progress.ts'
-import { responseTextPreview } from './response-stream.ts'
+import { PlannerAttempt } from './progress'
+import { responseTextPreview } from './response-stream'
 
 /**
  * Native Effect AI is the ordered observation boundary. This decorator preserves

@@ -1,7 +1,7 @@
 import { AgentRuntime, AgentUpdates } from '@systemfsoftware/agent'
 import { Effect, Stream } from 'effect'
 
-import { HotelResearcher } from './background-updates.ts'
+import { HotelResearcher } from './background-updates'
 
 const updates = AgentRuntime.stream(HotelResearcher, {
   city: 'Johannesburg',

@@ -3,7 +3,7 @@ import * as Layer from 'effect/Layer'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 
-import type { ThreadId } from '../core/Identifiers.ts'
+import type { ThreadId } from '../core/Identifiers'
 import {
   ContextHistory,
   ContextHistoryError,
@@ -11,11 +11,11 @@ import {
   ContextHistoryPage,
   ContextHistoryRead,
   ContextHistorySearch,
-} from '../engine/ContextHistory.ts'
-import { CanonicalRecordEnvelope, CanonicalSequence, RecordId } from './Records.ts'
-import type { ContextHistoryBoundary, ContextHistoryEvidence } from './ThreadContextHistoryProjection.ts'
-import { matchText, normalizeQuery, project, windowIdFor } from './ThreadContextHistoryProjection.ts'
-import { SelectedThreadRead, ThreadRead, ThreadStore, ThreadTail, ThreadTailRequest } from './ThreadStore.ts'
+} from '../engine/ContextHistory'
+import { CanonicalRecordEnvelope, CanonicalSequence, RecordId } from './Records'
+import type { ContextHistoryBoundary, ContextHistoryEvidence } from './ThreadContextHistoryProjection'
+import { matchText, normalizeQuery, project, windowIdFor } from './ThreadContextHistoryProjection'
+import { SelectedThreadRead, ThreadRead, ThreadStore, ThreadTail, ThreadTailRequest } from './ThreadStore'
 
 /** Per-search work and deadline bounds; exact archived reads are independent of Thread age. */
 export const ThreadContextHistoryOptions = Schema.Struct({

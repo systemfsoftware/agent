@@ -25,15 +25,15 @@ import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import * as Schema from 'effect/Schema'
 
-import { ThreadMaintenance } from '../src/Alarm.ts'
-import { layerFromBindings } from '../src/internal/layers.ts'
+import { ThreadMaintenance } from '../src/Alarm'
+import { layerFromBindings } from '../src/internal/layers'
 import {
   backgroundWakeDropPrefixes,
   backgroundWorkerAuthority,
   backgroundWorkerBindings,
   customRuntimeThreads,
   workerLaunchProbe,
-} from './background-worker-fixture.ts'
+} from './background-worker-fixture'
 import {
   DEPLOYMENT_ID,
   fixtureReconcilerLayer,
@@ -54,7 +54,7 @@ import {
   unavailableBindingThreads,
   upgradedBookBinding,
   upgradedBookBindingThreads,
-} from './fixtures.ts'
+} from './fixtures'
 import {
   memoryAccess,
   memoryAuthorizer,
@@ -62,19 +62,19 @@ import {
   memoryPrincipal,
   MemoryProjects,
   memoryRecallLimits,
-} from './memory-fixtures.ts'
-import { droppedMessageWakes, messageDeliveryFaultLayer, testMessageRecovery } from './message-delivery-fixture.ts'
-import { observabilityProbeLayer, telemetryProbe } from './observability-fixture.ts'
-import { hostMaintenanceLayer, hostMutationControls, projectionLayer } from './projection-fixture.ts'
-import { lifecyclePublicationTestLayer, publicationLayer } from './publication-fixture.ts'
-import { recoveryTestLayer } from './recovery-fixture.ts'
-import { makeSubagentTestBindings, transportFaultReason } from './subagent-fixtures.ts'
+} from './memory-fixtures'
+import { droppedMessageWakes, messageDeliveryFaultLayer, testMessageRecovery } from './message-delivery-fixture'
+import { observabilityProbeLayer, telemetryProbe } from './observability-fixture'
+import { hostMaintenanceLayer, hostMutationControls, projectionLayer } from './projection-fixture'
+import { lifecyclePublicationTestLayer, publicationLayer } from './publication-fixture'
+import { recoveryTestLayer } from './recovery-fixture'
+import { makeSubagentTestBindings, transportFaultReason } from './subagent-fixtures'
 import {
   subscriptionAlarmExtensionLayer,
   subscriptionAuthorizerLayer,
   subscriptionFailpointLayer,
   subscriptionSourcesLayer,
-} from './subscription-fixtures.ts'
+} from './subscription-fixtures'
 
 export class TestMemoryObject extends MemoryObject.make(memoryAuthorizer, {
   failpoints: memoryFailpoints,

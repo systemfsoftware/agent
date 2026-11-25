@@ -7,8 +7,8 @@ import { build } from 'esbuild'
 import { convertV4MiniflareOptions, Miniflare } from 'miniflare'
 import { afterAll, beforeAll, expect, it } from 'vitest'
 
-import { OpenAiConnection } from '../src/credential-domain.ts'
-import { ownerEmail } from './fixtures/identity.ts'
+import { OpenAiConnection } from '../src/credential-domain'
+import { ownerEmail } from './fixtures/identity'
 
 const token = 'preference-test-token'
 const first = 'sk-proj-fixture-private-first-1111'

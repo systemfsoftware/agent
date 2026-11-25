@@ -1,5 +1,5 @@
-import type { SpokenMessage } from '../domain.ts'
-import type { Caption } from './protocol.ts'
+import type { SpokenMessage } from '../domain'
+import type { Caption } from './protocol'
 
 type Cursor = {
   readonly id: string

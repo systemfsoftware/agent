@@ -16,7 +16,7 @@ import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import * as Schema from 'effect/Schema'
 
-import { TEST_DIGESTS } from './fixtures.ts'
+import { TEST_DIGESTS } from './fixtures'
 
 export const subscriptionPartition = SourcePartition.make({
   tenantId: 'cf-subscription-tenant',
@@ -25,7 +25,7 @@ export const subscriptionPartition = SourcePartition.make({
 
 export const subscriptionPrincipal = Schema.decodeSync(Principal)('cf-subscription-principal')
 export const subscriptionAgentId = Schema.decodeSync(AgentId)('cf-planner')
-export { TEST_DIGESTS as subscriptionDefinitions } from './fixtures.ts'
+export { TEST_DIGESTS as subscriptionDefinitions } from './fixtures'
 
 export const SubscriptionTestSourceVersion = {
   name: 'test-application-event',

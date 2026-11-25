@@ -4,10 +4,11 @@
     "tooling/pr-review-eval/fixtures/public-effect-agent-v2.json"
   ],
   "packs": {
+    "build-output-imports": {},
     "cell-architecture": {},
-    "npm-provenance": {
-      "repositoryUrl": "`\"git+https://github.com/systemfsoftware/agent.git\"`"
-    },
-    "build-output-imports": {}
+    "npm-provenance": { "repositoryUrl": "`\"git+https://github.com/systemfsoftware/agent.git\"`" },
+    "ts-extensions": {},
+    "tsconfig-roles": {},
+    "typecheck-build-mode": {}
   }
 }

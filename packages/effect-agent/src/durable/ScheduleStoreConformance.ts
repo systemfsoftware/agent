@@ -2,9 +2,9 @@ import * as Effect from 'effect/Effect'
 import * as Result from 'effect/Result'
 import * as Schema from 'effect/Schema'
 
-import { AgentId, ReceiptId, SubmissionId, ThreadId } from '../core/Identifiers.ts'
-import { Receipt } from './DurableAgentRuntime.ts'
-import { DefinitionDigests, Digest, type PersistedJson } from './Records.ts'
+import { AgentId, ReceiptId, SubmissionId, ThreadId } from '../core/Identifiers'
+import { Receipt } from './DurableAgentRuntime'
+import { DefinitionDigests, Digest, type PersistedJson } from './Records'
 import {
   ScheduleCapacityError,
   ScheduleId,
@@ -12,8 +12,8 @@ import {
   type ScheduleRecord,
   ScheduleStore,
   type ScheduleStoreFailure,
-} from './Schedule.ts'
-import { IdempotencyKey, Principal, QueueSequence } from './SubmissionLedger.ts'
+} from './Schedule'
+import { IdempotencyKey, Principal, QueueSequence } from './SubmissionLedger'
 
 export class ScheduleStoreConformanceViolation extends Schema.TaggedError<ScheduleStoreConformanceViolation>()(
   'ScheduleStoreConformanceViolation',

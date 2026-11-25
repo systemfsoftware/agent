@@ -3,7 +3,7 @@ import type * as Effect from 'effect/Effect'
 import * as Hex from 'effect/encoding/Hex'
 import * as Schema from 'effect/Schema'
 
-import { RunId, ThreadId } from '../core/Identifiers.ts'
+import { RunId, ThreadId } from '../core/Identifiers'
 
 /** Model-authored continuation state; fuller notes belong in an application-owned memory store. */
 export const ContextHandoff = Schema.NonEmptyString.check(

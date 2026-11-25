@@ -16,9 +16,9 @@ import {
   EvalTrialCount,
   EvalVariantConfiguration,
   EvalVariantId,
-} from './contracts.ts'
-import { digestText } from './corpus.ts'
-import type { EvalFindingJudgment, EvalJudgmentSet } from './judgments.ts'
+} from './contracts'
+import { digestText } from './corpus'
+import type { EvalFindingJudgment, EvalJudgmentSet } from './judgments'
 
 export class EvalReportError extends Schema.TaggedError<EvalReportError>()('EvalReportError', {
   message: Schema.NonEmptyString.check(Schema.isMaxLength(4_096)),

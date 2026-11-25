@@ -37,17 +37,17 @@ import {
   DurableRuntimeFailpoint,
   DurableRuntimeFailpointError,
   type DurableRuntimeFailpointLocation,
-} from '../../src/durable/DurableFailpoint.ts'
-import { makeAgentUpdateRuntime } from '../../src/durable/internal/agent-updates.ts'
-import { makeWorkerRuntime, WorkerInputControl } from '../../src/durable/internal/worker-host.ts'
-import { WorkerRuntime } from '../../src/durable/internal/worker-runtime.ts'
+} from '../../src/durable/DurableFailpoint'
+import { makeAgentUpdateRuntime } from '../../src/durable/internal/agent-updates'
+import { makeWorkerRuntime, WorkerInputControl } from '../../src/durable/internal/worker-host'
+import { WorkerRuntime } from '../../src/durable/internal/worker-runtime'
 import {
   applyMessageDeliveryChange,
   defaultMessageDeliveryStoreLimits,
   type MessageDeliveryRecord,
   MessageDeliveryStore,
   prepareCanonicalMessageDeliveries,
-} from '../../src/durable/MessageDelivery.ts'
+} from '../../src/durable/MessageDelivery'
 import {
   BatchId,
   CanonicalBatch,
@@ -66,10 +66,10 @@ import {
   SubmissionSettledRecord,
   ThreadCreated,
   UserInputRecorded,
-} from '../../src/durable/Records.ts'
-import { canonicalRunIds, CurrentRunWriter, makeProgressWriter } from '../../src/durable/RunContinuation.ts'
-import { subagentLineageRecordId, workerOriginRecordId } from '../../src/durable/RunJournal.ts'
-import { makeRunWriter, makeStorageOwner, StorageOwner } from '../../src/durable/RunStorage.ts'
+} from '../../src/durable/Records'
+import { canonicalRunIds, CurrentRunWriter, makeProgressWriter } from '../../src/durable/RunContinuation'
+import { subagentLineageRecordId, workerOriginRecordId } from '../../src/durable/RunJournal'
+import { makeRunWriter, makeStorageOwner, StorageOwner } from '../../src/durable/RunStorage'
 import {
   AbortIntent,
   AdmissionAdmitted,
@@ -82,8 +82,8 @@ import {
   SubmissionLedger,
   submissionSettlementId,
   SubmissionSnapshot,
-} from '../../src/durable/SubmissionLedger.ts'
-import { PendingSubmission, SettledSubmission } from '../../src/durable/SubmissionStatus.ts'
+} from '../../src/durable/SubmissionLedger'
+import { PendingSubmission, SettledSubmission } from '../../src/durable/SubmissionStatus'
 import {
   AppendConflict,
   AppendResult,
@@ -96,16 +96,16 @@ import {
   ThreadStoreError,
   ThreadTail,
   ThreadWorkerCapacity,
-} from '../../src/durable/ThreadStore.ts'
-import { ThreadWorkEntry, workId } from '../../src/durable/ThreadWork.ts'
-import { WakeScheduler } from '../../src/durable/WakeScheduler.ts'
+} from '../../src/durable/ThreadStore'
+import { ThreadWorkEntry, workId } from '../../src/durable/ThreadWork'
+import { WakeScheduler } from '../../src/durable/WakeScheduler'
 import {
   WorkerBudgetAuthorizer,
   WorkerConcurrencyResolver,
   WorkerHostAuthorizer,
   WorkerHostConfig,
   WorkerPolicyResolver,
-} from '../../src/durable/WorkerHost.ts'
+} from '../../src/durable/WorkerHost'
 
 const sourceId = Schema.decodeSync(ThreadId)('source')
 const principal = Schema.decodeSync(Principal)('owner')

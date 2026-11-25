@@ -1,13 +1,13 @@
 import * as Brand from 'effect/Brand'
 
-import { type RunId, type ToolCallId } from '../../core/Identifiers.ts'
+import { type RunId, type ToolCallId } from '../../core/Identifiers'
 import {
   type CanonicalRecordEnvelope,
   type CompactionCreated,
   type PromptRecordEnvelope,
   type RecordId,
   type ToolCallSettled,
-} from '../Records.ts'
+} from '../Records'
 
 // These constructors produce nonempty strings from fixed prefixes or validated nonempty IDs.
 // Keep the canonical Schemas as the validation boundary for incoming and persisted values.

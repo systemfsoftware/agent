@@ -35,14 +35,14 @@ import * as Stream from 'effect/Stream'
 import type * as Take from 'effect/Take'
 import * as Tracer from 'effect/Tracer'
 
-import type * as Agent from '../../core/Agent.ts'
+import type * as Agent from '../../core/Agent'
 import {
   type CompletionToolDeclaration,
   type Definition,
   type InputPromptSource,
   type InstructionSource,
   type RunDispositionDeclaration,
-} from '../../core/Agent.ts'
+} from '../../core/Agent'
 import {
   AgentApprovalDenied,
   AgentApprovalPending,
@@ -57,10 +57,10 @@ import {
   ContextBudgetError,
   ContextOverflowError,
   ModelProtocolError,
-} from '../../core/AgentError.ts'
-import { type AgentPolicy } from '../../core/AgentPolicy.ts'
-import { Emitter, Update, UpdateError } from '../../core/AgentUpdates.ts'
-import * as FailureDiagnostic from '../../core/FailureDiagnostic.ts'
+} from '../../core/AgentError'
+import { type AgentPolicy } from '../../core/AgentPolicy'
+import { Emitter, Update, UpdateError } from '../../core/AgentUpdates'
+import * as FailureDiagnostic from '../../core/FailureDiagnostic'
 import {
   type AgentId,
   type DelegationId,
@@ -70,17 +70,13 @@ import {
   ThreadId,
   ToolCallId,
   type TurnId,
-} from '../../core/Identifiers.ts'
-import { IdGenerator } from '../../core/IdGenerator.ts'
-import { nativeUpdateId } from '../../core/internal/agent-updates.ts'
-import {
-  completionDispositionCheck,
-  CompletionMetadata,
-  completionMetadataCheck,
-} from '../../core/internal/completion.ts'
-import { copyJson } from '../../core/internal/json.ts'
-import { utf8ByteLength } from '../../core/internal/utf8.ts'
-import { IdempotencyKey } from '../../core/Receipt.ts'
+} from '../../core/Identifiers'
+import { IdGenerator } from '../../core/IdGenerator'
+import { nativeUpdateId } from '../../core/internal/agent-updates'
+import { completionDispositionCheck, CompletionMetadata, completionMetadataCheck } from '../../core/internal/completion'
+import { copyJson } from '../../core/internal/json'
+import { utf8ByteLength } from '../../core/internal/utf8'
+import { IdempotencyKey } from '../../core/Receipt'
 import {
   AgentUpdateEmitted,
   ApprovalRequested,
@@ -110,7 +106,7 @@ import {
   ToolProgress,
   TurnCompleted,
   TurnStarted,
-} from '../../core/RunEvent.ts'
+} from '../../core/RunEvent'
 import {
   DelegationDepth,
   getToolExecutionKind,
@@ -118,17 +114,17 @@ import {
   type SubagentBudgetReservation,
   type SubagentGrant,
   SubagentParentLink,
-} from '../../core/SubagentContract.ts'
-import type { Selection } from '../../core/ToolExposure.ts'
-import { AdditionalToolCatalog, DiscoveryTool, Snapshot } from '../../core/ToolExposure.ts'
+} from '../../core/SubagentContract'
+import type { Selection } from '../../core/ToolExposure'
+import { AdditionalToolCatalog, DiscoveryTool, Snapshot } from '../../core/ToolExposure'
 import {
   applyToolResultBounds,
   ToolParameterRejection,
   ToolResultBounds,
   TruncatedToolResult,
   unserializableToolResult,
-} from '../../core/ToolResult.ts'
-import { MAX_STORED_TOOL_RESULT_BYTES, ToolResultId, ToolResultStorage } from '../../core/ToolResultStorage.ts'
+} from '../../core/ToolResult'
+import { MAX_STORED_TOOL_RESULT_BYTES, ToolResultId, ToolResultStorage } from '../../core/ToolResultStorage'
 import {
   emptyRunTotals,
   InputTokenUsage,
@@ -140,9 +136,9 @@ import {
   sumRunTotals,
   unknownRunTotals,
   type UsageCompleteness,
-} from '../../core/Usage.ts'
-import { AssignmentDisposition, FrameworkMessage, type WorkerBudgetScope } from '../../core/Worker.ts'
-import { MessagingHost } from '../MessagingHost.ts'
+} from '../../core/Usage'
+import { AssignmentDisposition, FrameworkMessage, type WorkerBudgetScope } from '../../core/Worker'
+import { MessagingHost } from '../MessagingHost'
 import {
   type CommandDrainPolicy,
   CurrentToolFailureObserver,
@@ -163,11 +159,11 @@ import {
   type RunToolFailureObserver,
   RunToolScheduling,
   type RunUsageDelta,
-} from '../RunOptions.ts'
-import { SubagentHost } from '../SubagentHost.ts'
-import { ThreadHistory, ThreadHistoryError } from '../ThreadHistory.ts'
-import { type CatalogEntry, CurrentToolCatalog, RunToolVisibility } from '../ToolExposure.ts'
-import { boundedValueFootprint } from './bounded-value.ts'
+} from '../RunOptions'
+import { SubagentHost } from '../SubagentHost'
+import { ThreadHistory, ThreadHistoryError } from '../ThreadHistory'
+import { type CatalogEntry, CurrentToolCatalog, RunToolVisibility } from '../ToolExposure'
+import { boundedValueFootprint } from './bounded-value'
 import {
   AgentUpdateAcceptance,
   type ChildEstablishStatus,
@@ -187,26 +183,16 @@ import {
   type RunTurnResume,
   RunTurnResumeSettledCallSchema,
   type RunTurnToolResult,
-} from './interpreter-options.ts'
-import { isTextOutput, outputSchemaContract, prepareModelPrompt } from './output-contract.ts'
-import { capturePrimitiveTextPart } from './primitive-delta.ts'
-import {
-  boundedCanonicalJsonSnapshot,
-  type BoundedJsonSnapshot,
-  boundedJsonSnapshot,
-} from './provider-result-staging.ts'
+} from './interpreter-options'
+import { isTextOutput, outputSchemaContract, prepareModelPrompt } from './output-contract'
+import { capturePrimitiveTextPart } from './primitive-delta'
+import { boundedCanonicalJsonSnapshot, type BoundedJsonSnapshot, boundedJsonSnapshot } from './provider-result-staging'
 import {
   CurrentAttempt as CurrentProvisionalTextAttempt,
   type ModelHandle as ProvisionalTextModelHandle,
-} from './provisional-text.ts'
-import { deliverToolFailure, isolateToolDerivative } from './tool-derivative.ts'
-import {
-  decodeSelection,
-  decodeSnapshot,
-  eligibleCatalog,
-  exposureSnapshot,
-  validateSelection,
-} from './tool-exposure.ts'
+} from './provisional-text'
+import { deliverToolFailure, isolateToolDerivative } from './tool-derivative'
+import { decodeSelection, decodeSnapshot, eligibleCatalog, exposureSnapshot, validateSelection } from './tool-exposure'
 import {
   annotateToolSpanTerminalOutcome,
   restoreToolSpanFailureCause,
@@ -214,7 +200,7 @@ import {
   ToolSpanFailure,
   ToolSpanTelemetry,
   type ToolSpanTelemetryService,
-} from './tool-telemetry.ts'
+} from './tool-telemetry'
 
 type RuntimeProgram<
   InputSchema extends Schema.Top,
@@ -324,7 +310,7 @@ import {
   type CompactionModelLayer,
   ContextCompactor,
   type ContextMessageTokenEstimator,
-} from '../ContextCompactor.ts'
+} from '../ContextCompactor'
 import {
   ContextRolloverRequest,
   ContextRolloverSelection,
@@ -332,7 +318,7 @@ import {
   ContextWindow,
   ContextWindowStatus,
   ModelCallContext,
-} from '../ContextWindow.ts'
+} from '../ContextWindow'
 import {
   DurableStep,
   DurableStepError,
@@ -340,13 +326,13 @@ import {
   getToolExecutionClass,
   type RunStepHook,
   type RunStepKey,
-} from '../DurableStep.ts'
+} from '../DurableStep'
 import {
   RunEventSink,
   RunEventSinkClosedError,
   type RunEventSinkService,
   type SubagentEventPayload,
-} from '../RunEventSink.ts'
+} from '../RunEventSink'
 import {
   type ProgrammaticCallOutcome,
   type ProgrammaticCallRecord,
@@ -356,7 +342,7 @@ import {
   type ToolBrokerPass,
   type ToolBrokerService,
   ToolBrokerUnavailableError,
-} from '../ToolBroker.ts'
+} from '../ToolBroker'
 import {
   buildCompactedView,
   collectCoveredMessages,
@@ -367,8 +353,8 @@ import {
   evaluateMessageTokenEstimates,
   initialCompactionState,
   isContextOverflowMessage,
-} from './compaction.ts'
-import { errorMessage, errorTag } from './error-diagnostic.ts'
+} from './compaction'
+import { errorMessage, errorTag } from './error-diagnostic'
 
 const AgentResultMetadata = Schema.Struct({
   ...CompletionMetadata.fields,

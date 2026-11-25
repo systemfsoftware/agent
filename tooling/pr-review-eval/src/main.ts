@@ -3,8 +3,8 @@ import * as NodeCrypto from '@effect/platform-node/NodeCrypto'
 import { ConfigProvider, Console, Effect, FileSystem, Layer, Path } from 'effect'
 import { Command } from 'effect/cli'
 
-import { command } from './command.ts'
-import { CURRENT_RUNNER_VERSION } from './contracts.ts'
+import { command } from './command'
+import { CURRENT_RUNNER_VERSION } from './contracts'
 
 const localConfig = ConfigProvider.layerAdd(
   Effect.gen(function*() {

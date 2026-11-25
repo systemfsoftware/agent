@@ -14,7 +14,7 @@ import * as Schema from 'effect/Schema'
 import * as SqlClient from 'effect/sql/SqlClient'
 import * as String from 'effect/String'
 
-import { withTemporaryDatabase } from './harness.ts'
+import { withTemporaryDatabase } from './harness'
 
 it.effect('opens Activity independently, then composes every port over one pool', () =>
   withTemporaryDatabase((url) =>

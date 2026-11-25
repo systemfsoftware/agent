@@ -2,7 +2,7 @@ import { Receipt } from '@systemfsoftware/agent/receipt'
 import { Settlement } from '@systemfsoftware/agent/submission-ledger'
 import { Schema } from 'effect'
 
-import { UsageSnapshot } from './usage.ts'
+import { UsageSnapshot } from './usage'
 
 export const TARGETS = ['yielded', 'pi', 'tardie', 'effect-ai-floor'] as const
 export const Target = Schema.Literals(TARGETS)

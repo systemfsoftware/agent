@@ -35,9 +35,9 @@ import * as Stream from 'effect/Stream'
 import * as Tracer from 'effect/Tracer'
 import type { expectTypeOf as ExpectTypeOf } from 'vitest'
 
-import { deliverToolFailure } from '../../src/engine/internal/tool-derivative.ts'
-import { RunContextPreparationPassthrough } from '../../src/engine/RunOptions.ts'
-import { ThreadHistory } from '../../src/engine/ThreadHistory.ts'
+import { deliverToolFailure } from '../../src/engine/internal/tool-derivative'
+import { RunContextPreparationPassthrough } from '../../src/engine/RunOptions'
+import { ThreadHistory } from '../../src/engine/ThreadHistory'
 
 let threadSequence = 0
 

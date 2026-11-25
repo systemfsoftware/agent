@@ -3,7 +3,7 @@ import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import * as Schema from 'effect/Schema'
 
-import { utf8ByteLength } from '../core/internal/utf8.ts'
+import { utf8ByteLength } from '../core/internal/utf8'
 
 const MAX_REDACTED_PREVIEW_BYTES = 8 * 1024
 const MAX_REDACTION_NODES = 4_096

@@ -11,10 +11,10 @@ import { BrowserCrypto } from '../../../node_modules/@effect/platform-browser/di
 // The build resolver selects the ref's Effect; Tardie's adapter stays isolated.
 import { Effect, Layer, ManagedRuntime, Schema, Stream } from '../../../node_modules/effect/dist/index.js'
 
-import { type Env, type Query, TextObservation, transientObjectTransport } from '../../../deployed/worker/protocol.ts'
-import { agent, definitions, YieldedDO } from '../../../deployed/worker/yielded.ts'
-import { MEASURED_TOOLS, turn } from '../../../src/plan.ts'
-import { router } from './router.ts'
+import { type Env, type Query, TextObservation, transientObjectTransport } from '../../../deployed/worker/protocol'
+import { agent, definitions, YieldedDO } from '../../../deployed/worker/yielded'
+import { MEASURED_TOOLS, turn } from '../../../src/plan'
+import { router } from './router'
 export { YieldedDO }
 type Bindings = Env & { YIELDED: DurableObjectNamespace<YieldedDO> }
 const clients = new WeakMap<Bindings, ReturnType<typeof makeClient>>()

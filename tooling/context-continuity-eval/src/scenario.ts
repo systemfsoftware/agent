@@ -1,6 +1,6 @@
 import { Schema } from 'effect'
 
-import { type Check, check, ProjectStatus } from './contracts.ts'
+import { type Check, check, ProjectStatus } from './contracts'
 
 export const SCENARIO_VERSION = 'harbor-handoff-v2'
 export const REQUIRED_ROLLOVERS = 12

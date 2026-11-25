@@ -1,9 +1,9 @@
 import { Effect, Schema } from 'effect'
 import type { Frame } from 'puppeteer-core/lib/esm/puppeteer/puppeteer-core-browser.js'
 
-import { Browser } from './browser.ts'
-import { ArticleTitle, LabError, type WikipediaChallenge, type WikiRace } from './contract.ts'
-import { Trace } from './telemetry.ts'
+import { Browser } from './browser'
+import { ArticleTitle, LabError, type WikipediaChallenge, type WikiRace } from './contract'
+import { Trace } from './telemetry'
 
 const normalizeTitle = (title: string) => title.replaceAll('_', ' ').trim().replace(/\s+/g, ' ')
 

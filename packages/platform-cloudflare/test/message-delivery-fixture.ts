@@ -9,11 +9,11 @@ import * as Context from 'effect/Context'
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 
-import { ThreadObjectIdentity } from '../src/CloudflareBindings.ts'
-import { CloudflareThreadClient } from '../src/CloudflareThreadClient.ts'
-import { threadMessageDeliveryLayer } from '../src/internal/message-delivery.ts'
-import { cloudflarePreparedInputAdmissionLayer } from '../src/internal/prepared-admission.ts'
-import { observeWorkerInputDelivery } from './helpers/worker-input-contention.ts'
+import { ThreadObjectIdentity } from '../src/CloudflareBindings'
+import { CloudflareThreadClient } from '../src/CloudflareThreadClient'
+import { threadMessageDeliveryLayer } from '../src/internal/message-delivery'
+import { cloudflarePreparedInputAdmissionLayer } from '../src/internal/prepared-admission'
+import { observeWorkerInputDelivery } from './helpers/worker-input-contention'
 
 export const messageClaimDelays = new Map<
   string,

@@ -1,10 +1,10 @@
 import { Effect, Layer, Option, Schema, Stream } from 'effect'
 import { LanguageModel, Model, type Prompt, type Response } from 'effect/ai'
 
-import { PlannerInput, PlannerSettings, SaveTripRequest, Trip } from '../../src/domain.ts'
-import { PlannerAttempt, trackTool } from '../../src/server/progress.ts'
-import { requestsPublication } from '../../src/server/security.ts'
-import { TravelContent } from '../../src/travel-content.ts'
+import { PlannerInput, PlannerSettings, SaveTripRequest, Trip } from '../../src/domain'
+import { PlannerAttempt, trackTool } from '../../src/server/progress'
+import { requestsPublication } from '../../src/server/security'
+import { TravelContent } from '../../src/travel-content'
 
 export const fixtureTravelContent = TravelContent.make({
   title: 'Fixture lodging shortlist',

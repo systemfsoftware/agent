@@ -12,14 +12,14 @@ import { type CredentialEnvironment, credentialSourceLayer } from './server/cred
 import { serveProgress } from './server/progress-http'
 import { plannerOwner } from './server/tenancy'
 import { serveVoice } from './server/voice-http'
-import { appNameFromHost } from './trip-app/addresses.ts'
-import { AppBuildBucketLive } from './trip-app/bindings.ts'
-import { serveTripApp } from './trip-app/gateway.ts'
+import { appNameFromHost } from './trip-app/addresses'
+import { AppBuildBucketLive } from './trip-app/bindings'
+import { serveTripApp } from './trip-app/gateway'
 
 export { Sandbox } from '@cloudflare/sandbox'
 export { PlannerAuthV2 } from './auth/worker'
-export { SiteBuild } from './trip-app/build.ts'
-export { TripData } from './trip-app/gateway.ts'
+export { SiteBuild } from './trip-app/build'
+export { TripData } from './trip-app/gateway'
 
 export class PlannerThreadV3 extends makeTravelPlannerThread(
   Layer.unwrap(
@@ -42,7 +42,7 @@ declare global {
       SITE_BUILD?: Workflow<AppBuildRequest>
     }
     interface GlobalProps {
-      mainModule: typeof import('./worker.ts')
+      mainModule: typeof import('./worker')
     }
   }
 }
@@ -147,7 +147,7 @@ export const handleRequest = (verify = authenticate) =>
     request = new Request(url, request)
 
     if ((url.pathname.startsWith('/assets/') || url.pathname === '/favicon.svg') && env.ASSETS) {
-      return yield* Effect.promise(() => env.ASSETS!.fetch(pageRequest))
+      return yield* Effect.promise(() => env.ASSETS.fetch(pageRequest))
     }
 
     const identity = yield* verify(request).pipe(

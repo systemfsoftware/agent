@@ -18,7 +18,7 @@ import { CloudflareTracer, Rpc, Worker, WorkerEnvironment } from 'effect-cf'
 import { Prompt } from 'effect/ai'
 import * as HttpServerResponse from 'effect/http/HttpServerResponse'
 
-import { codingAgent, definitions } from './agent.ts'
+import { codingAgent, definitions } from './agent'
 import {
   CODING_ADMISSION_GROUP,
   CodingInput,
@@ -40,12 +40,12 @@ import {
   WorkspaceId,
   WorkspacePage,
   WorkspaceSummary,
-} from './contract.ts'
-import { diagnosticRows } from './diagnostics.ts'
-import { workspaceIdFromPath } from './location.ts'
-import { WorkspacePreviewProxy } from './preview-proxy.ts'
-import { CodingThread } from './runtime.ts'
-import { AccountWorkspaces } from './workspaces.ts'
+} from './contract'
+import { diagnosticRows } from './diagnostics'
+import { workspaceIdFromPath } from './location'
+import { WorkspacePreviewProxy } from './preview-proxy'
+import { CodingThread } from './runtime'
+import { AccountWorkspaces } from './workspaces'
 
 export { AccountWorkspaces, CodingThread }
 export { DirectoryBackupGateway } from '@yielded/sandbox/cloudflare'

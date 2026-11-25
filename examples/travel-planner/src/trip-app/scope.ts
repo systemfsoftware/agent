@@ -1,9 +1,9 @@
 import { ThreadObjectIdentity } from '@systemfsoftware/agent-platform-cloudflare/cloudflare-bindings'
 import { Effect } from 'effect'
 
-import { PlannerError } from '../domain.ts'
-import { ownerOfThread } from '../server/tenancy.ts'
-import { TripRepository } from '../server/trips.ts'
+import { PlannerError } from '../domain'
+import { ownerOfThread } from '../server/tenancy'
+import { TripRepository } from '../server/trips'
 
 /** User commands choose behavior; host conversation ownership chooses the trip scope. */
 export const requireAppTrip = Effect.fn('requireAppTrip')(function*(tripId: string) {

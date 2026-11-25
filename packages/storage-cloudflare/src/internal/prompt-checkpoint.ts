@@ -12,7 +12,7 @@ import * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'
 import * as SqlClient from 'effect/sql/SqlClient'
 
-import type { DoJournal } from './do-journal.ts'
+import type { DoJournal } from './do-journal'
 
 const Header = Schema.Struct({
   ...PromptCheckpointHead.fields,

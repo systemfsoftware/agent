@@ -27,8 +27,8 @@ import {
   maintenanceFinishObservers,
   submitOptions,
   supplierCountsFor,
-} from './fixtures.ts'
-import { anyInState, laneRows, readCanonical, runClient, scheduledAlarm, stubFor } from './harness.ts'
+} from './fixtures'
+import { anyInState, laneRows, readCanonical, runClient, scheduledAlarm, stubFor } from './harness'
 import {
   armTransportFault,
   childModelInvocations,
@@ -38,7 +38,7 @@ import {
   healTransportFault,
   releaseChildModel,
   uncertainChildRefs,
-} from './subagent-fixtures.ts'
+} from './subagent-fixtures'
 import {
   allLanesSettled,
   assertDelegationConverged,
@@ -51,7 +51,7 @@ import {
   settlementMarkers,
   SUBAGENTS,
   waitFor,
-} from './subagent-harness.ts'
+} from './subagent-harness'
 
 /** Native child admission, parent wake, abort/join, and unreachable-Object recovery. */
 

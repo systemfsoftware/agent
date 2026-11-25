@@ -2,14 +2,9 @@ import * as DateTime from 'effect/DateTime'
 import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 
-import { SubmissionId, ThreadId, ToolCallId } from '../core/Identifiers.ts'
-import { CanonicalSequence, DeclaredToolCall, SettlementOutcome, ToolCallUnknown } from './Records.ts'
-import {
-  OpenDelegationCallEvidence,
-  OpenToolCallEvidence,
-  PendingApprovalEvidence,
-  RecoveryDecision,
-} from './Recovery.ts'
+import { SubmissionId, ThreadId, ToolCallId } from '../core/Identifiers'
+import { CanonicalSequence, DeclaredToolCall, SettlementOutcome, ToolCallUnknown } from './Records'
+import { OpenDelegationCallEvidence, OpenToolCallEvidence, PendingApprovalEvidence, RecoveryDecision } from './Recovery'
 import {
   AbortCommand,
   AbortIntent,
@@ -22,7 +17,7 @@ import {
   SubmissionState,
   SuspensionSnapshot,
   UnknownResolutionIntent,
-} from './SubmissionLedger.ts'
+} from './SubmissionLedger'
 
 /**
  * Pure report logic for the P7 administrative operations (plan §3): the Schema classes carried

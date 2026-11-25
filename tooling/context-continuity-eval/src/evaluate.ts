@@ -32,19 +32,13 @@ import {
   ResumeCheckpoint,
   RunContinuationEvidence,
   type ServiceTier,
-} from './contracts.ts'
-import { gradePhase } from './grade.ts'
-import { continuationEvidence, notesNamespace, originalExecutionFacts, readLog, readNotes } from './host-evidence.ts'
-import { makeLiveClient, MAX_INPUT_TOKENS, MAX_MODEL_CALLS, MAX_OUTPUT_TOKENS, type ModelId } from './live-model.ts'
-import {
-  manifestLayer,
-  observedCompactor,
-  pressureInstructions,
-  pressureScenario,
-  pressureToolkit,
-} from './pressure.ts'
-import { DEFAULT_PROFILE, MAX_COST_MICROUSD, type ProfileId, REDUCED_CONTEXT_TOKENS } from './profiles.ts'
-import { RequestAudit, RequestAuditSink } from './request-audit.ts'
+} from './contracts'
+import { gradePhase } from './grade'
+import { continuationEvidence, notesNamespace, originalExecutionFacts, readLog, readNotes } from './host-evidence'
+import { makeLiveClient, MAX_INPUT_TOKENS, MAX_MODEL_CALLS, MAX_OUTPUT_TOKENS, type ModelId } from './live-model'
+import { manifestLayer, observedCompactor, pressureInstructions, pressureScenario, pressureToolkit } from './pressure'
+import { DEFAULT_PROFILE, MAX_COST_MICROUSD, type ProfileId, REDUCED_CONTEXT_TOKENS } from './profiles'
+import { RequestAudit, RequestAuditSink } from './request-audit'
 import {
   instructions,
   makeScenario,
@@ -52,7 +46,7 @@ import {
   RESTARTS,
   SCENARIO_VERSION,
   type ScenarioPhase,
-} from './scenario.ts'
+} from './scenario'
 
 export const CONTEXT_TOKEN_LIMIT = REDUCED_CONTEXT_TOKENS
 

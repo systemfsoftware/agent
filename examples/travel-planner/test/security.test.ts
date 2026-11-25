@@ -3,7 +3,7 @@ import { type FrameworkMessage, WorkerUpdate } from '@systemfsoftware/agent/work
 import { Effect, Schema } from 'effect'
 import { expect, it } from 'vitest'
 
-import { publicationAuthorization } from '../src/server/security.ts'
+import { publicationAuthorization } from '../src/server/security'
 
 const authority = {
   threadId: Schema.decodeSync(ThreadId)('owner'),

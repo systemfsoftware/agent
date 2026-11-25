@@ -9,9 +9,9 @@ import * as Layer from 'effect/Layer'
 import * as Option from 'effect/Option'
 import * as Tracer from 'effect/Tracer'
 
-import { threadPortTransportLayer } from '../src/internal/transport.ts'
-import { decodeIdempotencyKey, decodeThreadId, TEST_PRINCIPAL } from './fixtures.ts'
-import { telemetryProbe } from './observability-fixture.ts'
+import { threadPortTransportLayer } from '../src/internal/transport'
+import { decodeIdempotencyKey, decodeThreadId, TEST_PRINCIPAL } from './fixtures'
+import { telemetryProbe } from './observability-fixture'
 
 describe('DEPLOY-016 native receiver invocation contract', () => {
   // Regression: https://github.com/yielded-dev/agent/commit/baecd08f1d6f2c0698e16487cdcccf2f6ffcebca

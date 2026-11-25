@@ -8,4 +8,4 @@ export {
   contextWindowMessage,
   estimateMessageTokens,
   estimatePromptTokens,
-} from './internal/compaction.ts'
+} from './internal/compaction'

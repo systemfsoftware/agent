@@ -1,8 +1,8 @@
 import { Effect, FileSystem, Schema } from 'effect'
 import { convertV4MiniflareOptions, Log, LogLevel, Miniflare } from 'miniflare'
 
-import { BenchError } from './platform.ts'
-import { type BulkFixture, ImportResult, RestoreAck } from './worker/protocol.ts'
+import { BenchError } from './platform'
+import { type BulkFixture, ImportResult, RestoreAck } from './worker/protocol'
 
 /** Correctness only: restore disposable copies through each frozen arm before deployment. */
 export const checkFixture = Effect.fnUntraced(function*(

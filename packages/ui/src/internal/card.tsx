@@ -1,6 +1,6 @@
 import type { ComponentProps } from 'react'
 
-import { cn } from './class-names.ts'
+import { cn } from './class-names'
 
 export function Card({ className, ...props }: ComponentProps<'section'>) {
   return (

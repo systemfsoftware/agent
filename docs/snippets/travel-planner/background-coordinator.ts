@@ -2,8 +2,8 @@ import { Agent, Subagent } from '@systemfsoftware/agent'
 import { Schema } from 'effect'
 import { Toolkit } from 'effect/ai'
 
-import { CoordinatorInput } from './background-input.ts'
-import { Researcher } from './researcher.ts'
+import { CoordinatorInput } from './background-input'
+import { Researcher } from './researcher'
 
 const Research = Subagent.make('activity-researcher', { target: Researcher })
 

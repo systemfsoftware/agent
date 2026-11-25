@@ -142,8 +142,8 @@ import {
   MemoryThreadStoreKernel,
   type MemoryWorkOwner,
   type PreparedMemoryAppend,
-} from './internal/MemoryThreadStoreKernel.ts'
-import { boundedWorkSelection } from './internal/WorkSelection.ts'
+} from './internal/MemoryThreadStoreKernel'
+import { boundedWorkSelection } from './internal/WorkSelection'
 
 const MAX_THREADS = 256
 const RECORD_CHUNK_SIZE = 1_024

@@ -23,8 +23,8 @@ import * as Schema from 'effect/Schema'
 import * as TestClock from 'effect/testing/TestClock'
 import { expect, it } from 'vitest'
 
-import { ThreadMaintenance } from '../src/Alarm.ts'
-import { CloudflareThreadClient } from '../src/CloudflareThreadClient.ts'
+import { ThreadMaintenance } from '../src/Alarm'
+import { CloudflareThreadClient } from '../src/CloudflareThreadClient'
 import {
   backgroundReportGates,
   backgroundReportingWorkers,
@@ -48,7 +48,7 @@ import {
   independentBudgetWorkers,
   privateProgressRoutes,
   workerLaunchProbe,
-} from './background-worker-fixture.ts'
+} from './background-worker-fixture'
 import {
   alarmAttemptHolds,
   armedEvictionsRemaining,
@@ -58,7 +58,7 @@ import {
   maintenanceClocks,
   submitOptions,
   TEST_PRINCIPAL,
-} from './fixtures.ts'
+} from './fixtures'
 import {
   allSettled,
   drainAlarmsUntil,
@@ -67,9 +67,9 @@ import {
   runClient,
   scheduledAlarm,
   stubFor,
-} from './harness.ts'
-import { armWorkerInputContention, workerInputContentions } from './helpers/worker-input-contention.ts'
-import { droppedMessageWakes } from './message-delivery-fixture.ts'
+} from './harness'
+import { armWorkerInputContention, workerInputContentions } from './helpers/worker-input-contention'
+import { droppedMessageWakes } from './message-delivery-fixture'
 
 const randomUUID = SecureRandom.SecureRandom.use((crypto) => crypto.uuidV4()).pipe(
   Effect.provide(BrowserCrypto.layer),

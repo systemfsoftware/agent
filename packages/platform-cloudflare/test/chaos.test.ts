@@ -4,9 +4,9 @@ import { submissionInputRecordId, submissionSettlementRecordId } from '@systemfs
 import * as Effect from 'effect/Effect'
 import { describe, expect, it } from 'vitest'
 
-import type { searchDefinition } from './fixtures.ts'
-import { armedEvictionsRemaining, armRuntimeEviction, plannerDefinition, submitOptions } from './fixtures.ts'
-import { allSettled, assertConvergence, drainAlarmsUntil, readCanonical, runClient } from './harness.ts'
+import type { searchDefinition } from './fixtures'
+import { armedEvictionsRemaining, armRuntimeEviction, plannerDefinition, submitOptions } from './fixtures'
+import { allSettled, assertConvergence, drainAlarmsUntil, readCanonical, runClient } from './harness'
 
 /**
  * No important in-memory state (exit gate; plan §3): a run whose Durable Object is aborted

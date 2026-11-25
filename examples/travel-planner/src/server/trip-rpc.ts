@@ -10,9 +10,9 @@ import {
   SaveTripRequest,
   Trip,
   TripId,
-} from '../domain.ts'
-import { ownerOfThread } from './tenancy.ts'
-import { TripRepository, TripRepositoryLive } from './trips.ts'
+} from '../domain'
+import { ownerOfThread } from './tenancy'
+import { TripRepository, TripRepositoryLive } from './trips'
 
 const Request = Schema.Union([
   Schema.TaggedStruct('List', {}),

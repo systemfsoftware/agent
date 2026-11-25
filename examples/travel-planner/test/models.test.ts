@@ -5,11 +5,11 @@ import { LanguageModel, Tool, Toolkit } from 'effect/ai'
 import { FetchHttpClient } from 'effect/http'
 import { expect } from 'vitest'
 
-import { defaultPlannerSettings } from '../src/domain.ts'
-import { credentialSourceLayer } from '../src/server/credentials.ts'
-import { credentialClient, liveModel } from '../src/server/models.ts'
-import { PlannerAttempt, ProgressStore } from '../src/server/progress.ts'
-import { PublicOutputLive } from '../src/server/public-output.ts'
+import { defaultPlannerSettings } from '../src/domain'
+import { credentialSourceLayer } from '../src/server/credentials'
+import { credentialClient, liveModel } from '../src/server/models'
+import { PlannerAttempt, ProgressStore } from '../src/server/progress'
+import { PublicOutputLive } from '../src/server/public-output'
 
 const answer = (model: string) => {
   const item = {

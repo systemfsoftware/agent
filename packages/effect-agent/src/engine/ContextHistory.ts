@@ -2,7 +2,7 @@ import * as Context from 'effect/Context'
 import type * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 
-import { ThreadId } from '../core/Identifiers.ts'
+import { ThreadId } from '../core/Identifiers'
 
 /** Canonical transcript lookup failure. Access to a Thread remains a host authorization decision. */
 export class ContextHistoryError extends Schema.TaggedError<ContextHistoryError>()(

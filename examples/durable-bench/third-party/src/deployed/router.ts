@@ -1,5 +1,5 @@
-import { COLD_ABORT } from '../../../deployed/worker/host.ts'
-import { isolateIdentity } from '../../../deployed/worker/observe.ts'
+import { COLD_ABORT } from '../../../deployed/worker/host'
+import { isolateIdentity } from '../../../deployed/worker/observe'
 import {
   BulkFixture,
   type Env,
@@ -16,9 +16,9 @@ import {
   type Target,
   TransientObjectTransport,
   transientObjectTransport,
-} from '../../../deployed/worker/protocol.ts'
+} from '../../../deployed/worker/protocol'
 import { Schema } from '../../../node_modules/effect/dist/index.js'
-import type { ActorDO } from './tardie.ts'
+import type { ActorDO } from './tardie'
 
 const expectedAbort = async (abort: () => Promise<unknown>) => {
   try {

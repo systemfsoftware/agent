@@ -6,8 +6,8 @@ import * as Schema from 'effect/Schema'
 import type * as Scope from 'effect/Scope'
 import * as Semaphore from 'effect/Semaphore'
 
-import { RunId, ToolCallId } from '../core/Identifiers.ts'
-import { SubagentDelegationCaps, SubagentReservationAmounts } from '../core/SubagentContract.ts'
+import { RunId, ToolCallId } from '../core/Identifiers'
+import { SubagentDelegationCaps, SubagentReservationAmounts } from '../core/SubagentContract'
 
 const Natural = Schema.Natural
 

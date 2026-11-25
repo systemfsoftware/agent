@@ -7,8 +7,8 @@ import * as Schema from 'effect/Schema'
 import * as SqlClientService from 'effect/sql/SqlClient'
 import type * as SqlError from 'effect/sql/SqlError'
 
-import { utf8ByteLength } from '../core/internal/utf8.ts'
-import { type Any as MemoryNamespace, MemoryNamespaceAddress } from '../core/MemoryNamespace.ts'
+import { utf8ByteLength } from '../core/internal/utf8'
+import { type Any as MemoryNamespace, MemoryNamespaceAddress } from '../core/MemoryNamespace'
 import {
   applyMemoryWrite,
   MemoryDocument,
@@ -21,10 +21,10 @@ import {
   MemoryWrite,
   type MemoryWriteError,
   MemoryWriter,
-} from '../core/MemoryStore.ts'
-import { SqlStorageOwner } from './SqlStorageOwner.ts'
+} from '../core/MemoryStore'
+import { SqlStorageOwner } from './SqlStorageOwner'
 
-export { SqlStorageOwner } from './SqlStorageOwner.ts'
+export { SqlStorageOwner } from './SqlStorageOwner'
 
 const STORAGE_VERSION = 2 as const
 const METADATA_COMPONENT = 'memory'

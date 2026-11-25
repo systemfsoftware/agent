@@ -3,11 +3,11 @@ import { Effect, Layer, Redacted, Result, Schema, Stream } from 'effect'
 import { AiError, LanguageModel, Model } from 'effect/ai'
 import { FetchHttpClient, HttpClient, HttpClientError, HttpClientRequest } from 'effect/http'
 
-import { type PlannerError, type PlannerSettings } from '../domain.ts'
-import { credentialForOwner } from './credentials.ts'
-import { recordDiagnostic } from './diagnostics.ts'
-import { PlannerAttempt, type ProgressWriter } from './progress.ts'
-import { PublicOutputLive } from './public-output.ts'
+import { type PlannerError, type PlannerSettings } from '../domain'
+import { credentialForOwner } from './credentials'
+import { recordDiagnostic } from './diagnostics'
+import { PlannerAttempt, type ProgressWriter } from './progress'
+import { PublicOutputLive } from './public-output'
 
 const PublicProviderEvent = Schema.Union([
   Schema.Struct({

@@ -1,8 +1,8 @@
 import { Collapsible } from '@base-ui/react/collapsible'
 import { Brain, Check, ChevronDown, CircleAlert, Clock, LoaderCircle, Minus, Wrench } from 'lucide-react'
 
-import { cn } from './class-names.ts'
-import { MessageResponse } from './message.tsx'
+import { cn } from './class-names'
+import { MessageResponse } from './message'
 
 export type ToolStatus = 'pending' | 'running' | 'complete' | 'failed' | 'incomplete'
 

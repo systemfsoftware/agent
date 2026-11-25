@@ -44,7 +44,7 @@ import * as Statement from 'effect/sql/Statement'
 import * as Stream from 'effect/Stream'
 import * as Tracer from 'effect/Tracer'
 
-import { DoStorageConfig } from '../DoStorageConfig.ts'
+import { DoStorageConfig } from '../DoStorageConfig'
 import {
   DoAppendConflict,
   DoStorageCorruptionError,
@@ -52,11 +52,11 @@ import {
   type DoStorageFailpointError,
   type DoStorageFailpointLocation,
   DoValueBoundExceeded,
-} from '../DoStorageError.ts'
-import { DoStorageFailpoint, isDefaultDoStorageFailpoint } from '../DoStorageFailpoint.ts'
-import { ensureDoStorageLayout } from './migrations.ts'
-import { ownedRows, type OwnedState, ownedState } from './owned-state.ts'
-import { annotateStorageError, isAppendContention, storageResult, withStorageSpan } from './storage-span.ts'
+} from '../DoStorageError'
+import { DoStorageFailpoint, isDefaultDoStorageFailpoint } from '../DoStorageFailpoint'
+import { ensureDoStorageLayout } from './migrations'
+import { ownedRows, type OwnedState, ownedState } from './owned-state'
+import { annotateStorageError, isAppendContention, storageResult, withStorageSpan } from './storage-span'
 
 /**
  * Static schema ceiling for stored text columns. Writes are bounded in BYTES by the

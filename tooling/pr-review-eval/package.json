@@ -8,7 +8,7 @@
   },
   "scripts": {
     "test": "vitest run",
-    "typecheck": "effect-tsgo tsrs --noEmit -p tsconfig.json"
+    "typecheck": "tsc -b"
   },
   "dependencies": {
     "@effect/ai-openai": "catalog:",

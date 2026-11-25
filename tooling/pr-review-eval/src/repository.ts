@@ -8,7 +8,7 @@ import {
 } from '@systemfsoftware/agent-pr-review/review-repository'
 import { Effect, Layer } from 'effect'
 
-import { type EvalRepositorySnapshot } from './contracts.ts'
+import { type EvalRepositorySnapshot } from './contracts'
 
 const missing = (path: string, revision: 'base' | 'head') =>
   ReviewContextError.make({ message: `No frozen ${revision} source exists for ${path}` })

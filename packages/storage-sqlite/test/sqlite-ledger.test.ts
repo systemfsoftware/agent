@@ -111,7 +111,7 @@ import * as SqlClientService from 'effect/sql/SqlClient'
 import * as Statement from 'effect/sql/Statement'
 import * as Stream from 'effect/Stream'
 
-import { withSubmissionOwner } from '../../../test/fixtures/ledger-read-contracts.ts'
+import { withSubmissionOwner } from '../../../test/fixtures/ledger-read-contracts'
 
 const id = <A>(schema: Schema.Codec<A, string>, value: string): A => Schema.decodeSync(schema)(value)
 

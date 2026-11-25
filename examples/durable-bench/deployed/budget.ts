@@ -3,9 +3,9 @@ import { DatabaseSync } from 'node:sqlite'
 
 import { Clock, Effect, FileSystem, Schema } from 'effect'
 
-import type { CostPlan, Options } from './model.ts'
-import { BenchError, hash, stateDirectory } from './platform.ts'
-import type { BulkFixture } from './worker/protocol.ts'
+import type { CostPlan, Options } from './model'
+import { BenchError, hash, stateDirectory } from './platform'
+import type { BulkFixture } from './worker/protocol'
 
 export const DEFAULT_ROW_LIMIT = 1_000_000
 const DAY = 86_400_000

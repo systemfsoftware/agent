@@ -118,7 +118,7 @@ import {
   StoreWorkRebuildResult,
   WorkerAdmitCall,
   WorkerAdmitResult,
-} from './PortProtocol.ts'
+} from './PortProtocol'
 
 type ThreadId = ThreadMaterialization['threadId']
 type SubmissionId = SubmissionSnapshot['submissionId']

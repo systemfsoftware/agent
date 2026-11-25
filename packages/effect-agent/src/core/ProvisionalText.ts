@@ -2,7 +2,7 @@ import * as Response from 'effect/ai/Response'
 import * as Context from 'effect/Context'
 import * as Schema from 'effect/Schema'
 
-import { AttemptId, RunId, SubmissionId, ThreadId, TurnId } from './Identifiers.ts'
+import { AttemptId, RunId, SubmissionId, ThreadId, TurnId } from './Identifiers'
 
 const attemptIdentity = {
   threadId: ThreadId,

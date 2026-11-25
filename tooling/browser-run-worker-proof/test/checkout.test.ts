@@ -1,11 +1,11 @@
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, URL, URLSearchParams } from 'node:url'
 
 import { assert, it } from '@effect/vitest'
 import { Effect, Schema } from 'effect'
 import { build } from 'esbuild'
 import { convertV4MiniflareOptions, Miniflare } from 'miniflare'
 
-import { Evidence } from '../src/proof.ts'
+import { Evidence } from '../src/proof'
 
 // Retain the real receiver boundary: wrong buyer credentials and duplicate submissions
 // must remain observable independently of the agent and its claimed completion.

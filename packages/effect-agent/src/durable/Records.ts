@@ -3,11 +3,11 @@ import * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'
 import * as Struct from 'effect/Struct'
 
-import { InputMessage } from '../capabilities/Messaging.ts'
-import { PolicyLimit } from '../core/AgentError.ts'
-import { AgentPolicy } from '../core/AgentPolicy.ts'
-import { Update } from '../core/AgentUpdates.ts'
-import * as FailureDiagnostic from '../core/FailureDiagnostic.ts'
+import { InputMessage } from '../capabilities/Messaging'
+import { PolicyLimit } from '../core/AgentError'
+import { AgentPolicy } from '../core/AgentPolicy'
+import { Update } from '../core/AgentUpdates'
+import * as FailureDiagnostic from '../core/FailureDiagnostic'
 import {
   AgentId,
   DelegationId,
@@ -18,24 +18,24 @@ import {
   ThreadId,
   ToolCallId,
   TurnId,
-} from '../core/Identifiers.ts'
-import { utf8ByteLength } from '../core/internal/utf8.ts'
-import { IdempotencyKey, Principal, Receipt } from '../core/Receipt.ts'
-import { ExhaustedLimit } from '../core/RunEvent.ts'
-import { RunPolicyUsage } from '../core/RunPolicyUsage.ts'
+} from '../core/Identifiers'
+import { utf8ByteLength } from '../core/internal/utf8'
+import { IdempotencyKey, Principal, Receipt } from '../core/Receipt'
+import { ExhaustedLimit } from '../core/RunEvent'
+import { RunPolicyUsage } from '../core/RunPolicyUsage'
 import {
   DelegationDepth,
   SubagentBudgetReservation,
   SubagentGrant,
   SubagentParentLink,
   ToolExecutionKind,
-} from '../core/SubagentContract.ts'
-import { Selection, Snapshot } from '../core/ToolExposure.ts'
-import { ToolParameterRejection } from '../core/ToolResult.ts'
-import { ModelCallUsage, RunTotals, RunUsageSummary } from '../core/Usage.ts'
-import { WorkerBudgetScope, WorkerRef, WorkerSource, WorkerStop } from '../core/Worker.ts'
-import { ContextHandoff } from '../engine/ContextWindow.ts'
-import { HistoryPrompt } from './internal/history-prompt.ts'
+} from '../core/SubagentContract'
+import { Selection, Snapshot } from '../core/ToolExposure'
+import { ToolParameterRejection } from '../core/ToolResult'
+import { ModelCallUsage, RunTotals, RunUsageSummary } from '../core/Usage'
+import { WorkerBudgetScope, WorkerRef, WorkerSource, WorkerStop } from '../core/Worker'
+import { ContextHandoff } from '../engine/ContextWindow'
+import { HistoryPrompt } from './internal/history-prompt'
 
 /** Stable identity of one canonical record. */
 export const RecordId = Schema.NonEmptyString.pipe(Schema.brand('@effect-agent/thread/RecordId'))

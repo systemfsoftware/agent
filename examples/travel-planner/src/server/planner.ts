@@ -3,13 +3,13 @@ import { Agent, Output, WebSearch } from '@systemfsoftware/agent'
 import { DateTime, Effect } from 'effect'
 import { Toolkit } from 'effect/ai'
 
-import { DeliverResponse, ShowTravelOptions, TripTools } from '../agent.ts'
-import { PlannerInput, Text } from '../domain.ts'
-import { researchCoordinatorId } from '../research/contracts.ts'
-import { UpdatingResearchScoutActions, UpdatingResearchScoutBackground } from '../research/scout.ts'
-import { ReportingAppEditorActions, ReportingAppEditorBackground } from '../trip-app/editor.ts'
-import { AppTools } from '../trip-app/tools.ts'
-import { plannerLimits } from './agent-limits.ts'
+import { DeliverResponse, ShowTravelOptions, TripTools } from '../agent'
+import { PlannerInput, Text } from '../domain'
+import { researchCoordinatorId } from '../research/contracts'
+import { UpdatingResearchScoutActions, UpdatingResearchScoutBackground } from '../research/scout'
+import { ReportingAppEditorActions, ReportingAppEditorBackground } from '../trip-app/editor'
+import { AppTools } from '../trip-app/tools'
+import { plannerLimits } from './agent-limits'
 
 /** Parent reports are framework messages, separate from the traveler's application input. */
 export const planner = Agent.make(researchCoordinatorId, {

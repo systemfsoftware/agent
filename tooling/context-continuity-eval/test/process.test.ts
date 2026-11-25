@@ -2,8 +2,8 @@ import { NodeServices } from '@effect/platform-node'
 import { ConfigProvider, Effect, FileSystem, Layer, Path, Schema } from 'effect'
 import { expect, it } from 'vitest'
 
-import { RunContinuationEvidence } from '../src/contracts.ts'
-import { supervise } from '../src/process-host.ts'
+import { RunContinuationEvidence } from '../src/contracts'
+import { supervise } from '../src/process-host'
 
 it('recovers the real SQLite runtime after two SIGKILLs with pressure and cumulative accounting', async () => {
   const { report, checkpoint, active } = await Effect.runPromise(

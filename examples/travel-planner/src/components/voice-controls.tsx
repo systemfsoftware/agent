@@ -3,7 +3,7 @@ import { AsyncResult } from 'effect/reactivity'
 import { Mic, PhoneOff, Volume2, VolumeX } from 'lucide-react'
 import { useRef } from 'react'
 
-import { muteVoiceAtom, startVoiceAtom, stopVoiceAtom, voiceBoundaryAtom, voiceViewAtom } from '../voice/state.ts'
+import { muteVoiceAtom, startVoiceAtom, stopVoiceAtom, voiceBoundaryAtom, voiceViewAtom } from '../voice/state'
 
 export function VoiceControls({ enabled }: { readonly enabled: boolean }) {
   useAtomValue(voiceBoundaryAtom)

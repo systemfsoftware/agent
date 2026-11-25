@@ -12,8 +12,8 @@ import * as Layer from 'effect/Layer'
 import * as Schema from 'effect/Schema'
 import * as SchemaGetter from 'effect/SchemaGetter'
 
-import { compileRegistrations } from '../../src/durable/internal/agent-registration.ts'
-import { DefinitionDigestInput } from '../../src/durable/Records.ts'
+import { compileRegistrations } from '../../src/durable/internal/agent-registration'
+import { DefinitionDigestInput } from '../../src/durable/Records'
 
 type Equal<Left, Right> = (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2
   ? (<Value>() => Value extends Right ? 1 : 2) extends <Value>() => Value extends Left ? 1 : 2 ? true

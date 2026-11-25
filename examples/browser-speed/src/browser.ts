@@ -6,8 +6,8 @@ import { Context, Effect, Layer, Schema } from 'effect'
 import { Tool, Toolkit } from 'effect/ai'
 import type { Page } from 'puppeteer-core/lib/esm/puppeteer/puppeteer-core-browser.js'
 
-import { BrowserHandoff, defaultChallenge, LabError, type RunInput } from './contract.ts'
-import { Trace } from './telemetry.ts'
+import { BrowserHandoff, defaultChallenge, LabError, type RunInput } from './contract'
+import { Trace } from './telemetry'
 
 export const TaskResult = Schema.Struct({
   message: Schema.String,

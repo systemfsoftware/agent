@@ -2,8 +2,8 @@ import { Console, Effect, FileSystem, Path, Predicate, Schema, Stream } from 'ef
 import { Command, Flag } from 'effect/cli'
 import { ChildProcess, ChildProcessSpawner } from 'effect/process'
 
-import { environment, executable, sourceMap } from './local-child.ts'
-import { BenchError, check, hash, read, save, workspace } from './platform.ts'
+import { environment, executable, sourceMap } from './local-child'
+import { BenchError, check, hash, read, save, workspace } from './platform'
 
 const frameworks = ['yielded', 'pi'] as const
 const Framework = Schema.Literals(frameworks)

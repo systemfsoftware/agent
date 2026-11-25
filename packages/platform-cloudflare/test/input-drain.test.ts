@@ -20,8 +20,8 @@ import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
 import { expect, it } from 'vitest'
 
-import { submitOptions } from './fixtures.ts'
-import { stubFor } from './harness.ts'
+import { submitOptions } from './fixtures'
+import { stubFor } from './harness'
 
 // Regression: https://github.com/yielded-dev/agent/commit/efa46d1378493e60102080798064fa8e73f477b9
 // A returned Tool failure was followed by a failed input-drain authority read, leaving

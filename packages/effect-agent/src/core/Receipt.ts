@@ -1,6 +1,6 @@
 import * as Schema from 'effect/Schema'
 
-import { ReceiptId, SubmissionId, ThreadId } from './Identifiers.ts'
+import { ReceiptId, SubmissionId, ThreadId } from './Identifiers'
 
 // Keep the established brand and Schema identities when sharing these values inward.
 /** Caller-supplied deduplication key, scoped to one Thread and authenticated principal. */

@@ -43,7 +43,7 @@ export const snippetPlugins = [
   sourcePlugin,
   ecTwoSlash({
     cwd: snippetsRoot,
-    tsConfigPath: resolve(import.meta.dirname, '../tsconfig.snippets.json'),
+    tsConfigPath: resolve(import.meta.dirname, '../snippets.compiler-options.json'),
     instanceConfigs: { twoslash: { explicitTrigger: true, languages: ['ts', 'tsx'] } },
     twoslashOptions: {
       tsModule: ts,
@@ -55,7 +55,6 @@ export const snippetPlugins = [
         target: ts.ScriptTarget.ES2023,
         module: ts.ModuleKind.ESNext,
         moduleResolution: ts.ModuleResolutionKind.Bundler,
-        allowImportingTsExtensions: true,
         noEmit: true,
         strict: true,
         typeRoots: [

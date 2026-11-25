@@ -1,8 +1,8 @@
 import { fetchWithSession } from '@systemfsoftware/agent-example-auth/client'
 import { Cause, Effect, Queue, Schema, Stream } from 'effect'
 
-import { LiveEvent, VoiceAnswer, VoiceError, type VoiceOffer } from './protocol.ts'
-import type { VoiceConnection } from './session.ts'
+import { LiveEvent, VoiceAnswer, VoiceError, type VoiceOffer } from './protocol'
+import type { VoiceConnection } from './session'
 
 const failed = () => VoiceError.make({ message: 'Voice disconnected. Reconnect to check existing work.' })
 

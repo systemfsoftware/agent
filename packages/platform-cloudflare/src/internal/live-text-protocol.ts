@@ -2,7 +2,7 @@ import { ThreadId } from '@systemfsoftware/agent/identifiers'
 import { Event } from '@systemfsoftware/agent/provisional-text'
 import * as Schema from 'effect/Schema'
 
-import { HostProtocolError } from './host-protocol-error.ts'
+import { HostProtocolError } from './host-protocol-error'
 
 export const MAX_FRAME_BYTES = 32 * 1_024
 export const MAX_ID_LENGTH = 256

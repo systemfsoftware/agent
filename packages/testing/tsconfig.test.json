@@ -1,0 +1,36 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "noEmit": false,
+    "emitDeclarationOnly": true,
+    "outDir": "node_modules/.cache/tsc/test",
+    "tsBuildInfoFile": "node_modules/.cache/tsconfig.test.tsbuildinfo"
+  },
+  "include": [
+    "test/**/*.ts"
+  ],
+  "references": [
+    {
+      "path": "../ai-decision/tsconfig.app.json"
+    },
+    {
+      "path": "../effect-agent/tsconfig.app.json"
+    },
+    {
+      "path": "../platform-node/tsconfig.app.json"
+    },
+    {
+      "path": "../storage-memory/tsconfig.app.json"
+    },
+    {
+      "path": "../storage-postgres/tsconfig.app.json"
+    },
+    {
+      "path": "../storage-sqlite/tsconfig.app.json"
+    },
+    {
+      "path": "./tsconfig.app.json"
+    }
+  ]
+}

@@ -4,10 +4,10 @@ import * as Context from 'effect/Context'
 import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 
-import type { AnyDefinition } from '../../core/Agent.ts'
-import { ModelProtocolError } from '../../core/AgentError.ts'
-import { utf8ByteLength } from '../../core/internal/utf8.ts'
-import { getToolExecutionKind, isSubagentToolAllowed, type SubagentGrant } from '../../core/SubagentContract.ts'
+import type { AnyDefinition } from '../../core/Agent'
+import { ModelProtocolError } from '../../core/AgentError'
+import { utf8ByteLength } from '../../core/internal/utf8'
+import { getToolExecutionKind, isSubagentToolAllowed, type SubagentGrant } from '../../core/SubagentContract'
 import {
   AdditionalToolCatalog,
   DiscoveryTool,
@@ -18,10 +18,10 @@ import {
   Snapshot,
   ToolNames,
   ToolNamespace,
-} from '../../core/ToolExposure.ts'
-import { ContextRolloverTool } from '../ContextWindow.ts'
-import { getToolExecutionClass } from '../DurableStep.ts'
-import { type CatalogEntry, RunToolVisibility, type VisibilityRequest } from '../ToolExposure.ts'
+} from '../../core/ToolExposure'
+import { ContextRolloverTool } from '../ContextWindow'
+import { getToolExecutionClass } from '../DurableStep'
+import { type CatalogEntry, RunToolVisibility, type VisibilityRequest } from '../ToolExposure'
 
 const invalid = (message: string) => ModelProtocolError.make({ message })
 

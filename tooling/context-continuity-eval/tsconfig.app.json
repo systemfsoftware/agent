@@ -1,0 +1,31 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "node_modules/.cache/tsconfig.app.tsbuildinfo",
+    "types": [
+      "node",
+      "@cloudflare/workers-types"
+    ],
+    "composite": true,
+    "noEmit": false,
+    "emitDeclarationOnly": true,
+    "outDir": "node_modules/.cache/tsc/app"
+  },
+  "include": [
+    "src"
+  ],
+  "exclude": [
+    "src/replay-cpu.stack.ts"
+  ],
+  "references": [
+    {
+      "path": "../../packages/effect-agent/tsconfig.app.json"
+    },
+    {
+      "path": "../../packages/platform-cloudflare/tsconfig.app.json"
+    },
+    {
+      "path": "../../packages/platform-node/tsconfig.app.json"
+    }
+  ]
+}

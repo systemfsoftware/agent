@@ -3,11 +3,11 @@ import * as Effect from 'effect/Effect'
 import type * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'
 
-import type * as Agent from '../core/Agent.ts'
-import type { AgentPolicy } from '../core/AgentPolicy.ts'
-import type { AgentId, SubmissionId, ThreadId } from '../core/Identifiers.ts'
-import type { SubagentBudgetReservation } from '../core/SubagentContract.ts'
-import { WorkerError, type WorkerRef, type WorkerSource } from '../core/Worker.ts'
+import type * as Agent from '../core/Agent'
+import type { AgentPolicy } from '../core/AgentPolicy'
+import type { AgentId, SubmissionId, ThreadId } from '../core/Identifiers'
+import type { SubagentBudgetReservation } from '../core/SubagentContract'
+import { WorkerError, type WorkerRef, type WorkerSource } from '../core/Worker'
 import type {
   CanonicalSequence,
   DefinitionDigests,
@@ -15,8 +15,8 @@ import type {
   PersistedJson,
   WorkerContinuation,
   WorkerOrigin,
-} from './Records.ts'
-import type { Principal, SubmissionSnapshot } from './SubmissionLedger.ts'
+} from './Records'
+import type { Principal, SubmissionSnapshot } from './SubmissionLedger'
 
 /**
  * One successful start authorization at an exact source tail. This host-created hint is

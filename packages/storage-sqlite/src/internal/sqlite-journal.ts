@@ -12,15 +12,15 @@ import * as SqlClient from 'effect/sql/SqlClient'
 import type * as SqlConnection from 'effect/sql/SqlConnection'
 import * as SqlError from 'effect/sql/SqlError'
 
-import { SqliteStorageConfig } from '../SqliteStorageConfig.ts'
+import { SqliteStorageConfig } from '../SqliteStorageConfig'
 import {
   SqliteStorageCompatibilityError,
   SqliteStorageCorruptionError,
   SqliteStorageError,
   SqliteWriteContention,
-} from '../SqliteStorageError.ts'
-import { SqliteStorageFailpoint } from '../SqliteStorageFailpoint.ts'
-import { CurrentSqliteStorageVersion, ensureSqliteStorageLayout } from './migrations.ts'
+} from '../SqliteStorageError'
+import { SqliteStorageFailpoint } from '../SqliteStorageFailpoint'
+import { CurrentSqliteStorageVersion, ensureSqliteStorageLayout } from './migrations'
 
 class SqliteJournalModeRow extends Schema.Class<SqliteJournalModeRow>('SqliteJournalModeRow')({
   journal_mode: Schema.NonEmptyString.check(Schema.isMaxLength(32)),

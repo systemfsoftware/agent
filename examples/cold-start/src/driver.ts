@@ -1,7 +1,7 @@
 import { DurableObject } from 'cloudflare:workers'
 import { Schema } from 'effect'
 
-import { lines } from './protocol.ts'
+import { lines } from './protocol'
 
 const Identity = Schema.Struct({
   moduleId: Schema.NonEmptyString,

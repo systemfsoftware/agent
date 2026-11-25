@@ -10,9 +10,9 @@ import { Cause, Clock, Context, Effect, Fiber, Layer, Schema } from 'effect'
 import { DurableObjectState } from 'effect-cf'
 import * as SecureRandom from 'effect/crypto/SecureRandom'
 
-import type { SavedFiles } from './contract.ts'
-import { SHELL_ACTIVE_KEY, SHELL_COMMAND_PREFIX, ShellCommand } from './contract.ts'
-import { Workspace } from './workspace.ts'
+import type { SavedFiles } from './contract'
+import { SHELL_ACTIVE_KEY, SHELL_COMMAND_PREFIX, ShellCommand } from './contract'
+import { Workspace } from './workspace'
 
 const randomUUID = SecureRandom.SecureRandom.use((crypto) => crypto.uuidV4()).pipe(
   Effect.provide(BrowserCrypto.layer),

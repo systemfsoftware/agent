@@ -34,7 +34,6 @@ export const TRIP_APP_TEMPLATE_FILES: Readonly<Record<string, string>> = {
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "allowImportingTsExtensions": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"]
   },
   "include": ["packages", "vite.config.ts", "vite.server.config.ts"]
@@ -221,7 +220,7 @@ export const tripAtom = TripClient.query("trip", "get", {});
 `,
   'packages/web/src/main.tsx': `import { createRoot } from "react-dom/client";
 import { RegistryProvider } from "@effect/atom-react";
-import { App } from "./App.tsx";
+import { App } from "./App";
 import "./styles.css";
 const root = document.getElementById("root");
 if (root)
@@ -239,8 +238,8 @@ export function TripMap(_props: { readonly places: readonly Place[] }) {
 `,
   'packages/web/src/App.tsx': `import { useAtomValue } from "@effect/atom-react";
 import { AsyncResult } from "effect/reactivity";
-import { tripAtom } from "./state.ts";
-import { TripMap } from "./TripMap.tsx";
+import { tripAtom } from "./state";
+import { TripMap } from "./TripMap";
 
 export function App() {
   const result = useAtomValue(tripAtom);

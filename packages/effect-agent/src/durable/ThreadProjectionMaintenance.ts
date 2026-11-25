@@ -5,7 +5,7 @@ import * as Layer from 'effect/Layer'
 import * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'
 
-import type { AppendRequest, AppendResult } from './ThreadStore.ts'
+import type { AppendRequest, AppendResult } from './ThreadStore'
 
 /** A derived projection failed; the canonical source remains authoritative. */
 export class ThreadProjectionError extends Schema.TaggedError<ThreadProjectionError>()(

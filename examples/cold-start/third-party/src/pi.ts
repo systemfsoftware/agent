@@ -5,7 +5,7 @@ import { type Conversation, createRegistry, Harness, watchEvents } from '@earend
 import { openDurableObjectSqliteStorage } from '@earendil-works/pi-durable/storage/sqlite/cloudflare'
 import { DurableObject } from 'cloudflare:workers'
 
-import type { Env } from '../../src/protocol.ts'
+import type { Env } from '../../src/protocol'
 
 function modelCollection(env: Env, fetch: typeof globalThis.fetch) {
   const models = createModels()

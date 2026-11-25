@@ -9,7 +9,7 @@ import { RpcClient, RpcSerialization } from 'effect/rpc'
 
 import { AccountError, type AccountSession } from './auth/account'
 import { runtime } from './auth/client'
-import { mergeSpeech, speechContext } from './conversation.ts'
+import { mergeSpeech, speechContext } from './conversation'
 import type { OpenAiConnection } from './credential-domain'
 import {
   type ConversationSummary,

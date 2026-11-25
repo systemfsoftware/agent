@@ -10,7 +10,7 @@ import {
   EvalRepositoryFile,
   type EvalRepositorySnapshot,
   EvalSuite,
-} from './contracts.ts'
+} from './contracts'
 
 const MAX_SUITE_BYTES = 64n * 1_024n * 1_024n
 const decodeSuiteJson = Schema.decodeUnknownEffect(Schema.fromJsonString(EvalSuite))

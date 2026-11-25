@@ -4,9 +4,9 @@ import type { Redacted } from 'effect'
 import { Clock, Effect, Exit, FileSystem, Path, Schedule, Schema } from 'effect'
 import { HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http'
 
-import { EvaluationError } from './contracts.ts'
-import type { PerformanceIdentity } from './performance-contracts.ts'
-import { expectedPerformanceOutput, PerformanceOutput, PerformanceSnapshot } from './performance-contracts.ts'
+import { EvaluationError } from './contracts'
+import type { PerformanceIdentity } from './performance-contracts'
+import { expectedPerformanceOutput, PerformanceOutput, PerformanceSnapshot } from './performance-contracts'
 
 const Timing = Schema.Record(Schema.String, Schema.NullOr(Schema.Finite))
 

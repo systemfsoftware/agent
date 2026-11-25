@@ -6,7 +6,6 @@
     "types": ["node"],
     "module": "esnext",
     "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "isolatedModules": true,
     "moduleDetection": "force",

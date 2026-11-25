@@ -1,8 +1,8 @@
 import { Console, Effect, FileSystem, Path, Schema } from 'effect'
 import { Argument, Command, Flag } from 'effect/cli'
 
-import { arms, Capture, Cleanup, Plan, Uploads } from './evidence.ts'
-import { BenchError, check as requireEvidence, hash, read, save } from './platform.ts'
+import { arms, Capture, Cleanup, Plan, Uploads } from './evidence'
+import { BenchError, check as requireEvidence, hash, read, save } from './platform'
 
 const Window = Schema.Struct({ worker: Schema.Finite, object: Schema.Finite })
 

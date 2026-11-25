@@ -6,7 +6,7 @@ import * as vm from 'node:vm'
 
 import { Effect, FileSystem } from 'effect'
 
-import { HeapProbeError, NodeSample } from './heap-contracts.ts'
+import { HeapProbeError, NodeSample } from './heap-contracts'
 
 const collect = Effect.gen(function*() {
   const gc = globalThis.gc

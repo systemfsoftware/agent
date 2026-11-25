@@ -2,9 +2,9 @@ import * as Context from 'effect/Context'
 import * as Effect from 'effect/Effect'
 import * as Schema from 'effect/Schema'
 
-import { type ReceiptId, type RunId, SubmissionId } from '../core/Identifiers.ts'
-import { CanonicalSequence, RecordEnvelope, SubmissionSettled, type SubmissionSettledRecord } from './Records.ts'
-import { runIdForSubmission } from './RunJournal.ts'
+import { type ReceiptId, type RunId, SubmissionId } from '../core/Identifiers'
+import { CanonicalSequence, RecordEnvelope, SubmissionSettled, type SubmissionSettledRecord } from './Records'
+import { runIdForSubmission } from './RunJournal'
 import {
   LedgerError,
   type OwnershipLost,
@@ -12,8 +12,8 @@ import {
   submissionSettlementBatchId,
   submissionSettlementId,
   submissionSettlementRecordId,
-} from './SubmissionLedger.ts'
-import { AppendRequest, PreparedAppend, type ThreadStoreFailure } from './ThreadStore.ts'
+} from './SubmissionLedger'
+import { AppendRequest, PreparedAppend, type ThreadStoreFailure } from './ThreadStore'
 
 /** Authority rechecked atomically on every publication attempt, including canonical replay. */
 export const SettlementPublicationAuthority = Schema.Union([

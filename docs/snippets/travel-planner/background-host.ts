@@ -1,11 +1,11 @@
 import { NodeDurableHost } from '@systemfsoftware/agent-platform-node'
 import { Layer } from 'effect'
 
-import { WorkerAccessLive } from './background-access.ts'
-import { BackgroundCoordinator, FollowUpResearch, ResearchReporting, StartResearch } from './background-coordinator.ts'
-import { definitions, ModelLive, OpenAiLive } from './node-agent.ts'
-import { Researcher } from './researcher.ts'
-import { TravelToolsLive } from './tools.ts'
+import { WorkerAccessLive } from './background-access'
+import { BackgroundCoordinator, FollowUpResearch, ResearchReporting, StartResearch } from './background-coordinator'
+import { definitions, ModelLive, OpenAiLive } from './node-agent'
+import { Researcher } from './researcher'
+import { TravelToolsLive } from './tools'
 
 export const HostLive = NodeDurableHost.layer(
   [

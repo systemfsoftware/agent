@@ -11,8 +11,8 @@ import * as HttpClientResponse from 'effect/http/HttpClientResponse'
 import * as Layer from 'effect/Layer'
 import * as Schema from 'effect/Schema'
 
-import * as ContextTools from '../../src/capabilities/ContextTools.ts'
-import * as MemoryNotes from '../../src/capabilities/MemoryNotes.ts'
+import * as ContextTools from '../../src/capabilities/ContextTools'
+import * as MemoryNotes from '../../src/capabilities/MemoryNotes'
 
 const status = ContextWindowStatus.make({
   threadId: ThreadId.make('current-thread'),

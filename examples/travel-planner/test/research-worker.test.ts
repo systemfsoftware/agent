@@ -9,9 +9,9 @@ import { build } from 'esbuild'
 import { convertV4MiniflareOptions, Miniflare } from 'miniflare'
 import { afterAll, beforeAll, expect, it } from 'vitest'
 
-import type { PlannerSettings } from '../src/domain.ts'
-import { PlannerSnapshot, PlannerWorkerDetail } from '../src/domain.ts'
-import { fixtureOwner } from './fixtures/identity.ts'
+import type { PlannerSettings } from '../src/domain'
+import { PlannerSnapshot, PlannerWorkerDetail } from '../src/domain'
+import { fixtureOwner } from './fixtures/identity'
 
 const token = 'research-worker-fixture'
 const settings: PlannerSettings = { model: 'gpt-6-astra', reasoningEffort: 'high', fast: true }

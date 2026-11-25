@@ -1,7 +1,7 @@
 import { Schema } from 'effect'
 
-import { type PlannerProgress, SendMessageRequest, VoiceWork } from '../domain.ts'
-import { type Caption, type LiveEvent, shortContext } from './protocol.ts'
+import { type PlannerProgress, SendMessageRequest, VoiceWork } from '../domain'
+import { type Caption, type LiveEvent, shortContext } from './protocol'
 
 /** A frozen envelope survives uncertain admission and a replacement media session. */
 export const VoiceRequest = Schema.Struct({

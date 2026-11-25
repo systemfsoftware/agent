@@ -10,18 +10,18 @@ import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import type * as SqlClientService from 'effect/sql/SqlClient'
 
-import { sqliteClientLayer } from './internal/sqlite-client-layer.ts'
-import { initializeSqliteJournal, sqliteErrors } from './internal/sqlite-journal.ts'
-import { sqlFailure } from './internal/sqlite-ledger-errors.ts'
-import { SqliteStorageConfig } from './SqliteStorageConfig.ts'
-import { SqliteStorageFailpoint } from './SqliteStorageFailpoint.ts'
+import { sqliteClientLayer } from './internal/sqlite-client-layer'
+import { initializeSqliteJournal, sqliteErrors } from './internal/sqlite-journal'
+import { sqlFailure } from './internal/sqlite-ledger-errors'
+import { SqliteStorageConfig } from './SqliteStorageConfig'
+import { SqliteStorageFailpoint } from './SqliteStorageFailpoint'
 import {
   exclusiveHostClientLayer,
   type SqliteStorageInitializationError,
   type SqliteStorageOptions,
   storageConfigLayer,
   storageFailpointLayer,
-} from './SqliteThreadStore.ts'
+} from './SqliteThreadStore'
 
 const makeServices = Effect.fnUntraced(function*() {
   const failpoint = yield* SqliteStorageFailpoint

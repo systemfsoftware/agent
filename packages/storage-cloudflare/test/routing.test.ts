@@ -64,7 +64,7 @@ import {
   threadStub,
   toolCall,
   withThreadStorage,
-} from './harness.ts'
+} from './harness'
 
 const submissionId = (value: string) => id(MarkReadyRequest.fields.submissionId, value)
 const idempotencyKey = (value: string) => id(IdempotencyKey, value)

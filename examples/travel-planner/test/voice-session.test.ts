@@ -3,10 +3,10 @@ import { Deferred, Effect, Exit, Fiber, Queue, Schema, Stream } from 'effect'
 import { TestClock } from 'effect/testing'
 import { expect } from 'vitest'
 
-import { defaultPlannerSettings, PlannerError, type SendMessageRequest, type VoiceWork } from '../src/domain.ts'
-import { type VoiceRequest } from '../src/voice/delegation.ts'
-import { LiveEvent, VoiceError } from '../src/voice/protocol.ts'
-import { runVoiceSession, VoiceBackend, VoiceConnection } from '../src/voice/session.ts'
+import { defaultPlannerSettings, PlannerError, type SendMessageRequest, type VoiceWork } from '../src/domain'
+import { type VoiceRequest } from '../src/voice/delegation'
+import { LiveEvent, VoiceError } from '../src/voice/protocol'
+import { runVoiceSession, VoiceBackend, VoiceConnection } from '../src/voice/session'
 
 const envelope = {
   conversationId: 'lisbon',

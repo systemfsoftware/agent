@@ -1,0 +1,21 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "types": [
+      "node",
+      "@cloudflare/workers-types"
+    ]
+  },
+  "include": [
+    "src/browser.ts",
+    "src/kitesurf.ts",
+    "src/owner.ts",
+    "src/runner.ts",
+    "src/telemetry.ts",
+    "src/trace-store.ts",
+    "src/wikipedia.ts",
+    "src/worker.ts",
+    "vite.config.ts"
+  ]
+}

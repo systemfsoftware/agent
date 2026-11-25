@@ -3,7 +3,7 @@ import { build } from 'esbuild'
 import { convertV4MiniflareOptions, Miniflare } from 'miniflare'
 import { afterAll, beforeAll, expect, it } from 'vitest'
 
-import { type AppBuildRequest, TripApp } from '../src/domain.ts'
+import { type AppBuildRequest, TripApp } from '../src/domain'
 
 const request: AppBuildRequest = {
   owner: 'test-owner',
@@ -39,12 +39,12 @@ beforeAll(async () => {
       contents: `
     import { Cause, Effect, Layer, Schema } from "effect";
     import { WorkerEnvironment } from "effect-cf";
-    import { AppBuildRequest, PlannerError, TripApp } from "../src/domain.ts";
-    import { AppBuilder, buildTripApp, readBuild, settleBuild } from "../src/trip-app/build.ts";
-    import { AppBuildBucketLive } from "../src/trip-app/bindings.ts";
-    import { AppSourceStore } from "../src/trip-app/source.ts";
-    import { AppRepository } from "../src/trip-app/repository.ts";
-    import { TripFailpoint } from "../src/server/trips.ts";
+    import { AppBuildRequest, PlannerError, TripApp } from "../src/domain";
+    import { AppBuilder, buildTripApp, readBuild, settleBuild } from "../src/trip-app/build";
+    import { AppBuildBucketLive } from "../src/trip-app/bindings";
+    import { AppSourceStore } from "../src/trip-app/source";
+    import { AppRepository } from "../src/trip-app/repository";
+    import { TripFailpoint } from "../src/server/trips";
     let app = ${JSON.stringify(initial)};
     let compiles = 0, reads = 0;
     let point = "", mode = "", conflict = "";

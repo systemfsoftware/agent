@@ -1,6 +1,6 @@
-import { constructed, identity, probe } from '../../src/identity.ts'
-import type { Env } from '../../src/protocol.ts'
-import { PiObject } from './pi.ts'
+import { constructed, identity, probe } from '../../src/identity'
+import type { Env } from '../../src/protocol'
+import { PiObject } from './pi'
 
 export class Thread extends PiObject {
   private readonly environment: Env
@@ -16,5 +16,5 @@ export class Thread extends PiObject {
     return probe(this.environment.VERSION.id, () => this.run(sample))
   }
 }
-export { default } from '../../src/front.ts'
-export { EmptyObject } from '../../src/identity.ts'
+export { default } from '../../src/front'
+export { EmptyObject } from '../../src/identity'

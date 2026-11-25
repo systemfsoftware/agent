@@ -3,7 +3,7 @@ import * as Effect from 'effect/Effect'
 import * as ErrorReporter from 'effect/ErrorReporter'
 import * as Exit from 'effect/Exit'
 
-import type { RunToolFailureObserver, ToolFailureObservation } from '../RunOptions.ts'
+import type { RunToolFailureObserver, ToolFailureObservation } from '../RunOptions'
 
 /** @internal Only the explicitly installed trusted observer sees this live value. */
 export const deliverToolFailure = (

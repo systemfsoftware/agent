@@ -3,7 +3,7 @@ import * as NodeCrypto from '@effect/platform-node/NodeCrypto'
 import { Cause, Console, Effect } from 'effect'
 import { Command } from 'effect/cli'
 
-import { command } from './command.ts'
+import { command } from './command'
 
 const program = Command.run(command, { version: '0.0.0' }).pipe(
   Effect.tapCause((cause) => Console.error(Cause.pretty(cause))),

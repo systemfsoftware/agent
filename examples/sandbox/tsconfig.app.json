@@ -1,0 +1,23 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "jsx": "react-jsx",
+    "allowJs": true,
+    "types": [
+      "vite/client"
+    ]
+  },
+  "include": [
+    "src/contract.ts",
+    "src/diagnostics-view.tsx",
+    "src/location.ts",
+    "src/main.tsx",
+    "src/state.ts",
+    "src/ui.tsx"
+  ]
+}

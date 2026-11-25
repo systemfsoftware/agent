@@ -12,10 +12,10 @@ import * as FileSystem from 'effect/FileSystem'
 import * as Layer from 'effect/Layer'
 import * as SqlClient from 'effect/sql/SqlClient'
 
-import { ledgerReadCases } from '../../../test/fixtures/ledger-read-contracts.ts'
-import { SqliteStorageFailpoint } from '../src/SqliteStorageFailpoint.ts'
-import { submissionLedgerLayer } from '../src/SqliteSubmissionLedger.ts'
-import { storageConfigLayer, threadStoreLayer } from '../src/SqliteThreadStore.ts'
+import { ledgerReadCases } from '../../../test/fixtures/ledger-read-contracts'
+import { SqliteStorageFailpoint } from '../src/SqliteStorageFailpoint'
+import { submissionLedgerLayer } from '../src/SqliteSubmissionLedger'
+import { storageConfigLayer, threadStoreLayer } from '../src/SqliteThreadStore'
 
 const withFixture = <A, E>(
   effect: Effect.Effect<
