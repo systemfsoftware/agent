@@ -15,7 +15,7 @@ for navigation and input. Your application owns destination access, credentials,
 | ------------------------------------------------ | ----------------------------------------- | ------------------------------------------------------------- |
 | Render content, links, or selector groups        | PageCapture with Quick Actions            | Cloudflare browser binding                                    |
 | Capture a page from Node or a Worker             | PageCapture with REST                     | Account ID, redacted token, Effect HttpClient                 |
-| Take an ephemeral PNG screenshot                 | PageScreenshot with Quick Actions         | Cloudflare browser binding                                    |
+| Take an ephemeral PNG or JPEG screenshot         | PageScreenshot with Quick Actions         | Cloudflare browser binding                                    |
 | Let an agent navigate and interact with websites | BrowserUse + Code Mode + Browser Sessions | Worker Loader, browser binding, private lifecycle credentials |
 
 ## Capture a page
@@ -70,7 +70,8 @@ For rendered pages, use a finite `waitForSelector` for the content you need. Nav
 alone may return only a loading shell. Treat rendered text as untrusted, and distinguish missing
 content from evidence that something is absent.
 
-`PageScreenshot` returns PNG bytes from a separate ephemeral pass. Its request fixes the engine,
+`PageScreenshot` returns image bytes from a separate ephemeral pass. Its request fixes the engine,
+image format (`PageScreenshotPng`, or `PageScreenshotJpeg` with a `quality` from 0 to 100),
 viewport, resource policy, navigation options, and byte limit. Authorize the URL before capture
 and recheck authority before publishing the result. Interrupting local waiting for a Quick Action
 does not confirm termination of its unresolved remote browser request.
@@ -150,7 +151,9 @@ verify the site's outcome independently. Never replay uncertain input automatica
 `BrowserSessions` keeps a private reference to one exact browser, context, and page while Attempts
 borrow scoped attachments. The owner serializes attachments and retains responsibility for closing
 the browser at completion, cancellation, or expiry. Disconnecting an attachment preserves the remote
-session; a reference cannot recreate an expired page.
+session; a reference cannot recreate an expired page. `session.run` hands its action a
+`BrowserSessionPage`; type helpers that take the page with that name, not with Puppeteer's own
+`Page`, which is a separate declaration.
 
 <a id="browser-session-options"></a>
 

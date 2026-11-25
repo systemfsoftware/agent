@@ -21,7 +21,12 @@ import {
   PageUrlTarget,
   PageViewport,
 } from '@systemfsoftware/agent/page-capture'
-import { PageScreenshot, PageScreenshotLimits, PageScreenshotRequest } from '@systemfsoftware/agent/page-screenshot'
+import {
+  PageScreenshot,
+  PageScreenshotLimits,
+  PageScreenshotPng,
+  PageScreenshotRequest,
+} from '@systemfsoftware/agent/page-screenshot'
 import { RunContextPreparation } from '@systemfsoftware/agent/run-options'
 import { Clock, Effect, Layer, Option, Schema } from 'effect'
 import { WorkerEnvironment } from 'effect-cf'
@@ -249,6 +254,7 @@ export const webLive = Layer.unwrap(
                       PageScreenshotRequest.make({
                         target: PageUrlTarget.make({ url }),
                         engine,
+                        format: PageScreenshotPng.make({}),
                         fullPage,
                         viewport: PageViewport.make({ width: 1280, height: 800 }),
                         limits: PageScreenshotLimits.make({ maxOutputBytes: MAX_IMAGE_BYTES }),

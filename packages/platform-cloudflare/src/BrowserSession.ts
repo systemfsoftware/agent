@@ -31,7 +31,7 @@ import {
   BrowserRunLiveViewResult,
 } from './InteractiveBrowser'
 import { type BrowserRunAttachment, BrowserRunBinding, BrowserRunRefusal } from './internal/browser-binding'
-import { BrowserSessionPage, fillCredential, prepareCredential } from './internal/browser-credentials'
+import { BrowserSessionPage as CredentialPage, fillCredential, prepareCredential } from './internal/browser-credentials'
 import {
   BrowserRunFailure,
   inheritBrowserReport,
@@ -101,6 +101,13 @@ export class BrowserSessionError extends Schema.TaggedError<BrowserSessionError>
 }
 
 /**
+ * The page `BrowserSession.run` hands to its action: Puppeteer's browser build, which the Browser Run
+ * binding drives. Name this type rather than Puppeteer's Node entry point, whose `Page` class is a
+ * separate declaration that is not assignable to this one.
+ */
+export type BrowserSessionPage = Page
+
+/**
  * One local attachment to an application-owned browser. Scope release disconnects; it never
  * transfers ownership or closes a healthy remote session. The owner serializes attachments,
  * fences old attempts, authorizes human access, and calls BrowserSessions.close on expiry/stop.
@@ -117,7 +124,7 @@ export interface BrowserSession {
    */
   readonly run: <A, E, R>(
     authorize: Effect.Effect<void, E, R>,
-    action: (page: Page) => Promise<A>,
+    action: (page: BrowserSessionPage) => Promise<A>,
     options?: { readonly timeoutMillis: number },
   ) => Effect.Effect<A, E | BrowserSessionError, R>
   /**
@@ -762,7 +769,7 @@ export class BrowserSessions extends Context.Service<
           prepareCredential: (request) =>
             runEffect((commandTimeoutMillis) =>
               prepareCredential(request).pipe(
-                Effect.provideService(BrowserSessionPage, {
+                Effect.provideService(CredentialPage, {
                   page: currentPage,
                   commandTimeoutMillis,
                 }),
@@ -779,7 +786,7 @@ export class BrowserSessions extends Context.Service<
           fillCredential: (request) =>
             runEffect((commandTimeoutMillis) =>
               fillCredential(request).pipe(
-                Effect.provideService(BrowserSessionPage, {
+                Effect.provideService(CredentialPage, {
                   page: currentPage,
                   commandTimeoutMillis,
                 }),

@@ -12,7 +12,12 @@ import {
   PageCaptureRequest,
   PageUrlTarget,
 } from '@systemfsoftware/agent/page-capture'
-import { PageScreenshot, type PageScreenshotError, PageScreenshotRequest } from '@systemfsoftware/agent/page-screenshot'
+import {
+  PageScreenshot,
+  type PageScreenshotError,
+  PageScreenshotPng,
+  PageScreenshotRequest,
+} from '@systemfsoftware/agent/page-screenshot'
 import * as Cause from 'effect/Cause'
 import * as Deferred from 'effect/Deferred'
 import * as Effect from 'effect/Effect'
@@ -50,7 +55,7 @@ const capture = (
     }).pipe(Effect.provide(browserQuickActionCaptureLayer.pipe(Layer.provide(binding))))
     : Effect.gen(function*() {
       return yield* (yield* PageScreenshot).capture(
-        PageScreenshotRequest.make({ ...common, fullPage: false }),
+        PageScreenshotRequest.make({ ...common, format: PageScreenshotPng.make({}), fullPage: false }),
       )
     }).pipe(Effect.provide(browserQuickActionScreenshotLayer.pipe(Layer.provide(binding))))
 }

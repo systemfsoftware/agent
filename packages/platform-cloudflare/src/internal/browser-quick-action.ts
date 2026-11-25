@@ -517,8 +517,13 @@ export const browserQuickActionCaptureLayer: Layer.Layer<
 
 const screenshotOptions = (request: PageScreenshotRequest): BrowserRunScreenshotOptions => ({
   ...quickActionCommonOptions(request),
-  screenshotOptions: { type: 'png', encoding: 'binary', fullPage: request.fullPage },
+  screenshotOptions: request.format._tag === 'PageScreenshotJpeg'
+    ? { type: 'jpeg', quality: request.format.quality, encoding: 'binary', fullPage: request.fullPage }
+    : { type: 'png', encoding: 'binary', fullPage: request.fullPage },
 })
+
+const screenshotMediaType = (request: PageScreenshotRequest): PageScreenshotResult['mediaType'] =>
+  request.format._tag === 'PageScreenshotJpeg' ? 'image/jpeg' : 'image/png'
 
 const cancelBody = (body: ReadableStream<Uint8Array>): Effect.Effect<void> =>
   cancelResponse(() => body.cancel(), 'Canceling the screenshot response failed')
@@ -535,8 +540,8 @@ const releaseScreenshotReader = (
     ),
   )
 
-const pngResponse = (response: Response): boolean =>
-  response.headers.get('Content-Type')?.split(';', 1)[0]?.trim().toLowerCase() === 'image/png'
+const hasMediaType = (response: Response, mediaType: PageScreenshotResult['mediaType']): boolean =>
+  response.headers.get('Content-Type')?.split(';', 1)[0]?.trim().toLowerCase() === mediaType
 
 const declaredLength = (response: Response): number | undefined => {
   const raw = response.headers.get('Content-Length')
@@ -556,10 +561,12 @@ const readScreenshot = Effect.fnUntraced(function*(
   if (body === null) {
     return yield* protocolError('The screenshot response had no body')
   }
-  if (!pngResponse(response)) {
+  const mediaType = screenshotMediaType(request)
+
+  if (!hasMediaType(response, mediaType)) {
     yield* cancelBody(body)
 
-    return yield* protocolError('The screenshot response was not image/png')
+    return yield* protocolError(`The screenshot response was not ${mediaType}`)
   }
   const length = declaredLength(response)
 
@@ -648,12 +655,12 @@ const makeScreenshot = (browser: BrowserQuickActionClient): PageScreenshotCaptur
 
     return PageScreenshotResult.make({
       implementation: browserQuickActionImplementation,
-      mediaType: 'image/png',
+      mediaType: screenshotMediaType(request),
       bytes,
     })
   })
 
-/** Native Browser Run screenshot adapter. It retains PNG bytes only for the caller's result. */
+/** Native Browser Run screenshot adapter. It retains image bytes only for the caller's result. */
 export const browserQuickActionScreenshotLayer: Layer.Layer<
   PageScreenshot,
   never,
