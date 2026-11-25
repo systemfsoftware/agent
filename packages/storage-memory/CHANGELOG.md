@@ -1,4 +1,4 @@
-# @yielded/agent-storage-memory
+# @systemfsoftware/agent-storage-memory
 
 ## 0.2.1
 

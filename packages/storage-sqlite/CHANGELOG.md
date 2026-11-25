@@ -1,4 +1,4 @@
-# @yielded/agent-storage-sqlite
+# @systemfsoftware/agent-storage-sqlite
 
 ## 0.2.1
 
