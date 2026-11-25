@@ -1,5 +1,11 @@
 # @yielded/agent-platform-cloudflare
 
+## 0.2.0
+
+Add per-Run host control: `RunOptions.completion`, `contextTokenLimit` and `toolResultExemption`, durable `runSettings` that every Attempt reapplies, and a `RunHostControl` service that resolves the Run's model, stops it with `AgentRunStopped`, exempts chosen tool results from offloading, and is notified on settlement. A replay with different `runSettings` fails with `AdmissionConflict`.
+
+BEHAVIOR CHANGE: SQL, Durable Object and PostgreSQL storage move to layout 32 (a nullable `run_settings_json` Submission column); layouts 25–31 upgrade in place when the store opens.
+
 ## 0.1.0
 
 Updated dependency @systemfsoftware/agent to 0.1.0

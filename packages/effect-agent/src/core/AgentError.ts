@@ -34,6 +34,11 @@ export class AgentRunDispositionError extends Schema.TaggedError<AgentRunDisposi
   },
 ) {}
 
+export class AgentRunStopped extends Schema.TaggedError<AgentRunStopped>()('AgentRunStopped', {
+  value: Schema.Json,
+  message: Schema.String.check(Schema.isMaxLength(4_096)),
+}) {}
+
 /** The finite policy dimension a run exhausted; shared with durable settlement metadata. */
 export const PolicyLimit = Schema.Literals([
   'turns',

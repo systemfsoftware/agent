@@ -66,6 +66,7 @@ export const makeSubmissionRowFields = <
     admission_fence_json: Schema.NullOr(storedText),
     worker_admission_json: Schema.NullOr(storedText),
     message_admission_json: Schema.NullOr(storedText),
+    run_settings_json: Schema.NullOr(storedText),
   },
   childReservation: {
     reservation_id: BoundedIdentifier,

@@ -28,6 +28,7 @@ import {
   AgentInputDecodeError,
   AgentInputError,
   AgentPersistenceCapacityError,
+  AgentRunStopped,
   type AgentToolAuthorizationCheckError,
   AgentToolAuthorizationDenied,
   PolicyLimit,
@@ -103,6 +104,7 @@ import {
 import { MessagingHost } from '../engine/MessagingHost'
 import {
   CurrentToolFailureObserver,
+  type ResolvedModelCall,
   type RunApprovalHook,
   type RunContextHook,
   RunContextPreparation,
@@ -114,6 +116,7 @@ import {
   RunToolAuthorization,
   type RunToolAuthorizationHook,
   type RunToolAuthorizationRequest,
+  type RunToolResultExemptionRequest,
   RunToolScheduling,
 } from '../engine/RunOptions'
 import { SubagentHost } from '../engine/SubagentHost'
@@ -350,6 +353,8 @@ import {
   RecoverySnapshotRequest,
   ReleaseChildBudgetRequest,
   RevertJoiningRequest,
+  type RunModelSelection,
+  RunSettings,
   Settlement,
   type SettlementConflict,
   SettlementFinalization,
@@ -454,6 +459,8 @@ const APPROVAL_POLICY_RESOLVER = 'approval-policy'
 const RECOVERY_RESOLVER = 'recovery'
 /** Upper bound of one `drain("all")` joining pass (`claimJoining.maxCount` must be positive). */
 const MAX_JOIN_DRAIN = 32
+const MAX_HOST_FAILURE_BYTES = 64 * 1024
+const MAX_SETTLED_HOST_NOTICES = 4_096
 
 /** Bound a hook-supplied approval reason to the canonical `BoundedText` persistence limits. */
 const boundedApprovalReason = (reason: string | undefined, fallback: string): string => {
@@ -857,7 +864,46 @@ export interface DurableSubmitOptions {
   readonly messageAdmission?: InputMessage
   /** Application-computed digests of the Agent/Model/Toolkit definitions (see `digestDefinitions`). */
   readonly definitions: DefinitionDigests
+  readonly runSettings?: RunSettings
 }
+
+export interface RunModelRequest {
+  readonly threadId: ThreadId
+  readonly submissionId: SubmissionId
+  readonly runId: RunId
+  readonly turn: number
+  readonly model: RunModelSelection
+}
+
+export interface RunTurnRequest {
+  readonly threadId: ThreadId
+  readonly submissionId: SubmissionId
+  readonly runId: RunId
+}
+
+export interface RunSettlementNotice {
+  readonly threadId: ThreadId
+  readonly submissionId: SubmissionId
+  readonly runId: RunId
+  readonly outcome: 'completed' | 'failed' | 'aborted' | 'released'
+}
+
+export class RunHostControl extends Context.Service<
+  RunHostControl,
+  {
+    readonly resolveModel?:
+      | ((request: RunModelRequest) => Effect.Effect<ResolvedModelCall, AgentRunStopped>)
+      | undefined
+    readonly beforeTurn?:
+      | ((request: RunTurnRequest) => Effect.Effect<void, AgentRunStopped>)
+      | undefined
+    readonly encodeFailure?: ((error: unknown) => Option.Option<Schema.Json>) | undefined
+    readonly exemptToolResult?:
+      | ((request: RunToolResultExemptionRequest & RunTurnRequest) => boolean)
+      | undefined
+    readonly finalize?: ((notice: RunSettlementNotice) => Effect.Effect<void>) | undefined
+  }
+>()('@effect-agent/durable/RunHostControl') {}
 
 export interface DurableObserveOptions {
   /** Resume the observation after an adapter-owned offset previously returned by `observe`. */
@@ -1084,6 +1130,7 @@ type AttemptOutcome =
       readonly result: SettlementFailureDiagnostic
       /** The typed limit of an `AgentPolicyError` failure; absent otherwise (RUN-011). */
       readonly policyLimit?: PolicyLimit
+      readonly hostFailure?: PersistedJson
       readonly usageSummary?: RunUsageSummary
     }
     | { readonly _tag: 'aborted'; readonly usageSummary?: RunUsageSummary }
@@ -1458,6 +1505,10 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
 
   const runToolAuthorization = yield* RunToolAuthorization
 
+  const runHostControl = yield* Effect.serviceOption(RunHostControl).pipe(
+    Effect.map(Option.getOrElse(() => RunHostControl.of({}))),
+  )
+
   const runToolVisibility = yield* RunToolVisibility
 
   const runToolScheduling = yield* RunToolScheduling
@@ -1637,6 +1688,7 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
     const canonical = {
       ...common,
       ...(payload.usageSummary === undefined ? {} : { usageSummary: payload.usageSummary }),
+      ...(payload.hostFailure === undefined ? {} : { hostFailure: payload.hostFailure }),
     }
 
     if (settlement.outcome !== 'completed' || payload.runDisposition === undefined) {
@@ -3601,6 +3653,12 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
 
     yield* wake.notify(submission.threadId)
     yield* notifyParentOfChildSettlement(submission, record)
+    yield* notifyHostSettled({
+      threadId: submission.threadId,
+      submissionId,
+      runId: runIdForSubmission(hostSubmissionId),
+      outcome,
+    })
 
     return settlement
   })
@@ -3668,6 +3726,9 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
         ...(outcome._tag === 'failed' && outcome.policyLimit !== undefined
           ? { policyLimit: outcome.policyLimit }
           : {}),
+        ...(outcome._tag === 'failed' && outcome.hostFailure !== undefined
+          ? { hostFailure: outcome.hostFailure }
+          : {}),
         ...(outcome.usageSummary === undefined ? {} : { usageSummary: outcome.usageSummary }),
         ...(includeRunId &&
             outcome.uncommittedModelUsage !== undefined &&
@@ -3708,6 +3769,12 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
       yield* attemptContextAtTail(submission.threadId),
       canonicalSettlement,
     )
+    yield* notifyHostSettled({
+      threadId: submission.threadId,
+      submissionId,
+      runId: canonicalSettlement.runId ?? runIdForSubmission(submissionId),
+      outcome: canonicalSettlement.outcome,
+    })
 
     return materializeSettlement(settlement, published.record)
   })
@@ -3730,6 +3797,12 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
 
     yield* wake.notify(submission.threadId)
     yield* notifyParentOfChildSettlement(submission, record)
+    yield* notifyHostSettled({
+      threadId: submission.threadId,
+      submissionId: submission.submissionId,
+      runId: canonicalSettlement.runId ?? runIdForSubmission(submission.submissionId),
+      outcome: canonicalSettlement.outcome,
+    })
 
     return materializeSettlement(settlement, record)
   })
@@ -4846,8 +4919,48 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
           onNone: () => ({}),
           onSome: ({ limit }) => ({ policyLimit: limit }),
         }),
+        ...Option.match(hostFailureOf(error), {
+          onNone: () => ({}),
+          onSome: (hostFailure) => ({ hostFailure }),
+        }),
       })),
     )
+
+  const decodeHostFailure = Schema.decodeUnknownOption(PersistedJson)
+
+  const boundedHostFailure = (json: Schema.Json): Option.Option<PersistedJson> =>
+    Option.flatMap(
+      decodeHostFailure(json),
+      (decoded) =>
+        utf8ByteLength(JSON.stringify(decoded)) <= MAX_HOST_FAILURE_BYTES
+          ? Option.some(decoded)
+          : decodeHostFailure({ omitted: 'host-failure-too-large' }),
+    )
+
+  const encodeHostFailure = Option.liftThrowable((error: unknown): Option.Option<PersistedJson> => {
+    const encodeFailure = runHostControl.encodeFailure
+
+    return encodeFailure === undefined ? Option.none() : Option.flatMap(encodeFailure(error), boundedHostFailure)
+  })
+
+  const hostFailureOf = (error: unknown): Option.Option<PersistedJson> =>
+    Schema.is(AgentRunStopped)(error)
+      ? boundedHostFailure(error.value)
+      : Option.flatten(encodeHostFailure(error))
+
+  const settledHostNotices = new Set<SubmissionId>()
+
+  const notifyHostSettled = (notice: RunSettlementNotice): Effect.Effect<void> => {
+    const finalize = runHostControl.finalize
+
+    if (finalize === undefined || settledHostNotices.has(notice.submissionId)) return Effect.void
+    if (notice.outcome !== 'released') {
+      if (settledHostNotices.size >= MAX_SETTLED_HOST_NOTICES) settledHostNotices.clear()
+      settledHostNotices.add(notice.submissionId)
+    }
+
+    return finalize(notice).pipe(Effect.ignoreCause)
+  }
 
   const halt = <A, R>(
     effect: Effect.Effect<A, DurableWorkerFailure, R>,
@@ -7741,8 +7854,55 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
                 }),
           }
 
+      const runSettings = submission.runSettings
+      const runModel = runSettings?.model
+      const resolveRunModel = runHostControl.resolveModel
+
+      const modelContext: RunContextHook<RunContextPreparationError | AgentRunStopped, never> | undefined =
+        runModel === undefined
+          ? preparedContext
+          : {
+            prepare: Effect.fnUntraced(function*(request) {
+              const prepared = preparedContext === undefined
+                ? { prompt: request.source }
+                : yield* preparedContext.prepare(request)
+
+              if (resolveRunModel === undefined) {
+                return yield* AgentRunStopped.make({
+                  value: { reason: 'model-resolver-missing' },
+                  message: 'The host provides no RunHostControl.resolveModel for this Run',
+                })
+              }
+
+              const modelCall = yield* resolveRunModel({
+                threadId: submission.threadId,
+                submissionId: submission.submissionId,
+                runId,
+                turn: request.turn,
+                model: runModel,
+              })
+
+              return { ...prepared, modelCall }
+            }),
+          }
+
+      const hostBeforeTurn = runHostControl.beforeTurn
+
+      const settledToolCallAllowance = submission.parentLinkage !== undefined &&
+          childLineage?._tag === 'SubagentLineageRecorded'
+        ? childLineage.toolCallAllowance
+        : submission.workerAdmission?.origin.toolCallAllowance
+
+      const toolCallAllowance = runSettings?.toolCallAllowance === undefined
+        ? settledToolCallAllowance
+        : Math.min(runSettings.toolCallAllowance, settledToolCallAllowance ?? Infinity)
+
+      const initialToolSelection = journal.toolSelection ?? runSettings?.toolSelection
+      const exemptToolResult = runHostControl.exemptToolResult
+
       const options: RunOptions<
         | CoordinatorHalt
+        | AgentRunStopped
         | AgentPersistenceCapacityError
         | AgentToolAuthorizationCheckError
         | CompactionError
@@ -7773,13 +7933,13 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
           : {}),
         approval,
         toolAuthorization,
-        ...(journal.toolSelection === undefined
+        ...(initialToolSelection === undefined
           ? {}
           : {
             toolSelection: {
               // A settled discovery receipt survives deployment; its selection only
               // names current tools. Keep validation of fresh selections fail-closed.
-              toolNames: journal.toolSelection.toolNames.filter((name) =>
+              toolNames: initialToolSelection.toolNames.filter((name) =>
                 Object.hasOwn(agent.definition.toolkit.tools, name)
               ),
             },
@@ -7794,15 +7954,11 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
           : { subagentBudgetScope: submission.workerAdmission.origin.budgetScope }),
         runStartedAt: runTiming.startedAt,
         durationDeadline: runTiming.deadline,
-        ...(submission.workerAdmission === undefined
+        ...(toolCallAllowance === undefined ? {} : { toolCallAllowance }),
+        ...(runSettings?.turnAllowance === undefined ? {} : { turnAllowance: runSettings.turnAllowance }),
+        ...(runSettings?.contextTokenLimit === undefined
           ? {}
-          : {
-            toolCallAllowance: submission.workerAdmission.origin.toolCallAllowance,
-          }),
-        ...(submission.parentLinkage !== undefined &&
-            childLineage?._tag === 'SubagentLineageRecorded'
-          ? { toolCallAllowance: childLineage.toolCallAllowance }
-          : {}),
+          : { contextTokenLimit: runSettings.contextTokenLimit }),
         ...(pending === undefined
           ? {}
           : {
@@ -7828,8 +7984,27 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
                 : { responseMessages: resumeResponseMessages }),
             },
           }),
-        ...(preparedContext === undefined ? {} : { context: preparedContext }),
+        ...(modelContext === undefined ? {} : { context: modelContext }),
+        ...(exemptToolResult === undefined ? {} : {
+          toolResultExemption: {
+            maxBytes: MAX_PERSISTED_JSON_BYTES,
+            exempt: (request) =>
+              exemptToolResult({
+                ...request,
+                threadId: submission.threadId,
+                submissionId: submission.submissionId,
+                runId,
+              }),
+          },
+        }),
         beforeTurn: Effect.fnUntraced(function*() {
+          if (hostBeforeTurn !== undefined) {
+            yield* hostBeforeTurn({
+              threadId: submission.threadId,
+              submissionId: submission.submissionId,
+              runId,
+            })
+          }
           if (
             yieldAfter !== undefined &&
             (yield* Clock.currentTimeMillis) >= DateTime.toEpochMillis(yieldAfter)
@@ -8529,11 +8704,18 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
           .map((envelope) => envelope.record.payload)
           .find((payload) => payload._tag === 'SubagentLineageRecorded')?.policy
 
-      const agent = childPolicy === undefined
+      const dropCompletion = submission.runSettings?.completion === 'text' &&
+        registeredAgent.definition.completion !== undefined
+
+      const agent = childPolicy === undefined && !dropCompletion
         ? registeredAgent
         : {
           ...registeredAgent,
-          definition: { ...registeredAgent.definition, policy: childPolicy },
+          definition: {
+            ...registeredAgent.definition,
+            ...(childPolicy === undefined ? {} : { policy: childPolicy }),
+            ...(dropCompletion ? { completion: undefined } : {}),
+          },
         }
 
       // Restoring the accepted child policy changes no Tool declarations. Retain the
@@ -9274,6 +9456,15 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
               ),
             threadId,
             claim,
+          ).pipe(
+            Effect.onInterrupt(() =>
+              notifyHostSettled({
+                threadId: submission.threadId,
+                submissionId: submission.submissionId,
+                runId: runIdForSubmission(submission.submissionId),
+                outcome: 'released',
+              })
+            ),
           )
         }),
       )
@@ -11401,6 +11592,13 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
           ),
         }),
       ...(messageAdmission === undefined ? {} : { messageAdmission }),
+      ...(options.runSettings === undefined
+        ? {}
+        : {
+          runSettings: yield* Schema.encodeEffect(RunSettings)(options.runSettings).pipe(
+            Effect.mapError(() => AgentInputError.make({ message: 'Run settings do not satisfy the ledger contract' })),
+          ),
+        }),
     }).pipe(
       Effect.mapError(() =>
         LedgerError.make({
@@ -11589,6 +11787,14 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
       return yield* LedgerError.make({
         operation: 'awaitSettlement',
         message: 'Canonical Settlement disagrees with the receipt or finalized outcome',
+      })
+    }
+    if (!retainedFinalization) {
+      yield* notifyHostSettled({
+        threadId: finalized.threadId,
+        submissionId: receipt.submissionId,
+        runId: record.runId ?? runIdForSubmission(receipt.submissionId),
+        outcome: record.outcome,
       })
     }
 

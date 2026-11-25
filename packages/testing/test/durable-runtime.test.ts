@@ -5,6 +5,7 @@ import { MemorySubmissionLedgerLive } from '@systemfsoftware/agent-storage-memor
 import { MemoryThreadStoreLive } from '@systemfsoftware/agent-storage-memory/memory-thread-store'
 import { RetryCommand } from '@systemfsoftware/agent/admin'
 import * as Agent from '@systemfsoftware/agent/agent'
+import { AgentRunStopped } from '@systemfsoftware/agent/agent-error'
 import { AgentPolicy, CompactionPolicy } from '@systemfsoftware/agent/agent-policy'
 import {
   compileRegistrations,
@@ -17,12 +18,15 @@ import {
   estimatePromptTokens,
 } from '@systemfsoftware/agent/compaction'
 import { ContextCompactor } from '@systemfsoftware/agent/context-compactor'
-import { ContextWindow } from '@systemfsoftware/agent/context-window'
+import { ContextWindow, ModelCallContext } from '@systemfsoftware/agent/context-window'
 import {
   DurableAgentRuntime,
   DurableRuntimeConfig,
   type DurableSubmitOptions,
   type Receipt,
+  RunHostControl,
+  type RunModelRequest,
+  type RunSettlementNotice,
 } from '@systemfsoftware/agent/durable-agent-runtime'
 import {
   DurableRuntimeFailpointError,
@@ -44,6 +48,7 @@ import {
   ResolutionCompletedWithResult,
   ResolutionNeverHappened,
   ResolutionSafeToRetry,
+  type RunSettings,
   SubmissionLedger,
   SubmissionLookupById,
   SubmissionScheduling,
@@ -2812,4 +2817,164 @@ layer(testLayer)('independent input scheduling', (it) => {
         }))
     }
   }
+})
+
+const Finish = Tool.make('finish', {
+  parameters: Schema.Struct({ answer: Schema.String }),
+  success: Schema.Struct({ answer: Schema.String }),
+})
+
+const finishTools = Toolkit.make(Finish)
+
+const hostControlledDefinition = Agent.make('durable-host-controlled', {
+  input: Schema.Struct({ question: Schema.String }),
+  output: Schema.Struct({ answer: Schema.String }),
+  instructions: ({ question }) => `Answer ${question} as JSON.`,
+  toolkit: finishTools,
+  completion: { tool: 'finish', project: ({ result }) => result },
+  policy: AgentPolicy.make({
+    maxTurns: 3,
+    maxToolCalls: 2,
+    maxDuration: '30 seconds',
+    toolConcurrency: 1,
+  }),
+})
+
+const staticBindingModel = Model.make(
+  'static',
+  'never-called',
+  Layer.effect(
+    LanguageModel.LanguageModel,
+    LanguageModel.make({
+      generateText: () => Effect.die('the static binding model was called'),
+      streamText: () => Stream.die('the static binding model was called'),
+    }),
+  ),
+)
+
+const hostControlledAgent = Agent.withModel(hostControlledDefinition, staticBindingModel)
+
+const perRunModelCall = (calls: Ref.Ref<number>, answer: string) => ({
+  model: Model.make(
+    'scripted',
+    'per-run',
+    Layer.effect(
+      LanguageModel.LanguageModel,
+      LanguageModel.make({
+        generateText: () => Effect.succeed([]),
+        streamText: () =>
+          Stream.unwrap(
+            Ref.update(calls, (count) => count + 1).pipe(
+              Effect.as(Stream.fromIterable(finalParts(answer))),
+            ),
+          ),
+      }),
+    ),
+  ),
+  context: ModelCallContext.make({
+    contextCapacity: 100_000,
+    outputReserveTokens: 1_000,
+    uncountedOverheadTokens: 0,
+  }),
+})
+
+const hostControlledRuntime = Effect.fnUntraced(function*(host: RunHostControl['Service']) {
+  const binding = yield* DurableWorkerBinding.make(hostControlledAgent, DIGESTS).pipe(
+    Effect.provide(finishTools.toLayer({ finish: (parameters) => Effect.succeed(parameters) })),
+  )
+
+  return DurableAgentRuntime.layerWithBindings([binding]).pipe(
+    Layer.provide(runStorageLayer),
+    Layer.provide(Layer.succeed(RunHostControl, host)),
+  )
+})
+
+const hostControlledSubmit = (threadId: string, runSettings: RunSettings): DurableSubmitOptions => ({
+  ...submitOptions(threadId, `${threadId}-key`),
+  runSettings,
+})
+
+layer(baseLayer)('per-Run host control', (it) => {
+  it.effect(
+    'a replacement runtime resolves the persisted model metadata and settles text without the completion Tool',
+    () =>
+      Effect.gen(function*() {
+        const calls = yield* Ref.make(0)
+        const requests: Array<RunModelRequest> = []
+        const notices: Array<RunSettlementNotice> = []
+
+        const receipt = yield* Effect.flatMap(DurableAgentRuntime, (runtime) =>
+          runtime.submit(
+            hostControlledAgent,
+            { question: 'tides' },
+            hostControlledSubmit('host-control-model', {
+              model: { provider: 'scripted', model: 'per-run', credentialSource: 'host-session' },
+              completion: 'text',
+            }),
+          )).pipe(Effect.provide(yield* hostControlledRuntime({})))
+
+        const settlement = yield* Effect.flatMap(DurableAgentRuntime, (runtime) =>
+          runtime.processThreadHead(receipt.threadId).pipe(
+            Effect.andThen(runtime.awaitSettlement(receipt)),
+          )).pipe(
+            Effect.provide(
+              yield* hostControlledRuntime({
+                resolveModel: (request) =>
+                  Effect.sync(() => {
+                    requests.push(request)
+
+                    return perRunModelCall(calls, '{"answer":"high at noon"}')
+                  }),
+                finalize: (notice) =>
+                  Effect.sync(() =>
+                    notices.push(notice)
+                  ),
+              }),
+            ),
+          )
+
+        expect(settlement.outcome).toBe('completed')
+        expect(yield* Ref.get(calls)).toBe(1)
+        expect(requests.map(({ model }) => model)).toEqual([
+          { provider: 'scripted', model: 'per-run', credentialSource: 'host-session' },
+        ])
+        expect(notices.map(({ outcome, submissionId }) => ({ outcome, submissionId }))).toEqual([
+          { outcome: 'completed', submissionId: receipt.submissionId },
+        ])
+      }),
+  )
+
+  it.effect('a host stop settles failed with the host value before any model call', () =>
+    Effect.gen(function*() {
+      const calls = yield* Ref.make(0)
+      const notices: Array<RunSettlementNotice> = []
+
+      const settlement = yield* Effect.gen(function*() {
+        const runtime = yield* DurableAgentRuntime
+
+        const receipt = yield* runtime.submit(
+          hostControlledAgent,
+          { question: 'currents' },
+          hostControlledSubmit('host-control-stop', { model: { provider: 'scripted', model: 'per-run' } }),
+        )
+
+        yield* runtime.processThreadHead(receipt.threadId)
+
+        return yield* runtime.awaitSettlement(receipt)
+      }).pipe(
+        Effect.provide(
+          yield* hostControlledRuntime({
+            resolveModel: () => Effect.succeed(perRunModelCall(calls, '{"answer":"unreachable"}')),
+            beforeTurn: () => Effect.fail(AgentRunStopped.make({ value: { code: 'quota' }, message: 'quota spent' })),
+            finalize: (notice) => Effect.sync(() => notices.push(notice)),
+          }),
+        ),
+      )
+
+      expect(settlement.outcome).toBe('failed')
+      expect(settlement.failure?.errorTag).toBe('AgentRunStopped')
+      expect(settlement.hostFailure).toEqual({ code: 'quota' })
+      expect(yield* Ref.get(calls)).toBe(0)
+      expect(notices.map(({ outcome }) => outcome)).toEqual(['failed'])
+    }))
 })
