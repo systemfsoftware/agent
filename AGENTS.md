@@ -24,11 +24,13 @@ pnpm --filter <package> test
 
 `package.json` owns what each script runs, so read it before you assume. `pnpm check:exports`,
 `pnpm check:record-format`, `pnpm check:package-purity` and `pnpm check:pack` guard the published
-surface. A pull request merges through the Mergify queue when `.mergify.yml` has a queue rule that
-matches it: enqueue it with `gh pr merge <n> --squash` (`--merge` for a subtree pull request) and
-Mergify merges it once the queue conditions pass. When no queue rule matches, or the queue cannot
-serve the pull request, merge it with `gh pr merge <n> --squash --admin` once its required checks
-pass. Never pass `--no-verify`.
+surface. When the Mergify check is active on the pull request and `.mergify.yml` has a matching
+queue rule (`default`, or `subtree` for commits carrying both `git-subtree-dir:` and
+`git-subtree-split:` trailers), let Mergify enqueue the pull request once its queue conditions pass
+and merge it — squashing for `default`, preserving merge commits for `subtree` — once `checks /
+check` and `squash message` pass. When the Mergify check is absent from the pull request or no queue
+rule matches, merge it directly once its required checks pass with `gh pr merge <n> --squash
+--admin`, or `gh pr merge <n> --merge --admin` for a subtree pull request. Never pass `--no-verify`.
 
 Use an Effect API only if it exists in the installed `node_modules/effect`, which the pnpm catalog pins.
 

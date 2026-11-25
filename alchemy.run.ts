@@ -1,5 +1,4 @@
 import * as Alchemy from 'alchemy'
-import { adopt } from 'alchemy/AdoptPolicy'
 import * as Cloudflare from 'alchemy/Cloudflare'
 import { Config, Effect, Layer } from 'effect'
 
@@ -33,22 +32,22 @@ const docsAssets = {
 } satisfies Omit<Cloudflare.Workers.AssetsProps, 'directory'>
 
 const stack = Effect.gen(function*() {
+  // This repository has no approved documentation domain or Cloudflare zone, and the domain this
+  // stack was written for belongs to another project. Both are required configuration: without
+  // them the entrypoint fails before it defines any resource.
+  const domain = yield* Config.NonEmptyString('DOCS_DOMAIN')
+  const zone = yield* Config.NonEmptyString('DOCS_ZONE')
+
   yield* Cloudflare.Website.StaticSite('Docs', {
-    name: 'effect-agent-docs',
+    name: 'agent-docs',
     command: 'pnpm run docs:build',
     outdir: 'docs/dist',
-    domain: {
-      name: 'effect-agent.com',
-      aliases: ['www.effect-agent.com'],
-      zoneName: 'effect-agent.com',
-    },
-    routes: [{ pattern: 'yielded.dev/agent*', zoneName: 'yielded.dev' }],
+    domain: { name: domain, zoneName: zone },
     workersDev: false,
     dev: { command: 'pnpm run docs:dev' },
     // Astro emits directory indexes and 404.html. HTML handling keeps the
-    // /agent prefix. The Worker runs first so it can 301 the legacy hosts,
-    // permanently redirect the site root onto /agent/, and serve the
-    // not-found document with status 404.
+    // /agent prefix. The Worker runs first so it can redirect the site root
+    // onto /agent/ and serve the not-found document with status 404.
     main: './docs/worker.ts',
     assets: {
       ...docsAssets,
@@ -60,14 +59,7 @@ const stack = Effect.gen(function*() {
     memo: { include: ['docs/**', 'package.json'], lockfile: true },
   })
 
-  // Adopted so this stack does not create or delete the zone. The dynamic
-  // redirect entrypoint is gone: regex_replace is not entitled here, and a
-  // zone rule would run before the Worker. The Worker issues the legacy 301.
-  yield* Cloudflare.Zone.Zone('LegacyDocsZone', {
-    name: 'effect-agent.com',
-  }).pipe(adopt())
-
-  return { url: 'https://yielded.dev/agent/' }
+  return { url: `https://${domain}/agent/` }
 })
 
-export default Alchemy.Stack('effect-agent', { providers: Cloudflare.providers(), state }, stack)
+export default Alchemy.Stack('agent-docs', { providers: Cloudflare.providers(), state }, stack)

@@ -9,9 +9,6 @@
 // `/agent/404` is a real `404.html` asset, so the asset layer would serve it
 // with status 200. These paths are forced to 404. Unknown paths stay on
 // `not_found_handling: 404-page`.
-//
-// effect-agent.com cannot use regex_replace in a zone redirect rule, so this
-// Worker also 301s that host and www to the canonical trailing-slash URL.
 
 const AGENT_DIRECTORY = '/agent/'
 
