@@ -42,7 +42,7 @@ export const socialImages = (): AstroIntegration => ({
             const image = new URL(meta('og:image'))
 
             cards.push({
-              title: meta('og:title').replace(/ \| Yielded Agent$/, ''),
+              title: meta('og:title').replace(/ \| @systemfsoftware\/agent$/, ''),
               description: meta('og:description'),
               url: meta('og:url'),
               imagePath: image.pathname.replace(/^\/agent\//, ''),

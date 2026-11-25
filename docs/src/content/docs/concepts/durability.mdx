@@ -6,7 +6,7 @@ description: What durable receipts, recovery, and Unknown outcomes mean for your
 import { Trace } from "@yielded/starlight-theme/components";
 
 Persistent history preserves a conversation. Durable execution also preserves the obligation
-to finish accepted work. Your host keeps one owner per Thread; Yielded Agent records progress
+to finish accepted work. Your host keeps one owner per Thread; @systemfsoftware/agent records progress
 and resumes it when that owner can run again.
 
 ## Choose the guarantee
@@ -27,7 +27,7 @@ required to make progress.
 <Trace
   lanes={[
     { id: "app", label: "Host" },
-    { id: "library", label: "Yielded Agent" },
+    { id: "library", label: "@systemfsoftware/agent" },
     { id: "storage", label: "Storage" },
   ]}
   steps={[

@@ -1,6 +1,6 @@
 ---
 title: Guides
-description: A short path from evaluating Yielded Agent to running and operating an agent.
+description: A short path from evaluating @systemfsoftware/agent to running and operating an agent.
 ---
 
 Start with the [runtime model](/concepts/runtime-model/) and [durability guarantees](/concepts/durability/)

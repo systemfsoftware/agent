@@ -5,7 +5,7 @@ description: Give agents typed actions, with application-owned authorization and
 
 Tools are the boundary between model suggestions and application effects. Effect AI owns their
 schemas and handler Layers; your application owns resource access and the meaning of each action.
-Yielded Agent validates calls, applies policy, and runs bounded batches.
+@systemfsoftware/agent validates calls, applies policy, and runs bounded batches.
 
 ## Define tools once
 

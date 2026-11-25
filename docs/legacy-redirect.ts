@@ -2,7 +2,7 @@
 // (that function needs a Business or WAF Advanced plan). The docs Worker
 // applies this mapping and answers with one 301.
 
-const origin = 'https://yielded.dev/agent'
+const origin = 'https://github.com/systemfsoftware/agent'
 
 const htmlSuffix = /(?:\/index\.html|\.html)$/
 const fileExtension = /\/[^/]*\.[^/]*$/

@@ -5,7 +5,9 @@ export const onRequest = defineRouteMiddleware((context) => {
 
   if (context.url.pathname === '/agent/404/') return
 
-  const title = entry.data.title === 'Yielded Agent' ? 'Yielded Agent' : `${entry.data.title} | Yielded Agent`
+  const title = entry.data.title === '@systemfsoftware/agent'
+    ? '@systemfsoftware/agent'
+    : `${entry.data.title} | @systemfsoftware/agent`
 
   const description = entry.data.description ??
     'An agent harness toolkit for TypeScript, built on Effect and Effect AI.'
@@ -13,7 +15,7 @@ export const onRequest = defineRouteMiddleware((context) => {
   const imagePath = entry.filePath.split('/content/docs/')[1]?.replace(/\.mdx?$/, '')
 
   if (imagePath === undefined) throw new Error(`Unknown documentation source: ${entry.filePath}`)
-  const image = new URL(`/agent/social/${imagePath}.png`, 'https://yielded.dev').href
+  const image = new URL(`/agent/social/${imagePath}.png`, 'https://github.com/systemfsoftware/agent').href
   const alt = `${title}. ${description}`
 
   for (const item of head) {

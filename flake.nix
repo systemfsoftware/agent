@@ -1,5 +1,5 @@
 {
-  description = "Effect-native agents with durable Threads, as the agent, agent-storage-sql, agent-storage-sqlite and agent-platform-node packages.";
+  description = "Effect-native agents with durable Threads, as the agent, agent-storage-sql, agent-storage-sqlite, agent-storage-postgres, agent-storage-memory, agent-storage-cloudflare, agent-platform-node, agent-platform-cloudflare, agent-pr-review, agent-testing and agent-ai-decision packages.";
 
   nixConfig = {
     extra-substituters = "https://nix.systemfsoftware.com";

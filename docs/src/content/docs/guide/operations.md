@@ -12,7 +12,7 @@ to one owner process; storage does not coordinate multiple workers competing for
 ## Authorization and isolation
 
 Put the host behind authenticated ingress. Receipts, Thread IDs, principal strings, and audit
-authors identify work; they grant no access. Yielded Agent does not supply tenant authentication
+authors identify work; they grant no access. @systemfsoftware/agent does not supply tenant authentication
 or automatic row-level tenant isolation.
 
 Authorize admission before `submit`. Install `OperationAuthorizer` when constructing the runtime

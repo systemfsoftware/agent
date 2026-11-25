@@ -1,7 +1,12 @@
 # agent
 
-Effect-native agents with durable Threads, published as four packages: `@systemfsoftware/agent`,
-`@systemfsoftware/agent-storage-sql`, `@systemfsoftware/agent-storage-sqlite` and `@systemfsoftware/agent-platform-node`.
+Effect-native agents with durable Threads, published as eleven packages: `@systemfsoftware/agent`,
+`@systemfsoftware/agent-ai-decision`, `@systemfsoftware/agent-platform-cloudflare`,
+`@systemfsoftware/agent-platform-node`, `@systemfsoftware/agent-pr-review`,
+`@systemfsoftware/agent-storage-cloudflare`, `@systemfsoftware/agent-storage-memory`,
+`@systemfsoftware/agent-storage-postgres`, `@systemfsoftware/agent-storage-sql`,
+`@systemfsoftware/agent-storage-sqlite` and `@systemfsoftware/agent-testing`, beside the private
+`agent-pr-review-action` and `ui` workspaces.
 This repository is public: nothing private goes in files, commit messages, pull requests or comments.
 
 ## Commands
@@ -19,8 +24,8 @@ pnpm --filter <package> test
 
 `package.json` owns what each script runs, so read it before you assume. `pnpm check:exports`,
 `pnpm check:record-format`, `pnpm check:package-purity` and `pnpm check:pack` guard the published
-surface. A pull request merges only through the Mergify queue, whose result on the merged tree is the
-gate. Never pass `--no-verify`.
+surface. A pull request merges through the Mergify queue when it is available; otherwise it merges with
+`gh pr merge <n> --squash --admin` once its required checks pass. Never pass `--no-verify`.
 
 Use an Effect API only if it exists in the installed `node_modules/effect`, which the pnpm catalog pins.
 
@@ -40,13 +45,13 @@ Load a doc when its trigger fires, not before.
 
 ## Boundaries
 
-| Surface                                                                                                          | Your limit                                                          |
-| ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| Graders: the oxlint, dprint and commitlint configs, `oxlint.baseline.json`, `.github/workflows/`, `.mergify.yml` | Never change one to make your work pass; change the implementation. |
-| Law: `CODING_STANDARDS.md`, `REVIEW.md`, this file                                                               | Change only when the task is to change the law.                     |
-| Vendored: `repos/**`                                                                                             | Read only; update with `git subtree pull`.                          |
-| Human-controlled: merging, deploys, credentials, repository settings                                             | Never do these yourself.                                            |
-| Everything else                                                                                                  | Edit as the task needs.                                             |
+| Surface                                                                                                                                        | Your limit                                                          |
+| ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Graders: the oxlint, dprint and commitlint configs, `oxlint.baseline.json`, `.github/workflows/`, `.mergify.yml`                               | Never change one to make your work pass; change the implementation. |
+| Law: `CODING_STANDARDS.md`, `REVIEW.md`, this file                                                                                             | Change only when the task is to change the law.                     |
+| Vendored: `repos/**`                                                                                                                           | Read only; update with `git subtree pull`.                          |
+| Owner-reserved: `root`/`sudo`, spend and pricing, repository visibility, credentials outside the fleet's GitHub, Cloudflare and Doppler grants | Ask once, with the exact command or decision.                       |
+| Everything else                                                                                                                                | Edit as the task needs.                                             |
 
 Doppler is the only credential store. Never print a secret.
 
