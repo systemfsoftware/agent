@@ -129,6 +129,7 @@ export type CommandDrainPolicy = typeof CommandDrainPolicy.Type
 /** Engine-normalized input command. Capability packages may adapt richer audit records to it. */
 export interface RunInputCommand {
   readonly kind: 'steering' | 'follow-up'
+  readonly inputId: string
   readonly input: Prompt.RawInput
 }
 

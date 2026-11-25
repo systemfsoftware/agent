@@ -137,14 +137,14 @@ it.live('restarts disposable calls twice, discards their drafts and then drains 
 
       for (const index of [0, 1]) {
         yield* Deferred.await(requests[index]!)
-        queued.push({ kind: 'steering', input: `joined-${index}` })
+        queued.push({ kind: 'steering', inputId: `joined-${index}`, input: `joined-${index}` })
         const prior = wake
 
         wake = yield* Deferred.make<void>()
         yield* Deferred.succeed(prior, undefined)
         yield* Deferred.await(requests[index + 1]!).pipe(Effect.timeout('2 seconds'))
       }
-      queued.push({ kind: 'steering', input: 'after-cap' })
+      queued.push({ kind: 'steering', inputId: 'after-cap', input: 'after-cap' })
       yield* Deferred.succeed(wake, undefined)
       yield* Deferred.succeed(releases[2]!, undefined)
       yield* Fiber.join(fiber)
