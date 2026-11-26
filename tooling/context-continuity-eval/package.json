@@ -20,6 +20,7 @@
     "effect-cf": "catalog:"
   },
   "devDependencies": {
+    "@alchemy.run/cloudflare": "catalog:",
     "@cloudflare/workers-types": "catalog:",
     "@types/node": "catalog:",
     "alchemy": "catalog:",

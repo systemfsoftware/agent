@@ -32,6 +32,7 @@
     "streamdown": "catalog:"
   },
   "devDependencies": {
+    "@alchemy.run/cloudflare": "catalog:",
     "@alchemy.run/cloudflare-runtime": "catalog:",
     "@cloudflare/workers-types": "catalog:",
     "@effect/platform-node": "catalog:",

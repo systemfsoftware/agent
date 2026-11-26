@@ -1,7 +1,7 @@
+import * as Cloudflare from '@alchemy.run/cloudflare'
 import type { Sandbox } from '@cloudflare/sandbox'
 import type { OAuthScope } from '@yielded/auth'
 import * as Alchemy from 'alchemy'
-import * as Cloudflare from 'alchemy/Cloudflare'
 import { Config, Effect, Layer, Redacted, Schema } from 'effect'
 
 const state = Layer.unwrap(
