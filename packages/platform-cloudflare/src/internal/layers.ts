@@ -26,7 +26,7 @@ import {
 } from '@systemfsoftware/agent-storage-cloudflare/port-routing'
 import { SqlStorageProgress, SqlStorageProgressError } from '@systemfsoftware/agent-storage-sql/sql-storage-progress'
 import {
-  type AgentRegistration,
+  type AnyAgentRegistration,
   compileRegistrations,
   type ResolvedBinding,
 } from '@systemfsoftware/agent/agent-registration'
@@ -480,7 +480,7 @@ export interface ThreadPublicationOptions<E = never, R = never, P = never> {
  * Use Layer.unwrap for registration values that need effectful application setup.
  */
 const registeredLayer = <
-  const Entries extends ReadonlyArray<AgentRegistration>,
+  const Entries extends ReadonlyArray<AnyAgentRegistration>,
   E = never,
   R = never,
 >(
@@ -493,7 +493,7 @@ const registeredLayer = <
 
 /** Preserve additional index services only when a projection Layer is actually supplied. */
 export function layer<
-  const Entries extends ReadonlyArray<AgentRegistration>,
+  const Entries extends ReadonlyArray<AnyAgentRegistration>,
   E = never,
   R = never,
   P = never,
@@ -510,12 +510,12 @@ export function layer<
   Layer.Services<ReturnType<typeof registeredLayer<Entries, E | PE, R | PR>>>
 >
 
-export function layer<const Entries extends ReadonlyArray<AgentRegistration>, E = never, R = never>(
+export function layer<const Entries extends ReadonlyArray<AnyAgentRegistration>, E = never, R = never>(
   registrations: Entries,
   options?: ThreadPublicationOptions<E, R>,
 ): ReturnType<typeof registeredLayer<Entries, E, R>>
 
-export function layer<const Entries extends ReadonlyArray<AgentRegistration>, E = never, R = never>(
+export function layer<const Entries extends ReadonlyArray<AnyAgentRegistration>, E = never, R = never>(
   registrations: Entries,
   options: ThreadPublicationOptions<E, R> = {},
 ) {
