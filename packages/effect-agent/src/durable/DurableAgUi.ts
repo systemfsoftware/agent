@@ -72,6 +72,7 @@ interface Projector {
   readonly terminatedRuns: Set<string>
   readonly subagentNames: Map<string, string>
   readonly subagentChildRun: Map<string, string>
+  threadId: ThreadId | undefined
   tail: number
 }
 
@@ -147,14 +148,14 @@ const runOf = (projector: Projector, runId: RunId): RunState => {
   return created
 }
 
-const markStarted = (
+const markStartedWithThread = (
   projector: Projector,
-  threadId: ThreadId,
   sequence: number,
   runId: RunId,
   run: RunState,
 ): void => {
-  if (run.started) return
+  const threadId = projector.threadId
+  if (threadId === undefined) return
   run.started = true
   emit(projector, sequence, {
     type: 'RUN_STARTED',
@@ -162,6 +163,16 @@ const markStarted = (
     runId,
     protocolVersion: AgUiSchema.protocolVersion,
   })
+}
+
+const markStarted = (projector: Projector, sequence: number, runId: RunId, run: RunState): void =>
+  run.started ? undefined : markStartedWithThread(projector, sequence, runId, run)
+
+const liveRun = (projector: Projector, sequence: number, runId: RunId): RunState | undefined => {
+  const run = runOf(projector, runId)
+  if (run.terminated) return undefined
+  markStarted(projector, sequence, runId, run)
+  return run
 }
 
 const closeText = (projector: Projector, run: RunState, sequence: number): void => {
@@ -433,6 +444,7 @@ const makeProjector = <Output>(options: DurableAgUiOptions<Output> | undefined):
   terminatedRuns: new Set(),
   subagentNames: new Map(),
   subagentChildRun: new Map(),
+  threadId: undefined,
   tail: 0,
 })
 
@@ -452,13 +464,8 @@ const subagentNotCompleted = (childRunId: string, outcome: SettlementOutcome): A
     ? { type: 'SUBAGENT_ERROR', subagentRunId: childRunId, message: 'The subagent failed.' }
     : { type: 'SUBAGENT_FINISHED', subagentRunId: childRunId, outcome: { type: 'suspended' } }
 
-const onRunStarted = (
-  projector: Projector,
-  threadId: ThreadId,
-  sequence: number,
-  runId: RunId,
-): void => {
-  markStarted(projector, threadId, sequence, runId, runOf(projector, runId))
+const onRunStarted = (projector: Projector, sequence: number, runId: RunId): void => {
+  markStarted(projector, sequence, runId, runOf(projector, runId))
 }
 
 const queueForRun = (
@@ -512,8 +519,8 @@ const onModelResponse = (
   turn: number,
   messages: Prompt.PromptEncoded,
 ): void => {
-  const run = runOf(projector, runId)
-  if (run.terminated) return
+  const run = liveRun(projector, sequence, runId)
+  if (run === undefined) return
   projector.committedTurnIds.add(turnId)
   applySteering(projector, sequence, run, runId)
   closeOpen(projector, run, sequence)
@@ -540,8 +547,8 @@ const onToolCallSettled = (
   result: Schema.Json,
   isFailure: boolean,
 ): void => {
-  const run = runOf(projector, runId)
-  if (run.terminated) return
+  const run = liveRun(projector, sequence, runId)
+  if (run === undefined) return
   run.pendingApprovals = [...withoutApproval(run.pendingApprovals, toolCallId)]
   emitToolResult(projector, sequence, runId, toolCallId, isFailure, toolResultContent(result, isFailure))
 }
@@ -553,8 +560,8 @@ const onApprovalRequested = (
   toolCallId: string,
   toolName: string,
 ): void => {
-  const run = runOf(projector, runId)
-  if (run.terminated) return
+  const run = liveRun(projector, sequence, runId)
+  if (run === undefined) return
   run.pendingApprovals = [...withApproval(run.pendingApprovals, toolCallId)]
   emit(projector, sequence, {
     type: 'CUSTOM',
@@ -570,7 +577,8 @@ const onApprovalDecided = (
   toolCallId: string,
   decision: string,
 ): void => {
-  const run = runOf(projector, runId)
+  const run = liveRun(projector, sequence, runId)
+  if (run === undefined) return
   run.pendingApprovals = [...withoutApproval(run.pendingApprovals, toolCallId)]
   emit(projector, sequence, {
     type: 'CUSTOM',
@@ -590,16 +598,14 @@ const onSubagentRequested = (
 
 const nameOrChild = (name: string | undefined, childRunId: string): string => name ?? childRunId
 
-const onSubagentStarted = (
+const startSubagent = (
   projector: Projector,
   sequence: number,
+  run: RunState,
   runId: RunId,
   toolCallId: string,
   childRunId: string,
 ): void => {
-  projector.subagentChildRun.set(subagentKey(runId, toolCallId), childRunId)
-  if (!projector.includeSubagents) return
-  const run = runOf(projector, runId)
   run.openSubagents.push(childRunId)
   emit(projector, sequence, {
     type: 'SUBAGENT_STARTED',
@@ -609,18 +615,53 @@ const onSubagentStarted = (
   })
 }
 
-const joinSubagent = (
+const recordSubagentStart = (
   projector: Projector,
   sequence: number,
+  run: RunState,
+  runId: RunId,
+  toolCallId: string,
+  childRunId: string,
+): void => {
+  projector.subagentChildRun.set(subagentKey(runId, toolCallId), childRunId)
+  if (projector.includeSubagents) startSubagent(projector, sequence, run, runId, toolCallId, childRunId)
+}
+
+const onSubagentStarted = (
+  projector: Projector,
+  sequence: number,
+  runId: RunId,
+  toolCallId: string,
+  childRunId: string,
+): void => {
+  const run = liveRun(projector, sequence, runId)
+  if (run === undefined) return
+  recordSubagentStart(projector, sequence, run, runId, toolCallId, childRunId)
+}
+
+const joinOpenSubagent = (
+  projector: Projector,
+  sequence: number,
+  run: RunState,
   runId: RunId,
   toolCallId: string,
   childOutcome: SettlementOutcome,
 ): void => {
   const childRunId = projector.subagentChildRun.get(subagentKey(runId, toolCallId))
   if (childRunId === undefined) return
-  const run = runOf(projector, runId)
   run.openSubagents = run.openSubagents.filter((value) => value !== childRunId)
   emit(projector, sequence, subagentEvent(childRunId, childOutcome))
+}
+
+const joinSubagent = (
+  projector: Projector,
+  sequence: number,
+  run: RunState,
+  runId: RunId,
+  toolCallId: string,
+  childOutcome: SettlementOutcome,
+): void => {
+  if (projector.includeSubagents) joinOpenSubagent(projector, sequence, run, runId, toolCallId, childOutcome)
 }
 
 const onSubagentJoined = (
@@ -630,7 +671,9 @@ const onSubagentJoined = (
   toolCallId: string,
   childOutcome: SettlementOutcome,
 ): void => {
-  if (projector.includeSubagents) joinSubagent(projector, sequence, runId, toolCallId, childOutcome)
+  const run = liveRun(projector, sequence, runId)
+  if (run === undefined) return
+  joinSubagent(projector, sequence, run, runId, toolCallId, childOutcome)
 }
 
 const resultField = (
@@ -683,7 +726,7 @@ const settleRun = (
   result: ProjectionOutput,
 ): void => {
   const run = runOf(projector, runId)
-  markStarted(projector, threadId, sequence, runId, run)
+  markStarted(projector, sequence, runId, run)
   closeTerminal(projector, run, sequence)
   drainUnappliedSteering(projector, run, sequence, runId)
   Match.value(outcome).pipe(
@@ -727,7 +770,7 @@ const onRunCompleted = (
 ): void => {
   if (projector.terminatedRuns.has(runId)) return
   const run = runOf(projector, runId)
-  markStarted(projector, threadId, sequence, runId, run)
+  markStarted(projector, sequence, runId, run)
   closeTerminal(projector, run, sequence)
   drainUnappliedSteering(projector, run, sequence, runId)
   emit(projector, sequence, ...projector.projectOutput(output))
@@ -744,14 +787,13 @@ const onRunCompleted = (
 
 const onRunFailed = (
   projector: Projector,
-  threadId: ThreadId,
   sequence: number,
   runId: RunId,
   failure: Schema.Json,
 ): void => {
   if (projector.terminatedRuns.has(runId)) return
   const run = runOf(projector, runId)
-  markStarted(projector, threadId, sequence, runId, run)
+  markStarted(projector, sequence, runId, run)
   closeTerminal(projector, run, sequence)
   drainUnappliedSteering(projector, run, sequence, runId)
   const fields = failureFields(failure)
@@ -764,16 +806,41 @@ const onRunFailed = (
   run.terminated = true
 }
 
+const onModelCallAborted = (
+  projector: Projector,
+  sequence: number,
+  runId: RunId,
+  turn: number,
+  reason: string,
+): void => {
+  const run = liveRun(projector, sequence, runId)
+  if (run === undefined) return
+  emit(projector, sequence, { type: 'CUSTOM', name: 'effect_agent.model_restarted', value: { turn, reason } })
+}
+
+const onCompactionCreated = (
+  projector: Projector,
+  sequence: number,
+  runId: RunId,
+  turn: number,
+  kind: string,
+): void => {
+  const run = liveRun(projector, sequence, runId)
+  if (run === undefined) return
+  emit(projector, sequence, { type: 'CUSTOM', name: 'effect_agent.compaction_performed', value: { turn, kind } })
+}
+
 const processRecord = (projector: Projector, envelope: CanonicalRecordEnvelope): void => {
   if (envelope.sequence <= projector.tail) return
   const payload = envelope.record.payload
   projector.tail = envelope.sequence
   const sequence = envelope.sequence
   const threadId = envelope.threadId
+  projector.threadId = threadId
 
   Match.value(payload).pipe(
     Match.tags({
-      RunStarted: (value) => onRunStarted(projector, threadId, sequence, value.runId),
+      RunStarted: (value) => onRunStarted(projector, sequence, value.runId),
       UserInputRecorded: (value) => onUserInput(projector, sequence, value.kind, value.submissionId, value.runId),
       ModelResponseRecorded: (value) =>
         onModelResponse(projector, sequence, value.runId, value.turnId, value.turn, value.messages),
@@ -783,25 +850,15 @@ const processRecord = (projector: Projector, envelope: CanonicalRecordEnvelope):
         onApprovalRequested(projector, sequence, value.runId, value.toolCallId, value.toolName),
       ToolApprovalDecided: (value) =>
         onApprovalDecided(projector, sequence, value.runId, value.toolCallId, value.decision),
-      ModelCallAborted: (value) =>
-        emit(projector, sequence, {
-          type: 'CUSTOM',
-          name: 'effect_agent.model_restarted',
-          value: { turn: value.turn, reason: value.reason },
-        }),
-      CompactionCreated: (value) =>
-        emit(projector, sequence, {
-          type: 'CUSTOM',
-          name: 'effect_agent.compaction_performed',
-          value: { turn: value.turn, kind: value.kind },
-        }),
+      ModelCallAborted: (value) => onModelCallAborted(projector, sequence, value.runId, value.turn, value.reason),
+      CompactionCreated: (value) => onCompactionCreated(projector, sequence, value.runId, value.turn, value.kind),
       SubagentRequested: (value) => onSubagentRequested(projector, value.runId, value.toolCallId, value.targetAgentId),
       SubagentStarted: (value) =>
         onSubagentStarted(projector, sequence, value.runId, value.toolCallId, value.childRunId),
       SubagentJoined: (value) =>
         onSubagentJoined(projector, sequence, value.runId, value.toolCallId, value.childOutcome),
       RunCompleted: (value) => onRunCompleted(projector, threadId, sequence, value.runId, value.output),
-      RunFailed: (value) => onRunFailed(projector, threadId, sequence, value.runId, value.failure),
+      RunFailed: (value) => onRunFailed(projector, sequence, value.runId, value.failure),
       SubmissionSettled: (value) =>
         onSubmissionSettled(projector, threadId, sequence, value.outcome, value.runId, value.result),
     }),
@@ -891,6 +948,7 @@ const appendDraftPart = (projector: Projector, event: ProvisionalText.TextEvent,
       ensureDraftText(projector, draft, textId)
     }),
     Match.when(isTextDelta, (value) => {
+      closeDraftReasoning(projector, draft)
       ensureDraftText(projector, draft, textId)
       emit(projector, projector.tail, { type: 'TEXT_MESSAGE_CONTENT', messageId: textId, delta: value.delta })
     }),
@@ -900,6 +958,7 @@ const appendDraftPart = (projector: Projector, event: ProvisionalText.TextEvent,
       ensureDraftReasoning(projector, draft, reasoningId)
     }),
     Match.when(isReasoningDelta, (value) => {
+      closeDraftText(projector, draft)
       ensureDraftReasoning(projector, draft, reasoningId)
       emit(projector, projector.tail, { type: 'REASONING_MESSAGE_CONTENT', messageId: reasoningId, delta: value.delta })
     }),
@@ -952,8 +1011,10 @@ const projectOf = <Output>(
 ): ReadonlyArray<DurableAgUiEvent> => {
   const projector = makeProjector(options)
   sortRecords(input.records).forEach((envelope) => processRecord(projector, envelope))
+  const recordItems = restrictFrom(projector.items, input.afterSequence)
+  const textStart = projector.items.length
   if (input.text !== undefined) processText(projector, input.text)
-  return restrictFrom(projector.items, input.afterSequence)
+  return [...recordItems, ...projector.items.slice(textStart)]
 }
 
 const isInput = <Output>(
