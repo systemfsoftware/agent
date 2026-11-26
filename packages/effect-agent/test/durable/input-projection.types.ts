@@ -230,7 +230,15 @@ export const proveRegistrationRequirements = (
       },
     }),
   ])
-  void helperInferred
+
+  const helperRequirements: Assert<
+    Equal<
+      Effect.Services<typeof helperInferred>,
+      CryptoDigest.Digest | InputProjection | ProviderInfrastructure | LookupDependency
+    >
+  > = true
+
+  void helperRequirements
 
   type Services = Effect.Services<typeof compiled>
   type Expected =
