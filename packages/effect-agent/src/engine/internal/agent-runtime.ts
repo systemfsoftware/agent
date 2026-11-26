@@ -2046,17 +2046,15 @@ const toolTelemetryAttributes = (descriptor: ToolTelemetryDescriptor): Telemetry
     : { 'effect_agent.tool.sequence_index': descriptor.sequenceIndex }),
 })
 
-const withToolSpan =
-  (name: string, attributes: TelemetryAttributes) =>
-  <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
-    Effect.currentSpan.pipe(
-      Effect.catchNoSuchElement,
-      Effect.flatMap((span) => {
-        if (Option.isSome(span)) writeTelemetryAttributes(span.value, attributes)
-        return effect
-      }),
-      Effect.withSpan(name, { kind: 'internal' }),
-    )
+const annotateToolSpan = (attributes: TelemetryAttributes): Effect.Effect<void> =>
+  Effect.currentSpan.pipe(
+    Effect.catchNoSuchElement,
+    Effect.flatMap((span) =>
+      Option.isSome(span)
+        ? Effect.sync(() => writeTelemetryAttributes(span.value, attributes))
+        : Effect.void
+    ),
+  )
 
 /** Canonical content-free terminal signal for any application Tool handler attempt. */
 const terminalToolTelemetry = (
@@ -2372,7 +2370,8 @@ const executePreparedToolCall = Effect.fnUntraced(function*<
     return yield* failureMarker()
   })
 
-  const measured = started.pipe(
+  const measured = annotateToolSpan(toolTelemetryAttributes(telemetryDescriptor)).pipe(
+    Effect.andThen(started),
     Effect.andThen(results),
     Effect.andThen(commitTerminalResult),
     Effect.catchCause((cause) => {
@@ -2402,7 +2401,7 @@ const executePreparedToolCall = Effect.fnUntraced(function*<
 
       return failTerminalResult(toolCause)
     }),
-    withToolSpan(`execute_tool ${call.name}`, toolTelemetryAttributes(telemetryDescriptor)),
+    Effect.withSpan(`execute_tool ${call.name}`, { kind: 'internal' }),
   )
 
   const telemetry = yield* ToolSpanTelemetry
@@ -9864,7 +9863,7 @@ const measureProgrammaticToolCall = <R>(
     let terminalResult: ProgrammaticCallOutcome | undefined
     let propagatedFailure: Cause.Cause<never> | undefined
 
-    const measured: Effect.Effect<ProgrammaticCallOutcome, ToolSpanFailure, R> = Effect.exit(
+    const body: Effect.Effect<ProgrammaticCallOutcome, ToolSpanFailure, R> = Effect.exit(
       effect,
     ).pipe(
       Effect.flatMap((exit): Effect.Effect<ProgrammaticCallOutcome, ToolSpanFailure> => {
@@ -9896,7 +9895,13 @@ const measureProgrammaticToolCall = <R>(
           ),
         )
       }),
-      withToolSpan(`execute_tool ${descriptor.toolName}`, toolTelemetryAttributes(descriptor)),
+    )
+
+    const measured: Effect.Effect<ProgrammaticCallOutcome, ToolSpanFailure, R> = annotateToolSpan(
+      toolTelemetryAttributes(descriptor),
+    ).pipe(
+      Effect.andThen(body),
+      Effect.withSpan(`execute_tool ${descriptor.toolName}`, { kind: 'internal' }),
     )
 
     return telemetry.isolateEffectSpanLifecycle(measured).pipe(
