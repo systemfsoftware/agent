@@ -49,6 +49,7 @@ interface MapperState {
   readonly reasoningMessageId: string | undefined
   readonly stepName: string | undefined
   readonly pendingApprovals: ReadonlyArray<string>
+  readonly openSubagents: ReadonlyArray<string>
 }
 
 type Mapped = readonly [MapperState, ReadonlyArray<AgUiSchema.Event>]
@@ -58,6 +59,7 @@ const initialState: MapperState = {
   reasoningMessageId: undefined,
   stepName: undefined,
   pendingApprovals: [],
+  openSubagents: [],
 }
 
 const encodeJsonEvent = Schema.encodeEffect(Schema.fromJsonString(Schema.Json))
@@ -148,6 +150,30 @@ const closeOpen = (state: MapperState): Mapped => {
   const [afterContent, contentEvents] = closeContent(state)
   const [afterStep, stepEvents] = closeStep(afterContent)
   return [afterStep, [...contentEvents, ...stepEvents]]
+}
+
+const subagentWith = (open: ReadonlyArray<string>, childRunId: string): ReadonlyArray<string> =>
+  open.includes(childRunId) ? open : [...open, childRunId]
+
+const subagentWithout = (open: ReadonlyArray<string>, childRunId: string): ReadonlyArray<string> =>
+  open.includes(childRunId) ? open.filter((value) => value !== childRunId) : open
+
+const closeSubagents = (state: MapperState): Mapped => {
+  if (state.openSubagents.length === 0) return [state, []]
+  return [
+    { ...state, openSubagents: [] },
+    state.openSubagents.map((subagentRunId): AgUiSchema.Event => ({
+      type: 'SUBAGENT_ERROR',
+      subagentRunId,
+      message: 'The subagent did not finish.',
+    })),
+  ]
+}
+
+const closeAll = (state: MapperState): Mapped => {
+  const [afterOpen, openEvents] = closeOpen(state)
+  const [afterSubagents, subagentEvents] = closeSubagents(afterOpen)
+  return [afterSubagents, [...openEvents, ...subagentEvents]]
 }
 
 const appendText = (state: MapperState, event: TextDelta): Mapped => {
@@ -335,10 +361,10 @@ const mapEvent = (
         ]),
       AgentUpdateEmitted: (_event: AgentUpdateEmitted) => mapped([state, []]),
       RunCompleted: (event: RunCompleted) => {
-        const [closed, closing] = closeOpen(state)
+        const [closed, closing] = closeAll(state)
         const usage = tokenUsage(event.usage)
         return mapped([
-          closed,
+          { ...closed, pendingApprovals: [] },
           [
             ...closing,
             {
@@ -353,10 +379,10 @@ const mapEvent = (
         ])
       },
       RunFailed: (event: RunFailed) => {
-        const [closed, closing] = closeOpen(state)
+        const [closed, closing] = closeAll(state)
         const usage = tokenUsage(event.usage)
         return mapped([
-          closed,
+          { ...closed, pendingApprovals: [] },
           [
             ...closing,
             {
@@ -369,9 +395,9 @@ const mapEvent = (
         ])
       },
       RunInterrupted: (event: RunInterrupted) => {
-        const [closed, closing] = closeOpen(state)
+        const [closed, closing] = closeAll(state)
         return mapped([
-          closed,
+          { ...closed, pendingApprovals: [] },
           [
             ...closing,
             { type: 'CUSTOM', name: 'effect_agent.run_interrupted', value: { message: event.message } },
@@ -385,10 +411,10 @@ const mapEvent = (
         ])
       },
       RunSuspended: (event: RunSuspended) => {
-        const [closed, closing] = closeOpen(state)
+        const [closed, closing] = closeAll(state)
         const usage = tokenUsage(event.usage)
         return mapped([
-          closed,
+          { ...closed, pendingApprovals: [] },
           [
             ...closing,
             { type: 'CUSTOM', name: 'effect_agent.run_suspended', value: { reason: event.reason } },
@@ -415,7 +441,7 @@ const mapEvent = (
         mapped(
           includeSubagents
             ? [
-              state,
+              { ...state, openSubagents: subagentWith(state.openSubagents, event.childRunId) },
               [
                 {
                   type: 'SUBAGENT_STARTED',
@@ -447,7 +473,7 @@ const mapEvent = (
         mapped(
           includeSubagents
             ? [
-              state,
+              { ...state, openSubagents: subagentWithout(state.openSubagents, event.childRunId) },
               [
                 {
                   type: 'SUBAGENT_FINISHED',
@@ -462,7 +488,7 @@ const mapEvent = (
         mapped(
           includeSubagents
             ? [
-              state,
+              { ...state, openSubagents: subagentWithout(state.openSubagents, event.childRunId) },
               [
                 {
                   type: 'SUBAGENT_ERROR',
@@ -478,7 +504,7 @@ const mapEvent = (
         mapped(
           includeSubagents
             ? [
-              state,
+              { ...state, openSubagents: subagentWithout(state.openSubagents, event.childRunId) },
               [
                 {
                   type: 'CUSTOM',
@@ -499,7 +525,7 @@ const mapEvent = (
         mapped(
           includeSubagents
             ? [
-              state,
+              { ...state, openSubagents: subagentWithout(state.openSubagents, event.childRunId) },
               [
                 {
                   type: 'CUSTOM',
