@@ -155,7 +155,15 @@ it.live('restarts disposable calls twice, discards their drafts and then drains 
       expect(prompts[2]).toContain('joined-1')
       expect(prompts[2]).not.toContain('answer-0')
       expect(prompts[3]).toContain('after-cap')
-      expect(events.filter((event) => event._tag === 'ModelRestarted')).toHaveLength(2)
+      expect(
+        events.flatMap((event) =>
+          event._tag === 'ModelRestarted'
+            ? ['restart']
+            : event._tag === 'SteeringApplied'
+            ? [event.inputIds.join(',')]
+            : []
+        ),
+      ).toEqual(['restart', 'joined-0', 'restart', 'joined-1', 'after-cap'])
       expect(events.filter((event) => event._tag === 'RunCompleted')).toHaveLength(1)
       const completed = events.find((event) => event._tag === 'RunCompleted')
 
