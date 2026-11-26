@@ -148,7 +148,7 @@ import {
 } from './DurableFailpoint'
 import type { HostUpdateAppended, HostUpdateError, HostUpdateRequest } from './HostUpdates'
 import {
-  type AgentRegistration,
+  type AnyAgentRegistration,
   BindingUnavailable,
   compileRegistrations,
   CurrentBindingSelection,
@@ -12991,7 +12991,7 @@ export class DurableAgentRuntime extends Context.Service<
    * Every claimed head must select exactly one current registered Definition. Worker calls
    * cannot replace these registrations or their captured services. Tool authorization is required.
    */
-  static layerRegistered<const Entries extends ReadonlyArray<AgentRegistration>>(
+  static layerRegistered<const Entries extends ReadonlyArray<AnyAgentRegistration>>(
     registrations: Entries,
   ) {
     return Layer.effect(DurableAgentRuntime)(
