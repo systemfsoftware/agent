@@ -758,25 +758,39 @@ export const compileRegistrations = <const Entries extends ReadonlyArray<AnyAgen
   return Effect.forEach(entries, compileRegistration<Entries[number]>)
 }
 
-export function registration<D extends ExecutableDefinition, M, AL = never>(
+export function registration<
+  D extends ExecutableDefinition,
+  M extends Layer.Layer<ModelServices, never, object>,
+  AL extends Layer.Layer<never, never, object>,
+>(
   entry: {
     readonly agent: D
     readonly model: M
     readonly definitions: DefinitionDigestInput
-    readonly attemptLayer?: (context: AgentAttemptContext<Schema.Schema.Type<D['input']>>) => AL
+    readonly continuity?: AgentRegistration<ExecutableAgentBinding>['continuity']
+    readonly attemptLayer: (context: AgentAttemptContext<Schema.Schema.Type<D['input']>>) => AL
   },
 ): {
   readonly agent: D
   readonly model: M
   readonly definitions: DefinitionDigestInput
-  readonly attemptLayer?: (context: AgentAttemptContext<Schema.Schema.Type<D['input']>>) => AL
+  readonly reporting?: AgentRegistration<ExecutableAgentBinding>['reporting']
+  readonly continuity?: AgentRegistration<ExecutableAgentBinding>['continuity']
+  readonly attemptLayer: (context: AgentAttemptContext<Schema.Schema.Type<D['input']>>) => AL
 }
-export function registration<A extends ExecutableAgentBinding, AL = never>(
-  entry: AgentRegistration<A> & {
-    readonly attemptLayer?: (context: AgentAttemptContext<Agent.Input<A>>) => AL
+export function registration<A extends ExecutableAgentBinding, AL extends Layer.Layer<never, never, object>>(
+  entry: {
+    readonly agent: A
+    readonly definitions: DefinitionDigestInput
+    readonly continuity?: AgentRegistration<ExecutableAgentBinding>['continuity']
+    readonly attemptLayer: (context: AgentAttemptContext<Agent.Input<A>>) => AL
   },
-): AgentRegistration<A> & {
-  readonly attemptLayer?: (context: AgentAttemptContext<Agent.Input<A>>) => AL
+): {
+  readonly agent: A
+  readonly definitions: DefinitionDigestInput
+  readonly reporting?: AgentRegistration<ExecutableAgentBinding>['reporting']
+  readonly continuity?: AgentRegistration<ExecutableAgentBinding>['continuity']
+  readonly attemptLayer: (context: AgentAttemptContext<Agent.Input<A>>) => AL
 }
 export function registration(entry: AnyAgentRegistration) {
   return entry
