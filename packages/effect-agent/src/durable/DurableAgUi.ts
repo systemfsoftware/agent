@@ -12,9 +12,16 @@ import type { RunId, ThreadId } from '../core/Identifiers'
 import type * as ProvisionalText from '../core/ProvisionalText'
 import type { CanonicalRecordEnvelope, SettlementFailureDiagnostic, SettlementOutcome } from './Records'
 
+/**
+ * One projected AG-UI event. A canonical event (`provisional: false`) is derived from the record at `sequence` and
+ * never changes. A provisional event comes from in-flight draft text: every projection re-sends the whole draft
+ * overlay, so a consumer replaces the provisional events it applied before with the ones the latest projection
+ * returned, and drops them once the turn's canonical events arrive.
+ */
 export interface DurableAgUiEvent {
   readonly sequence: number
   readonly event: AgUiSchema.Event
+  readonly provisional: boolean
 }
 
 export interface DurableAgUiOutput<Output> {
@@ -123,7 +130,11 @@ const steeringEvent = (
   value: { phase, inputId, ...(runId === undefined ? {} : { runId }) },
 })
 
-const toolResultEvent = (sequence: number, event: AgUiSchema.Event): DurableAgUiEvent => ({ sequence, event })
+const toolResultEvent = (sequence: number, event: AgUiSchema.Event): DurableAgUiEvent => ({
+  sequence,
+  event,
+  provisional: false,
+})
 
 const withApproval = (pending: ReadonlyArray<string>, toolCallId: string): ReadonlyArray<string> =>
   pending.includes(toolCallId) ? pending : [...pending, toolCallId]
@@ -137,6 +148,10 @@ const emit = (
   ...events: ReadonlyArray<AgUiSchema.Event>
 ): void => {
   for (const event of events) projector.items.push(toolResultEvent(sequence, event))
+}
+
+const emitDraft = (projector: Projector, ...events: ReadonlyArray<AgUiSchema.Event>): void => {
+  for (const event of events) projector.items.push({ sequence: projector.tail, event, provisional: true })
 }
 
 const runOf = (projector: Projector, runId: RunId): RunState => {
@@ -492,7 +507,8 @@ const steerWithRun = (
   inputId: string,
   runId: RunId | undefined,
 ): void => {
-  if (runId !== undefined) queueForRun(projector, sequence, inputId, runId)
+  if (runId === undefined) emit(projector, sequence, steeringEvent('not-joined', inputId, undefined))
+  else queueForRun(projector, sequence, inputId, runId)
 }
 
 const onSteering = (
@@ -892,15 +908,14 @@ const draftFor = (drafts: Map<string, DraftState>, key: string): DraftState => {
 
 const closeDraftText = (projector: Projector, draft: DraftState): void => {
   if (draft.textId === undefined) return
-  emit(projector, projector.tail, { type: 'TEXT_MESSAGE_END', messageId: draft.textId })
+  emitDraft(projector, { type: 'TEXT_MESSAGE_END', messageId: draft.textId })
   draft.textId = undefined
 }
 
 const closeDraftReasoning = (projector: Projector, draft: DraftState): void => {
   if (draft.reasoningId === undefined) return
-  emit(
+  emitDraft(
     projector,
-    projector.tail,
     { type: 'REASONING_MESSAGE_END', messageId: draft.reasoningId },
     { type: 'REASONING_END', messageId: draft.reasoningId },
   )
@@ -928,15 +943,14 @@ const isSuperseded = (projector: Projector, event: ProvisionalText.TextEvent): b
 const ensureDraftText = (projector: Projector, draft: DraftState, messageId: string): void => {
   if (draft.textId !== undefined) return
   draft.textId = messageId
-  emit(projector, projector.tail, { type: 'TEXT_MESSAGE_START', messageId, role: 'assistant' })
+  emitDraft(projector, { type: 'TEXT_MESSAGE_START', messageId, role: 'assistant' })
 }
 
 const ensureDraftReasoning = (projector: Projector, draft: DraftState, messageId: string): void => {
   if (draft.reasoningId !== undefined) return
   draft.reasoningId = messageId
-  emit(
+  emitDraft(
     projector,
-    projector.tail,
     { type: 'REASONING_START', messageId },
     { type: 'REASONING_MESSAGE_START', messageId, role: 'reasoning' },
   )
@@ -953,7 +967,7 @@ const appendDraftPart = (projector: Projector, event: ProvisionalText.TextEvent,
     Match.when(isTextDelta, (value) => {
       closeDraftReasoning(projector, draft)
       ensureDraftText(projector, draft, textId)
-      emit(projector, projector.tail, { type: 'TEXT_MESSAGE_CONTENT', messageId: textId, delta: value.delta })
+      emitDraft(projector, { type: 'TEXT_MESSAGE_CONTENT', messageId: textId, delta: value.delta })
     }),
     Match.when(isTextEnd, () => closeDraftText(projector, draft)),
     Match.when(isReasoningStart, () => {
@@ -963,7 +977,7 @@ const appendDraftPart = (projector: Projector, event: ProvisionalText.TextEvent,
     Match.when(isReasoningDelta, (value) => {
       closeDraftText(projector, draft)
       ensureDraftReasoning(projector, draft, reasoningId)
-      emit(projector, projector.tail, { type: 'REASONING_MESSAGE_CONTENT', messageId: reasoningId, delta: value.delta })
+      emitDraft(projector, { type: 'REASONING_MESSAGE_CONTENT', messageId: reasoningId, delta: value.delta })
     }),
     Match.when(isReasoningEnd, () => closeDraftReasoning(projector, draft)),
     Match.orElse(() => undefined),
@@ -976,7 +990,9 @@ const onDraftText = (
   drafts: Map<string, DraftState>,
 ): void => {
   if (isSuperseded(projector, event)) return
-  appendDraftPart(projector, event, draftFor(drafts, draftKey(event)))
+  const key = draftKey(event)
+  closeWhere(projector, drafts, (other) => other !== key && other.startsWith(`${event.runId}|${event.turnId}|`))
+  appendDraftPart(projector, event, draftFor(drafts, key))
 }
 
 const onDraftEvent = (
