@@ -1,5 +1,11 @@
 # @systemfsoftware/agent
 
+## 0.6.0
+
+Adds `@systemfsoftware/agent/agui`: `toAgUiEvents` maps a Run's semantic event stream to AG-UI events, `makeAgUiHandler` serves them through `AgUiServer.handler`, which applies the AG-UI run lifecycle, and `fromAgUiInput` adapts an AG-UI run input into a Prompt. Suspended and interrupted Runs end with AG-UI `RunFinished` outcomes instead of `RunError`, state snapshots are not emitted, and subagent events are omitted unless `includeSubagents` is set. Tool results and failures are JSON-encoded in `TOOL_CALL_RESULT`, and a suspended Run reports one interrupt per pending approval.
+
+BEHAVIOR CHANGE: Model spans keep Effect AI's `LanguageModel.streamText` name instead of `chat <model>`, and every span and terminal Tool log writes identity through the pinned `effect/ai/Telemetry` helpers. Read the `gen_ai.*` and `effect_agent.*` attributes instead of the removed unprefixed `agentId`, `threadId`, `runId`, `turnId`, `toolCallId`, `toolName`, `parentToolCallId`, `sequenceIndex`, `toolExecutionClass`, and `toolOutcome` keys.
+
 ## 0.5.1
 
 `ThreadObject.layer` accepts the entries `registration()` returns, so a Durable Object can register an Agent whose `attemptLayer` reads the typed Attempt input. `registration()` no longer types an omitted `continuity` as `undefined`, which `exactOptionalPropertyTypes` rejected.
