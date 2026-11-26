@@ -175,64 +175,67 @@ export class TestSubscriptionPartitionObject extends makeSubscriptionPartitionOb
   },
 ) {}
 
-/** The eviction/alarm/chaos suites' Thread Object. */
-const progressWaiterCounts = new WeakMap<DurableObjectState, number>()
+interface ProgressWaiterState {
+  readonly incarnation: number
+  total: number
+}
 
-interface ProgressWaiterCountLatch {
-  readonly expected: number
+interface ProgressWaiterLatch {
+  readonly qualifies: (state: ProgressWaiterState) => boolean
   readonly resolve: () => void
 }
 
-const progressWaiterCountLatches = new WeakMap<
-  DurableObjectState,
-  Array<ProgressWaiterCountLatch>
->()
-
-const progressIncarnations = new WeakMap<DurableObjectState, number>()
+const progressWaiterLatches = new WeakMap<DurableObjectState, Array<ProgressWaiterLatch>>()
+const progressWaiterStates = new WeakMap<DurableObjectState, ProgressWaiterState>()
 let nextProgressIncarnation = 0
 
-const setProgressWaiterCount = (ctx: DurableObjectState, count: number): void => {
-  progressWaiterCounts.set(ctx, count)
-  const latches = progressWaiterCountLatches.get(ctx)
+const progressWaiterState = (ctx: DurableObjectState): ProgressWaiterState => {
+  const existing = progressWaiterStates.get(ctx)
+
+  if (existing !== undefined) return existing
+  const created: ProgressWaiterState = { incarnation: ++nextProgressIncarnation, total: 0 }
+
+  progressWaiterStates.set(ctx, created)
+
+  return created
+}
+
+const settleProgressWaiterLatches = (ctx: DurableObjectState): void => {
+  const latches = progressWaiterLatches.get(ctx)
 
   if (latches === undefined) return
-  const pending: Array<ProgressWaiterCountLatch> = []
+  const state = progressWaiterState(ctx)
+  const pending: Array<ProgressWaiterLatch> = []
 
   for (const latch of latches) {
-    if (latch.expected === count) {
+    if (latch.qualifies(state)) {
       latch.resolve()
     } else {
       pending.push(latch)
     }
   }
   if (pending.length === 0) {
-    progressWaiterCountLatches.delete(ctx)
+    progressWaiterLatches.delete(ctx)
   } else {
-    progressWaiterCountLatches.set(ctx, pending)
+    progressWaiterLatches.set(ctx, pending)
   }
 }
 
-const awaitProgressWaiterCount = (ctx: DurableObjectState, expected: number): Promise<void> => {
-  if ((progressWaiterCounts.get(ctx) ?? 0) === expected) return Promise.resolve()
+const awaitProgressWaiter = (
+  ctx: DurableObjectState,
+  qualifies: (state: ProgressWaiterState) => boolean,
+): Promise<void> => {
+  if (qualifies(progressWaiterState(ctx))) return Promise.resolve()
 
   return new Promise((resolve) => {
-    const latches = progressWaiterCountLatches.get(ctx) ?? []
+    const latches = progressWaiterLatches.get(ctx) ?? []
 
-    latches.push({ expected, resolve })
-    progressWaiterCountLatches.set(ctx, latches)
+    latches.push({ qualifies, resolve })
+    progressWaiterLatches.set(ctx, latches)
   })
 }
 
-const progressIncarnation = (ctx: DurableObjectState): number => {
-  const existing = progressIncarnations.get(ctx)
-
-  if (existing !== undefined) return existing
-  const created = ++nextProgressIncarnation
-
-  progressIncarnations.set(ctx, created)
-
-  return created
-}
+const progressIncarnation = (ctx: DurableObjectState): number => progressWaiterState(ctx).incarnation
 
 // Initialization arms maintenance alarms before event-only layers are available.
 const maintenanceClockLayer = Layer.effectContext(
@@ -449,33 +452,28 @@ export class TestThreadObject extends ThreadObject.make(
     )
   }
   override async awaitProgressEncoded(encoded: unknown): Promise<unknown> {
-    progressIncarnation(this.ctx)
-    setProgressWaiterCount(this.ctx, (progressWaiterCounts.get(this.ctx) ?? 0) + 1)
-    try {
-      return await super.awaitProgressEncoded(encoded)
-    } finally {
-      setProgressWaiterCount(this.ctx, Math.max(0, (progressWaiterCounts.get(this.ctx) ?? 1) - 1))
-    }
+    const state = progressWaiterState(this.ctx)
+
+    state.total += 1
+    settleProgressWaiterLatches(this.ctx)
+
+    return await super.awaitProgressEncoded(encoded)
   }
 
-  progressWaiterCount(): number {
-    return progressWaiterCounts.get(this.ctx) ?? 0
+  awaitProgressSubscribed(expected: number): Promise<void> {
+    return awaitProgressWaiter(this.ctx, (state) => state.total >= expected)
   }
 
-  awaitProgressWaiterCount(expected: number): Promise<void> {
-    return awaitProgressWaiterCount(this.ctx, expected)
-  }
-
-  async awaitProgressWaiterCountAfter(
+  async awaitProgressSubscribedAfter(
     previousIncarnation: number,
     expected: number,
   ): Promise<number | null> {
-    const incarnation = progressIncarnation(this.ctx)
+    const state = progressWaiterState(this.ctx)
 
-    if (incarnation === previousIncarnation) return null
-    await awaitProgressWaiterCount(this.ctx, expected)
+    if (state.incarnation === previousIncarnation) return null
+    await awaitProgressWaiter(this.ctx, (current) => current.total >= expected)
 
-    return incarnation
+    return state.incarnation
   }
 
   progressIncarnation(): number {

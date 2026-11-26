@@ -23,10 +23,13 @@ import * as Layer from 'effect/Layer'
 import * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'
 import * as Stream from 'effect/Stream'
-import { expect, it } from 'vitest'
+import { afterEach, beforeEach, expect, it } from 'vitest'
 
 import { submitOptions } from './fixtures'
-import { stubFor } from './harness'
+import { forgetTouchedObjects, quiesceTouchedObjects, stubFor } from './harness'
+
+beforeEach(forgetTouchedObjects)
+afterEach(quiesceTouchedObjects)
 
 // Requested Cloudflare seam: authoritative join claims, canonical reply coverage and
 // eviction during replacement. Gated provider/handlers force the side-effect race.
@@ -296,7 +299,7 @@ it.each(['reply', 'tools', 'eviction', 'backlog', 'rejected'] as const)(
           receipts = { receipt, joined }
           joinedReceipts.push(joined)
           if (scenario === 'rejected') {
-            yield* Deferred.await(rejected).pipe(Effect.timeout('2 seconds'))
+            yield* Deferred.await(rejected)
             yield* Deferred.succeed(releaseFirst, undefined)
           } else if (scenario === 'backlog') {
             for (let index = 1; index < 32; index++) {
@@ -309,7 +312,7 @@ it.each(['reply', 'tools', 'eviction', 'backlog', 'rejected'] as const)(
               )
             }
             yield* Deferred.succeed(joinBatches[0]!, undefined)
-            yield* Deferred.await(replacement).pipe(Effect.timeout('2 seconds'))
+            yield* Deferred.await(replacement)
             for (let index = 32; index < 64; index++) {
               joinedReceipts.push(
                 yield* runtime.submit(
@@ -320,8 +323,8 @@ it.each(['reply', 'tools', 'eviction', 'backlog', 'rejected'] as const)(
               )
             }
             yield* Deferred.succeed(joinBatches[1]!, undefined)
-            yield* Deferred.await(secondReplacement).pipe(Effect.timeout('2 seconds'))
-          } else yield* Deferred.await(replacement).pipe(Effect.timeout('2 seconds'))
+            yield* Deferred.await(secondReplacement)
+          } else yield* Deferred.await(replacement)
           if (evicts) {
             const { ctx } = yield* DurableObjectContext
 
@@ -512,5 +515,4 @@ it.each(['reply', 'tools', 'eviction', 'backlog', 'rejected'] as const)(
       }),
     )
   },
-  10_000,
 )

@@ -5,7 +5,7 @@ import { ApprovalDecisionCommand } from '@systemfsoftware/agent/submission-ledge
 import { runInDurableObject } from 'cloudflare:test'
 import * as Effect from 'effect/Effect'
 import * as Fiber from 'effect/Fiber'
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { ProgressWaitRegistry } from '../src/internal/progress-wait'
 import { approvalDefinition, BOOK_TOOL_CALL_ID, decodeThreadId, submitOptions } from './fixtures'
@@ -14,6 +14,8 @@ import {
   anyInState,
   awaitReconstructedProgressWaiter,
   drainAlarmsUntil,
+  forgetTouchedObjects,
+  quiesceTouchedObjects,
   readCanonical,
   runClient,
   runClientFiber,
@@ -85,15 +87,10 @@ const awaitProgressEffect = Effect.fnUntraced(function*(
   }
 })
 
-const runTrackedClientFiber = <A, E>(effect: Effect.Effect<A, E, CloudflareThreadClient>) => {
-  const fiber = runClientFiber(effect)
-
-  onTestFinished(() => Effect.runPromise(Fiber.interrupt(fiber)))
-
-  return fiber
-}
-
 describe('#94 Cloudflare durable progress wait', () => {
+  beforeEach(forgetTouchedObjects)
+  afterEach(quiesceTouchedObjects)
+
   it('broadcasts cancellation across duplicate and late transport attempts', async () => {
     const completed = await Effect.runPromise(
       Effect.scoped(
@@ -155,9 +152,9 @@ describe('#94 Cloudflare durable progress wait', () => {
     const approval = await prepareApproval(thread)
     const cursor = approval.cursor
 
-    const waiting = runTrackedClientFiber(awaitProgressEffect(thread, cursor))
+    const waiting = runClientFiber(awaitProgressEffect(thread, cursor))
 
-    await progressStub(thread).awaitProgressWaiterCount(1)
+    await progressStub(thread).awaitProgressSubscribed(1)
     const priorIncarnation = await progressStub(thread).progressIncarnation()
 
     await runInDurableObject(stubFor(thread), (_instance, state) => {

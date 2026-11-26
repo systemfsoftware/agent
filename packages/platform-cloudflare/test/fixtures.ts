@@ -127,6 +127,11 @@ export const armedEvictionsRemaining = (thread: string): number =>
   (armedStorageEvictions.get(thread)?.length ?? 0) +
   (armedRuntimeEvictions.get(thread)?.length ?? 0)
 
+export const disarmEvictions = (thread: string): void => {
+  armedStorageEvictions.delete(thread)
+  armedRuntimeEvictions.delete(thread)
+}
+
 /** Storage failpoint factory for `ThreadObject.make`: armed hit → `ctx.abort()`. */
 export const storageEvictionFailpoint = (ctx: DurableObjectState): DoStorageFailpointHandler =>
   evictionFailpointHandler({

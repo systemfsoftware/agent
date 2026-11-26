@@ -21,7 +21,7 @@ import * as Effect from 'effect/Effect'
 import * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'
 import * as TestClock from 'effect/testing/TestClock'
-import { expect, it } from 'vitest'
+import { afterEach, beforeEach, expect, it } from 'vitest'
 
 import { ThreadMaintenance } from '../src/Alarm'
 import { CloudflareThreadClient } from '../src/CloudflareThreadClient'
@@ -62,6 +62,8 @@ import {
 import {
   allSettled,
   drainAlarmsUntil,
+  forgetTouchedObjects,
+  quiesceTouchedObjects,
   readCanonical,
   readExecution,
   runClient,
@@ -101,6 +103,9 @@ const withOwner = <A, E>(
         return yield* use(host)
       }),
     ))
+
+beforeEach(forgetTouchedObjects)
+afterEach(quiesceTouchedObjects)
 
 // Requested proof seam: count actual cross-Object launch calls and pressure reads. Existing
 // lifecycle cases below retain authority, receipt, contention and eviction coverage.
