@@ -170,7 +170,7 @@ it.live('restarts disposable calls twice, discards their drafts and then drains 
       expect(completed).toMatchObject({
         usage: { modelCalls: 4, inputTokens: 40, outputTokens: 8 },
       })
-      const chats = spans.filter((span) => span.name === 'chat join-restart')
+      const chats = spans.filter((span) => span.name === 'LanguageModel.streamText')
 
       expect(
         chats.slice(0, 2).map((span) => span.attributes.get('effect_agent.model.abort_reason')),

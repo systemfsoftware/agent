@@ -4,6 +4,7 @@ import * as Model from 'effect/ai/Model'
 import * as Prompt from 'effect/ai/Prompt'
 import * as Response from 'effect/ai/Response'
 import * as ResponseIdTracker from 'effect/ai/ResponseIdTracker'
+import * as Telemetry from 'effect/ai/Telemetry'
 import * as Tool from 'effect/ai/Tool'
 import * as Toolkit from 'effect/ai/Toolkit'
 import * as Arr from 'effect/Array'
@@ -31,8 +32,9 @@ import * as SchemaAST from 'effect/SchemaAST'
 import * as Scope from 'effect/Scope'
 import * as Semaphore from 'effect/Semaphore'
 import * as Stream from 'effect/Stream'
+import * as EffectString from 'effect/String'
 import type * as Take from 'effect/Take'
-import * as Tracer from 'effect/Tracer'
+import type * as Tracer from 'effect/Tracer'
 
 import type * as Agent from '../../core/Agent'
 import {
@@ -1975,83 +1977,84 @@ interface ToolTelemetryDescriptor {
   readonly sequenceIndex?: number | undefined
 }
 
+type TelemetryAttributeValue = string | number | boolean
+
+type TelemetryAttributes = Readonly<Record<string, TelemetryAttributeValue>>
+
+const addGenAiSpanAttributes = Telemetry.addSpanAttributes('gen_ai', EffectString.camelToSnake)
+const addEffectAgentSpanAttributes = Telemetry.addSpanAttributes('effect_agent', EffectString.camelToSnake)
+
+const writeTelemetryAttributes = (span: Tracer.Span, attributes: TelemetryAttributes): void => {
+  for (const prefix of ['gen_ai', 'effect_agent'] as const) {
+    const head = `${prefix}.`
+    const projected: Record<string, TelemetryAttributeValue> = {}
+    for (const [name, value] of Object.entries(attributes)) {
+      if (name.startsWith(head)) projected[name.slice(head.length)] = value
+    }
+    if (prefix === 'gen_ai') addGenAiSpanAttributes(span, projected)
+    else addEffectAgentSpanAttributes(span, projected)
+  }
+}
+
 /** A definition names the agent; its Thread identifies the continuing instance and conversation. */
-const agentTelemetryAttributes = (context: RunContext) => ({
+const agentTelemetryAttributes = (context: RunContext, turnId?: TurnId): TelemetryAttributes => ({
   'gen_ai.agent.name': context.agentId,
   'gen_ai.agent.id': context.threadId,
   'gen_ai.conversation.id': context.threadId,
+  'effect_agent.run.id': context.runId,
+  'effect_agent.thread.id': context.threadId,
+  ...(turnId === undefined ? {} : { 'effect_agent.turn.id': turnId }),
 })
 
-/** Label Effect AI's existing span, preserving provider usage, sampling and host async context. */
-const modelTelemetryTracer = Effect.fnUntraced(function*(
+const modelSpanTransformer = (
   context: RunContext,
-  turnId?: TurnId,
-  onSpan?: (span: Tracer.Span) => void,
-) {
-  const delegate = yield* Tracer.Tracer
-  const model = yield* Model.ModelName
-  const provider = yield* Model.ProviderName
+  turnId: TurnId | undefined,
+  onFinish?: (span: Tracer.Span) => void,
+): Effect.Effect<Telemetry.SpanTransformer, never, Model.ModelName | Model.ProviderName> =>
+  Effect.gen(function*() {
+    const host = yield* Effect.serviceOption(Telemetry.CurrentSpanTransformer)
+    const model = yield* Model.ModelName
+    const provider = yield* Model.ProviderName
 
-  return Tracer.make({
-    span(options) {
-      if (options.name !== 'LanguageModel.streamText') return delegate.span(options)
-
-      const span = delegate.span({ ...options, name: `chat ${model}` })
-
-      onSpan?.(span)
-
-      const attributes = {
-        ...agentTelemetryAttributes(context),
-        'gen_ai.operation.name': 'chat',
-        'gen_ai.request.model': model,
-        'gen_ai.provider.name': provider,
-        agentId: context.agentId,
-        threadId: context.threadId,
-        runId: context.runId,
-        ...(turnId === undefined ? {} : { turnId }),
-      }
-
-      for (const [key, value] of Object.entries(attributes)) span.attribute(key, value)
-
-      return span
-    },
-    ...(delegate.context === undefined ? {} : { context: delegate.context.bind(delegate) }),
+    return (options) => {
+      if (Option.isSome(host)) host.value(options)
+      Telemetry.addGenAIAnnotations(options.span, {
+        operation: { name: 'chat' },
+        request: { model },
+        provider: { name: provider },
+      })
+      writeTelemetryAttributes(options.span, agentTelemetryAttributes(context, turnId))
+      onFinish?.(options.span)
+    }
   })
-})
 
 /** One bounded identity surface shared by canonical Tool spans and terminal logs. */
-const toolTelemetryAttributes = (descriptor: ToolTelemetryDescriptor) => ({
-  ...agentTelemetryAttributes(descriptor.context),
+const toolTelemetryAttributes = (descriptor: ToolTelemetryDescriptor): TelemetryAttributes => ({
+  ...agentTelemetryAttributes(descriptor.context, descriptor.turnId),
   'gen_ai.operation.name': 'execute_tool',
   'gen_ai.tool.name': descriptor.toolName,
   'gen_ai.tool.type': 'function',
-  ...(descriptor.toolCallId === undefined
-    ? {}
-    : {
-      'gen_ai.tool.call.id': descriptor.toolCallId,
-      toolCallId: descriptor.toolCallId,
-    }),
+  ...(descriptor.toolCallId === undefined ? {} : { 'gen_ai.tool.call.id': descriptor.toolCallId }),
   'effect_agent.tool.execution_class': descriptor.executionClass,
   'effect_agent.tool.invocation_kind': descriptor.invocationKind,
   'effect_agent.tool.failure_mode': descriptor.failureMode,
   ...(descriptor.parentToolCallId === undefined
     ? {}
-    : {
-      'effect_agent.tool.parent_call.id': descriptor.parentToolCallId,
-      parentToolCallId: descriptor.parentToolCallId,
-    }),
+    : { 'effect_agent.tool.parent_call.id': descriptor.parentToolCallId }),
   ...(descriptor.sequenceIndex === undefined
     ? {}
-    : {
-      'effect_agent.tool.sequence_index': descriptor.sequenceIndex,
-      sequenceIndex: descriptor.sequenceIndex,
-    }),
-  agentId: descriptor.context.agentId,
-  threadId: descriptor.context.threadId,
-  runId: descriptor.context.runId,
-  turnId: descriptor.turnId,
-  toolName: descriptor.toolName,
+    : { 'effect_agent.tool.sequence_index': descriptor.sequenceIndex }),
 })
+
+const annotateToolSpan = (attributes: TelemetryAttributes): Effect.Effect<void> =>
+  Effect.currentSpan.pipe(
+    Effect.catchNoSuchElement,
+    Effect.flatMap((span) =>
+      Option.isSome(span)
+        ? Effect.sync(() => writeTelemetryAttributes(span.value, attributes))
+        : Effect.void
+    ),
+  )
 
 /** Canonical content-free terminal signal for any application Tool handler attempt. */
 const terminalToolTelemetry = (
@@ -2076,8 +2079,6 @@ const terminalToolTelemetry = (
             ...(failureHandling === undefined
               ? {}
               : { 'effect_agent.tool.failure_handling': failureHandling }),
-            toolExecutionClass: descriptor.executionClass,
-            toolOutcome: outcome,
           }),
         ),
     ),
@@ -2369,7 +2370,8 @@ const executePreparedToolCall = Effect.fnUntraced(function*<
     return yield* failureMarker()
   })
 
-  const measured = started.pipe(
+  const measured = annotateToolSpan(toolTelemetryAttributes(telemetryDescriptor)).pipe(
+    Effect.andThen(started),
     Effect.andThen(results),
     Effect.andThen(commitTerminalResult),
     Effect.catchCause((cause) => {
@@ -2399,10 +2401,7 @@ const executePreparedToolCall = Effect.fnUntraced(function*<
 
       return failTerminalResult(toolCause)
     }),
-    Effect.withSpan(`execute_tool ${call.name}`, {
-      kind: 'internal',
-      attributes: toolTelemetryAttributes(telemetryDescriptor),
-    }),
+    Effect.withSpan(`execute_tool ${call.name}`, { kind: 'internal' }),
   )
 
   const telemetry = yield* ToolSpanTelemetry
@@ -4362,7 +4361,10 @@ const compactContext = <AgentValue extends Agent.Any, HookError, HookRequirement
           context.durationDeadlineMillis,
           context.durationFailure,
         ).pipe(
-          Stream.provideServiceEffect(Tracer.Tracer, modelTelemetryTracer(context)),
+          Stream.provideServiceEffect(
+            Telemetry.CurrentSpanTransformer,
+            modelSpanTransformer(context, undefined),
+          ),
           Stream.runForEach((part) =>
             ownModelResponsePart(
               part,
@@ -5842,7 +5844,6 @@ const makeTurn = <
 
       let restartRequested = false
       let responseStarted = false
-      let activeModelSpan: Tracer.Span | undefined
       let activeProvisionalText: ProvisionalTextModelHandle | undefined
 
       const trace: TurnTrace = {
@@ -6613,9 +6614,12 @@ const makeTurn = <
                           )
                           : stream,
                       Stream.provideServiceEffect(
-                        Tracer.Tracer,
-                        modelTelemetryTracer(context, turnId, (span) => {
-                          activeModelSpan = span
+                        Telemetry.CurrentSpanTransformer,
+                        modelSpanTransformer(context, turnId, (span) => {
+                          if (restartRequested) {
+                            span.attribute('effect_agent.model.outcome', 'aborted')
+                            span.attribute('effect_agent.model.abort_reason', 'joined-input')
+                          }
                         }),
                       ),
                       Stream.onStart(
@@ -7529,8 +7533,6 @@ const makeTurn = <
             Effect.sync(() => {
               restartRequested = true
               activeProvisionalText?.discard()
-              activeModelSpan?.attribute('effect_agent.model.outcome', 'aborted')
-              activeModelSpan?.attribute('effect_agent.model.abort_reason', 'joined-input')
             })
           ),
           Effect.raceFirst(
@@ -9267,9 +9269,6 @@ function executeWithCompletion<
                 attributes: {
                   ...agentTelemetryAttributes(context),
                   'gen_ai.operation.name': 'invoke_agent',
-                  agentId: context.agentId,
-                  threadId: context.threadId,
-                  runId: context.runId,
                 },
               }),
               Effect.provide(engineToolServices),
@@ -9864,7 +9863,7 @@ const measureProgrammaticToolCall = <R>(
     let terminalResult: ProgrammaticCallOutcome | undefined
     let propagatedFailure: Cause.Cause<never> | undefined
 
-    const measured: Effect.Effect<ProgrammaticCallOutcome, ToolSpanFailure, R> = Effect.exit(
+    const body: Effect.Effect<ProgrammaticCallOutcome, ToolSpanFailure, R> = Effect.exit(
       effect,
     ).pipe(
       Effect.flatMap((exit): Effect.Effect<ProgrammaticCallOutcome, ToolSpanFailure> => {
@@ -9896,10 +9895,13 @@ const measureProgrammaticToolCall = <R>(
           ),
         )
       }),
-      Effect.withSpan(`execute_tool ${descriptor.toolName}`, {
-        kind: 'internal',
-        attributes: toolTelemetryAttributes(descriptor),
-      }),
+    )
+
+    const measured: Effect.Effect<ProgrammaticCallOutcome, ToolSpanFailure, R> = annotateToolSpan(
+      toolTelemetryAttributes(descriptor),
+    ).pipe(
+      Effect.andThen(body),
+      Effect.withSpan(`execute_tool ${descriptor.toolName}`, { kind: 'internal' }),
     )
 
     return telemetry.isolateEffectSpanLifecycle(measured).pipe(
