@@ -400,18 +400,19 @@ export interface ResolvedBinding extends CapturedBinding {
   readonly digests: DefinitionDigests
 }
 
-/** Trusted claim identity for resolving per-Attempt application services. Not model input. */
-export interface AgentAttemptContext {
+export interface AgentAttemptContext<out Input = unknown> {
   readonly threadId: ThreadId
   readonly submissionId: Claim['submissionId']
   readonly attemptId: Claim['attemptId']
+  readonly input: Input
 }
 
 const capture = <A extends ExecutableAgentBinding, Requires>(
   agent: A,
   prepare: (
     execute: ReturnType<CapturedAttempt<A>>,
-    context: AgentAttemptContext,
+    threadId: ThreadId,
+    claim: Claim,
   ) => Effect.Effect<
     Option.Option<Settlement>,
     DurableWorkerFailure | DurableBindingFailure,
@@ -436,19 +437,45 @@ const capture = <A extends ExecutableAgentBinding, Requires>(
           claim.attemptId,
         )
 
-        return prepare(execute, {
-          threadId,
-          submissionId: claim.submissionId,
-          attemptId: claim.attemptId,
-        }).pipe(Effect.provide(context))
+        return prepare(execute, threadId, claim).pipe(Effect.provide(context))
       },
     }),
   )
 
-const captureWithAttemptLayer = <A extends ExecutableAgentBinding, Provides, Requires>(
+const captureWithAttemptLayer = <
+  InputSchema extends Schema.Top,
+  A extends ExecutableAgentBinding & { readonly definition: { readonly input: InputSchema } },
+  Provides,
+  Requires,
+>(
   agent: A,
-  attemptLayer: (context: AgentAttemptContext) => Layer.Layer<Provides, never, Requires>,
-) => capture(agent, (execute, context) => execute.pipe(Effect.provide(Layer.fresh(attemptLayer(context)))))
+  attemptLayer: (
+    context: AgentAttemptContext<InputSchema['Type']>,
+  ) => Layer.Layer<Provides, never, Requires>,
+) =>
+  capture(agent, (execute, threadId, claim) =>
+    Schema.decodeEffect<InputSchema>(agent.definition.input)(claim.inputPayload).pipe(
+      Effect.mapError(() =>
+        BindingUnavailable.make({
+          agentId: agent.definition.id,
+          message: 'The current Binding cannot decode accepted input',
+        })
+      ),
+      Effect.flatMap((input) =>
+        execute.pipe(
+          Effect.provide(
+            Layer.fresh(
+              attemptLayer({
+                threadId,
+                submissionId: claim.submissionId,
+                attemptId: claim.attemptId,
+                input,
+              }),
+            ),
+          ),
+        )
+      ),
+    ))
 
 /**
  * Build one exact worker registration from an executable Agent Binding and
@@ -552,7 +579,9 @@ export type AgentRegistration<A extends ExecutableAgentBinding = ExecutableAgent
      * Keep fallible resource acquisition lazy in typed Tool operations; this Layer cannot fail.
      * Provide DurableApprovalSuspension here when resources need retention before approval waits.
      */
-    readonly attemptLayer?: (context: AgentAttemptContext) => Layer.Layer<never, never, unknown>
+    readonly attemptLayer?: (
+      context: AgentAttemptContext<Agent.Input<A>>,
+    ) => Layer.Layer<never, never, unknown>
   }
 
 type EntryWorkerRequirements<Entry> = Entry extends {
@@ -565,7 +594,7 @@ type EntryWorkerRequirements<Entry> = Entry extends {
   : never
 
 type AttemptLayerRequirements<Requirements, AttemptLayer> = AttemptLayer extends (
-  context: AgentAttemptContext,
+  context: infer _Context,
 ) => Layer.Layer<infer Provides, never, infer Requires> ? Exclude<Requirements, Provides> | Requires
   : Requirements
 
