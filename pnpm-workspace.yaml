@@ -66,6 +66,7 @@ catalog:
   "use-stick-to-bottom": "1.1.6"
   "react-dom": "19.2.8"
   "react": "19.2.8"
+  "@alchemy.run/cloudflare": "2.0.0-beta.87"
   "@alchemy.run/cloudflare-runtime": "2.0.0-beta.87"
   "@astrojs/starlight": "0.42.4"
   "@cloudflare/sandbox": "0.13.0-next.830.1"
