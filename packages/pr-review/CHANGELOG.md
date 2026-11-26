@@ -1,5 +1,9 @@
 # @systemfsoftware/agent-pr-review
 
+## 0.1.3
+
+Updated dependency @systemfsoftware/agent to 0.4.0
+
 ## 0.1.2
 
 Updated dependency @systemfsoftware/agent to 0.3.0

@@ -1,5 +1,17 @@
 # @systemfsoftware/agent
 
+## 0.4.0
+
+Each package changelog now opens with the package's published npm name. No code changes.
+
+The Cloudflare Code Mode executor now always sets the Worker Loader CPU limit. Without `limits.cpuMillis`, it defaults to the pass's `maxWallTime`, capped at five minutes, so a program still computing after an abort or timeout is stopped by the platform rather than left running in its isolate.
+
+BEHAVIOR CHANGE: passes without `cpuMillis` now run with a CPU limit and the Worker Loader subrequest limit (`maxHostCalls + 8`).
+
+Runs now emit the live event `SteeringApplied` with the drained `inputIds`, in drain order, once joined steering input enters the model's history at a Turn seam. Durable hosts read the canonical `UserInputRecorded` steering record, which the durable drain appends as it hands the input to the engine.
+
+BEHAVIOR CHANGE (breaking): `RunInputCommand` is a union, and a `steering` command requires `inputId`. A custom `RunInputHook` must return an identity for each steering command; the durable runtime uses the input's `SubmissionId`. Follow-up commands are unchanged.
+
 ## 0.3.0
 
 Add `RunOptions.beforeModelRequest` and its durable form `RunHostControl.beforeModelCall`, a check that runs after context preparation and before every provider request, including compaction summaries and overflow retries, so `AgentRunStopped` ends a Run without another model call.

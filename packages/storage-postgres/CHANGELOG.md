@@ -1,5 +1,9 @@
 # @systemfsoftware/agent-storage-postgres
 
+## 0.3.1
+
+Updated dependency @systemfsoftware/agent to 0.4.0
+
 ## 0.3.0
 
 Add `RunOptions.beforeModelRequest` and its durable form `RunHostControl.beforeModelCall`, a check that runs after context preparation and before every provider request, including compaction summaries and overflow retries, so `AgentRunStopped` ends a Run without another model call.
