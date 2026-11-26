@@ -453,29 +453,32 @@ const captureWithAttemptLayer = <
     context: AgentAttemptContext<InputSchema['Type']>,
   ) => Layer.Layer<Provides, never, Requires>,
 ) =>
-  capture(agent, (execute, threadId, claim) =>
-    Schema.decodeEffect<InputSchema>(agent.definition.input)(claim.inputPayload).pipe(
-      Effect.mapError(() =>
-        BindingUnavailable.make({
-          agentId: agent.definition.id,
-          message: 'The current Binding cannot decode accepted input',
-        })
-      ),
-      Effect.flatMap((input) =>
-        execute.pipe(
-          Effect.provide(
-            Layer.fresh(
-              attemptLayer({
-                threadId,
-                submissionId: claim.submissionId,
-                attemptId: claim.attemptId,
-                input,
-              }),
+  capture(
+    agent,
+    (execute, threadId, claim) =>
+      Schema.decodeEffect<InputSchema>(agent.definition.input)(claim.inputPayload).pipe(
+        Effect.mapError(() =>
+          BindingUnavailable.make({
+            agentId: agent.definition.id,
+            message: 'The current Binding cannot decode accepted input',
+          })
+        ),
+        Effect.flatMap((input) =>
+          execute.pipe(
+            Effect.provide(
+              Layer.fresh(
+                attemptLayer({
+                  threadId,
+                  submissionId: claim.submissionId,
+                  attemptId: claim.attemptId,
+                  input,
+                }),
+              ),
             ),
-          ),
-        )
+          )
+        ),
       ),
-    ))
+  )
 
 /**
  * Build one exact worker registration from an executable Agent Binding and
