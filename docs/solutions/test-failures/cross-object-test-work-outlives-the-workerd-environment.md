@@ -31,10 +31,11 @@ it runs, and the budget is the suite's configured `testTimeout`, not the machine
   135 sequential SQLite operations plus a cold reconstruction, so 10 s was below what the work
   needs when the CPUs are shared.
 
-Measured with a probe: an in-flight `awaitProgress` RPC is not rejected by `state.abort()`. Workerd
-re-runs the request on the fresh incarnation, the fresh incarnation reports the waiter, and the
-client promise resolves when progress arrives. The client's retry classification therefore never
-runs for an eviction.
+Measured with a probe: `state.abort()` rejects an in-flight `awaitProgress` RPC with an error
+carrying `remote` and `durableObjectReset` (200/200 on a plain RPC, 160/160 through the client), and
+workerd does not replay the request on the fresh incarnation. The client therefore has to re-issue
+it, and a test that waits for the fresh incarnation to report a subscription stalls for its whole cap
+whenever that re-issue does not happen.
 
 ## What does not work
 
@@ -48,8 +49,11 @@ runs for an eviction.
 
 ## What works
 
-- Count subscriptions monotonically per incarnation, so a replay is observed whether or not it is
-  still parked, and latch on the count rather than on a gauge.
+- Re-issue the wait from the client after a reset-shaped transport failure (a bare remote rejection
+  or an answer that cannot be decoded), and keep an overload-flagged rejection and a typed host
+  failure terminal.
+- Count subscriptions monotonically per incarnation, so a re-issued request is observed whether or
+  not it is still parked, and latch on the count rather than on a gauge.
 - Fork client work through a harness that tracks every fiber, and interrupt and await them after
   each test instead of at the end of the file.
 - After each test, disarm the eviction failpoints it armed and delete the persisted alarm of every
