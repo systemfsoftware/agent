@@ -14,7 +14,6 @@
     "@yielded/starlight-theme": "catalog:",
     "astro": "catalog:",
     "expressive-code-twoslash": "catalog:",
-    "satteri": "catalog:",
     "starlight-links-validator": "catalog:",
     "typescript": "catalog:docs",
     "typescript-twoslash": "catalog:"
