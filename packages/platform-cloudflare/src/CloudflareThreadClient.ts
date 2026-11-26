@@ -875,12 +875,6 @@ export class CloudflareThreadClient extends Context.Service<
             ),
           )
 
-          // Waiting for progress observes durable state, so a transport failure means this
-          // attempt observed nothing and the same attempt budget may re-issue it. A reset
-          // reaches the caller in several shapes — the reset-flagged rejection, a bare remote
-          // rejection, an overload-flagged rejection, or an answer cut off mid-write that
-          // cannot be decoded — so every transport failure re-issues, while a typed host
-          // failure (a real domain outcome) stays terminal.
           const reissue = (
             error: ThreadClientError | HostProtocolError,
             retry: number,
@@ -898,7 +892,7 @@ export class CloudflareThreadClient extends Context.Service<
               ),
               Effect.asVoid,
               Effect.catchTags({
-                ThreadClientError: (error) => reissue(error, retry),
+                ThreadClientError: (error) => error.overloaded === true ? Effect.fail(error) : reissue(error, retry),
                 HostProtocolError: (error) => reissue(error, retry),
               }),
             )
