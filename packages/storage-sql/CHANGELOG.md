@@ -1,4 +1,4 @@
-# @yielded/agent-storage-sql
+# @systemfsoftware/agent-storage-sql
 
 ## 0.3.0
 

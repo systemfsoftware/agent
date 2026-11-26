@@ -1,4 +1,4 @@
-# @yielded/agent-storage-postgres
+# @systemfsoftware/agent-storage-postgres
 
 ## 0.3.0
 

@@ -1,4 +1,4 @@
-# @yielded/agent-platform-cloudflare
+# @systemfsoftware/agent-platform-cloudflare
 
 ## 0.3.0
 
