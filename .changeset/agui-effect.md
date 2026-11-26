@@ -11,4 +11,4 @@
 "@systemfsoftware/agent-storage-sqlite": none
 "@systemfsoftware/agent-testing": none
 ---
-Adds `@systemfsoftware/agent/agui`: `toAgUiEvents` maps a Run's semantic event stream to AG-UI events with Run lifecycle handling, `fromAgUiInput` adapts an AG-UI run input into a Prompt, and `makeAgUiHandler` builds the AG-UI HTTP handler over a durable Run. Suspended and interrupted Runs end with AG-UI `RunFinished` outcomes instead of `RunError`, state snapshots are not emitted, and subagent events are omitted unless `includeSubagents` is set.
+Adds `@systemfsoftware/agent/agui`: `toAgUiEvents` maps a Run's semantic event stream to AG-UI events with Run lifecycle handling, `fromAgUiInput` adapts an AG-UI run input into a Prompt, and `makeAgUiHandler` builds the AG-UI HTTP handler over a durable Run. Suspended and interrupted Runs end with AG-UI `RunFinished` outcomes instead of `RunError`, state snapshots are not emitted, and subagent events are omitted unless `includeSubagents` is set. Tool results and failures are JSON-encoded in `TOOL_CALL_RESULT`, and a suspended Run reports one interrupt per pending approval.

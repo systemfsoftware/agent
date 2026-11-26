@@ -48,6 +48,7 @@ interface MapperState {
   readonly textMessageId: string | undefined
   readonly reasoningMessageId: string | undefined
   readonly stepName: string | undefined
+  readonly pendingApprovals: ReadonlyArray<string>
 }
 
 type Mapped = readonly [MapperState, ReadonlyArray<AgUiSchema.Event>]
@@ -56,6 +57,7 @@ const initialState: MapperState = {
   textMessageId: undefined,
   reasoningMessageId: undefined,
   stepName: undefined,
+  pendingApprovals: [],
 }
 
 const encodeJsonEvent = Schema.encodeEffect(Schema.fromJsonString(Schema.Json))
@@ -65,6 +67,41 @@ const encodeJson = (value: Schema.Json): Effect.Effect<string> => encodeJsonEven
 const mapped = (value: Mapped): Effect.Effect<Mapped> => Effect.succeed(value)
 
 const subagentUsage = (usage: RunTotals | undefined): ReadonlyArray<AgUiSchema.TokenUsage> => tokenUsage(usage) ?? []
+
+const pendingWith = (pending: ReadonlyArray<string>, toolCallId: string): ReadonlyArray<string> =>
+  pending.includes(toolCallId) ? pending : [...pending, toolCallId]
+
+const pendingWithout = (pending: ReadonlyArray<string>, toolCallId: string): ReadonlyArray<string> =>
+  pending.includes(toolCallId) ? pending.filter((value) => value !== toolCallId) : pending
+
+const suspensionId = (runId: string, sequence: number, toolCallId: string | undefined): string =>
+  toolCallId === undefined
+    ? `${runId}:${sequence}:suspended`
+    : `${runId}:${sequence}:${toolCallId}:suspended`
+
+const suspendInterrupt = (
+  runId: string,
+  sequence: number,
+  reason: string,
+  toolCallId: string | undefined,
+): AgUiSchema.Interrupt => ({
+  id: suspensionId(runId, sequence, toolCallId),
+  reason,
+  ...(toolCallId === undefined ? {} : { toolCallId }),
+})
+
+const suspensionInterrupts = (
+  runId: string,
+  sequence: number,
+  reason: string,
+  pending: ReadonlyArray<string>,
+): readonly [AgUiSchema.Interrupt, ...Array<AgUiSchema.Interrupt>] => {
+  const [head, ...rest] = pending
+  return [
+    suspendInterrupt(runId, sequence, reason, head),
+    ...rest.map((toolCallId) => suspendInterrupt(runId, sequence, reason, toolCallId)),
+  ]
+}
 
 const tokenUsage = (usage: RunTotals | undefined): ReadonlyArray<AgUiSchema.TokenUsage> | undefined =>
   usage === undefined
@@ -96,28 +133,39 @@ const closeReasoning = (state: MapperState): Mapped =>
       ],
     ]
 
+const closeContent = (state: MapperState): Mapped => {
+  const [afterText, textEvents] = closeText(state)
+  const [afterReasoning, reasoningEvents] = closeReasoning(afterText)
+  return [afterReasoning, [...textEvents, ...reasoningEvents]]
+}
+
 const closeStep = (state: MapperState): Mapped =>
   state.stepName === undefined
     ? [state, []]
     : [{ ...state, stepName: undefined }, [{ type: 'STEP_FINISHED', stepName: state.stepName }]]
 
 const closeOpen = (state: MapperState): Mapped => {
-  const [afterText, textEvents] = closeText(state)
-  const [afterReasoning, reasoningEvents] = closeReasoning(afterText)
-  const [afterStep, stepEvents] = closeStep(afterReasoning)
-  return [afterStep, [...textEvents, ...reasoningEvents, ...stepEvents]]
+  const [afterContent, contentEvents] = closeContent(state)
+  const [afterStep, stepEvents] = closeStep(afterContent)
+  return [afterStep, [...contentEvents, ...stepEvents]]
 }
 
 const appendText = (state: MapperState, event: TextDelta): Mapped => {
-  if (state.textMessageId !== undefined) {
-    return [state, [{ type: 'TEXT_MESSAGE_CONTENT', messageId: state.textMessageId, delta: event.text }]]
+  const [closed, closing] = closeReasoning(state)
+
+  if (closed.textMessageId !== undefined) {
+    return [
+      closed,
+      [...closing, { type: 'TEXT_MESSAGE_CONTENT', messageId: closed.textMessageId, delta: event.text }],
+    ]
   }
 
   const messageId = `${event.runId}:${event.sequence}:text`
 
   return [
-    { ...state, textMessageId: messageId },
+    { ...closed, textMessageId: messageId },
     [
+      ...closing,
       { type: 'TEXT_MESSAGE_START', messageId, role: 'assistant' },
       { type: 'TEXT_MESSAGE_CONTENT', messageId, delta: event.text },
     ],
@@ -125,18 +173,21 @@ const appendText = (state: MapperState, event: TextDelta): Mapped => {
 }
 
 const appendReasoning = (state: MapperState, event: ReasoningDelta): Mapped => {
-  if (state.reasoningMessageId !== undefined) {
+  const [closed, closing] = closeText(state)
+
+  if (closed.reasoningMessageId !== undefined) {
     return [
-      state,
-      [{ type: 'REASONING_MESSAGE_CONTENT', messageId: state.reasoningMessageId, delta: event.text }],
+      closed,
+      [...closing, { type: 'REASONING_MESSAGE_CONTENT', messageId: closed.reasoningMessageId, delta: event.text }],
     ]
   }
 
   const messageId = `${event.runId}:${event.sequence}:reasoning`
 
   return [
-    { ...state, reasoningMessageId: messageId },
+    { ...closed, reasoningMessageId: messageId },
     [
+      ...closing,
       { type: 'REASONING_START', messageId },
       { type: 'REASONING_MESSAGE_START', messageId, role: 'reasoning' },
       { type: 'REASONING_MESSAGE_CONTENT', messageId, delta: event.text },
@@ -193,25 +244,30 @@ const mapEvent = (
         ]),
       TextDelta: (event: TextDelta) => mapped(appendText(state, event)),
       ReasoningDelta: (event: ReasoningDelta) => mapped(appendReasoning(state, event)),
-      ToolCallDeclared: (event: ToolCallDeclared) =>
-        Effect.map(encodeJson(event.parameters), (delta): Mapped => [
-          state,
+      ToolCallDeclared: (event: ToolCallDeclared) => {
+        const parentMessageId = state.textMessageId
+        const [closed, closing] = closeContent(state)
+        return Effect.map(encodeJson(event.parameters), (delta): Mapped => [
+          closed,
           [
+            ...closing,
             {
               type: 'TOOL_CALL_START',
               toolCallId: event.toolCallId,
               toolCallName: event.toolName,
-              ...(state.textMessageId === undefined ? {} : { parentMessageId: state.textMessageId }),
+              ...(parentMessageId === undefined ? {} : { parentMessageId }),
             },
             { type: 'TOOL_CALL_ARGS', toolCallId: event.toolCallId, delta },
             { type: 'TOOL_CALL_END', toolCallId: event.toolCallId },
           ],
-        ]),
-      ToolCallStarted: (_event: ToolCallStarted) => mapped([state, []]),
+        ])
+      },
+      ToolCallStarted: (event: ToolCallStarted) =>
+        mapped([{ ...state, pendingApprovals: pendingWithout(state.pendingApprovals, event.toolCallId) }, []]),
       ToolProgress: (_event: ToolProgress) => mapped([state, []]),
       ToolCallSucceeded: (event: ToolCallSucceeded) =>
         Effect.map(encodeJson(event.result), (content): Mapped => [
-          state,
+          { ...state, pendingApprovals: pendingWithout(state.pendingApprovals, event.toolCallId) },
           [
             {
               type: 'TOOL_CALL_RESULT',
@@ -223,21 +279,24 @@ const mapEvent = (
           ],
         ]),
       ToolCallFailed: (event: ToolCallFailed) =>
-        mapped([
-          state,
-          [
-            {
-              type: 'TOOL_CALL_RESULT',
-              messageId: `${event.runId}:${event.toolCallId}:error`,
-              toolCallId: event.toolCallId,
-              content: event.message,
-              role: 'tool',
-            },
+        Effect.map(
+          encodeJson({ error: event.message, code: event.errorTag }),
+          (content): Mapped => [
+            { ...state, pendingApprovals: pendingWithout(state.pendingApprovals, event.toolCallId) },
+            [
+              {
+                type: 'TOOL_CALL_RESULT',
+                messageId: `${event.runId}:${event.toolCallId}:error`,
+                toolCallId: event.toolCallId,
+                content,
+                role: 'tool',
+              },
+            ],
           ],
-        ]),
+        ),
       ApprovalRequested: (event: ApprovalRequested) =>
         mapped([
-          state,
+          { ...state, pendingApprovals: pendingWith(state.pendingApprovals, event.toolCallId) },
           [
             {
               type: 'CUSTOM',
@@ -339,7 +398,12 @@ const mapEvent = (
               runId: event.runId,
               outcome: {
                 type: 'interrupt',
-                interrupts: [{ id: `${event.runId}:suspended`, reason: event.reason }],
+                interrupts: suspensionInterrupts(
+                  event.runId,
+                  event.sequence,
+                  event.reason,
+                  state.pendingApprovals,
+                ),
               },
               ...(usage === undefined ? {} : { usage }),
             },
