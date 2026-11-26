@@ -25,7 +25,7 @@ import nativePuppeteer, {
   type ElementHandle as NativeElementHandle,
   type TimeoutError as NativeTimeoutError,
 } from 'puppeteer-core'
-import type browserPuppeteer from 'puppeteer-core/lib/esm/puppeteer/puppeteer-core-browser.js'
+import type browserPuppeteer from 'puppeteer-core/lib/puppeteer/puppeteer-core-browser.js'
 import { vi } from 'vitest'
 
 import { BrowserRunSessionLifecycle } from '../src/internal/browser-session-lifecycle'
@@ -33,7 +33,7 @@ import { browserResponse } from './browser-response'
 
 const sdk = vi.hoisted(() => ({ connect: vi.fn<() => Promise<object>>() }))
 
-vi.mock('puppeteer-core/lib/esm/puppeteer/puppeteer-core-browser.js', async () => {
+vi.mock('puppeteer-core/lib/puppeteer/puppeteer-core-browser.js', async () => {
   const { ElementHandle, TimeoutError } = await vi.importActual<{
     readonly ElementHandle: typeof NativeElementHandle
     readonly TimeoutError: typeof NativeTimeoutError
@@ -132,7 +132,7 @@ it.live(
         sdkCall(async () => {
           const { default: puppeteer } = await vi.importActual<{
             readonly default: typeof browserPuppeteer
-          }>('puppeteer-core/lib/esm/puppeteer/puppeteer-core-browser.js')
+          }>('puppeteer-core/lib/puppeteer/puppeteer-core-browser.js')
 
           return puppeteer.connect({ browserWSEndpoint: browser.wsEndpoint() })
         }),
@@ -145,7 +145,9 @@ it.live(
       sdk.connect.mockResolvedValue({
         createBrowserContext: async () => ({ newPage: async () => page, close: async () => {} }),
         sessionId: () => 'c8b9c4b1-d1bf-4663-b4d8-a0b009cc8b99',
-        isConnected: () => browser.isConnected(),
+        get connected() {
+          return browser.connected
+        },
         on: () => {},
         off: () => {},
         close: async () => {},

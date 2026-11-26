@@ -4,7 +4,7 @@ import * as NativeBrowser from '@systemfsoftware/agent-platform-cloudflare/brows
 import * as BrowserUse from '@systemfsoftware/agent/browser-use'
 import { Context, Effect, Layer, Schema } from 'effect'
 import { Tool, Toolkit } from 'effect/ai'
-import type { Page } from 'puppeteer-core/lib/esm/puppeteer/puppeteer-core-browser.js'
+import type { Page } from 'puppeteer-core/lib/puppeteer/puppeteer-core-browser.js'
 
 import { BrowserHandoff, defaultChallenge, LabError, type RunInput } from './contract'
 import { Trace } from './telemetry'

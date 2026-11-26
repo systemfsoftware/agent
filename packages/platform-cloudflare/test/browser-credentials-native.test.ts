@@ -6,7 +6,7 @@ import * as Option from 'effect/Option'
 import * as Redacted from 'effect/Redacted'
 import * as Schema from 'effect/Schema'
 import nativePuppeteer from 'puppeteer-core'
-import browserPuppeteer, { type Page } from 'puppeteer-core/lib/esm/puppeteer/puppeteer-core-browser.js'
+import browserPuppeteer, { type Page } from 'puppeteer-core/lib/puppeteer/puppeteer-core-browser.js'
 import { type TestContext, vi } from 'vitest'
 
 import {

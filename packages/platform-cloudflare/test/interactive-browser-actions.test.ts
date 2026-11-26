@@ -22,7 +22,7 @@ const sdk = vi.hoisted(() => ({
   ElementHandle: class {},
 }))
 
-vi.mock('puppeteer-core/lib/esm/puppeteer/puppeteer-core-browser.js', () => ({
+vi.mock('puppeteer-core/lib/puppeteer/puppeteer-core-browser.js', () => ({
   default: sdk,
   ElementHandle: sdk.ElementHandle,
 }))
@@ -76,7 +76,7 @@ const fixture = (
   }
 
   const page = {
-    browser: () => ({ isConnected: () => true }),
+    browser: () => ({ connected: true }),
     evaluate: options.state ?? (async () => emptyState),
     mainFrame: () => ({
       isolatedRealm: () => ({
@@ -117,12 +117,12 @@ const fixture = (
 
   sdk.connect.mockResolvedValue({
     createBrowserContext: async () => ({
-      browser: () => ({ isConnected: () => true }),
+      browser: () => ({ connected: true }),
       newPage: async () => page,
       close: async () => {},
     }),
     sessionId: () => 'c8b9c4b1-d1bf-4663-b4d8-a0b009cc8b99',
-    isConnected: () => true,
+    connected: true,
     on: () => {},
     off: () => {},
     close: async () => {},
