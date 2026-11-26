@@ -127,10 +127,9 @@ export const CommandDrainPolicy = Schema.Literals(['one', 'all'])
 export type CommandDrainPolicy = typeof CommandDrainPolicy.Type
 
 /** Engine-normalized input command. Capability packages may adapt richer audit records to it. */
-export interface RunInputCommand {
-  readonly kind: 'steering' | 'follow-up'
-  readonly input: Prompt.RawInput
-}
+export type RunInputCommand =
+  | { readonly kind: 'steering'; readonly inputId: string; readonly input: Prompt.RawInput }
+  | { readonly kind: 'follow-up'; readonly input: Prompt.RawInput }
 
 /**
  * Dependency-neutral input seam used by the interpreter.

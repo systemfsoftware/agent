@@ -137,14 +137,14 @@ it.live('restarts disposable calls twice, discards their drafts and then drains 
 
       for (const index of [0, 1]) {
         yield* Deferred.await(requests[index]!)
-        queued.push({ kind: 'steering', input: `joined-${index}` })
+        queued.push({ kind: 'steering', inputId: `joined-${index}`, input: `joined-${index}` })
         const prior = wake
 
         wake = yield* Deferred.make<void>()
         yield* Deferred.succeed(prior, undefined)
         yield* Deferred.await(requests[index + 1]!).pipe(Effect.timeout('2 seconds'))
       }
-      queued.push({ kind: 'steering', input: 'after-cap' })
+      queued.push({ kind: 'steering', inputId: 'after-cap', input: 'after-cap' })
       yield* Deferred.succeed(wake, undefined)
       yield* Deferred.succeed(releases[2]!, undefined)
       yield* Fiber.join(fiber)
@@ -155,7 +155,15 @@ it.live('restarts disposable calls twice, discards their drafts and then drains 
       expect(prompts[2]).toContain('joined-1')
       expect(prompts[2]).not.toContain('answer-0')
       expect(prompts[3]).toContain('after-cap')
-      expect(events.filter((event) => event._tag === 'ModelRestarted')).toHaveLength(2)
+      expect(
+        events.flatMap((event) =>
+          event._tag === 'ModelRestarted'
+            ? ['restart']
+            : event._tag === 'SteeringApplied'
+            ? [event.inputIds.join(',')]
+            : []
+        ),
+      ).toEqual(['restart', 'joined-0', 'restart', 'joined-1', 'after-cap'])
       expect(events.filter((event) => event._tag === 'RunCompleted')).toHaveLength(1)
       const completed = events.find((event) => event._tag === 'RunCompleted')
 

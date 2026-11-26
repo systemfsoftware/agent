@@ -62,6 +62,14 @@ stop. Neither rewrites an active tool call. With `restartOnJoinedInput`, eligibl
 cancel a disposable model request and replace it. Clients must clear the affected draft on
 `ModelRestarted`.
 
+A steering `RunInputCommand` carries an `inputId`. Once drained steering enters the model's
+history, the Run emits `SteeringApplied` with those `inputIds` in drain order, so a client can mark
+the message as seen by the Agent. The event is live only: a client that attaches later reconciles
+from host state. A durable Run publishes no live events; its host reads canonical records instead.
+The durable drain appends `UserInputRecorded` with `kind: 'steering'`, the Run's `runId` and the
+input's `submissionId` when it hands the input to the engine for the next prompt, just before the
+append. If the Run then fails, the record stays, and the failed Run's settlement follows it.
+
 <a id="interruption-is-ownership"></a>
 
 ## Scope run resources

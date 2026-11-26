@@ -7203,6 +7203,7 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
 
               const joinedInputs: Array<
                 Pick<UserInputRecorded, 'input' | 'messageAdmission'> & {
+                  readonly inputId: SubmissionId
                   readonly rendered?: Prompt.RawInput
                 }
               > = []
@@ -7242,7 +7243,7 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
                 const payload = existing.record.payload
 
                 if (payload._tag !== 'UserInputRecorded') continue
-                joinedInputs.push(payload)
+                joinedInputs.push({ ...payload, inputId: joinId })
               }
               const claims = yield* prepareInputs(limit)
 
@@ -7287,6 +7288,7 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
                 deliveredJoinInputs.add(claim.submissionId)
                 joinedInputs.push({
                   ...payload,
+                  inputId: claim.submissionId,
                   rendered,
                 })
               }
@@ -7301,6 +7303,7 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
               : Effect.succeed(joinedInput.rendered)).pipe(
                 Effect.map((input): RunInputCommand => ({
                   kind: 'steering',
+                  inputId: joinedInput.inputId,
                   input,
                 })),
               ))

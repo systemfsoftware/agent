@@ -215,7 +215,9 @@ layer(testLayer)('native context windows', (it) => {
         input: {
           drain: () =>
             Ref.getAndSet(queued, false).pipe(
-              Effect.map((ready) => ready ? [{ kind: 'steering' as const, input: steering }] : []),
+              Effect.map((ready) =>
+                ready ? [{ kind: 'steering' as const, inputId: 'steered-window', input: steering }] : []
+              ),
             ),
         },
       })

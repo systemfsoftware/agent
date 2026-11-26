@@ -96,7 +96,7 @@ export const plannerActivity = (
           ...base,
           ...(inputRun === undefined ? {} : { runId: inputRun }),
           kind: 'status',
-          text: 'Request received',
+          text: payload.kind === 'steering' ? 'Update applied to the running request' : 'Request received',
           details: [
             detail('Request', {
               message: input.value.message,
