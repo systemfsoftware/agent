@@ -524,6 +524,14 @@ const onModelResponse = (
   closeOpen(projector, run, sequence)
 }
 
+const withCode = (fields: { readonly code: string | undefined; readonly message: string }): Schema.Json =>
+  fields.code === undefined ? { error: fields.message } : { error: fields.message, code: fields.code }
+
+const failedToolContent = (result: Schema.Json): Schema.Json => withCode(failureFields(result))
+
+const toolResultContent = (result: Schema.Json, isFailure: boolean): Schema.Json =>
+  isFailure ? failedToolContent(result) : result
+
 const onToolCallSettled = (
   projector: Projector,
   sequence: number,
@@ -535,7 +543,7 @@ const onToolCallSettled = (
   const run = runOf(projector, runId)
   if (run.terminated) return
   run.pendingApprovals = [...withoutApproval(run.pendingApprovals, toolCallId)]
-  emitToolResult(projector, sequence, runId, toolCallId, isFailure, result)
+  emitToolResult(projector, sequence, runId, toolCallId, isFailure, toolResultContent(result, isFailure))
 }
 
 const onApprovalRequested = (
