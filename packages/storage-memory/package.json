@@ -1,6 +1,6 @@
 {
   "name": "@systemfsoftware/agent-storage-memory",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "In-memory Thread store and submission ledger reference adapters for Effect Agent tests and conformance suites.",
   "license": "MIT",
   "repository": {
