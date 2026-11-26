@@ -3251,14 +3251,17 @@ const withRunDefinitionOverrides = <Definition extends Agent.AnyDefinition, E, R
   definition: Definition,
   options: RunOptions<E, R>,
 ): Definition => {
-  const dropCompletion = options.completion === 'text' && definition.completion !== undefined
+  const textCompletion = options.completion === 'text'
+  const dropCompletion = textCompletion && definition.completion !== undefined
+  const dropTextCompletion = !textCompletion && definition.textCompletion !== undefined
   const contextTokenLimit = isPositiveSafeInteger(options.contextTokenLimit) ? options.contextTokenLimit : undefined
 
-  if (!dropCompletion && contextTokenLimit === undefined) return definition
+  if (!dropCompletion && !dropTextCompletion && contextTokenLimit === undefined) return definition
 
   return Object.freeze({
     ...definition,
     ...(dropCompletion ? { completion: undefined } : {}),
+    ...(dropTextCompletion ? { textCompletion: undefined } : {}),
     ...(contextTokenLimit === undefined
       ? {}
       : { policy: AgentPolicy.make({ ...definition.policy, contextTokenLimit }) }),
@@ -5274,8 +5277,29 @@ const decodeFinalOutput = Effect.fnUntraced(function*<AgentValue extends Agent.A
 ): Effect.fn.Return<
   { readonly encoded: Schema.Json; readonly decoded: Agent.Output<AgentValue> },
   AgentOutputError,
-  Agent.OutputSchema<AgentValue>['DecodingServices']
+  | Agent.OutputSchema<AgentValue>['DecodingServices']
+  | Agent.OutputSchema<AgentValue>['EncodingServices']
 > {
+  const textCompletion = agent.definition.textCompletion
+
+  if (textCompletion !== undefined) {
+    if (text.trim().length === 0) {
+      return yield* AgentOutputError.make({
+        message: 'Agent final text is empty for text completion',
+      })
+    }
+
+    const projected = yield* Effect.try({
+      try: () => textCompletion.project(text),
+      catch: (cause) =>
+        AgentOutputError.make({
+          message: `Text completion projector failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+        }),
+    })
+
+    return yield* encodeOutputCandidate(agent, projected, 'Text completion')
+  }
+
   const eventJson = isTextOutput(agent.definition.output)
     ? text
     : yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Json))(text).pipe(
@@ -5304,13 +5328,14 @@ const decodeFinalOutput = Effect.fnUntraced(function*<AgentValue extends Agent.A
 const encodeOutputCandidate = Effect.fnUntraced(function*<AgentValue extends Agent.Any>(
   agent: AgentValue,
   candidate: unknown,
+  subject: string,
 ) {
   const encoded = yield* Schema.encodeUnknownEffect<AgentValue['definition']['output']>(
     agent.definition.output,
   )(candidate).pipe(
     Effect.mapError((cause) =>
       AgentOutputError.make({
-        message: `Completion Tool output failed Schema encoding: ${cause.message}`,
+        message: `${subject} output failed Schema encoding: ${cause.message}`,
       })
     ),
   )
@@ -5320,7 +5345,7 @@ const encodeOutputCandidate = Effect.fnUntraced(function*<AgentValue extends Age
   )(encoded).pipe(
     Effect.mapError((cause) =>
       AgentOutputError.make({
-        message: `Completion Tool output failed canonical decoding: ${cause.message}`,
+        message: `${subject} output failed canonical decoding: ${cause.message}`,
       })
     ),
   )
@@ -5328,7 +5353,7 @@ const encodeOutputCandidate = Effect.fnUntraced(function*<AgentValue extends Age
   const json = yield* Schema.decodeUnknownEffect(Schema.Json)(encoded).pipe(
     Effect.mapError((cause) =>
       AgentOutputError.make({
-        message: `Completion Tool output did not encode as durable JSON: ${cause.message}`,
+        message: `${subject} output did not encode as durable JSON: ${cause.message}`,
       })
     ),
   )
@@ -5383,7 +5408,7 @@ const projectCompletionOutput = Effect.fnUntraced(function*<AgentValue extends A
       }),
   })
 
-  return yield* encodeOutputCandidate(agent, projected)
+  return yield* encodeOutputCandidate(agent, projected, 'Completion Tool')
 })
 
 const encodeRunDispositionCandidate = Effect.fnUntraced(function*<
