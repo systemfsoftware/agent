@@ -615,11 +615,18 @@ type ReportingRequirements<Reports> = Reports extends ReadonlyArray<WorkerReport
   ? Exclude<R, Scope.Scope>
   : never
 
-type RegistrationRequirements<Entries extends ReadonlyArray<AgentRegistration>> = EntryRequirements<
+export type AnyAgentRegistration = AgentRegistration<ExecutableAgentBinding> extends infer U
+  ? U extends unknown ? Omit<U, 'attemptLayer'> & {
+      readonly attemptLayer?: (context: AgentAttemptContext<never>) => unknown
+    }
+  : never
+  : never
+
+type RegistrationRequirements<Entries extends ReadonlyArray<AnyAgentRegistration>> = EntryRequirements<
   Entries[number]
 >
 
-const registrationDefinitions = (entry: AgentRegistration): DefinitionDigestInput => {
+const registrationDefinitions = (entry: AnyAgentRegistration): DefinitionDigestInput => {
   const definition = entry.model === undefined ? entry.agent.definition : entry.agent
   const reports = entry.reporting ?? []
 
@@ -695,10 +702,10 @@ const registrationDefinitions = (entry: AgentRegistration): DefinitionDigestInpu
 
 // The public signature distributes over descriptors, including optional attempt Layers.
 // The implementation consumes their erased union and captures the selected Layer's context.
-function compileRegistration<Entry extends AgentRegistration>(
+function compileRegistration<Entry extends AnyAgentRegistration>(
   entry: Entry,
 ): Effect.Effect<ResolvedBinding, DigestError, CryptoDigest.Digest | EntryRequirements<Entry>>
-function compileRegistration(entry: AgentRegistration) {
+function compileRegistration(entry: AnyAgentRegistration) {
   return Effect.flatMap(
     Effect.try({
       try: () => registrationDefinitions(entry),
@@ -718,7 +725,10 @@ function compileRegistration(entry: AgentRegistration) {
           ? capture(agent, (execute) => execute)
           // The selected Layer discharges its services before the remaining Context is captured.
           // @effect-diagnostics-next-line anyUnknownInErrorContext:off
-          : captureWithAttemptLayer(agent, entry.attemptLayer)
+          : captureWithAttemptLayer(
+            agent,
+            entry.attemptLayer as (context: AgentAttemptContext<unknown>) => Layer.Layer<never, never, unknown>,
+          )
 
         // The descriptor erases projection services; EntryRequirements retains them for callers.
         // @effect-diagnostics-next-line anyUnknownInErrorContext:off
@@ -738,7 +748,7 @@ function compileRegistration(entry: AgentRegistration) {
 }
 
 /** Compile heterogeneous Agent descriptors into exact, dependency-closed worker registrations. */
-export const compileRegistrations = <const Entries extends ReadonlyArray<AgentRegistration>>(
+export const compileRegistrations = <const Entries extends ReadonlyArray<AnyAgentRegistration>>(
   entries: Entries,
 ): Effect.Effect<
   ReadonlyArray<ResolvedBinding>,
@@ -746,4 +756,28 @@ export const compileRegistrations = <const Entries extends ReadonlyArray<AgentRe
   CryptoDigest.Digest | RegistrationRequirements<Entries>
 > => {
   return Effect.forEach(entries, compileRegistration<Entries[number]>)
+}
+
+export function registration<D extends ExecutableDefinition, M, AL = never>(
+  entry: {
+    readonly agent: D
+    readonly model: M
+    readonly definitions: DefinitionDigestInput
+    readonly attemptLayer?: (context: AgentAttemptContext<Schema.Schema.Type<D['input']>>) => AL
+  },
+): {
+  readonly agent: D
+  readonly model: M
+  readonly definitions: DefinitionDigestInput
+  readonly attemptLayer?: (context: AgentAttemptContext<Schema.Schema.Type<D['input']>>) => AL
+}
+export function registration<A extends ExecutableAgentBinding, AL = never>(
+  entry: AgentRegistration<A> & {
+    readonly attemptLayer?: (context: AgentAttemptContext<Agent.Input<A>>) => AL
+  },
+): AgentRegistration<A> & {
+  readonly attemptLayer?: (context: AgentAttemptContext<Agent.Input<A>>) => AL
+}
+export function registration(entry: AnyAgentRegistration) {
+  return entry
 }

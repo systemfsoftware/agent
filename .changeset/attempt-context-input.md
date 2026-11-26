@@ -12,4 +12,4 @@
 "@systemfsoftware/agent-testing": none
 ---
 
-Pass the Attempt's decoded input to `AgentRegistration.attemptLayer` as `AgentAttemptContext.input`, typed from the Definition's input Schema. The value is the Submission's persisted input decoded for the Attempt, identical on every Attempt including recovery, so a per-Attempt service can read it without re-reading the input record.
+Pass the Attempt's decoded input to `AgentRegistration.attemptLayer` as `AgentAttemptContext.input`, typed from the registered Definition's input Schema (unknown in the bare inline `compileRegistrations([...])` form). The value is the Submission's decoded input, identical on every Attempt including recovery.

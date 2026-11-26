@@ -12,7 +12,7 @@ import * as Layer from 'effect/Layer'
 import * as Schema from 'effect/Schema'
 import * as SchemaGetter from 'effect/SchemaGetter'
 
-import { compileRegistrations } from '../../src/durable/internal/agent-registration'
+import { compileRegistrations, registration } from '../../src/durable/internal/agent-registration'
 import { DefinitionDigestInput } from '../../src/durable/Records'
 
 type Equal<Left, Right> = (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2
@@ -208,6 +208,29 @@ export const proveRegistrationRequirements = (
   > = true
 
   void scopedRequirements
+
+  const helperInferred = compileRegistrations([
+    registration({
+      agent: first,
+      definitions: DefinitionDigestInput.make({ agent: 'helper-binding', model: 'helper-binding', tools: [] }),
+      attemptLayer: (context) => {
+        const question: string = context.input.question
+        void question
+        return Layer.effect(InstructionContext)(Effect.map(LookupDependency, (text) => ({ text })))
+      },
+    }),
+    registration({
+      agent: definition,
+      model: firstModel,
+      definitions: DefinitionDigestInput.make({ agent: 'helper-definition', model: 'helper-definition', tools: [] }),
+      attemptLayer: (context) => {
+        const question: string = context.input.question
+        void question
+        return Layer.effect(InstructionContext)(Effect.map(LookupDependency, (text) => ({ text })))
+      },
+    }),
+  ])
+  void helperInferred
 
   type Services = Effect.Services<typeof compiled>
   type Expected =
