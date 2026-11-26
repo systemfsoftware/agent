@@ -774,7 +774,6 @@ export function registration<
   readonly agent: D
   readonly model: M
   readonly definitions: DefinitionDigestInput
-  readonly reporting?: AgentRegistration<ExecutableAgentBinding>['reporting']
   readonly continuity?: AgentRegistration<ExecutableAgentBinding>['continuity']
   readonly attemptLayer: (context: AgentAttemptContext<Schema.Schema.Type<D['input']>>) => AL
 }
@@ -788,7 +787,6 @@ export function registration<A extends ExecutableAgentBinding, AL extends Layer.
 ): {
   readonly agent: A
   readonly definitions: DefinitionDigestInput
-  readonly reporting?: AgentRegistration<ExecutableAgentBinding>['reporting']
   readonly continuity?: AgentRegistration<ExecutableAgentBinding>['continuity']
   readonly attemptLayer: (context: AgentAttemptContext<Agent.Input<A>>) => AL
 }
