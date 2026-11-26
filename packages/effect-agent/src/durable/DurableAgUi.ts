@@ -332,7 +332,10 @@ const appendPart = (
         runId,
         value.id,
         value.isFailure,
-        Option.getOrElse(Schema.decodeUnknownOption(Schema.Json)(value.result), () => null),
+        toolResultContent(
+          Option.getOrElse(Schema.decodeUnknownOption(Schema.Json)(value.result), () => null),
+          value.isFailure,
+        ),
       )),
     Match.orElse(() => undefined),
   )
@@ -474,8 +477,8 @@ const queueForRun = (
   inputId: string,
   runId: RunId,
 ): void => {
-  const run = runOf(projector, runId)
-  if (run.terminated) {
+  const run = liveRun(projector, sequence, runId)
+  if (run === undefined) {
     emit(projector, sequence, steeringEvent('not-joined', inputId, runId))
     return
   }
@@ -1030,9 +1033,8 @@ const streamOf = <E, R>(
       () => makeProjector(options),
       (projector, envelope) =>
         Effect.sync((): readonly [Projector, ReadonlyArray<DurableAgUiEvent>] => {
-          const start = projector.items.length
           processRecord(projector, envelope)
-          return [projector, projector.items.slice(start)]
+          return [projector, projector.items.splice(0)]
         }),
     ),
   )
