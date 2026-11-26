@@ -1,5 +1,9 @@
 # @systemfsoftware/agent-platform-cloudflare
 
+## 0.4.2
+
+`ThreadObject.layer` accepts the entries `registration()` returns, so a Durable Object can register an Agent whose `attemptLayer` reads the typed Attempt input. `registration()` no longer types an omitted `continuity` as `undefined`, which `exactOptionalPropertyTypes` rejected.
+
 ## 0.4.1
 
 Updated dependency @systemfsoftware/agent to 0.5.0

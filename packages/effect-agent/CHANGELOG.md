@@ -1,5 +1,9 @@
 # @systemfsoftware/agent
 
+## 0.5.1
+
+`ThreadObject.layer` accepts the entries `registration()` returns, so a Durable Object can register an Agent whose `attemptLayer` reads the typed Attempt input. `registration()` no longer types an omitted `continuity` as `undefined`, which `exactOptionalPropertyTypes` rejected.
+
 ## 0.5.0
 
 Pass the Attempt's decoded input to `AgentRegistration.attemptLayer` as `AgentAttemptContext.input`, typed from the registered Definition's input Schema (unknown in the bare inline `compileRegistrations([...])` form). The value is the Submission's decoded input, identical on every Attempt including recovery.
