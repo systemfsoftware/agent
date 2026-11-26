@@ -86,6 +86,12 @@ const renderOutputSchemaContract = (definition: Agent.AnyDefinition): OutputCont
   if (definition.completion !== undefined) {
     return rendered(requiredCompletionDirective(definition.completion.tool))
   }
+  if (definition.textCompletion !== undefined) {
+    return rendered(
+      'Final output contract: write the final reply as ordinary assistant text, without JSON wrapping. ' +
+        'An empty or whitespace-only reply is not a valid answer.',
+    )
+  }
   if (isTextOutput(definition.output)) {
     return rendered(
       'Final output contract: write the final reply as ordinary assistant text, without JSON wrapping. ' +
