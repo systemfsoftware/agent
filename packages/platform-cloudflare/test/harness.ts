@@ -20,13 +20,14 @@ import { env, runDurableObjectAlarm, runInDurableObject } from 'cloudflare:test'
 import { DurableObject } from 'effect-cf'
 import * as SecureRandom from 'effect/crypto/SecureRandom'
 import * as Effect from 'effect/Effect'
+import * as Fiber from 'effect/Fiber'
 import * as Layer from 'effect/Layer'
 import * as Option from 'effect/Option'
 import * as Schema from 'effect/Schema'
 import * as SqlClientService from 'effect/sql/SqlClient'
 import { expect } from 'vitest'
 
-import { decodeThreadId, supplierCountsFor, supplierValuesFor } from './fixtures'
+import { decodeThreadId, disarmEvictions, supplierCountsFor, supplierValuesFor } from './fixtures'
 import type {
   ContextCompactorThreadObject,
   ProjectionThreadObject,
@@ -52,11 +53,69 @@ export type TestNamespace =
   | 'TELEMETRY'
   | 'CONTEXT_COMPACTOR'
 
-/** A FRESH stub for the named Thread (never cache stubs across aborts). */
-export const stubFor = (thread: string, namespace: TestNamespace = 'THREADS') => {
+interface TouchedObject {
+  readonly namespace: TestNamespace
+  readonly thread: string
+}
+
+const touchedObjects = new Map<string, TouchedObject>()
+const clientFibers = new Set<() => Promise<void>>()
+
+const namespaceStub = (thread: string, namespace: TestNamespace) => {
   const binding = env[namespace]
 
   return binding.get(binding.idFromName(thread))
+}
+
+/** A FRESH stub for the named Thread (never cache stubs across aborts). */
+export const stubFor = (thread: string, namespace: TestNamespace = 'THREADS') => {
+  touchedObjects.set(`${namespace}:${thread}`, { namespace, thread })
+
+  return namespaceStub(thread, namespace)
+}
+
+export const forgetTouchedObjects = (): void => {
+  touchedObjects.clear()
+}
+
+const QUIESCENCE_CEILING = '5 seconds'
+
+/**
+ * Teardown must not be able to stall the shared environment: a wedge in one Object or one
+ * uninterruptible RPC is dropped after the ceiling, and the next test starts clean either way.
+ */
+const settleWithinCeiling = (operation: Promise<unknown>): Promise<void> =>
+  Effect.runPromise(
+    Effect.tryPromise({ try: () => operation, catch: () => undefined }).pipe(
+      Effect.timeoutOption(QUIESCENCE_CEILING),
+      Effect.asVoid,
+      Effect.ignore,
+    ),
+  )
+
+export const interruptClientFibers = async (): Promise<void> => {
+  const interrupts = [...clientFibers]
+
+  clientFibers.clear()
+  await Promise.all(interrupts.map((interrupt) => settleWithinCeiling(interrupt())))
+}
+
+export const quiesceTouchedObjects = async (): Promise<void> => {
+  const objects = [...touchedObjects.values()]
+
+  touchedObjects.clear()
+  for (const { thread } of objects) disarmEvictions(thread)
+  await interruptClientFibers()
+  await Promise.all(
+    objects.map(({ namespace, thread }) =>
+      settleWithinCeiling(
+        runInDurableObject(
+          namespaceStub(thread, namespace),
+          (_instance, state) => state.storage.deleteAlarm(),
+        ),
+      )
+    ),
+  )
 }
 
 let nextProgressWaitIdentity = 0
@@ -109,19 +168,26 @@ export const runScheduleClient = <A, E>(effect: Effect.Effect<A, E, Scheduling>)
 export const runClientFiber = <A, E>(
   effect: Effect.Effect<A, E, CloudflareThreadClient>,
   namespace: TestNamespace = 'THREADS',
-) => Effect.runFork(effect.pipe(Effect.provide(clientLayer(namespace))))
+) => {
+  const fiber = Effect.runFork(effect.pipe(Effect.provide(clientLayer(namespace))))
 
-const isDurableObjectReset = (cause: unknown): boolean =>
-  typeof cause === 'object' &&
-  cause !== null &&
-  (('retryable' in cause && cause.retryable === true) ||
-    ('durableObjectReset' in cause && cause.durableObjectReset === true))
+  clientFibers.add(() => Effect.runPromise(Fiber.interrupt(fiber)).then(() => undefined))
 
-/**
- * Follow an aborted Object to a fresh incarnation, then park on its exact waiter count.
- * Attempts repeat only when the transport reports a reset or still reaches the prior
- * incarnation; the count condition itself is an Object-side latch, never a timed poll.
- */
+  return fiber
+}
+
+const isDurableObjectReset = (cause: unknown): boolean => {
+  if (typeof cause !== 'object' || cause === null) return false
+  if (
+    ('retryable' in cause && cause.retryable === true) ||
+    ('durableObjectReset' in cause && cause.durableObjectReset === true)
+  ) {
+    return true
+  }
+
+  return cause instanceof Error && /outputGateBroken|Durable Object reset/.test(cause.message)
+}
+
 export const awaitReconstructedProgressWaiter = async (
   thread: string,
   previousIncarnation: number,
@@ -133,7 +199,7 @@ export const awaitReconstructedProgressWaiter = async (
     try {
       const incarnation = await (
         stubFor(thread) as DurableObjectStub<TestThreadObject>
-      ).awaitProgressWaiterCountAfter(previousIncarnation, expected)
+      ).awaitProgressSubscribedAfter(previousIncarnation, expected)
 
       if (incarnation !== null) return incarnation
     } catch (cause) {
