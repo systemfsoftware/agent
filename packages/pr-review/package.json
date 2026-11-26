@@ -1,6 +1,6 @@
 {
   "name": "@systemfsoftware/agent-pr-review",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "A provider-neutral, source-backed pull-request reviewer.",
   "license": "MIT",
   "repository": {

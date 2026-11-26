@@ -1,5 +1,9 @@
 # @systemfsoftware/agent-storage-memory
 
+## 0.2.3
+
+Updated dependency @systemfsoftware/agent to 0.5.0
+
 ## 0.2.2
 
 Updated dependency @systemfsoftware/agent to 0.4.0

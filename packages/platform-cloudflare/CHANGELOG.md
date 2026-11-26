@@ -1,5 +1,9 @@
 # @systemfsoftware/agent-platform-cloudflare
 
+## 0.4.1
+
+Updated dependency @systemfsoftware/agent to 0.5.0
+
 ## 0.4.0
 
 Each package changelog now opens with the package's published npm name. No code changes.
