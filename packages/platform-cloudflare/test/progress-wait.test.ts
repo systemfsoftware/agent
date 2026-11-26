@@ -161,10 +161,13 @@ describe('#94 Cloudflare durable progress wait', () => {
       state.abort('#94 forced wait eviction')
     }).catch(() => undefined)
 
-    const reconstructedIncarnation = await awaitReconstructedProgressWaiter(
-      thread,
-      priorIncarnation,
-      1,
+    const surfaceClientWaitFailure = Fiber.join(waiting).pipe(Effect.flatMap(() => Effect.never))
+
+    const reconstructedIncarnation = await Effect.runPromise(
+      Effect.raceFirst(
+        Effect.promise(() => awaitReconstructedProgressWaiter(thread, priorIncarnation, 1)),
+        surfaceClientWaitFailure,
+      ),
     )
 
     expect(reconstructedIncarnation).not.toBe(priorIncarnation)

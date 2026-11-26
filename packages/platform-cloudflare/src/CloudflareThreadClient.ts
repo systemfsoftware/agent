@@ -875,21 +875,26 @@ export class CloudflareThreadClient extends Context.Service<
             ),
           )
 
+          const reissue = (
+            error: ThreadClientError | HostProtocolError,
+            retry: number,
+          ): Effect.Effect<void, ClientProgressFailure> =>
+            retry < 5
+              ? Effect.sleep(Duration.millis(10 * 2 ** retry)).pipe(
+                Effect.andThen(attempt(retry + 1)),
+              )
+              : Effect.fail(error)
+
           const attempt = (retry: number): Effect.Effect<void, ClientProgressFailure> =>
             call(threadId, 'awaitProgress', encoded).pipe(
               Effect.flatMap(
                 expect(threadId, 'awaitProgress', ProgressObserved, ClientObserveHostFailure),
               ),
               Effect.asVoid,
-              Effect.catchTag(
-                'ThreadClientError',
-                (error) =>
-                  error.retryable === true && error.overloaded !== true && retry < 5
-                    ? Effect.sleep(Duration.millis(10 * 2 ** retry)).pipe(
-                      Effect.andThen(attempt(retry + 1)),
-                    )
-                    : Effect.fail(error),
-              ),
+              Effect.catchTags({
+                ThreadClientError: (error) => error.overloaded === true ? Effect.fail(error) : reissue(error, retry),
+                HostProtocolError: (error) => reissue(error, retry),
+              }),
             )
 
           yield* attempt(0).pipe(Effect.onInterrupt(() => cancelProgress(threadId, waiterId)))
