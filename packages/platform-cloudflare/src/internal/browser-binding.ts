@@ -11,7 +11,7 @@ import * as Schema from 'effect/Schema'
 import puppeteer, {
   type Browser,
   type ConnectionTransport,
-} from 'puppeteer-core/lib/esm/puppeteer/puppeteer-core-browser.js'
+} from 'puppeteer-core/lib/puppeteer/puppeteer-core-browser.js'
 
 import { browserFailure, BrowserRunFailure, reportBrowserCause, reportedBrowserError } from './browser-failure'
 

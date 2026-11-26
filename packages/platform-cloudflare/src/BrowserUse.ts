@@ -12,7 +12,7 @@ import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import * as Schema from 'effect/Schema'
 import * as Semaphore from 'effect/Semaphore'
-import type { CDPSession, Frame, Page } from 'puppeteer-core/lib/esm/puppeteer/puppeteer-core-browser.js'
+import type { CDPSession, Frame, Page } from 'puppeteer-core/lib/puppeteer/puppeteer-core-browser.js'
 
 import type { BrowserSession, BrowserSessionError } from './BrowserSession'
 import { mapBrowserError, reportBrowserCause } from './internal/browser-failure'

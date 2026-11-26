@@ -14,7 +14,7 @@ import * as Redacted from 'effect/Redacted'
 import * as Schema from 'effect/Schema'
 import * as Scope from 'effect/Scope'
 import * as Semaphore from 'effect/Semaphore'
-import type { Browser, CDPSession, Page } from 'puppeteer-core/lib/esm/puppeteer/puppeteer-core-browser.js'
+import type { Browser, CDPSession, Page } from 'puppeteer-core/lib/puppeteer/puppeteer-core-browser.js'
 
 import {
   type BrowserCredentialAccess,
@@ -684,7 +684,7 @@ export class BrowserSessions extends Context.Service<
           lock
             .withPermitsIfAvailable(1)(
               Effect.gen(function*() {
-                if (invalid || scope.state._tag === 'Closed' || !browser.isConnected()) {
+                if (invalid || scope.state._tag === 'Closed' || !browser.connected) {
                   return yield* failure('closed')
                 }
                 const remaining = reference.expiresAt - (yield* Clock.currentTimeMillis)

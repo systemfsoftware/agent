@@ -3,7 +3,7 @@ import * as Context from 'effect/Context'
 import * as Effect from 'effect/Effect'
 import * as Redacted from 'effect/Redacted'
 import * as Schema from 'effect/Schema'
-import type { Frame, Page } from 'puppeteer-core/lib/esm/puppeteer/puppeteer-core-browser.js'
+import type { Frame, Page } from 'puppeteer-core/lib/puppeteer/puppeteer-core-browser.js'
 
 import {
   BrowserCredentialAccess,
