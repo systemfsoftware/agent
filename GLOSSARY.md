@@ -203,6 +203,13 @@ in its batch. Provider-executed calls may accompany it only with recorded termin
 still count toward Run budgets. Ordinary authorization and durability rules apply; the designation
 does not guarantee exactly-once effects.
 
+**Text completion**
+
+A Definition's optional `textCompletion` projection, applied when a Run's `completion` mode is
+`"text"`. The Run's final assistant text is taken verbatim, projected to the Agent output, and
+encoded; an empty or whitespace-only reply is rejected. A Run of a Definition without it decodes
+the text through the output Schema instead. A Run that keeps its completion Tool never uses it.
+
 **Step**\
 A deterministically named sub-operation within one Durable Tool Call. Its result is
 exactly-once-recorded but its external side effect is at-least-once-executed.

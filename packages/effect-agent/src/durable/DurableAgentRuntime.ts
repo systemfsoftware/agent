@@ -7993,6 +7993,7 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
         runStartedAt: runTiming.startedAt,
         durationDeadline: runTiming.deadline,
         ...(toolCallAllowance === undefined ? {} : { toolCallAllowance }),
+        ...(runSettings?.completion === undefined ? {} : { completion: runSettings.completion }),
         ...(runSettings?.turnAllowance === undefined ? {} : { turnAllowance: runSettings.turnAllowance }),
         ...(runSettings?.contextTokenLimit === undefined
           ? {}
@@ -8759,10 +8760,11 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
           .map((envelope) => envelope.record.payload)
           .find((payload) => payload._tag === 'SubagentLineageRecorded')?.policy
 
-      const dropCompletion = submission.runSettings?.completion === 'text' &&
-        registeredAgent.definition.completion !== undefined
+      const textCompletion = submission.runSettings?.completion === 'text'
+      const dropCompletion = textCompletion && registeredAgent.definition.completion !== undefined
+      const dropTextCompletion = !textCompletion && registeredAgent.definition.textCompletion !== undefined
 
-      const agent = childPolicy === undefined && !dropCompletion
+      const agent = childPolicy === undefined && !dropCompletion && !dropTextCompletion
         ? registeredAgent
         : {
           ...registeredAgent,
@@ -8770,6 +8772,7 @@ const make = Effect.fnUntraced(function*(bindings: ReadonlyArray<ResolvedBinding
             ...registeredAgent.definition,
             ...(childPolicy === undefined ? {} : { policy: childPolicy }),
             ...(dropCompletion ? { completion: undefined } : {}),
+            ...(dropTextCompletion ? { textCompletion: undefined } : {}),
           },
         }
 

@@ -649,6 +649,10 @@ const registrationDefinitions = (entry: AgentRegistration): DefinitionDigestInpu
       },
     }
 
+  const withTextCompletion = definition.textCompletion === undefined
+    ? definitions
+    : { ...definitions, agent: { declaration: definitions.agent, textCompletion: true } }
+
   const exposure = definition.toolExposure
 
   if (
@@ -657,13 +661,13 @@ const registrationDefinitions = (entry: AgentRegistration): DefinitionDigestInpu
       (tool) => Context.get(tool.annotations, DiscoveryTool) || Context.get(tool.annotations, PinnedTool),
     )
   ) {
-    return definitions
+    return withTextCompletion
   }
 
   return {
-    ...definitions,
+    ...withTextCompletion,
     agent: {
-      declaration: definitions.agent,
+      declaration: withTextCompletion.agent,
       toolExposure: {
         initialToolNames: exposure === undefined ? null : [...(exposure.initialToolNames ?? [])],
         maxTools: exposure?.maxTools ?? 64,

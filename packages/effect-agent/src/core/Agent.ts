@@ -82,6 +82,10 @@ export interface CompletionToolDeclaration<
   readonly project: (input: CompletionProjectionInput<Parameters, Result>) => Output
 }
 
+export interface TextCompletionProjection<Output> {
+  readonly project: (text: string) => Output
+}
+
 type CompletionToolFor<ToolkitValue extends Toolkit.Any, Output> = {
   readonly [Name in keyof ToolkitValue['tools'] & string]:
     & CompletionToolDeclaration<
@@ -134,6 +138,7 @@ export interface Definition<
   readonly policyOverrides?: Partial<AgentPolicyInput> | undefined
   /** When configured, this Tool must succeed to produce final output; ordinary text cannot settle. */
   readonly completion?: CompletionToolDeclaration | undefined
+  readonly textCompletion?: TextCompletionProjection<OutputSchema['Type']> | undefined
   readonly runDisposition?: RunDispositionValue | undefined
   readonly description?: string | undefined
 }
@@ -159,6 +164,7 @@ export interface DefinitionOptions<
   readonly toolExposure?: Configuration | undefined
   readonly policy?: Partial<AgentPolicyInput> | undefined
   readonly completion?: CompletionToolFor<ToolkitValue, OutputSchema['Type']> | undefined
+  readonly textCompletion?: TextCompletionProjection<OutputSchema['Type']> | undefined
   readonly runDisposition?: RunDispositionValue | undefined
   readonly description?: string | undefined
 }
@@ -477,6 +483,7 @@ export function make(
     readonly toolExposure?: Configuration | undefined
     readonly policy?: Partial<AgentPolicyInput> | undefined
     readonly completion?: CompletionToolDeclaration | undefined
+    readonly textCompletion?: TextCompletionProjection<unknown> | undefined
     readonly runDisposition?: RunDispositionDeclaration<never, Schema.Top> | undefined
     readonly description?: string | undefined
   },
@@ -508,6 +515,9 @@ export function make(
       }),
     id: S.decodeSync(AgentId)(id),
     completion: options.completion === undefined ? undefined : Object.freeze({ ...options.completion }),
+    textCompletion: options.textCompletion === undefined
+      ? undefined
+      : Object.freeze({ ...options.textCompletion }),
     runDisposition: options.runDisposition === undefined
       ? undefined
       : Object.freeze({ ...options.runDisposition }),
