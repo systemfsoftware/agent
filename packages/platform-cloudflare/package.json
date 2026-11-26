@@ -1,6 +1,6 @@
 {
   "name": "@systemfsoftware/agent-platform-cloudflare",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Cloudflare Layer assembly for Effect Agent: Durable Objects and Browser Run adapters.",
   "license": "MIT",
   "repository": {

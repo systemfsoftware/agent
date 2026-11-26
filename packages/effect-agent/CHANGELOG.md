@@ -1,5 +1,11 @@
 # @systemfsoftware/agent
 
+## 0.5.0
+
+Pass the Attempt's decoded input to `AgentRegistration.attemptLayer` as `AgentAttemptContext.input`, typed from the registered Definition's input Schema (unknown in the bare inline `compileRegistrations([...])` form). The value is the Submission's decoded input, identical on every Attempt including recovery.
+
+Add `textCompletion` to `Agent.make` so one Definition can complete a `completion: "text"` Run from its final assistant text while other Runs keep the completion Tool. On such a Run the text is projected through `textCompletion`, rejected when empty, and encoded as the output.
+
 ## 0.4.0
 
 Each package changelog now opens with the package's published npm name. No code changes.

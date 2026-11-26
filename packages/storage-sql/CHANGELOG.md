@@ -1,5 +1,9 @@
 # @systemfsoftware/agent-storage-sql
 
+## 0.3.2
+
+Updated dependency @systemfsoftware/agent to 0.5.0
+
 ## 0.3.1
 
 Updated dependency @systemfsoftware/agent to 0.4.0
