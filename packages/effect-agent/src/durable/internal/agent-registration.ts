@@ -400,18 +400,19 @@ export interface ResolvedBinding extends CapturedBinding {
   readonly digests: DefinitionDigests
 }
 
-/** Trusted claim identity for resolving per-Attempt application services. Not model input. */
-export interface AgentAttemptContext {
+export interface AgentAttemptContext<out Input = unknown> {
   readonly threadId: ThreadId
   readonly submissionId: Claim['submissionId']
   readonly attemptId: Claim['attemptId']
+  readonly input: Input
 }
 
 const capture = <A extends ExecutableAgentBinding, Requires>(
   agent: A,
   prepare: (
     execute: ReturnType<CapturedAttempt<A>>,
-    context: AgentAttemptContext,
+    threadId: ThreadId,
+    claim: Claim,
   ) => Effect.Effect<
     Option.Option<Settlement>,
     DurableWorkerFailure | DurableBindingFailure,
@@ -436,19 +437,48 @@ const capture = <A extends ExecutableAgentBinding, Requires>(
           claim.attemptId,
         )
 
-        return prepare(execute, {
-          threadId,
-          submissionId: claim.submissionId,
-          attemptId: claim.attemptId,
-        }).pipe(Effect.provide(context))
+        return prepare(execute, threadId, claim).pipe(Effect.provide(context))
       },
     }),
   )
 
-const captureWithAttemptLayer = <A extends ExecutableAgentBinding, Provides, Requires>(
+const captureWithAttemptLayer = <
+  InputSchema extends Schema.Top,
+  A extends ExecutableAgentBinding & { readonly definition: { readonly input: InputSchema } },
+  Provides,
+  Requires,
+>(
   agent: A,
-  attemptLayer: (context: AgentAttemptContext) => Layer.Layer<Provides, never, Requires>,
-) => capture(agent, (execute, context) => execute.pipe(Effect.provide(Layer.fresh(attemptLayer(context)))))
+  attemptLayer: (
+    context: AgentAttemptContext<InputSchema['Type']>,
+  ) => Layer.Layer<Provides, never, Requires>,
+) =>
+  capture(
+    agent,
+    (execute, threadId, claim) =>
+      Schema.decodeEffect<InputSchema>(agent.definition.input)(claim.inputPayload).pipe(
+        Effect.mapError(() =>
+          BindingUnavailable.make({
+            agentId: agent.definition.id,
+            message: 'The current Binding cannot decode accepted input',
+          })
+        ),
+        Effect.flatMap((input) =>
+          execute.pipe(
+            Effect.provide(
+              Layer.fresh(
+                attemptLayer({
+                  threadId,
+                  submissionId: claim.submissionId,
+                  attemptId: claim.attemptId,
+                  input,
+                }),
+              ),
+            ),
+          )
+        ),
+      ),
+  )
 
 /**
  * Build one exact worker registration from an executable Agent Binding and
@@ -552,7 +582,9 @@ export type AgentRegistration<A extends ExecutableAgentBinding = ExecutableAgent
      * Keep fallible resource acquisition lazy in typed Tool operations; this Layer cannot fail.
      * Provide DurableApprovalSuspension here when resources need retention before approval waits.
      */
-    readonly attemptLayer?: (context: AgentAttemptContext) => Layer.Layer<never, never, unknown>
+    readonly attemptLayer?: (
+      context: AgentAttemptContext<Agent.Input<A>>,
+    ) => Layer.Layer<never, never, unknown>
   }
 
 type EntryWorkerRequirements<Entry> = Entry extends {
@@ -565,7 +597,7 @@ type EntryWorkerRequirements<Entry> = Entry extends {
   : never
 
 type AttemptLayerRequirements<Requirements, AttemptLayer> = AttemptLayer extends (
-  context: AgentAttemptContext,
+  context: infer _Context,
 ) => Layer.Layer<infer Provides, never, infer Requires> ? Exclude<Requirements, Provides> | Requires
   : Requirements
 
@@ -583,11 +615,18 @@ type ReportingRequirements<Reports> = Reports extends ReadonlyArray<WorkerReport
   ? Exclude<R, Scope.Scope>
   : never
 
-type RegistrationRequirements<Entries extends ReadonlyArray<AgentRegistration>> = EntryRequirements<
+export type AnyAgentRegistration = AgentRegistration<ExecutableAgentBinding> extends infer U
+  ? U extends unknown ? Omit<U, 'attemptLayer'> & {
+      readonly attemptLayer?: (context: AgentAttemptContext<never>) => unknown
+    }
+  : never
+  : never
+
+type RegistrationRequirements<Entries extends ReadonlyArray<AnyAgentRegistration>> = EntryRequirements<
   Entries[number]
 >
 
-const registrationDefinitions = (entry: AgentRegistration): DefinitionDigestInput => {
+const registrationDefinitions = (entry: AnyAgentRegistration): DefinitionDigestInput => {
   const definition = entry.model === undefined ? entry.agent.definition : entry.agent
   const reports = entry.reporting ?? []
 
@@ -663,10 +702,10 @@ const registrationDefinitions = (entry: AgentRegistration): DefinitionDigestInpu
 
 // The public signature distributes over descriptors, including optional attempt Layers.
 // The implementation consumes their erased union and captures the selected Layer's context.
-function compileRegistration<Entry extends AgentRegistration>(
+function compileRegistration<Entry extends AnyAgentRegistration>(
   entry: Entry,
 ): Effect.Effect<ResolvedBinding, DigestError, CryptoDigest.Digest | EntryRequirements<Entry>>
-function compileRegistration(entry: AgentRegistration) {
+function compileRegistration(entry: AnyAgentRegistration) {
   return Effect.flatMap(
     Effect.try({
       try: () => registrationDefinitions(entry),
@@ -686,7 +725,10 @@ function compileRegistration(entry: AgentRegistration) {
           ? capture(agent, (execute) => execute)
           // The selected Layer discharges its services before the remaining Context is captured.
           // @effect-diagnostics-next-line anyUnknownInErrorContext:off
-          : captureWithAttemptLayer(agent, entry.attemptLayer)
+          : captureWithAttemptLayer(
+            agent,
+            entry.attemptLayer as (context: AgentAttemptContext<unknown>) => Layer.Layer<never, never, unknown>,
+          )
 
         // The descriptor erases projection services; EntryRequirements retains them for callers.
         // @effect-diagnostics-next-line anyUnknownInErrorContext:off
@@ -706,7 +748,7 @@ function compileRegistration(entry: AgentRegistration) {
 }
 
 /** Compile heterogeneous Agent descriptors into exact, dependency-closed worker registrations. */
-export const compileRegistrations = <const Entries extends ReadonlyArray<AgentRegistration>>(
+export const compileRegistrations = <const Entries extends ReadonlyArray<AnyAgentRegistration>>(
   entries: Entries,
 ): Effect.Effect<
   ReadonlyArray<ResolvedBinding>,
@@ -714,4 +756,40 @@ export const compileRegistrations = <const Entries extends ReadonlyArray<AgentRe
   CryptoDigest.Digest | RegistrationRequirements<Entries>
 > => {
   return Effect.forEach(entries, compileRegistration<Entries[number]>)
+}
+
+export function registration<
+  D extends ExecutableDefinition,
+  M extends Layer.Layer<ModelServices, never, object>,
+  AL extends Layer.Layer<never, never, object>,
+>(
+  entry: {
+    readonly agent: D
+    readonly model: M
+    readonly definitions: DefinitionDigestInput
+    readonly continuity?: AgentRegistration<ExecutableAgentBinding>['continuity']
+    readonly attemptLayer: (context: AgentAttemptContext<Schema.Schema.Type<D['input']>>) => AL
+  },
+): {
+  readonly agent: D
+  readonly model: M
+  readonly definitions: DefinitionDigestInput
+  readonly continuity?: AgentRegistration<ExecutableAgentBinding>['continuity']
+  readonly attemptLayer: (context: AgentAttemptContext<Schema.Schema.Type<D['input']>>) => AL
+}
+export function registration<A extends ExecutableAgentBinding, AL extends Layer.Layer<never, never, object>>(
+  entry: {
+    readonly agent: A
+    readonly definitions: DefinitionDigestInput
+    readonly continuity?: AgentRegistration<ExecutableAgentBinding>['continuity']
+    readonly attemptLayer: (context: AgentAttemptContext<Agent.Input<A>>) => AL
+  },
+): {
+  readonly agent: A
+  readonly definitions: DefinitionDigestInput
+  readonly continuity?: AgentRegistration<ExecutableAgentBinding>['continuity']
+  readonly attemptLayer: (context: AgentAttemptContext<Agent.Input<A>>) => AL
+}
+export function registration(entry: AnyAgentRegistration) {
+  return entry
 }

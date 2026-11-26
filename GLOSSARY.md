@@ -23,7 +23,9 @@ construction hashes the declarations and captures the Binding's required service
 Durable workers select one current Binding by stable Agent ID; pending operations retain their
 own replay contracts. Admission, lineage, and delivery digests remain immutable evidence.
 An optional `attemptLayer` builds invocation-specific services for one fenced Attempt, rather than
-capturing caller authority or live resources in the runtime's long-lived Scope.
+capturing caller authority or live resources in the runtime's long-lived Scope. The context it
+receives carries the Attempt's decoded Submission input as `input`, typed from the Definition's
+input Schema and identical on every Attempt, including recovery.
 
 **Agent Runtime**\
 The Effect module that interprets an Agent Definition or Binding. The ephemeral runtime executes immediately;

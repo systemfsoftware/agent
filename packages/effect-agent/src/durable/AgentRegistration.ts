@@ -2,6 +2,7 @@
 export {
   type AgentAttemptContext,
   type AgentRegistration,
+  type AnyAgentRegistration,
   type BindingSelection,
   BindingUnavailable,
   compileBindingContracts,
@@ -11,6 +12,7 @@ export {
   type DurableBindingFailure,
   DurableWorkerBinding,
   type ExecutableAgentBinding,
+  registration,
   type ReplayVersions,
   type ResolvedBinding,
 } from './internal/agent-registration'
