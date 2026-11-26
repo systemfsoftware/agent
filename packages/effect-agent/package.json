@@ -24,7 +24,7 @@
     "./agent-registration": "./src/durable/AgentRegistration.ts",
     "./agent-runtime": "./src/engine/AgentRuntime.ts",
     "./agent-updates": "./src/core/AgentUpdates.ts",
-    "./agui": "./src/engine/AgUi.ts",
+    "./agui": "./src/AgUi.ts",
     "./browser-use": "./src/capabilities/BrowserUse.ts",
     "./budget": "./src/capabilities/Budget.ts",
     "./code-executor": "./src/sandbox/CodeExecutor.ts",
@@ -170,8 +170,8 @@
         "default": "./dist/core/AgentUpdates.mjs"
       },
       "./agui": {
-        "types": "./dist/engine/AgUi.d.mts",
-        "default": "./dist/engine/AgUi.mjs"
+        "types": "./dist/AgUi.d.mts",
+        "default": "./dist/AgUi.mjs"
       },
       "./browser-use": {
         "types": "./dist/capabilities/BrowserUse.d.mts",

@@ -21,18 +21,22 @@ const modelIdentity = {
  * Best-effort text and reasoning drafts, never canonical history. Native parts omit provider metadata.
  * Discard retracts one generation; AttemptEnded closes every draft for that Attempt.
  */
+const TextEvent = Schema.TaggedStruct('Text', {
+  ...modelIdentity,
+  part: Schema.Union([
+    Response.TextStartPart,
+    Response.TextDeltaPart,
+    Response.TextEndPart,
+    Response.ReasoningStartPart,
+    Response.ReasoningDeltaPart,
+    Response.ReasoningEndPart,
+  ]),
+})
+
+export type TextEvent = typeof TextEvent.Type
+
 export const Event = Schema.Union([
-  Schema.TaggedStruct('Text', {
-    ...modelIdentity,
-    part: Schema.Union([
-      Response.TextStartPart,
-      Response.TextDeltaPart,
-      Response.TextEndPart,
-      Response.ReasoningStartPart,
-      Response.ReasoningDeltaPart,
-      Response.ReasoningEndPart,
-    ]),
-  }),
+  TextEvent,
   Schema.TaggedStruct('Discard', modelIdentity),
   Schema.TaggedStruct('AttemptEnded', attemptIdentity),
 ])
