@@ -1,4 +1,8 @@
-# @yielded/agent-storage-memory
+# @systemfsoftware/agent-storage-memory
+
+## 0.2.1
+
+Updated dependency @systemfsoftware/agent to 0.3.0
 
 ## 0.2.0
 

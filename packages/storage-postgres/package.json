@@ -1,6 +1,6 @@
 {
   "name": "@systemfsoftware/agent-storage-postgres",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Postgres persistence adapters for the Effect Agent durable runtime.",
   "license": "MIT",
   "repository": {

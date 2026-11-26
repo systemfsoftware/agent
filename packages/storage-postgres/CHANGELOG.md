@@ -1,4 +1,28 @@
-# @yielded/agent-storage-postgres
+# @systemfsoftware/agent-storage-postgres
+
+## 0.3.0
+
+Add `RunOptions.beforeModelRequest` and its durable form `RunHostControl.beforeModelCall`, a check that runs after context preparation and before every provider request, including compaction summaries and overflow retries, so `AgentRunStopped` ends a Run without another model call.
+
+Run `BrowserSessions` on the Browser Run binding alone: REST credentials move to an optional `lifecycle` option, and `close` returns `"confirmed"` or `"unconfirmed"`.
+
+BEHAVIOR CHANGE (breaking): pass `lifecycle: { accountId, apiToken }` instead of top-level `accountId` and `apiToken`. Without it, `getReadOnlyLiveView` fails with `live-view-requires-rest-credentials`.
+
+Add the `PageInspection` port (`@systemfsoftware/agent/page-inspection`) and its Browser Sessions adapter `browserSessionInspectionLayer` (`@systemfsoftware/agent-platform-cloudflare/browser-inspection`). One pass reports document status, a response header, the landed URL, console and page errors, failed requests, a JSON script value, named-viewport screenshots and timings, or `PageInspectionNotRun` with its cause. `BrowserSessions` now reports an acquisition rate limit as `rate-limited`.
+
+BEHAVIOR CHANGE (breaking): `SandboxImplementation`, `PageViewport`, `PageScreenshotPng` and `PageScreenshotJpeg` are now plain Schema structs rather than classes; build them with `.make(...)` or object literals, and do not use `instanceof`.
+
+Add `AgentRunHalted`, a host stop that is an answer rather than an error. Raised from `beforeTurn`, `beforeModelCall`, `resolveModel` or context preparation, it settles a durable root Run with the new outcome `stopped`, and the `SubmissionSettled` record carries the host's value as `hostStop`. `AgentRunStopped` still settles `failed`. In child and worker Runs, `AgentRunHalted` settles `failed`.
+
+BEHAVIOR CHANGE (breaking): `SettlementOutcome` and `RunSettlementNotice.outcome` gain `stopped`, so exhaustive matches on settlement outcomes need a new case.
+
+Add JPEG screenshots with a quality setting to `PageScreenshot`, and export `BrowserSessionPage`, the page type `BrowserSession.run` hands its action.
+
+BEHAVIOR CHANGE (breaking): `PageScreenshotRequest` now requires `format`, so a request without one fails to typecheck and to decode; pass `PageScreenshotPng.make({})` to keep PNG output, or `PageScreenshotJpeg.make({ quality })`.
+
+Add `DurableAgentRuntime.appendHostUpdate`, which commits a Thread-scoped `ThreadHostUpdateAppended` record that a host can append while a Run is active or the Thread is idle. It is idempotent by `updateId`, carries bounded JSON, and is skipped by the model's prompt history.
+
+BEHAVIOR CHANGE (breaking): the record format is now `effect-agent/thread@7`. Exports written at `@6` are not imported, and a Postgres store created at `@6` is refused at startup; start from a fresh store.
 
 ## 0.2.0
 

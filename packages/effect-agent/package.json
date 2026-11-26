@@ -1,6 +1,6 @@
 {
   "name": "@systemfsoftware/agent",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Effect-native agents, execution, subagents, and sandbox contracts in one tree-shakeable package.",
   "license": "MIT",
   "repository": {

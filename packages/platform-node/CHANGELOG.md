@@ -1,4 +1,8 @@
-# @yielded/agent-platform-node
+# @systemfsoftware/agent-platform-node
+
+## 0.1.2
+
+Updated dependency @systemfsoftware/agent to 0.3.0
 
 ## 0.1.1
 

@@ -1,4 +1,8 @@
-# @yielded/agent-storage-sqlite
+# @systemfsoftware/agent-storage-sqlite
+
+## 0.2.1
+
+Updated dependency @systemfsoftware/agent to 0.3.0
 
 ## 0.2.0
 
