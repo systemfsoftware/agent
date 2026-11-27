@@ -146,7 +146,7 @@ Product Contract preservation: new plan (`ce-plan-bootstrap`). It replaces an ea
 
   This replaces the application-owned `layerInHost` path, which needs effect-cf alarm types on a path that does not use effect-cf's class. It is deleted with no alias once `extend` ships (Q3 resolved). Governs R3, R8.
 - KTD6. **Under Alchemy, the consumer writes the glue in their own stack.** The outer Effect resolves `Cloudflare.DurableObjectState`, `WorkerEnvironment` and, for `Delegated`, one `makeCallback` entry whose handler calls the mount's `alarm`. The inner Effect returns `ThreadObject.mount({ state: state.raw, env, slot, extend })`. Consumer methods go through `extend`, so they run on the mounted runtime with the library's services. Methods on Alchemy's own runtime may sit beside a mount only in `Delegated` mode. That is a documented invariant, because a mount cannot see sibling methods. The docs and the example state it, and they state that those methods share the object's SQLite tables but no Effect services or fibers with the library (Q8 resolved). The delegate's Effects get their Alchemy services from the context the inner Effect captures at construction, not from a per-call scope. No glue ships in a package (R6). The example workspace in A4 holds the canonical form. In `Exclusive` mode, the record includes `alarm`, and Alchemy calls it after its dispatcher returns early. In `Delegated` mode the record omits `alarm`, so the callback is the only entry. Governs R4, R6.
-- KTD7. **Live text keeps `watchTextEncoded`.** Alchemy passes non-Stream values to native RPC unchanged (Sources), so the `RpcTarget` lifetime is serialized by workerd, not by Alchemy. A4 checks disposal on the deployed stage. If it fails, the existing `observePage` endpoint (`ThreadObject.ts:685`) is the fallback, and that change gets its own unit. This departs from an earlier design ruling that assumed the proxy breaks disposal (Open Questions Q7).
+- KTD7. **Live text keeps `watchTextEncoded`.** Alchemy passes non-Stream values to native RPC unchanged (Sources), so the `RpcTarget` lifetime is serialized by workerd, not by Alchemy. A4 checks disposal on the deployed stage. The observer's lifetime is not tied to the host call. `watchTextEncoded` returns an `ObservationLifetime` `RpcTarget` (`internal/live-text.ts:332`). workerd calls its `Symbol.dispose` (`:32`) when the client disposes its stub, and that closes the observer in the per-incarnation hub. Alchemy's per-call Scope closing has no effect on it. If the deployed check fails, the existing `observePage` endpoint (`ThreadObject.ts:685`) is the fallback, and that change gets its own unit. This departs from an earlier design ruling that assumed the proxy breaks disposal (Open Questions Q7).
 - KTD8. **Public types that leak effect-cf without need get library-owned replacements.** `SubscriptionPartitionAlarmHandler`'s event becomes a library type. A mounted object's own Alchemy callbacks need no consumer alarm registration type, because in `Delegated` mode consumer alarms are Alchemy callbacks. Governs R7.
 - KTD9. **Under `Delegated`, Alchemy's retry policy never applies to library work.** The callback handler runs effect-cf's due entries, records each entry's own retry or park outcome in effect-cf's table, and always succeeds toward Alchemy. effect-cf's retry, park and repeat semantics are therefore the only ones that apply (R5). Governs R5.
 
@@ -209,7 +209,7 @@ These are unconfirmed bets. Each names what would overturn it.
 
 ### Considered substrate: `effect/workflow`
 
-This section records facts read from source, for Q10. It makes no decision.
+This section records the facts read from source that settled Q10.
 
 - **What the substrate is.** Effect `4.1.5` ships `effect/workflow`: `Workflow`, `Activity`, `DurableClock`, `DurableDeferred`, `DurableQueue` and `WorkflowEngine`.
   - The engine is a service. A host provides `register`, `execute`, `poll`, `interrupt`, `resume`, `deferredResult` and `scheduleClock` (`effect/src/workflow/WorkflowEngine.ts:40-222`). Effect itself ships only `layerMemory` (`:732`).
@@ -283,7 +283,9 @@ Waits on: nothing to start. E4's publish step waits on the tooling port being me
   - modify `packages/effect-cf/src/DurableObjectAlarm.ts` (a slot service read by `readNativeAlarm` and `writeNativeAlarm`; `Exclusive` default for `layer`);
   - test: `tests/DurableObjectAlarm.worker.test.ts`, `tests/durable-alarm.test-d.ts` (existing), plus the TEST-1 candidates T1, T2 and T4.
 - **Approach:**
-  1. First establish, on workerd and on a deployed SQLite-backed object, whether a `storage.transaction` nested inside another commits and rolls back with the outer one (KTD3). If it does not, stop and raise Q9.
+  1. First establish, on workerd and on a deployed SQLite-backed object, whether a `storage.transaction` nested inside another commits and rolls back with the outer one (KTD3). If it does not, use the fallback below. Never hand off after commit, because that reopens the lost-wake window.
+
+     Fallback: `Delegated` gains a host-transaction contract. The delegate also supplies `transaction: <A, E, R>(effect: Effect<A, E, R>) => Effect<A, E, R>`, the host's own transaction wrapper. effect-cf opens every alarm-writing transaction in `Delegated` mode through it, so the library row and the handoff run inside one host transaction. Under Alchemy, the consumer passes Alchemy's `state.storage.transaction`. Alchemy's callback `schedule` then joins that transaction instead of nesting (`Workerd/internal/StorageTransaction.ts:11-21`), provided it runs on the same fiber. That proviso is itself checked in this step.
   2. `Slot = Exclusive | Delegated`, as a tagged union.
   3. In `Delegated` mode, `readNativeAlarm` returns the last deadline the multiplexer handed to the delegate. That value is persisted in the multiplexer's own table, so a consumed-timestamp check still works.
   4. `writeNativeAlarm` records the deadline and calls the delegate inside the current transaction. A failed delegate fails the transaction, as a failed `setAlarm` does.
@@ -303,6 +305,8 @@ Waits on: nothing to start. E4's publish step waits on the tooling port being me
 - **Approach:**
   1. `mount(layer, options)` returns `(host: { state; env; slot }) => Effect<Record>`. It builds the instance with a gate that runs its argument inline, then awaits `initialize`.
   2. Each RPC method becomes `(...args) => Effect.callback`, which aborts the instance run on interruption. It takes the parent span as KTD2 orders it.
+
+     The abort covers interruption that starts on the host side only. A native caller that aborts or disconnects never reaches either host. Alchemy runs each call with `Effect.runPromiseExit` and passes no signal (`alchemy/src/Workers/DurableObjectBridge.ts:230`), and neither bridge file mentions an `AbortSignal` or interruption. effect-cf's native class methods cannot observe a disconnect either. Caller cancellation therefore stays an explicit call under both hosts, as today: `cancelProgressEncoded` (`ThreadObject.ts:666`, `:1134`). `mount` adds no dispose hook, because nothing on the host side would call it.
   3. `alarm` is included only when `slot` is `Exclusive`. A separate `runAlarms` Effect is always returned for a `Delegated` handler.
   4. Export a `ReservedMountKey` union: effect-cf's `reservedMethodNames`, plus `Object.prototype` names and `ctx` and `env`. `mount` refuses those names and any duplicate key, at the type level and at construction (KTD5).
 - **Patterns to follow:** the `make` overloads (`:255-290`) for option typing.
@@ -314,9 +318,9 @@ Waits on: nothing to start. E4's publish step waits on the tooling port being me
 - **Goal:** the agent can depend on a published fork.
 - **Requirements:** R6.
 - **Files:** modify `packages/effect-cf/package.json` (name `@systemfsoftware/effect-cf`, version `0.60.0`), and add a changeset describing `mount`, the slot union and the instance core.
-- **Approach:** release through the fork's `release.yml` after the tooling port lands. Keep the upstream MIT notice in `LICENSE`.
+- **Approach:** the tooling port (systemfsoftware/effect-cf#1) keeps the upstream package name and leaves the rename to this unit. Rename the package to `@systemfsoftware/effect-cf`, and change every in-repository `effect-cf` module specifier to match: sources, tests, examples, docs and tooling. Count the specifiers again on the merged tooling-port tree before starting. Then release through the fork's release workflow. Keep the upstream MIT notice in `LICENSE`.
 - **Test expectation:** none; the release workflow is the check.
-- **Verification:** `npm view @systemfsoftware/effect-cf@0.60.0` resolves.
+- **Verification:** no import of the bare `effect-cf` name remains in the fork, its CI passes, and `npm view @systemfsoftware/effect-cf@0.60.0` resolves.
 
 ### PR 2: systemfsoftware/agent
 
@@ -431,7 +435,9 @@ Resolved by design review:
 - Q7. Live text keeps `watchTextEncoded`, gated by A4's deployed disposal check, with `observePage` as the fallback (KTD7).
 - Q8. `extend` is the supported way to add methods. Alchemy-runtime methods beside a mount require `Delegated` mode and share only SQLite (KTD6).
 
+- Q9. Settled: if a nested `storage.transaction` does not join the outer one, `Delegated` takes the host's transaction wrapper (E2 step 1). Handing off after commit is never the fallback.
+- Q10. Settled: `effect/workflow` is not adopted. Durable timing stays on effect-cf's multiplexer. Moving schedule timing alone would remove neither `mount` nor the delegated slot, which maintenance and subscription delivery still need. It would also need a new engine for plain Workers, add a non-atomic seam between objects, and grow a repeating schedule's journal without bound. The facts are recorded in "Considered substrate: `effect/workflow`".
+
 Still open:
 
-- Q9. If a nested `storage.transaction` on a SQLite-backed object does not commit and roll back with the outer one, how does `Delegated` mode arm the host wake atomically with the library row? Gates E2.
-- Q10. Should durable timing move to `effect/workflow` on an engine the host provides? See "Considered substrate: `effect/workflow`". Gates nothing in the current units. A yes would reshape E2, A2 and A4.
+- Q11. Does Alchemy's callback `schedule`, called through the host transaction wrapper from the mounted runtime's fiber, see that transaction as its own? It joins only when the same fiber owns an Alchemy transaction (`Workerd/internal/StorageTransaction.ts:16-20`), and the mounted runtime is a different runtime. If not, the fallback in E2 needs the library write to run on Alchemy's fiber. Gates E2 only when the nested check fails.
