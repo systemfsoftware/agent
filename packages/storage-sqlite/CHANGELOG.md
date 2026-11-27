@@ -1,5 +1,9 @@
 # @systemfsoftware/agent-storage-sqlite
 
+## 0.2.6
+
+Updated dependency @systemfsoftware/agent to 0.7.0
+
 ## 0.2.5
 
 Updated dependency @systemfsoftware/agent to 0.6.0
