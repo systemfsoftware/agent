@@ -1,5 +1,9 @@
 # @systemfsoftware/agent-platform-node
 
+## 0.1.7
+
+Updated dependency @systemfsoftware/agent to 0.7.0
+
 ## 0.1.6
 
 Updated dependency @systemfsoftware/agent to 0.6.0

@@ -1,5 +1,9 @@
 # @systemfsoftware/agent
 
+## 0.7.0
+
+Adds `projectDurableAgUi` and `toDurableAgUiEvents` to `@systemfsoftware/agent/agui`, projecting a durable Thread's canonical record log plus in-flight provisional text into cursor-indexed AG-UI events, so a reload that replays from any sequence renders the same view a live viewer saw. Each event says whether it is canonical or provisional: in-flight draft text is re-sent in full on every projection, so a consumer replaces its provisional events with the latest set and drops them when the turn's canonical events arrive. Settled Runs end in `RUN_FINISHED` or `RUN_ERROR`, aborted and host-halted Runs end as a stopped `RUN_FINISHED` with the `cancelled` outcome, steering transitions are emitted as `agent.steering` custom events, and a consumer's own structured run output travels in `RUN_FINISHED.result` and can be decoded and re-emitted through the typed `output` extension.
+
 ## 0.6.0
 
 Adds `@systemfsoftware/agent/agui`: `toAgUiEvents` maps a Run's semantic event stream to AG-UI events, `makeAgUiHandler` serves them through `AgUiServer.handler`, which applies the AG-UI run lifecycle, and `fromAgUiInput` adapts an AG-UI run input into a Prompt. Suspended and interrupted Runs end with AG-UI `RunFinished` outcomes instead of `RunError`, state snapshots are not emitted, and subagent events are omitted unless `includeSubagents` is set. Tool results and failures are JSON-encoded in `TOOL_CALL_RESULT`, and a suspended Run reports one interrupt per pending approval.

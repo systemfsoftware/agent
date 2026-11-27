@@ -1,5 +1,9 @@
 # @systemfsoftware/agent-storage-postgres
 
+## 0.3.5
+
+Updated dependency @systemfsoftware/agent to 0.7.0
+
 ## 0.3.4
 
 Updated dependency @systemfsoftware/agent to 0.6.0
