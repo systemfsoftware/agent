@@ -15,7 +15,7 @@ execution: code
 - **Objective:** a Worker author can run this library's Durable Object Threads, scheduling, subscriptions and memory under the host their Worker already uses, either effect-cf or plain Cloudflare Workers (including classes an Alchemy bridge constructs), and install nothing for the host they do not use.
 - **Means:** host-independent Durable Object services over plain `DurableObjectState` and `Env`, plus one thin, opt-in outer shell per host. No host is a default and no host is baked into the shared code.
 - **Product authority:** this Product Contract, under the repository's `CODING_STANDARDS.md`. Design calls that repository law leaves open are recorded under Key Decisions with the alternative each rejects.
-- **Open blockers:** whether in-memory cross-call wake delivery is correct on deployed workerd is not settled (R18). Local workerd does not reproduce a failure that was seen in deployment, so local runs cannot settle it. Every other open question is Deferred to Planning.
+- **Open blockers:** none block planning. R18 gates the wake-transport choice inside planning: it is not yet known whether in-memory cross-call wake delivery is correct on deployed workerd, because local workerd does not reproduce a failure that was seen in deployment.
 
 ---
 
