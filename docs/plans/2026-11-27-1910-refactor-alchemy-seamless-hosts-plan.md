@@ -286,6 +286,8 @@ Waits on: nothing to start. E4's publish step waits on the tooling port being me
   1. First establish, on workerd and on a deployed SQLite-backed object, whether a `storage.transaction` nested inside another commits and rolls back with the outer one (KTD3). If it does not, use the fallback below. Never hand off after commit, because that reopens the lost-wake window.
 
      Fallback: `Delegated` gains a host-transaction contract. The delegate also supplies `transaction: <A, E, R>(effect: Effect<A, E, R>) => Effect<A, E, R>`, the host's own transaction wrapper. effect-cf opens every alarm-writing transaction in `Delegated` mode through it, so the library row and the handoff run inside one host transaction. Under Alchemy, the consumer passes Alchemy's `state.storage.transaction`. Alchemy's callback `schedule` then joins that transaction instead of nesting (`Workerd/internal/StorageTransaction.ts:11-21`), provided it runs on the same fiber. That proviso is itself checked in this step.
+
+     If Alchemy's `schedule` does not see the wrapper's transaction as its own, because it joins only a transaction its own fiber owns (`Workerd/internal/StorageTransaction.ts:16-20`), the fallback runs the whole transaction on Alchemy's fiber: the library's row write, then the handoff. The Alchemy runtime captured in the consumer's constructor supplies that fiber. The delegate's `transaction` then submits the effect-cf transaction body to that runtime instead of wrapping it on the mounted fiber. Design nothing past this step until the nested-transaction check has run.
   2. `Slot = Exclusive | Delegated`, as a tagged union.
   3. In `Delegated` mode, `readNativeAlarm` returns the last deadline the multiplexer handed to the delegate. That value is persisted in the multiplexer's own table, so a consumed-timestamp check still works.
   4. `writeNativeAlarm` records the deadline and calls the delegate inside the current transaction. A failed delegate fails the transaction, as a failed `setAlarm` does.
@@ -307,7 +309,9 @@ Waits on: nothing to start. E4's publish step waits on the tooling port being me
   2. Each RPC method becomes `(...args) => Effect.callback`, which aborts the instance run on interruption. It takes the parent span as KTD2 orders it.
 
      The abort covers interruption that starts on the host side only. A native caller that aborts or disconnects never reaches either host. Alchemy runs each call with `Effect.runPromiseExit` and passes no signal (`alchemy/src/Workers/DurableObjectBridge.ts:230`), and neither bridge file mentions an `AbortSignal` or interruption. effect-cf's native class methods cannot observe a disconnect either. Caller cancellation therefore stays an explicit call under both hosts, as today: `cancelProgressEncoded` (`ThreadObject.ts:666`, `:1134`). `mount` adds no dispose hook, because nothing on the host side would call it.
-  3. `alarm` is included only when `slot` is `Exclusive`. A separate `runAlarms` Effect is always returned for a `Delegated` handler.
+  3. `alarm` is included only when `slot` is `Exclusive`, and it keeps `#runAlarm`'s behaviour (`DurableObject.ts:410-440`).
+
+     A separate `runAlarms` Effect is always returned for a `Delegated` handler, with the KTD9 contract. It runs the due library entries, records each entry's retry, park or repeat outcome in effect-cf's own alarm table, and then reports success to the host. Its error channel is `never`, so a failing library entry never triggers the host's own callback retry or park. This differs from `#runAlarm`, which surfaces failure to the platform alarm retry.
   4. Export a `ReservedMountKey` union: effect-cf's `reservedMethodNames`, plus `Object.prototype` names and `ctx` and `env`. `mount` refuses those names and any duplicate key, at the type level and at construction (KTD5).
 - **Patterns to follow:** the `make` overloads (`:255-290`) for option typing.
 - **Test scenarios:** T3 (admitted).
@@ -438,6 +442,4 @@ Resolved by design review:
 - Q9. Settled: if a nested `storage.transaction` does not join the outer one, `Delegated` takes the host's transaction wrapper (E2 step 1). Handing off after commit is never the fallback.
 - Q10. Settled: `effect/workflow` is not adopted. Durable timing stays on effect-cf's multiplexer. Moving schedule timing alone would remove neither `mount` nor the delegated slot, which maintenance and subscription delivery still need. It would also need a new engine for plain Workers, add a non-atomic seam between objects, and grow a repeating schedule's journal without bound. The facts are recorded in "Considered substrate: `effect/workflow`".
 
-Still open:
-
-- Q11. Does Alchemy's callback `schedule`, called through the host transaction wrapper from the mounted runtime's fiber, see that transaction as its own? It joins only when the same fiber owns an Alchemy transaction (`Workerd/internal/StorageTransaction.ts:16-20`), and the mounted runtime is a different runtime. If not, the fallback in E2 needs the library write to run on Alchemy's fiber. Gates E2 only when the nested check fails.
+- Q11. Settled: if Alchemy's `schedule` does not join the wrapper's transaction from the mounted fiber, the fallback runs the transaction and the handoff on Alchemy's fiber, using the runtime captured at construction (E2 step 1). E2's nested-transaction check runs before any further design.
