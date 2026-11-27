@@ -15,7 +15,7 @@ execution: code
 - **Objective:** a Worker author can run this library's Durable Object Threads, scheduling, subscriptions and memory under the host their Worker already uses, either effect-cf or plain Cloudflare Workers (including classes an Alchemy bridge constructs), and install nothing for the host they do not use.
 - **Means:** host-independent Durable Object services over plain `DurableObjectState` and `Env`, plus one thin, opt-in outer shell per host. No host is a default and no host is baked into the shared code.
 - **Product authority:** this Product Contract, under the repository's `CODING_STANDARDS.md`. Design calls that repository law leaves open are recorded under Key Decisions with the alternative each rejects.
-- **Open blockers:** none. Outstanding Questions marked Deferred to Planning are answered during planning.
+- **Open blockers:** whether in-memory cross-call wake delivery is correct on deployed workerd is not settled (R18). Local workerd does not reproduce a failure that was seen in deployment, so local runs cannot settle it. Every other open question is Deferred to Planning.
 
 ---
 
@@ -46,7 +46,7 @@ The platform-neutral core, `@systemfsoftware/agent`, already imports nothing fro
 - **The host seam sits outside the runtime, not inside it as an Effect Layer.** Both hosts are outer class or entrypoint wrappers that create the runtime, so the shared part is services and layers over plain `DurableObjectState` and `Env`, consumed by a thin outer shell. Rejected: passing a host Layer into `ThreadObject.make`. Governs R3, R5.
 - **All four Durable Object domains move in this one restructure.** Leaving scheduling, subscriptions or memory on effect-cf keeps effect-cf mandatory for any consumer that uses them. Governs R1, R4.
 - **Exactly one owner of the physical alarm slot per object.** Two multiplexers writing `setAlarm` in one object overwrite each other and silently drop wakes; the observed Alchemy reconcile does exactly that. Rejected: letting the library and the host each schedule the slot. Governs R10, R11.
-- **Cross-call wake delivery inside one object incarnation stays as it is.** A local reproduction showed it correct under workerd with `nodejs_compat` (see Sources). Rejected for now: replacing in-memory wake hubs with storage-backed polling or alarm-driven wake-ups, which add storage operations and wake latency to fix a failure not reproduced. Governs R17.
+- **In-memory cross-call wake delivery is a provisional baseline, not a settled choice.** Local workerd shows it working (see Sources), but local workerd also runs the case that failed in deployment without error, so local evidence cannot clear it. It stays unless the deployed probe in R18 fails; the event-scope rule in R17 holds either way. Governs R17, R18.
 - **The library offers both adapters even though a given consumer uses only one.** Governs R1.
 
 ### Requirements
@@ -54,34 +54,35 @@ The platform-neutral core, `@systemfsoftware/agent`, already imports nothing fro
 **Host independence**
 
 - R1. The package offers an effect-cf adapter and a plain Cloudflare Workers adapter as separate opt-in entrypoints; neither is the default, and a consumer picks one at its Worker composition root.
-- R2. No module reachable from a host-independent entrypoint imports effect-cf, and effect-cf is at most an optional peer dependency.
+- R2. No module reachable, directly or transitively, from the package root or the plain-Workers entrypoint imports effect-cf. This includes shared helpers used by Browser Run, code mode, AI Gateway and R2 tool-result storage. effect-cf is at most an optional peer dependency.
 - R3. Host-independent services take plain `DurableObjectState`, `DurableObjectStorage` and `Env` and express every host interaction (state, bindings, alarm scheduling, client transport) through ports a host adapter satisfies.
 - R4. The Thread, scheduling owner, subscription partition and memory objects each work under both adapters with the same behaviour, persisted records and RPC wire values.
 - R5. A host adapter only wires lifecycle: it constructs or joins the class, builds and caches the runtime once per object incarnation, maps the host's state and env into the shared services, routes lifecycle events to the shared handlers, and runs its host's end-of-event teardown. Domain state transitions, SQL and schemas live in shared code.
-- R6. Combining parts of the two adapters in one object (for example the effect-cf alarm port with a plain-Workers shell) cannot type-check.
+- R6. Consumers compose only complete adapter shells and client layers; host ports are not exported for mixing, so one object cannot be built from parts of both adapters.
 - R7. Superseded effect-cf-coupled entrypoints are deleted, with no aliases or compatibility re-exports.
 
 **Lifecycle and composition**
 
-- R8. Both adapters run the existing local-only initialization (schema migration and version check, configuration decode, ensure-alarm) inside `blockConcurrencyWhile` before any event is handled; recovery and any cross-object call stay outside the gate and run per event.
-- R9. A consumer can place the library's RPC methods, alarm handling and initialization on one class beside their own methods, sharing one runtime, one SQLite database and one initialization gate. This holds both for a class the plain adapter builds and for a class a host such as Alchemy constructs from one built method shape.
+- R8. Both adapters run the existing local-only initialization (schema migration and version check, configuration decode, ensure-alarm) inside `blockConcurrencyWhile` before any event is handled, followed by any consumer local-only initialization under the same rule; recovery and any cross-object call stay outside the gate and run per event.
+- R9. A consumer can place the library's RPC methods, alarm handling and initialization on one class beside their own methods, sharing one runtime built from the library's and the consumer's Layers, one SQLite database and one initialization gate. This holds both for a class the plain adapter builds and for a class a host such as Alchemy constructs from one built method shape.
 - R10. Under either adapter, exactly one dispatcher reads or writes the object's physical alarm slot.
-- R11. The plain adapter supports both slot arrangements: owning the slot itself while multiplexing every library alarm (Thread maintenance, scheduling, subscriptions and consumer registrations), and handing the slot to a host dispatcher that already owns it, so the host's reconcile never drops a library wake.
-- R12. The effect-cf adapter keeps effect-cf's alarm multiplexer as the slot owner and the existing named alarm registration behaviour.
+- R11. The plain adapter supports both slot arrangements: owning the slot itself while multiplexing every library alarm (Thread maintenance, scheduling, subscriptions and consumer registrations), and handing the slot to a host dispatcher through one library alarm entry and a next-due time, so the library never writes a slot the host owns.
+- R12. Both adapters accept consumer alarm registrations, run every due handler on an alarm, and re-arm for the earliest remaining deadline before the event ends, with today's retry, parked-delay and repeat semantics. The effect-cf adapter keeps effect-cf's alarm multiplexer as the slot owner.
 
 **Client and transport**
 
-- R13. The Thread, scheduling, subscription and memory clients are split the same way: a host-independent client contract and one client implementation per adapter, so application code does not change when a deployment switches adapter.
-- R14. Every value crossing a Durable Object boundary is encoded and decoded with the existing Effect Schemas under both adapters, and RPC trace context propagates under both.
+- R13. The Thread, scheduling, subscription and memory clients are split the same way: a host-independent client contract and one client implementation per adapter, so application code does not change when a deployment switches adapter. Each adapter's clients accept the binding kinds today's clients accept.
+- R14. Every value crossing a Durable Object boundary is encoded and decoded with the existing Effect Schemas under both adapters, and so is every chunk of a streamed or long-lived wait. RPC trace context propagates under both adapters. Interrupting a client wait cancels the wait inside the object.
 
 **Telemetry**
 
 - R15. Shared code emits telemetry only through Effect tracing, metrics and logging, and never builds an exporter or calls `waitUntil` to flush.
-- R16. Each adapter makes recorded telemetry leave the object by the end of every event kind it handles (RPC, alarm, fetch, WebSocket), with no export interval, and a host that already flushes per event (such as Alchemy's bridge) gets no second flush.
+- R16. Each adapter makes recorded telemetry leave the object by the end of every event kind it routes, with no export interval. The plain adapter is told whether its host already flushes per event (as Alchemy's bridge does) and then adds no second flush.
 
 **Fiber lifetime**
 
 - R17. Every fiber the shared code forks runs in a Scope opened and closed within one event; nothing outlives the event that forked it. A fiber parked inside a still-open call may be resumed by another call of the same incarnation, which is how progress and settlement waits are woken today.
+- R18. Before planning commits a wake transport, a probe on a deployed object at the target compatibility date with `nodejs_compat` records two things. First, whether a fiber parked on a `Deferred` or `Latch` and resumed by a later call raises the AsyncLocalStorage error when it touches storage, an AsyncLocalStorage-bound function or outbound `fetch`, once while the parking call is still open and once after it has returned or the client aborted. Second, the billed duration and hibernation state of an object holding a waiting call. If the error appears, or the held-wait cost is unacceptable, cross-call wakes move to a transport that does not resume fibers across calls.
 
 ### Acceptance Examples
 
@@ -98,25 +99,23 @@ The platform-neutral core, `@systemfsoftware/agent`, already imports nothing fro
 - Choosing one host for the library, or making either adapter the default, is out.
 - An Alchemy-specific adapter or a runtime dependency on Alchemy is out; Alchemy is a host the plain adapter composes into (R9, R11).
 - The platform-neutral core `@systemfsoftware/agent` is unchanged except where a port it already defines must deepen.
-- Browser Run, code mode, AI Gateway and R2 tool-result storage, which do not import effect-cf, are out unless planning finds they reach effect-cf through a shared module.
-- Replacing in-memory cross-call wake delivery is out (see Key Decisions); it returns only if the reproduction fails on a newer workerd or under a host adapter.
+- Browser Run, code mode, AI Gateway and R2 tool-result storage, which do not import effect-cf, change only as far as R2 requires.
 
 ### Dependencies / Assumptions
 
 - effect-cf `^0.59.0` is the effect-cf version the effect-cf adapter targets.
 - Alchemy's workerd bridge behaviour cited here is read from its source at the time of writing: construction inside `blockConcurrencyWhile`, proxy or static dispatch over one built shape, per-event telemetry flush, and an alarm dispatcher that runs before the instance's own `alarm` and reconciles the slot to its own rows.
-- The reproduction in Sources ran on local workerd through Miniflare, not on deployed Cloudflare.
+- The reproductions in Sources ran on local workerd through Miniflare, not on deployed Cloudflare.
+- The deployed probe in R18 runs without exposing a new public route, for example through a remote preview session.
 
 ### Outstanding Questions
 
 **Deferred to Planning**
 
-- How does the plain adapter hand alarm ownership to a host dispatcher? Settled by reading whether Alchemy exposes a callback registration the library can schedule into, or only a builder DSL, and choosing the hand-off that R11 needs.
+- How does Alchemy's dispatcher call the library alarm entry that R11 defines? Settled by reading whether Alchemy exposes a callback registration API or only a builder DSL.
 - Do library method names need a namespace when they share a class with consumer methods (R9)? Settled by checking whether Alchemy's static dispatch accepts nested method objects or only flat properties.
 - How do progress, settlement and live-text waits cross the plain Workers RPC boundary, including cancellation? Settled by measuring native Workers RPC `ReadableStream` and disposable-stub behaviour across Durable Object calls at the target compatibility date, and whether Alchemy's proxy forwards them intact.
-- Do clients reach objects only through a `DurableObjectNamespace` binding, or also through service bindings across Workers? Settled by listing the binding types every client constructor accepts today.
-- Why did an exporter loop parked on a Latch fail with the AsyncLocalStorage error when a parked `Deferred` waiter does not? Settled by reproducing that case beside the one in Sources; the answer bounds R17's allowed pattern.
-- What does a long-held waiting RPC cost in Durable Object duration billing and hibernation eligibility, compared with a client-side poll? Settled by measuring a held wait's billed duration on a deployed object; it decides whether R17's wait pattern needs a time cap.
+- Which wake transport replaces cross-call fiber resumption if R18's probe fails: storage-backed polling, alarm-driven wakes, or a bounded client re-poll? Settled by R18's measurements, compared on storage operations per wait, wake latency, billed duration, hibernation, behaviour across eviction, and complexity.
 
 ### Sources / Research
 
@@ -124,6 +123,7 @@ The platform-neutral core, `@systemfsoftware/agent`, already imports nothing fro
 - `packages/platform-cloudflare/src/Alarm.ts`: per-Thread attempts and lanes fork into a Scope opened in one alarm event and closed before the final re-arm.
 - `packages/platform-cloudflare/src/WakeScheduler.ts` and `src/internal/progress-wait.ts`: per-incarnation wake hubs and a waiter registry; a call waiting on progress is woken by another call's notify.
 - Cross-call wake reproduction, Miniflare `5.20260811.1-alpha`, compatibility date `2025-05-01`, `nodejs_compat`, Effect `4.1.5`. One object holds a `Deferred`. Call A awaits it then reads storage; call B completes it. A second case forks the same wait from a call that has already returned. Output: `status 200 ["notified","woken","parked","notified",["detached resumed"]]`. No AsyncLocalStorage error appeared, and both waiters settled.
+- Extended local probe on the same runtime. A fiber parked on a `Deferred` or on a `Latch` was resumed by a later call, once while the parking call was still open and once after it had returned. Each resumed fiber then read storage, read `AsyncLocalStorage.getStore()`, and called a function bound with `AsyncLocalStorage.bind` in the parking call. All succeeded and the store still held the parking call's value. Outbound `fetch` to a closed port failed only with `Network connection lost.` Local workerd therefore did not reproduce the AsyncLocalStorage error reported in deployment for a resumed exporter loop.
 - `pnpm exec vitest run --project workerd test/progress-wait.test.ts` in `packages/platform-cloudflare`: 3 of 3 passed, including a wait woken by a later approval call after eviction, with no AsyncLocalStorage error in the output.
 - Effect `4.1.5` `internal/effect.ts`: a fiber resumes inside a `node:async_hooks` `AsyncResource` captured when it parked.
 - effect-cf `0.59.0` `DurableObject.ts`: flushes OTLP in `waitUntil` on RPC and alarm exit only, capped at 2 seconds with failures swallowed.
