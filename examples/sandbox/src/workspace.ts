@@ -1,4 +1,5 @@
 import { ThreadObjectIdentity } from '@systemfsoftware/agent-platform-cloudflare/cloudflare-bindings'
+import { DurableObjectState } from '@systemfsoftware/effect-cf'
 import {
   makeNativeSandbox,
   NativeSandboxNamespace,
@@ -6,7 +7,6 @@ import {
   type SessionSandbox,
 } from '@yielded/sandbox/cloudflare'
 import { Context, Effect, Layer, Schema, Semaphore, type Stream, SubscriptionRef } from 'effect'
-import { DurableObjectState } from '@systemfsoftware/effect-cf'
 
 /** Admitted runs and commands may create a workspace; readers require its retained instance. */
 export class Workspace extends Context.Service<

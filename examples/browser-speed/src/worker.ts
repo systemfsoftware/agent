@@ -11,9 +11,9 @@ import { dynamicWorkerCodeExecutorLayer } from '@systemfsoftware/agent-platform-
 import * as DoThreadStore from '@systemfsoftware/agent-storage-cloudflare/do-thread-store'
 import * as PersistentHistory from '@systemfsoftware/agent/persistent-history'
 import { ThreadHistory } from '@systemfsoftware/agent/thread-history'
+import { DurableObjectState as EffectDurableObjectState } from '@systemfsoftware/effect-cf'
 import { DurableObject } from 'cloudflare:workers'
 import { Context, Effect, Layer, ManagedRuntime, Redacted, Schema, Struct } from 'effect'
-import { DurableObjectState as EffectDurableObjectState } from '@systemfsoftware/effect-cf'
 import { FetchHttpClient, HttpRouter, HttpServer } from 'effect/http'
 import { HttpApiBuilder } from 'effect/http-api'
 

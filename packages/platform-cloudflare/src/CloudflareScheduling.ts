@@ -54,8 +54,8 @@ import type { ThreadObjectNamespace } from './CloudflareBindings'
 import { CloudflareThreadClient } from './CloudflareThreadClient'
 import { cloudflareCryptoLayer } from './internal/crypto'
 import { cloudflarePreparedInputAdmissionLayer } from './internal/prepared-admission'
-import { hostRuntime } from './ThreadObject'
-import type { HostExtend, HostMount, HostSlot, HostedRecord, NoReservedHostMethods } from './ThreadObject'
+import { hostRuntime, hostRuntimeBase } from './ThreadObject'
+import type { HostedRecord, HostExtend, HostMount, HostSlot } from './ThreadObject'
 
 const SCHEDULE_ALARM_TAG = 'effect-agent/ScheduleOwnerWake'
 const SCHEDULE_ALARM_ID = 'driver'
@@ -681,7 +681,7 @@ const buildScheduleOwnerObject = <
   Requirements extends ScheduleRuntimeServices = never,
   const ExtendRpc extends EffectCfDurableObject.DurableObjectRpc<
     ScheduleRuntimeServices | ExtendServices
-  > & NoReservedHostMethods<ExtendRpc> = Record<never, never>,
+  > = Record<never, never>,
 >(
   host: Layer.Layer<
     ScheduleAuthorizer | ThreadObjectNamespace,
@@ -766,7 +766,7 @@ export const makeScheduleOwnerObjectClass = <
   Requirements extends ScheduleRuntimeServices = never,
   const ExtendRpc extends EffectCfDurableObject.DurableObjectRpc<
     ScheduleRuntimeServices | ExtendServices
-  > & NoReservedHostMethods<ExtendRpc> = Record<never, never>,
+  > = Record<never, never>,
 >(
   host: Layer.Layer<
     ScheduleAuthorizer | ThreadObjectNamespace,
@@ -787,11 +787,26 @@ export const makeScheduleOwnerObjectClass = <
     ExtendRpc
   >(host, limits, extend)
 
-  return EffectCfDurableObject.make(built.runtime, {
-    initialize: Effect.void,
-    rpc: built.rpc,
-    alarms: scheduleAlarmHandler(limits),
-  })
+  return EffectCfDurableObject.make<
+    ScheduleRuntimeServices,
+    E | ExtendFailure | ScheduleStorageError | ScheduleOwnerProtocolError | ScheduleValidationError,
+    never,
+    never,
+    ScheduleLibraryRpc,
+    never
+  >(
+    hostRuntimeBase<
+      ScheduleRuntimeServices,
+      E | ExtendFailure | ScheduleStorageError | ScheduleOwnerProtocolError | ScheduleValidationError,
+      EffectCfDurableObjectState.DurableObjectState | WorkerEnvironment,
+      ExtendServices
+    >(built.runtime),
+    {
+      initialize: Effect.void,
+      rpc: built.rpc,
+      alarms: scheduleAlarmHandler(limits),
+    },
+  )
 }
 
 export const mountScheduleOwnerObjectClass = <
@@ -801,7 +816,7 @@ export const mountScheduleOwnerObjectClass = <
   Requirements extends ScheduleRuntimeServices = never,
   const ExtendRpc extends EffectCfDurableObject.DurableObjectRpc<
     ScheduleRuntimeServices | ExtendServices
-  > & NoReservedHostMethods<ExtendRpc> = Record<never, never>,
+  > = Record<never, never>,
   const Slot extends HostSlot = HostSlot,
 >(
   host: Layer.Layer<
@@ -814,10 +829,12 @@ export const mountScheduleOwnerObjectClass = <
   >,
   limits: SchedulingLimits = defaultSchedulingLimits,
 ) =>
-(mountHost: HostMount<
-  Slot,
-  HostExtend<ExtendServices, ExtendFailure, Requirements, ExtendRpc>
->): Effect.Effect<HostedRecord<ScheduleLibraryRpc & ExtendRpc, Slot>, never> =>
+(
+  mountHost: HostMount<
+    Slot,
+    HostExtend<ExtendServices, ExtendFailure, Requirements, ExtendRpc>
+  >,
+): Effect.Effect<HostedRecord<ScheduleLibraryRpc & ExtendRpc, Slot>, never> =>
   Effect.suspend(() => {
     const built = buildScheduleOwnerObject<
       E,

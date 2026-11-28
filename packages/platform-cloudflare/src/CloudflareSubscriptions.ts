@@ -46,8 +46,8 @@ import { type ThreadObjectNamespace } from './CloudflareBindings'
 import { CloudflareThreadClient } from './CloudflareThreadClient'
 import { cloudflareCryptoLayer } from './internal/crypto'
 import { cloudflarePreparedInputAdmissionLayer } from './internal/prepared-admission'
-import { hostRuntime } from './ThreadObject'
-import type { HostExtend, HostMount, HostSlot, HostedRecord, NoReservedHostMethods } from './ThreadObject'
+import { hostRuntime, hostRuntimeBase } from './ThreadObject'
+import type { HostedRecord, HostExtend, HostMount, HostSlot } from './ThreadObject'
 
 const SUBSCRIPTION_ALARM_TAG = 'effect-agent/SubscriptionPartitionWake'
 const SUBSCRIPTION_ALARM_ID = 'driver'
@@ -943,7 +943,7 @@ const buildSubscriptionPartitionObject = <
   Requirements extends SubscriptionRuntimeServices = never,
   const ExtendRpc extends EffectCfDurableObject.DurableObjectRpc<
     SubscriptionRuntimeServices | ExtendServices
-  > & NoReservedHostMethods<ExtendRpc> = Record<never, never>,
+  > = Record<never, never>,
 >(
   host: Layer.Layer<
     SubscriptionAuthorizer | EventSources | SubscriptionInputBindings | ThreadObjectNamespace,
@@ -1075,7 +1075,7 @@ export const makeSubscriptionPartitionObjectClass = <
   Requirements extends SubscriptionRuntimeServices = never,
   const ExtendRpc extends EffectCfDurableObject.DurableObjectRpc<
     SubscriptionRuntimeServices | ExtendServices
-  > & NoReservedHostMethods<ExtendRpc> = Record<never, never>,
+  > = Record<never, never>,
 >(
   host: Layer.Layer<
     SubscriptionAuthorizer | EventSources | SubscriptionInputBindings | ThreadObjectNamespace,
@@ -1096,11 +1096,36 @@ export const makeSubscriptionPartitionObjectClass = <
     ExtendRpc
   >(host, limits, extend)
 
-  return EffectCfDurableObject.make(built.runtime, {
-    initialize: Effect.void,
-    rpc: built.rpc,
-    alarms: alarmHandler(limits),
-  })
+  return EffectCfDurableObject.make<
+    SubscriptionRuntimeServices,
+    | E
+    | ExtendFailure
+    | SubscriptionError
+    | SubscriptionPartitionProtocolError
+    | CloudflareSubscriptionConfigError
+    | SubscriptionAlarmProtocolError,
+    never,
+    never,
+    SubscriptionLibraryRpc,
+    never
+  >(
+    hostRuntimeBase<
+      SubscriptionRuntimeServices,
+      | E
+      | ExtendFailure
+      | SubscriptionError
+      | SubscriptionPartitionProtocolError
+      | CloudflareSubscriptionConfigError
+      | SubscriptionAlarmProtocolError,
+      EffectCfDurableObjectState.DurableObjectState | WorkerEnvironment,
+      ExtendServices
+    >(built.runtime),
+    {
+      initialize: Effect.void,
+      rpc: built.rpc,
+      alarms: alarmHandler(limits),
+    },
+  )
 }
 
 export const mountSubscriptionPartitionObjectClass = <
@@ -1110,7 +1135,7 @@ export const mountSubscriptionPartitionObjectClass = <
   Requirements extends SubscriptionRuntimeServices = never,
   const ExtendRpc extends EffectCfDurableObject.DurableObjectRpc<
     SubscriptionRuntimeServices | ExtendServices
-  > & NoReservedHostMethods<ExtendRpc> = Record<never, never>,
+  > = Record<never, never>,
   const Slot extends HostSlot = HostSlot,
 >(
   host: Layer.Layer<
@@ -1123,10 +1148,12 @@ export const mountSubscriptionPartitionObjectClass = <
   >,
   limits: SubscriptionLimits = defaultSubscriptionLimits,
 ) =>
-(mountHost: HostMount<
-  Slot,
-  HostExtend<ExtendServices, ExtendFailure, Requirements, ExtendRpc>
->): Effect.Effect<HostedRecord<SubscriptionLibraryRpc & ExtendRpc, Slot>, never> =>
+(
+  mountHost: HostMount<
+    Slot,
+    HostExtend<ExtendServices, ExtendFailure, Requirements, ExtendRpc>
+  >,
+): Effect.Effect<HostedRecord<SubscriptionLibraryRpc & ExtendRpc, Slot>, never> =>
   Effect.suspend(() => {
     const built = buildSubscriptionPartitionObject<
       E,

@@ -45,8 +45,8 @@ import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import * as Schema from 'effect/Schema'
 
-import { hostRuntime } from './ThreadObject'
-import type { HostExtend, HostMount, HostSlot, HostedRecord, NoReservedHostMethods } from './ThreadObject'
+import { hostRuntime, hostRuntimeBase } from './ThreadObject'
+import type { HostedRecord, HostExtend, HostMount, HostSlot } from './ThreadObject'
 
 export interface MemoryObjectRpc extends Rpc.DurableObjectBranded {
   memory(encoded: string): Promise<string>
@@ -369,7 +369,7 @@ const buildMemoryObject = <
   Requirements extends OwnerServices = never,
   const ExtendRpc extends EffectCfDurableObject.DurableObjectRpc<
     OwnerServices | ExtendServices
-  > & NoReservedHostMethods<ExtendRpc> = Record<never, never>,
+  > = Record<never, never>,
 >(
   host: Layer.Layer<
     MemoryOwnerAuthorizer,
@@ -444,7 +444,7 @@ const makeMemoryObject = <
   Requirements extends OwnerServices = never,
   const ExtendRpc extends EffectCfDurableObject.DurableObjectRpc<
     OwnerServices | ExtendServices
-  > & NoReservedHostMethods<ExtendRpc> = Record<never, never>,
+  > = Record<never, never>,
 >(
   host: Layer.Layer<
     MemoryOwnerAuthorizer,
@@ -462,11 +462,19 @@ const makeMemoryObject = <
 
   return EffectCfDurableObject.make<
     OwnerServices,
-    E | MemoryOwnerFailure,
+    E | MemoryOwnerFailure | ExtendFailure,
     never,
     never,
-    typeof built.rpc
-  >(built.runtime, { rpc: built.rpc })
+    MemoryLibraryRpc
+  >(
+    hostRuntimeBase<
+      OwnerServices,
+      E | MemoryOwnerFailure | ExtendFailure,
+      DurableObjectState.DurableObjectState | WorkerEnvironment,
+      ExtendServices
+    >(built.runtime),
+    { rpc: built.rpc },
+  )
 }
 
 const mountMemoryObject = <
@@ -476,7 +484,7 @@ const mountMemoryObject = <
   Requirements extends OwnerServices = never,
   const ExtendRpc extends EffectCfDurableObject.DurableObjectRpc<
     OwnerServices | ExtendServices
-  > & NoReservedHostMethods<ExtendRpc> = Record<never, never>,
+  > = Record<never, never>,
   const Slot extends HostSlot = HostSlot,
 >(
   host: Layer.Layer<
@@ -486,10 +494,12 @@ const mountMemoryObject = <
   >,
   options: MemoryObjectOptions = {},
 ) =>
-(mountHost: HostMount<
-  Slot,
-  HostExtend<ExtendServices, ExtendFailure, Requirements, ExtendRpc>
->): Effect.Effect<HostedRecord<MemoryLibraryRpc & ExtendRpc, Slot>, never> =>
+(
+  mountHost: HostMount<
+    Slot,
+    HostExtend<ExtendServices, ExtendFailure, Requirements, ExtendRpc>
+  >,
+): Effect.Effect<HostedRecord<MemoryLibraryRpc & ExtendRpc, Slot>, never> =>
   Effect.suspend(() => {
     const built = buildMemoryObject<E, ExtendServices, ExtendFailure, Requirements, ExtendRpc>(
       host,
