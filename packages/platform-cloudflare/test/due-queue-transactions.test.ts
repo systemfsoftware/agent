@@ -1,6 +1,6 @@
 import * as SqliteClient from '@effect/sql-sqlite-do/SqliteClient'
 import { runInDurableObject } from 'cloudflare:test'
-import { DurableObject } from 'effect-cf'
+import { DurableObject } from '@systemfsoftware/effect-cf'
 import * as Effect from 'effect/Effect'
 import * as Exit from 'effect/Exit'
 import * as Fiber from 'effect/Fiber'

@@ -83,7 +83,7 @@ import {
 } from '@systemfsoftware/agent/thread-store'
 import { ToolReconciler } from '@systemfsoftware/agent/tool-reconciler'
 import { type WakeScheduler } from '@systemfsoftware/agent/wake-scheduler'
-import { DurableObjectAlarm } from 'effect-cf'
+import { DurableObjectAlarm } from '@systemfsoftware/effect-cf'
 import * as Cause from 'effect/Cause'
 import * as Clock from 'effect/Clock'
 import * as Context from 'effect/Context'
@@ -406,31 +406,6 @@ export const layerConfig = (
     }),
   )
 
-/**
- * Configuration for an application Object owning several logical Threads. The producer is
- * the stable physical Object. No logical identity is installed globally: handleRpc binds and
- * validates it per request using the placement guard and this actual runtime producer.
- */
-export const layerHostConfig = (
-  options: CloudflareDurableRuntimeOptions,
-  ownsThread: (threadId: ThreadId) => boolean,
-): Layer.Layer<
-  Exclude<CloudflareBootstrapServices, ThreadObjectIdentity>,
-  CloudflarePlatformConfigError,
-  DurableObjectContext
-> =>
-  Layer.unwrap(
-    Effect.gen(function*() {
-      const { ctx } = yield* DurableObjectContext
-      const producerId = yield* producerIdentity(options.producerPrefix, ctx.id.toString())
-
-      return Layer.merge(
-        runtimeConfigLayer(options, producerId),
-        Layer.succeed(ThreadObjectPlacement, { ownsThread }),
-      )
-    }),
-  )
-
 /** Native source mutations which can create independently retained application obligations. */
 export type ThreadHostMutation =
   | { readonly _tag: 'Admission'; readonly request: AdmissionRequest }
@@ -565,36 +540,6 @@ const boundLayer = <E = never, R = never>(
         Layer.provideMerge(SqliteClient.layer({ storage: ctx.storage })),
       )),
   )
-
-/**
- * Build the application runtime over the existing owner SqlClient and native ports, then
- * assemble its one maintenance coordinator. The application may acquire its Bindings from
- * those ports and expose extra services, including ThreadHostMaintenance. It must not acquire
- * another runtime stack or require ThreadMaintenance while constructing this Layer.
- * Supply layerHostConfig and deterministic placement; dispatch addressed ingress with handleRpc.
- */
-export function layerInHost<A, E, R, P = never, PE = never, PR = never>(
-  application: Layer.Layer<DurableAgentRuntime | A, E, R>,
-  options: Omit<ThreadPublicationOptions<PE, PR>, 'projection'> & {
-    readonly projection: Layer.Layer<ThreadProjectionMaintenance | P, PE, PR>
-  },
-): Layer.Layer<
-  CloudflareDurableRuntimeServices | A | P,
-  Layer.Error<ReturnType<typeof sharedLayer<A, E, R, PE, PR>>>,
-  Layer.Services<ReturnType<typeof sharedLayer<A, E, Exclude<R, P>, PE, PR>>>
->
-
-export function layerInHost<A, E, R, PE = never, PR = never>(
-  application: Layer.Layer<DurableAgentRuntime | A, E, R>,
-  options?: ThreadPublicationOptions<PE, PR>,
-): ReturnType<typeof sharedLayer<A, E, R, PE, PR>>
-
-export function layerInHost<A, E, R, PE = never, PR = never>(
-  application: Layer.Layer<DurableAgentRuntime | A, E, R>,
-  options: ThreadPublicationOptions<PE, PR> = {},
-) {
-  return sharedLayer(application, options)
-}
 
 const sharedLayer = <A, E, R, PE = never, PR = never>(
   application: Layer.Layer<DurableAgentRuntime | A, E, R>,

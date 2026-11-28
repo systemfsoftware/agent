@@ -13,7 +13,7 @@ import {
 } from '@systemfsoftware/agent/submission-ledger'
 import { WorkerCompletion, WorkerUpdate } from '@systemfsoftware/agent/worker'
 import { evictDurableObject, runDurableObjectAlarm, runInDurableObject } from 'cloudflare:test'
-import { DurableObject } from 'effect-cf'
+import { DurableObject } from '@systemfsoftware/effect-cf'
 import * as Clock from 'effect/Clock'
 import * as SecureRandom from 'effect/crypto/SecureRandom'
 import * as Deferred from 'effect/Deferred'

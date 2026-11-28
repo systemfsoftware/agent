@@ -1,6 +1,6 @@
 import { Schema } from 'effect'
-import { R2, Workflow } from 'effect-cf'
-import * as Sandbox from 'effect-cf/sandbox'
+import { R2, Workflow } from '@systemfsoftware/effect-cf'
+import * as Sandbox from '@systemfsoftware/effect-cf/sandbox'
 
 import { AppBuildRequest, AppCommit } from '../domain'
 import { AppBuildBucket } from './bucket'

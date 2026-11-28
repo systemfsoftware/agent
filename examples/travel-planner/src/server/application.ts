@@ -21,7 +21,7 @@ import {
 } from '@systemfsoftware/agent/thread-store'
 import { FrameworkMessage } from '@systemfsoftware/agent/worker'
 import { Context, Effect, Option, Schema, Stream } from 'effect'
-import { WorkerEnvironment } from 'effect-cf'
+import { WorkerEnvironment } from '@systemfsoftware/effect-cf'
 
 import { mergeSpeech } from '../conversation'
 import {

@@ -9,7 +9,7 @@ import { ThreadRead, ThreadStore } from '@systemfsoftware/agent/thread-store'
 import { WorkerRef } from '@systemfsoftware/agent/worker'
 import { WorkerHostAuthorizer } from '@systemfsoftware/agent/worker-host'
 import { Effect, Option, Schema, Stream } from 'effect'
-import { WorkerEnvironment } from 'effect-cf'
+import { WorkerEnvironment } from '@systemfsoftware/effect-cf'
 
 import { PlannerError, PlannerWorkerDetail, PlannerWorkerRequest } from '../domain'
 import { ScoutFindings } from '../research/contracts'

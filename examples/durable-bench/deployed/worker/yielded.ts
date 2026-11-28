@@ -11,7 +11,7 @@ import { text } from '@systemfsoftware/agent/output'
 import { IdempotencyKey, Principal, Receipt } from '@systemfsoftware/agent/receipt'
 import { DefinitionDigestInput, PersistedJson } from '@systemfsoftware/agent/records'
 import { Effect, Layer, Schema } from 'effect'
-import { DurableObject, DurableObjectAlarm, DurableObjectState } from 'effect-cf'
+import { DurableObject, DurableObjectAlarm, DurableObjectState } from '@systemfsoftware/effect-cf'
 import { Model, Tool, Toolkit } from 'effect/ai'
 import { FetchHttpClient } from 'effect/http'
 

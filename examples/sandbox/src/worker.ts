@@ -14,7 +14,7 @@ import {
   NativeSandboxNamespace,
 } from '@yielded/sandbox/cloudflare'
 import { Cause, Deferred, Effect, Layer, Schedule, Schema, Stream } from 'effect'
-import { CloudflareTracer, Rpc, Worker, WorkerEnvironment } from 'effect-cf'
+import { CloudflareTracer, Rpc, Worker, WorkerEnvironment } from '@systemfsoftware/effect-cf'
 import { Prompt } from 'effect/ai'
 import * as HttpServerResponse from 'effect/http/HttpServerResponse'
 

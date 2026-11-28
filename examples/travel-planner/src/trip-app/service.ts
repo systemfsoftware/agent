@@ -1,6 +1,6 @@
 import { ThreadObjectIdentity } from '@systemfsoftware/agent-platform-cloudflare/cloudflare-bindings'
 import { DateTime, Effect, Layer, Schema } from 'effect'
-import { WorkerEnvironment } from 'effect-cf'
+import { WorkerEnvironment } from '@systemfsoftware/effect-cf'
 
 import { AppCommit, type AppFile, AppId, PlannerError, type TripApp } from '../domain'
 import { ownerOfThread } from '../server/tenancy'

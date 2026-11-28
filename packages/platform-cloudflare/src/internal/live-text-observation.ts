@@ -1,4 +1,4 @@
-import { Rpc } from 'effect-cf'
+import { Rpc } from '@systemfsoftware/effect-cf'
 import * as Schema from 'effect/Schema'
 
 /** The RPC lifetime survives an idle byte stream and is disposed on caller disconnect. */

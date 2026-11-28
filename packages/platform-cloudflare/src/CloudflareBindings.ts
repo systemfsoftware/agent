@@ -1,6 +1,6 @@
 import { type ThreadId } from '@systemfsoftware/agent/identifiers'
 import { type ProducerId } from '@systemfsoftware/agent/records'
-import { RpcTargets } from 'effect-cf'
+import { RpcTargets } from '@systemfsoftware/effect-cf'
 import * as Context from 'effect/Context'
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'

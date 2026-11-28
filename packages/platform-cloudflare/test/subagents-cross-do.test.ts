@@ -11,7 +11,7 @@ import {
   SubmissionLookupByKey,
 } from '@systemfsoftware/agent/submission-ledger'
 import { runDurableObjectAlarm, runInDurableObject } from 'cloudflare:test'
-import { DurableObject } from 'effect-cf'
+import { DurableObject } from '@systemfsoftware/effect-cf'
 import * as Deferred from 'effect/Deferred'
 import * as Effect from 'effect/Effect'
 import * as Option from 'effect/Option'

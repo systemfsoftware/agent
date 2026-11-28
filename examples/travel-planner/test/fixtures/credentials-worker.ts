@@ -1,5 +1,5 @@
 import { Effect, Layer, Redacted, Schema } from 'effect'
-import { DurableObject } from 'effect-cf'
+import { DurableObject } from '@systemfsoftware/effect-cf'
 import { SqlClient } from 'effect/sql/SqlClient'
 
 import { PlannerError, TripSiteStore } from '../../src/domain'

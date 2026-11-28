@@ -38,7 +38,7 @@ import {
 } from '@systemfsoftware/agent/submission-ledger'
 import { SubmissionStatus } from '@systemfsoftware/agent/submission-status'
 import { AppendConflict, ThreadNotMaterialized, ThreadStoreError } from '@systemfsoftware/agent/thread-store'
-import { RpcTargets, RpcTracing } from 'effect-cf'
+import { RpcTargets, RpcTracing } from '@systemfsoftware/effect-cf'
 import * as Context from 'effect/Context'
 import * as SecureRandom from 'effect/crypto/SecureRandom'
 import * as Duration from 'effect/Duration'

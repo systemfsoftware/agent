@@ -41,7 +41,7 @@ import {
   DurableObjectState as EffectCfDurableObjectState,
   RpcTargets,
   type WorkerEnvironment,
-} from 'effect-cf'
+} from '@systemfsoftware/effect-cf'
 import * as Clock from 'effect/Clock'
 import * as Context from 'effect/Context'
 import * as SecureRandom from 'effect/crypto/SecureRandom'
@@ -54,6 +54,8 @@ import type { ThreadObjectNamespace } from './CloudflareBindings'
 import { CloudflareThreadClient } from './CloudflareThreadClient'
 import { cloudflareCryptoLayer } from './internal/crypto'
 import { cloudflarePreparedInputAdmissionLayer } from './internal/prepared-admission'
+import { hostRuntime } from './ThreadObject'
+import type { HostExtend, HostMount, HostSlot } from './ThreadObject'
 
 const SCHEDULE_ALARM_TAG = 'effect-agent/ScheduleOwnerWake'
 const SCHEDULE_ALARM_ID = 'driver'
@@ -733,4 +735,104 @@ export const makeScheduleOwnerObjectClass = <E>(
   })
 
   return ScheduleOwnerObject
+}
+
+export const mountScheduleOwnerObjectClass = <
+  E,
+  ExtendServices = never,
+  ExtendFailure = never,
+  const ExtendRpc extends EffectCfDurableObject.DurableObjectRpc<
+    ScheduleRuntimeServices | ExtendServices
+  > = Record<never, never>,
+  const Slot extends HostSlot = HostSlot,
+>(
+  host: Layer.Layer<
+    ScheduleAuthorizer | ThreadObjectNamespace,
+    E,
+    | EffectCfDurableObjectState.DurableObjectState
+    | WorkerEnvironment
+    | ScheduleOwnerIdentity
+    | SecureRandom.SecureRandom
+  >,
+  limits: SchedulingLimits = defaultSchedulingLimits,
+) =>
+(mountHost: HostMount & {
+  readonly slot: Slot
+  readonly extend?: HostExtend<ExtendServices, ExtendFailure, ExtendRpc>
+}) => {
+  const ownerLayer = Layer.effect(
+    ScheduleOwnerIdentity,
+    Effect.gen(function*() {
+      const state = yield* EffectCfDurableObjectState.DurableObjectState
+
+      return ScheduleOwnerIdentity.of({ owner: yield* decodeOwnerName(state.raw.id.name) })
+    }),
+  )
+
+  const sqlLayer = Layer.unwrap(
+    Effect.map(
+      EffectCfDurableObjectState.DurableObjectState,
+      (state) => SqliteClient.layer({ storage: state.raw.storage }),
+    ),
+  )
+
+  const application = Layer.merge(Scheduling.layer(limits), ScheduleDriver.layer(limits)).pipe(
+    Layer.provideMerge(
+      scheduleStoreLayer.pipe(Layer.provide(transactionLayer), Layer.provide(sqlLayer)),
+    ),
+    Layer.provide(
+      cloudflarePreparedInputAdmissionLayer.pipe(Layer.provide(CloudflareThreadClient.layer)),
+    ),
+    Layer.provide(ScheduleWakeNoop),
+    Layer.provideMerge(DurableObjectAlarm.DurableObjectAlarm.layer),
+    Layer.provide(host),
+    Layer.provideMerge(ownerLayer),
+    Layer.provide(cloudflareCryptoLayer),
+  )
+
+  const baseRuntime: Layer.Layer<
+    ScheduleRuntimeServices,
+    E | ScheduleStorageError | ScheduleOwnerProtocolError | ScheduleValidationError,
+    EffectCfDurableObjectState.DurableObjectState | WorkerEnvironment
+  > = Layer.effectContext(
+    Effect.gen(function*() {
+      const state = yield* EffectCfDurableObjectState.DurableObjectState
+      const scope = yield* Effect.scope
+
+      return yield* state.blockConcurrencyWhile(Layer.buildWithScope(application, scope))
+    }),
+  )
+
+  const runtime = hostRuntime(baseRuntime, mountHost.extend?.layer)
+
+  const libraryRpc = {
+    schedule: (encoded: unknown) => handleScheduleRequest(encoded),
+  } satisfies EffectCfDurableObject.DurableObjectRpc<ScheduleRuntimeServices>
+
+  if (mountHost.extend?.rpc !== undefined) {
+    for (const key of Object.keys(mountHost.extend.rpc)) {
+      if (key in libraryRpc) {
+        throw new Error(`A consumer method named "${key}" collides with a library method`)
+      }
+    }
+  }
+
+  const rpc = { ...libraryRpc, ...mountHost.extend?.rpc }
+
+  // effect-cf's mount erases its build failure to `unknown`; a failed mount is an assembly defect.
+  // @effect-diagnostics-next-line anyUnknownInErrorContext:off
+  return EffectCfDurableObject.mount<
+    ScheduleRuntimeServices | ExtendServices,
+    E | ExtendFailure | ScheduleStorageError | ScheduleOwnerProtocolError | ScheduleValidationError,
+    never,
+    never,
+    typeof rpc,
+    never,
+    Slot
+  >(runtime, {
+    initialize: Effect.void,
+    rpc,
+    alarms: scheduleAlarmHandler(limits),
+    slot: mountHost.slot,
+  })(mountHost).pipe(Effect.orDie)
 }

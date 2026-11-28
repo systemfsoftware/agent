@@ -18,7 +18,7 @@ import { IdempotencyKey, Principal } from '@systemfsoftware/agent/submission-led
 import * as ThreadContextHistory from '@systemfsoftware/agent/thread-context-history'
 import { ExecutionCheckpoint } from '@systemfsoftware/agent/thread-store'
 import { Context, Effect, Layer, Redacted, Ref, Schema } from 'effect'
-import { DurableObject, WorkerEnvironment } from 'effect-cf'
+import { DurableObject, WorkerEnvironment } from '@systemfsoftware/effect-cf'
 import { IdGenerator } from 'effect/ai'
 import { FetchHttpClient } from 'effect/http'
 

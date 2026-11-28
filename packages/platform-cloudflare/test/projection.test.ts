@@ -21,7 +21,7 @@ import {
 } from '@systemfsoftware/agent/thread-store'
 import { WakeScheduler } from '@systemfsoftware/agent/wake-scheduler'
 import { env, runDurableObjectAlarm, runInDurableObject } from 'cloudflare:test'
-import { DurableObject } from 'effect-cf'
+import { DurableObject } from '@systemfsoftware/effect-cf'
 import * as Cause from 'effect/Cause'
 import * as Clock from 'effect/Clock'
 import * as SecureRandom from 'effect/crypto/SecureRandom'

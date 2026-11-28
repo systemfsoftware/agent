@@ -38,7 +38,7 @@ beforeAll(async () => {
       loader: 'ts',
       contents: `
     import { Cause, Effect, Layer, Schema } from "effect";
-    import { WorkerEnvironment } from "effect-cf";
+    import { WorkerEnvironment } from "@systemfsoftware/effect-cf";
     import { AppBuildRequest, PlannerError, TripApp } from "../src/domain";
     import { AppBuilder, buildTripApp, readBuild, settleBuild } from "../src/trip-app/build";
     import { AppBuildBucketLive } from "../src/trip-app/bindings";

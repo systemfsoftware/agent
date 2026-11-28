@@ -10,7 +10,7 @@ import { ThreadMaterialization, ThreadStore, ThreadTailRequest } from '@systemfs
 import { ThreadWorkDiscovery } from '@systemfsoftware/agent/thread-work'
 import { WakeScheduler } from '@systemfsoftware/agent/wake-scheduler'
 import { Clock, Context, Effect, Layer, Option, Schedule, Schema, Stream, Struct } from 'effect'
-import { DurableObjectState } from 'effect-cf'
+import { DurableObjectState } from '@systemfsoftware/effect-cf'
 import { SqlClient } from 'effect/sql'
 
 import type { CommandInput } from './contract'

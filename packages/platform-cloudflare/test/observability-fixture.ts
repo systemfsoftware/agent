@@ -1,5 +1,5 @@
 import { DurableObjectContext } from '@systemfsoftware/agent-platform-cloudflare/cloudflare-bindings'
-import type { DurableObject } from 'effect-cf'
+import type { DurableObject } from '@systemfsoftware/effect-cf'
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import type * as Option from 'effect/Option'

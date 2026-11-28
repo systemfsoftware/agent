@@ -11,7 +11,7 @@ import {
 import { type DurableSubmitAgent } from '@systemfsoftware/agent/durable-agent-runtime'
 import { type ScheduleAuthorizer } from '@systemfsoftware/agent/schedule'
 import { type ScheduleCreateOptions, Scheduling } from '@systemfsoftware/agent/scheduling'
-import { WorkerEnvironment } from 'effect-cf'
+import { WorkerEnvironment } from '@systemfsoftware/effect-cf'
 
 // This example is typechecked in its own project, so it names the bindings it reads instead of
 // relying on a test file elsewhere in the program to merge them into the worker `Env`.

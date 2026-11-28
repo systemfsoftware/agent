@@ -10,7 +10,7 @@ import * as Memory from '@systemfsoftware/agent/memory'
 import { MemoryAccess } from '@systemfsoftware/agent/memory-revalidation'
 import { Principal } from '@systemfsoftware/agent/submission-ledger'
 import { Clock, Effect, Layer, Schema } from 'effect'
-import { DurableObject, WorkerEnvironment } from 'effect-cf'
+import { DurableObject, WorkerEnvironment } from '@systemfsoftware/effect-cf'
 
 import { BenchmarkCase, candidates, command, limits, memoryScope, Projects, Sample, sourceCount } from './contracts'
 

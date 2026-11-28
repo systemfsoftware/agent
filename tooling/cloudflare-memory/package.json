@@ -14,7 +14,7 @@
     "@systemfsoftware/agent-platform-cloudflare": "workspace:*",
     "@systemfsoftware/agent-storage-cloudflare": "workspace:*",
     "effect": "catalog:",
-    "effect-cf": "catalog:"
+    "@systemfsoftware/effect-cf": "catalog:"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",

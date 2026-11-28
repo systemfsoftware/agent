@@ -36,7 +36,7 @@ import {
   ThreadTailRequest,
 } from '@systemfsoftware/agent/thread-store'
 import { Cause, Context, DateTime, Effect, Layer, Option, Schema, Stream } from 'effect'
-import { DurableObject, WorkerEnvironment } from 'effect-cf'
+import { DurableObject, WorkerEnvironment } from '@systemfsoftware/effect-cf'
 import { AiError, LanguageModel, Model, Prompt, type Response as AiResponse, Tool, Toolkit } from 'effect/ai'
 import * as CryptoDigest from 'effect/crypto/Digest'
 import * as SecureRandom from 'effect/crypto/SecureRandom'

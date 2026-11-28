@@ -149,13 +149,25 @@ Keep RPC private and configure `operationAuthorizer`; its default trusts service
 
 Acquire `CloudflareTracer.layer` in `eventLayer` for invocation-specific tracing.
 
-## Share an application Object
+## Add methods and services to an Object
 
-Use `ThreadObject.layerInHost` to place logical Threads in an existing Object.
-Share its SQL client and mutation gate; keep placement stable. Register
-`ThreadObject.alarms` with the host's `DurableObjectAlarm.mergeAll` and call
-`ThreadMaintenance.ensureAlarm` during local initialization. Follow the
-[shared-owner example](https://github.com/systemfsoftware/agent/blob/main/packages/platform-cloudflare/examples/shared-owner.ts).
+`ThreadObject.make` and `ThreadObject.mount` accept `extend: { layer, rpc }`. The layer's
+services join the Object's runtime, and the RPC methods run on it with the library's
+SQL client, mutation gate and init gate. Placement and identity stay stable because
+everything runs on one physical instance; a method whose name collides with a library
+method is refused at construction.
+
+## Host an Object on a gating host
+
+A host that already holds `blockConcurrencyWhile` and dispatches the Object's methods
+— an Alchemy stack, for example — uses the `mount` form instead of `make`. Each domain
+offers one: `ThreadObject.mount`, `CloudflareScheduling.mountScheduleOwnerObjectClass`,
+`CloudflareSubscriptions.mountSubscriptionPartitionObjectClass` and
+`CloudflareMemory.MemoryObject.mount`. A mount takes the native state and env the host
+already resolved, the alarm-slot choice and the same `extend`, and yields a record of
+`Effect`-returning methods the host dispatches. Choose `Exclusive` when the library is the
+only writer of the alarm slot, or `Delegated` when the host schedules it too and hands the
+library its due wakes through `runAlarms`. A mount imports no host module.
 
 ## Shared memory
 

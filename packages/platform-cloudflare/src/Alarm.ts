@@ -17,7 +17,7 @@ import {
   ThreadProjectionMaintenance,
 } from '@systemfsoftware/agent/thread-projection-maintenance'
 import { WakeScheduler } from '@systemfsoftware/agent/wake-scheduler'
-import { DurableObjectAlarm, DurableObjectState, DurableObjectStorage } from 'effect-cf'
+import { DurableObjectAlarm, DurableObjectState, DurableObjectStorage } from '@systemfsoftware/effect-cf'
 import * as Cause from 'effect/Cause'
 import * as Clock from 'effect/Clock'
 import * as Context from 'effect/Context'

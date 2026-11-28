@@ -5,7 +5,7 @@ import { readTestThread } from '@systemfsoftware/agent/testing/thread-store-conf
 import { ThreadExportRequest, ThreadStore } from '@systemfsoftware/agent/thread-store'
 import { WorkerCompletion, WorkerUpdate } from '@systemfsoftware/agent/worker'
 import { Effect, Layer, Option, Schema, Stream } from 'effect'
-import { DurableObject, WorkerEnvironment } from 'effect-cf'
+import { DurableObject, WorkerEnvironment } from '@systemfsoftware/effect-cf'
 import { LanguageModel, Model, type Prompt, type Response as AiResponse, Toolkit } from 'effect/ai'
 
 import { PlannerError, PlannerInput, TripSiteStore } from '../../src/domain'

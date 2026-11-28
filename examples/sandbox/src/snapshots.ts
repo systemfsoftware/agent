@@ -7,7 +7,7 @@ import { WakeScheduler } from '@systemfsoftware/agent/wake-scheduler'
 import { CheckpointInput, SandboxCheckpoint } from '@yielded/sandbox/cloudflare/NativeSandbox'
 import { reportSanitizedCause } from '@yielded/sandbox/observability/RuntimeDiagnostics'
 import { Cause, Clock, Context, Effect, Fiber, Layer, Schema } from 'effect'
-import { DurableObjectState } from 'effect-cf'
+import { DurableObjectState } from '@systemfsoftware/effect-cf'
 import * as SecureRandom from 'effect/crypto/SecureRandom'
 
 import type { SavedFiles } from './contract'

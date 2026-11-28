@@ -233,8 +233,8 @@ export const build = Effect.fnUntraced(function*(
         const sharedEffect = specifier === 'effect' ||
           specifier.startsWith('effect/') ||
           specifier.startsWith('@effect/') ||
-          specifier === 'effect-cf' ||
-          specifier.startsWith('effect-cf/')
+          specifier === '@systemfsoftware/effect-cf' ||
+          specifier.startsWith('@systemfsoftware/effect-cf/')
 
         if (args.pluginData?.resolved || !refRoot || (!localPackage && !sharedEffect)) return
 

@@ -12,7 +12,7 @@ import { text } from '@systemfsoftware/agent/output'
 import { IdempotencyKey, Principal, Receipt } from '@systemfsoftware/agent/receipt'
 import { DefinitionDigestInput } from '@systemfsoftware/agent/records'
 import { Effect, Layer, Schema } from 'effect'
-import { DurableObjectState, Rpc } from 'effect-cf'
+import { DurableObjectState, Rpc } from '@systemfsoftware/effect-cf'
 import { Model, Toolkit } from 'effect/ai'
 import { FetchHttpClient } from 'effect/http'
 

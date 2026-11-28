@@ -11,7 +11,7 @@ import { DurableAgentRuntime } from '@systemfsoftware/agent/durable-agent-runtim
 import { DefinitionDigestInput } from '@systemfsoftware/agent/records'
 import { SubmissionLedger, SubmissionLookupById } from '@systemfsoftware/agent/submission-ledger'
 import { Effect, Layer, Option, Schema } from 'effect'
-import { CloudflareTracer, DurableObject, WorkerEnvironment } from 'effect-cf'
+import { CloudflareTracer, DurableObject, WorkerEnvironment } from '@systemfsoftware/effect-cf'
 import type { Tool } from 'effect/ai'
 import { FetchHttpClient, HttpRouter } from 'effect/http'
 import { RpcSerialization, RpcServer } from 'effect/rpc'

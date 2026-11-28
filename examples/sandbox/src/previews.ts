@@ -2,7 +2,7 @@ import { ThreadMutationGate } from '@systemfsoftware/agent-platform-cloudflare/a
 import { ThreadObjectIdentity } from '@systemfsoftware/agent-platform-cloudflare/cloudflare-bindings'
 import { SandboxOperationError } from '@yielded/sandbox/cloudflare'
 import { Cause, Clock, Context, Effect, Layer, Schema, Semaphore } from 'effect'
-import { DurableObjectState } from 'effect-cf'
+import { DurableObjectState } from '@systemfsoftware/effect-cf'
 
 import { PREVIEW_LIFETIME_MS, type WorkspacePreviewGrant } from './contract'
 import { STATIC_PREVIEW_HEALTH_PATH, STATIC_PREVIEW_PORT, STATIC_PREVIEW_SERVER } from './preview-server'

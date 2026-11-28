@@ -2,7 +2,7 @@ import { defaultSchedulingLimits, ScheduleId, type ScheduleOwner } from '@system
 import { scheduleOwnerKey } from '@systemfsoftware/agent/schedule-transition'
 import { Scheduling } from '@systemfsoftware/agent/scheduling'
 import { runDurableObjectAlarm, runInDurableObject } from 'cloudflare:test'
-import { DurableObject } from 'effect-cf'
+import { DurableObject } from '@systemfsoftware/effect-cf'
 import * as Cause from 'effect/Cause'
 import * as Clock from 'effect/Clock'
 import * as Deferred from 'effect/Deferred'

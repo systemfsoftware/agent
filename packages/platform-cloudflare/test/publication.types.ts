@@ -1,5 +1,4 @@
 import { expectTypeOf } from '@effect/vitest'
-import type { DurableAgentRuntime } from '@systemfsoftware/agent/durable-agent-runtime'
 import type { LifecyclePublicationHandler } from '@systemfsoftware/agent/lifecycle-publication'
 import * as Context from 'effect/Context'
 import type * as Layer from 'effect/Layer'
@@ -17,24 +16,20 @@ class PublicationSetupError extends Schema.TaggedError<PublicationSetupError>()(
   {},
 ) {}
 
-declare const application: Layer.Layer<DurableAgentRuntime>
 declare const lifecyclePublication: Layer.Layer<
   LifecyclePublicationHandler,
   PublicationSetupError,
   ThreadMutationGate | PublicationDependency
 >
 
-// c68edc7aa1cdedb92ad6f31b63ba048bb718b2c6 leaked the gate supplied by the host.
-const hosted = ThreadObject.layerInHost(application, { lifecyclePublication })
 const registered = ThreadObject.layer([], { lifecyclePublication })
 
-expectTypeOf<Extract<Layer.Services<typeof hosted>, ThreadMutationGate>>().toEqualTypeOf<never>()
 expectTypeOf<
   Extract<Layer.Services<typeof registered>, ThreadMutationGate>
 >().toEqualTypeOf<never>()
 expectTypeOf<
-  Extract<Layer.Services<typeof hosted>, PublicationDependency>
+  Extract<Layer.Services<typeof registered>, PublicationDependency>
 >().toEqualTypeOf<PublicationDependency>()
 expectTypeOf<
-  Extract<Layer.Error<typeof hosted>, PublicationSetupError>
+  Extract<Layer.Error<typeof registered>, PublicationSetupError>
 >().toEqualTypeOf<PublicationSetupError>()

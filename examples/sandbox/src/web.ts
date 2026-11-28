@@ -29,7 +29,7 @@ import {
 } from '@systemfsoftware/agent/page-screenshot'
 import { RunContextPreparation } from '@systemfsoftware/agent/run-options'
 import { Clock, Effect, Layer, Option, Schema } from 'effect'
-import { WorkerEnvironment } from 'effect-cf'
+import { WorkerEnvironment } from '@systemfsoftware/effect-cf'
 import { Prompt, Tool, Toolkit } from 'effect/ai'
 import * as SecureRandom from 'effect/crypto/SecureRandom'
 

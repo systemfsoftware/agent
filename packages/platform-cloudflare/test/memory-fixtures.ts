@@ -13,7 +13,7 @@ import {
   MemoryWrite,
 } from '@systemfsoftware/agent/memory-store'
 import { Principal } from '@systemfsoftware/agent/submission-ledger'
-import { DurableObjectState } from 'effect-cf'
+import { DurableObjectState } from '@systemfsoftware/effect-cf'
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import * as Schema from 'effect/Schema'

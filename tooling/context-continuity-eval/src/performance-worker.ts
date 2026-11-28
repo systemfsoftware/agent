@@ -11,7 +11,7 @@ import { digestDefinitions } from '@systemfsoftware/agent/digest'
 import { ThreadId } from '@systemfsoftware/agent/identifiers'
 import { IdempotencyKey, Principal } from '@systemfsoftware/agent/submission-ledger'
 import { Context, Effect, Layer, Redacted, Ref, Schema } from 'effect'
-import { DurableObject, WorkerEnvironment } from 'effect-cf'
+import { DurableObject, WorkerEnvironment } from '@systemfsoftware/effect-cf'
 import { FetchHttpClient } from 'effect/http'
 
 import { EvaluationError, type ModelUsage } from './contracts'

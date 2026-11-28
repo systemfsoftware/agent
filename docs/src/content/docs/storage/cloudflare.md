@@ -21,13 +21,14 @@ For example, the planner's Thread Object retains accepted input while the user's
 browser disconnects. A later alarm can continue the work. Reconnecting reads
 canonical history; Object-local live text is only a provisional preview.
 
-## Use an existing Object
+## Add methods and services to an Object
 
-For an application-owned Object, use
-[`ThreadObject.layerInHost`](/platforms/cloudflare/#share-an-application-object).
-Share one Effect SQL client and mutation gate with its related application state.
-The [shared-owner example](https://github.com/systemfsoftware/agent/blob/main/packages/platform-cloudflare/examples/shared-owner.ts)
-shows the composition.
+`ThreadObject.make` and `ThreadObject.mount` accept an `extend` option. Put extra
+services in `extend.layer` and extra RPC methods in `extend.rpc`; the methods run on
+the Object's runtime with the same SQL client, mutation gate and init gate that the
+library uses. A method whose name collides with a library method is refused at
+construction. Use `extend`, not a second Object runtime, so both share one physical
+instance.
 
 `@systemfsoftware/agent-storage-cloudflare` also exposes `DoThreadStore` and
 `DoSubmissionLedger` for custom hosts. Their convenience Layers accept the same

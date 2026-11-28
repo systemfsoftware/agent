@@ -87,7 +87,7 @@ export default defineConfig({
   "dependencies": {
     "@trip/contracts": "workspace:*",
     "effect": "4.0.0",
-    "effect-cf": "0.53.0"
+    "@systemfsoftware/effect-cf": "0.53.0"
   }
 }
 `,
@@ -153,7 +153,7 @@ export const TripApi = HttpApi.make("trip-app").add(
 );
 `,
   'packages/server/src/index.ts': `import { Effect, Layer, Schema } from "effect";
-import { ServiceBinding, Worker } from "effect-cf";
+import { ServiceBinding, Worker } from "@systemfsoftware/effect-cf";
 import { HttpRouter, HttpServer } from "effect/http";
 import { HttpApiBuilder } from "effect/http-api";
 import { Trip, TripApi, TripUnavailable } from "@trip/contracts";

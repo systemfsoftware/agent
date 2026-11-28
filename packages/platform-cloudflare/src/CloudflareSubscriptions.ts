@@ -31,7 +31,7 @@ import {
   DurableObjectAlarm,
   DurableObjectState as EffectCfDurableObjectState,
   type WorkerEnvironment,
-} from 'effect-cf'
+} from '@systemfsoftware/effect-cf'
 import * as Cause from 'effect/Cause'
 import * as Clock from 'effect/Clock'
 import * as Context from 'effect/Context'
@@ -46,6 +46,8 @@ import { type ThreadObjectNamespace } from './CloudflareBindings'
 import { CloudflareThreadClient } from './CloudflareThreadClient'
 import { cloudflareCryptoLayer } from './internal/crypto'
 import { cloudflarePreparedInputAdmissionLayer } from './internal/prepared-admission'
+import { hostRuntime } from './ThreadObject'
+import type { HostExtend, HostMount, HostSlot } from './ThreadObject'
 
 const SUBSCRIPTION_ALARM_TAG = 'effect-agent/SubscriptionPartitionWake'
 const SUBSCRIPTION_ALARM_ID = 'driver'
@@ -75,10 +77,18 @@ export type SubscriptionPartitionAlarmServices =
   | SubscriptionIntake
   | SubscriptionDriver
 
+export const SubscriptionPartitionAlarmEvent = Schema.TaggedStruct('AlarmDue', {
+  id: Schema.NonEmptyString,
+  payload: Schema.Json,
+  scheduledAt: Schema.DateTimeUtc,
+  tag: Schema.NonEmptyString,
+})
+export type SubscriptionPartitionAlarmEvent = typeof SubscriptionPartitionAlarmEvent.Type
+
 export interface SubscriptionPartitionAlarmHandler<R = SubscriptionPartitionAlarmServices> {
   readonly tag: string
   readonly handle: (
-    event: DurableObjectAlarm.DurableObjectAlarmEvent,
+    event: SubscriptionPartitionAlarmEvent,
   ) => Effect.Effect<void, SubscriptionAlarmProtocolError | SubscriptionAlarmExtensionError, R>
 }
 
@@ -102,7 +112,7 @@ export const makeSubscriptionPartitionAlarmHandler = Effect.fnUntraced(function*
   readonly payload: Payload
   readonly timeoutMillis: number
   readonly handle: (
-    event: Omit<DurableObjectAlarm.DurableObjectAlarmEvent, 'payload'> & {
+    event: Omit<SubscriptionPartitionAlarmEvent, 'payload'> & {
       readonly payload: Payload['Type']
     },
   ) => Effect.Effect<void, SubscriptionAlarmExtensionError, R>
@@ -1029,4 +1039,151 @@ export const makeSubscriptionPartitionObjectClass = <E>(
   })
 
   return SubscriptionPartitionObject
+}
+
+export const mountSubscriptionPartitionObjectClass = <
+  E,
+  ExtendServices = never,
+  ExtendFailure = never,
+  const ExtendRpc extends EffectCfDurableObject.DurableObjectRpc<
+    SubscriptionRuntimeServices | ExtendServices
+  > = Record<never, never>,
+  const Slot extends HostSlot = HostSlot,
+>(
+  host: Layer.Layer<
+    SubscriptionAuthorizer | EventSources | SubscriptionInputBindings | ThreadObjectNamespace,
+    E,
+    | EffectCfDurableObjectState.DurableObjectState
+    | WorkerEnvironment
+    | SubscriptionPartitionIdentity
+    | SecureRandom.SecureRandom
+  >,
+  limits: SubscriptionLimits = defaultSubscriptionLimits,
+) =>
+(mountHost: HostMount & {
+  readonly slot: Slot
+  readonly extend?: HostExtend<ExtendServices, ExtendFailure, ExtendRpc>
+}) => {
+  const cloudflareLimitsLayer = Layer.effectDiscard(validateCloudflareSubscriptionLimits(limits))
+
+  const identityLayer = Layer.effect(
+    SubscriptionPartitionIdentity,
+    Effect.gen(function*() {
+      const state = yield* EffectCfDurableObjectState.DurableObjectState
+
+      return SubscriptionPartitionIdentity.of({
+        partition: yield* decodePartitionName(state.raw.id.name),
+      })
+    }),
+  )
+
+  const sqlLayer = Layer.unwrap(
+    Effect.map(
+      EffectCfDurableObjectState.DurableObjectState,
+      (state) => SqliteClient.layer({ storage: state.raw.storage }),
+    ),
+  )
+
+  const partitionStore = Layer.unwrap(
+    Effect.map(SubscriptionPartitionIdentity, ({ partition }) =>
+      doSubscriptionStoreLayer(partition).pipe(
+        Layer.provide(transactionLayer),
+        Layer.provide(sqlLayer),
+      )),
+  )
+
+  const application = Layer.mergeAll(
+    Subscriptions.layer(limits),
+    SubscriptionIntake.layer(limits),
+    SubscriptionDriver.layer(limits),
+    cloudflareLimitsLayer,
+    // Capture the host reference before its scoped input Layer is hidden from the runtime.
+    Layer.effect(
+      SubscriptionPartitionAlarmExtension,
+      Effect.gen(function*() {
+        const extension = yield* SubscriptionPartitionAlarmExtension
+        const tags = extension.handlers.map((handler) => handler.tag)
+
+        if (
+          tags.length > MAX_ALARMS_PER_INVOCATION ||
+          new Set(tags).size !== tags.length ||
+          tags.some(
+            (tag) => tag.length === 0 || tag.length > 128 || tag.startsWith('effect-agent/'),
+          )
+        ) {
+          return yield* SubscriptionAlarmProtocolError.make({
+            message: 'Invalid ancillary alarm handler registry',
+          })
+        }
+
+        yield* validateCloudflareSubscriptionLimits(limits, { ancillaryAlarms: tags.length > 0 })
+
+        return extension
+      }),
+    ),
+  ).pipe(
+    Layer.provideMerge(partitionStore),
+    Layer.provide(
+      cloudflarePreparedInputAdmissionLayer.pipe(Layer.provide(CloudflareThreadClient.layer)),
+    ),
+    Layer.provideMerge(DurableObjectAlarm.DurableObjectAlarm.layer),
+    Layer.provide(host),
+    Layer.provideMerge(identityLayer),
+    Layer.provide(cloudflareCryptoLayer),
+  )
+
+  const baseRuntime: Layer.Layer<
+    SubscriptionRuntimeServices,
+    | E
+    | SubscriptionError
+    | SubscriptionPartitionProtocolError
+    | CloudflareSubscriptionConfigError
+    | SubscriptionAlarmProtocolError,
+    EffectCfDurableObjectState.DurableObjectState | WorkerEnvironment
+  > = Layer.effectContext(
+    Effect.gen(function*() {
+      const state = yield* EffectCfDurableObjectState.DurableObjectState
+      const scope = yield* Effect.scope
+
+      return yield* state.blockConcurrencyWhile(Layer.buildWithScope(application, scope))
+    }),
+  )
+
+  const runtime = hostRuntime(baseRuntime, mountHost.extend?.layer)
+
+  const libraryRpc = {
+    subscription: (encoded: unknown) => handleRequest(encoded),
+  } satisfies EffectCfDurableObject.DurableObjectRpc<SubscriptionRuntimeServices>
+
+  if (mountHost.extend?.rpc !== undefined) {
+    for (const key of Object.keys(mountHost.extend.rpc)) {
+      if (key in libraryRpc) {
+        throw new Error(`A consumer method named "${key}" collides with a library method`)
+      }
+    }
+  }
+
+  const rpc = { ...libraryRpc, ...mountHost.extend?.rpc }
+
+  // effect-cf's mount erases its build failure to `unknown`; a failed mount is an assembly defect.
+  // @effect-diagnostics-next-line anyUnknownInErrorContext:off
+  return EffectCfDurableObject.mount<
+    SubscriptionRuntimeServices | ExtendServices,
+    | E
+    | ExtendFailure
+    | SubscriptionError
+    | SubscriptionPartitionProtocolError
+    | CloudflareSubscriptionConfigError
+    | SubscriptionAlarmProtocolError,
+    never,
+    never,
+    typeof rpc,
+    never,
+    Slot
+  >(runtime, {
+    initialize: Effect.void,
+    rpc,
+    alarms: alarmHandler(limits),
+    slot: mountHost.slot,
+  })(mountHost).pipe(Effect.orDie)
 }

@@ -5,7 +5,7 @@ import {
 } from '@systemfsoftware/agent-platform-cloudflare/cloudflare-subscriptions'
 import { SubscriptionIntake, Subscriptions } from '@systemfsoftware/agent/subscriptions'
 import { env, runDurableObjectAlarm, runInDurableObject } from 'cloudflare:test'
-import { DurableObject, DurableObjectAlarm } from 'effect-cf'
+import { DurableObject, DurableObjectAlarm } from '@systemfsoftware/effect-cf'
 import * as DateTime from 'effect/DateTime'
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'

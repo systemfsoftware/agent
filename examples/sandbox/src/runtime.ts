@@ -13,7 +13,7 @@ import * as ThreadContextHistory from '@systemfsoftware/agent/thread-context-his
 import { ThreadWorkDiscovery } from '@systemfsoftware/agent/thread-work'
 import * as ToolResults from '@systemfsoftware/agent/tool-results'
 import { Cause, Context, Effect, Layer, Option, Schema, Stream } from 'effect'
-import { DurableObject, Rpc, WorkerEnvironment } from 'effect-cf'
+import { DurableObject, Rpc, WorkerEnvironment } from '@systemfsoftware/effect-cf'
 import { AiError, LanguageModel, Model } from 'effect/ai'
 import { FetchHttpClient, HttpClient, HttpClientError, HttpClientRequest } from 'effect/http'
 

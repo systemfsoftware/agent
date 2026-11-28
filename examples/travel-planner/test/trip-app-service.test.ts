@@ -39,7 +39,7 @@ import { DurableObject } from "cloudflare:workers";
 import { SqliteClient } from "@effect/sql-sqlite-do";
 import { ThreadObjectIdentity } from "@systemfsoftware/agent-platform-cloudflare/cloudflare-bindings";
 import { Cause, Effect, Layer } from "effect";
-import { WorkerEnvironment } from "effect-cf";
+import { WorkerEnvironment } from "@systemfsoftware/effect-cf";
 import { PlannerError } from "../src/domain";
 import { TripRepository, TripRepositoryLive } from "../src/server/trips";
 import { AppRepository, AppRepositoryLive } from "../src/trip-app/repository";

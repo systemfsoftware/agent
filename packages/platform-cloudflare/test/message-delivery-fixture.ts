@@ -4,7 +4,7 @@ import {
   MessageDeliveryStore,
 } from '@systemfsoftware/agent/message-delivery'
 import { PreparedInputAdmission } from '@systemfsoftware/agent/prepared-input-admission'
-import { DurableObjectState } from 'effect-cf'
+import { DurableObjectState } from '@systemfsoftware/effect-cf'
 import * as Context from 'effect/Context'
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'

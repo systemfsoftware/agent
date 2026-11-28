@@ -11,7 +11,7 @@ import { text as textOutput } from '@systemfsoftware/agent/output'
 import { IdempotencyKey, Principal } from '@systemfsoftware/agent/receipt'
 import { DefinitionDigestInput } from '@systemfsoftware/agent/records'
 import { Effect, Layer, ManagedRuntime, Schema, Stream } from 'effect'
-import { DurableObject } from 'effect-cf'
+import { DurableObject } from '@systemfsoftware/effect-cf'
 import { AiError, LanguageModel, Model, type Prompt, type Response, Tool, Toolkit } from 'effect/ai'
 
 import { fingerprint, type Message, next, payload, type Turn } from './plan'
