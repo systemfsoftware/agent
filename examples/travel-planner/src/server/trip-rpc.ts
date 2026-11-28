@@ -1,6 +1,6 @@
 import { ThreadObjectIdentity } from '@systemfsoftware/agent-platform-cloudflare/cloudflare-bindings'
+import { WorkerEnvironment } from '@systemfsoftware/effect-cf'
 import { Effect, Layer, Schema } from 'effect'
-import { WorkerEnvironment } from 'effect-cf'
 
 import {
   ConversationId,

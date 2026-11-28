@@ -89,7 +89,7 @@ export const buildReplayCpu = Effect.fn('ReplayCpu.build')(function*(
       exports.set(manifest.name + (key === '.' ? '' : key.slice(1)), built)
     }
   }
-  for (const name of ['effect', 'effect-cf']) {
+  for (const name of ['effect', '@systemfsoftware/effect-cf']) {
     const manifest = yield* Schema.decodeEffect(
       Schema.fromJsonString(Schema.Struct({ version: Schema.String })),
     )(yield* fs.readFileString(path.join(sourceRoot, 'node_modules', name, 'package.json')))

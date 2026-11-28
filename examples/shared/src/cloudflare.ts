@@ -1,5 +1,5 @@
+import { DurableObjectState, Worker } from '@systemfsoftware/effect-cf'
 import { Deferred, Effect } from 'effect'
-import { DurableObjectState, Worker } from 'effect-cf'
 
 import type { AccountError } from './contract'
 import { type AuthenticatedAccount, Authentication } from './server'

@@ -7,8 +7,8 @@ import {
   WorkerHostConfig,
   WorkerPolicyResolver,
 } from '@systemfsoftware/agent/worker-host'
+import { WorkerEnvironment } from '@systemfsoftware/effect-cf'
 import { Duration, Effect, Layer, Option, Schema } from 'effect'
-import { WorkerEnvironment } from 'effect-cf'
 import { Toolkit } from 'effect/ai'
 
 import { DeliverResponse } from '../agent'

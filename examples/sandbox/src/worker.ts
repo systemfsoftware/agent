@@ -8,13 +8,13 @@ import { SubmissionId, ThreadId, ToolCallId } from '@systemfsoftware/agent/ident
 import { type CanonicalRecordEnvelope, CanonicalSequence } from '@systemfsoftware/agent/records'
 import { toolCallSettledRecordId } from '@systemfsoftware/agent/run-journal'
 import { AbortCommand, IdempotencyKey, Principal } from '@systemfsoftware/agent/submission-ledger'
+import { CloudflareTracer, Rpc, Worker, WorkerEnvironment } from '@systemfsoftware/effect-cf'
 import {
   makeSandboxAgentContainer,
   makeSandboxAgentOutbound,
   NativeSandboxNamespace,
 } from '@yielded/sandbox/cloudflare'
 import { Cause, Deferred, Effect, Layer, Schedule, Schema, Stream } from 'effect'
-import { CloudflareTracer, Rpc, Worker, WorkerEnvironment } from 'effect-cf'
 import { Prompt } from 'effect/ai'
 import * as HttpServerResponse from 'effect/http/HttpServerResponse'
 

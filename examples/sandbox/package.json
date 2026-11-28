@@ -20,7 +20,7 @@
     "@systemfsoftware/ui": "workspace:*",
     "drizzle-orm": "catalog:",
     "effect": "catalog:",
-    "effect-cf": "catalog:",
+    "@systemfsoftware/effect-cf": "catalog:",
     "lucide-react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",

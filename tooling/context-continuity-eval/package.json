@@ -17,7 +17,7 @@
     "@systemfsoftware/agent-platform-cloudflare": "workspace:*",
     "@systemfsoftware/agent-platform-node": "workspace:*",
     "effect": "catalog:",
-    "effect-cf": "catalog:"
+    "@systemfsoftware/effect-cf": "catalog:"
   },
   "devDependencies": {
     "@alchemy.run/cloudflare": "catalog:",

@@ -8,8 +8,8 @@ import {
   RecoverySnapshotRequest,
   SubmissionLedger,
 } from '@systemfsoftware/agent/submission-ledger'
+import { DurableObject } from '@systemfsoftware/effect-cf'
 import { runDurableObjectAlarm, runInDurableObject } from 'cloudflare:test'
-import { DurableObject } from 'effect-cf'
 import * as Clock from 'effect/Clock'
 import * as SecureRandom from 'effect/crypto/SecureRandom'
 import * as Effect from 'effect/Effect'

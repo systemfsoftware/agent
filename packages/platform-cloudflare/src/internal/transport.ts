@@ -1,6 +1,6 @@
 import { portTransportFailure, ThreadPortTransport } from '@systemfsoftware/agent-storage-cloudflare/port-routing'
 import type { ThreadId } from '@systemfsoftware/agent/identifiers'
-import { RpcTracing } from 'effect-cf'
+import { RpcTracing } from '@systemfsoftware/effect-cf'
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 

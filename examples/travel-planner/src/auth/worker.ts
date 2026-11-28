@@ -1,9 +1,9 @@
 import { authenticateRequest } from '@systemfsoftware/agent-example-auth/cloudflare'
 import type { Authentication } from '@systemfsoftware/agent-example-auth/server'
+import type { Worker } from '@systemfsoftware/effect-cf'
+import { type WorkerEnvironment } from '@systemfsoftware/effect-cf'
 import { DurableObject } from 'cloudflare:workers'
 import { Effect, Schema } from 'effect'
-import type { Worker } from 'effect-cf'
-import { type WorkerEnvironment } from 'effect-cf'
 
 import { type AccountError, AccountId, type AccountSession } from './account'
 

@@ -12,7 +12,7 @@ import {
   ScheduleId,
 } from '@systemfsoftware/agent/schedule'
 import { Scheduling } from '@systemfsoftware/agent/scheduling'
-import { WorkerEnvironment } from 'effect-cf'
+import { WorkerEnvironment } from '@systemfsoftware/effect-cf'
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import * as Schema from 'effect/Schema'

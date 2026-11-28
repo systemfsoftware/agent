@@ -23,7 +23,7 @@
     "@systemfsoftware/agent-testing": "workspace:*",
     "@systemfsoftware/ui": "workspace:*",
     "effect": "catalog:",
-    "effect-cf": "catalog:",
+    "@systemfsoftware/effect-cf": "catalog:",
     "isomorphic-git": "catalog:",
     "lucide-react": "catalog:",
     "memfs": "catalog:",

@@ -31,7 +31,7 @@ import {
   DurableObjectAlarm,
   DurableObjectState as EffectCfDurableObjectState,
   type WorkerEnvironment,
-} from 'effect-cf'
+} from '@systemfsoftware/effect-cf'
 import * as Cause from 'effect/Cause'
 import * as Clock from 'effect/Clock'
 import * as Context from 'effect/Context'
@@ -46,6 +46,8 @@ import { type ThreadObjectNamespace } from './CloudflareBindings'
 import { CloudflareThreadClient } from './CloudflareThreadClient'
 import { cloudflareCryptoLayer } from './internal/crypto'
 import { cloudflarePreparedInputAdmissionLayer } from './internal/prepared-admission'
+import { hostRuntime, hostRuntimeBase } from './ThreadObject'
+import type { HostedRecord, HostExtend, HostMount, HostSlot } from './ThreadObject'
 
 const SUBSCRIPTION_ALARM_TAG = 'effect-agent/SubscriptionPartitionWake'
 const SUBSCRIPTION_ALARM_ID = 'driver'
@@ -75,10 +77,18 @@ export type SubscriptionPartitionAlarmServices =
   | SubscriptionIntake
   | SubscriptionDriver
 
+export const SubscriptionPartitionAlarmEvent = Schema.TaggedStruct('AlarmDue', {
+  id: Schema.NonEmptyString,
+  payload: Schema.Json,
+  scheduledAt: Schema.DateTimeUtc,
+  tag: Schema.NonEmptyString,
+})
+export type SubscriptionPartitionAlarmEvent = typeof SubscriptionPartitionAlarmEvent.Type
+
 export interface SubscriptionPartitionAlarmHandler<R = SubscriptionPartitionAlarmServices> {
   readonly tag: string
   readonly handle: (
-    event: DurableObjectAlarm.DurableObjectAlarmEvent,
+    event: SubscriptionPartitionAlarmEvent,
   ) => Effect.Effect<void, SubscriptionAlarmProtocolError | SubscriptionAlarmExtensionError, R>
 }
 
@@ -102,7 +112,7 @@ export const makeSubscriptionPartitionAlarmHandler = Effect.fnUntraced(function*
   readonly payload: Payload
   readonly timeoutMillis: number
   readonly handle: (
-    event: Omit<DurableObjectAlarm.DurableObjectAlarmEvent, 'payload'> & {
+    event: Omit<SubscriptionPartitionAlarmEvent, 'payload'> & {
       readonly payload: Payload['Type']
     },
   ) => Effect.Effect<void, SubscriptionAlarmExtensionError, R>
@@ -922,7 +932,19 @@ export interface SubscriptionPartitionObjectClass {
  * Build one source-addressed SQLite Durable Object. The host Layer binds the permitted source
  * catalog and authority. It must not retain cleanup-scoped resources across RPC events.
  */
-export const makeSubscriptionPartitionObjectClass = <E>(
+type SubscriptionLibraryRpc = {
+  readonly subscription: (encoded: unknown) => ReturnType<typeof handleRequest>
+}
+
+const buildSubscriptionPartitionObject = <
+  E,
+  ExtendServices = never,
+  ExtendFailure = never,
+  Requirements extends SubscriptionRuntimeServices = never,
+  const ExtendRpc extends EffectCfDurableObject.DurableObjectRpc<
+    SubscriptionRuntimeServices | ExtendServices
+  > = Record<never, never>,
+>(
   host: Layer.Layer<
     SubscriptionAuthorizer | EventSources | SubscriptionInputBindings | ThreadObjectNamespace,
     E,
@@ -931,8 +953,9 @@ export const makeSubscriptionPartitionObjectClass = <E>(
     | SubscriptionPartitionIdentity
     | SecureRandom.SecureRandom
   >,
-  limits: SubscriptionLimits = defaultSubscriptionLimits,
-): SubscriptionPartitionObjectClass => {
+  limits: SubscriptionLimits,
+  extend?: HostExtend<ExtendServices, ExtendFailure, Requirements, ExtendRpc>,
+) => {
   const cloudflareLimitsLayer = Layer.effectDiscard(validateCloudflareSubscriptionLimits(limits))
 
   const identityLayer = Layer.effect(
@@ -1001,7 +1024,7 @@ export const makeSubscriptionPartitionObjectClass = <E>(
     Layer.provide(cloudflareCryptoLayer),
   )
 
-  const runtime: Layer.Layer<
+  const baseRuntime: Layer.Layer<
     SubscriptionRuntimeServices,
     | E
     | SubscriptionError
@@ -1011,22 +1034,154 @@ export const makeSubscriptionPartitionObjectClass = <E>(
     EffectCfDurableObjectState.DurableObjectState | WorkerEnvironment
   > = Layer.effectContext(
     Effect.gen(function*() {
-      const state = yield* EffectCfDurableObjectState.DurableObjectState
       const scope = yield* Effect.scope
 
-      return yield* state.blockConcurrencyWhile(Layer.buildWithScope(application, scope))
+      return yield* Layer.buildWithScope(application, scope)
     }),
   )
 
-  const rpc = {
+  const runtime: Layer.Layer<
+    SubscriptionRuntimeServices | ExtendServices,
+    | E
+    | ExtendFailure
+    | SubscriptionError
+    | SubscriptionPartitionProtocolError
+    | CloudflareSubscriptionConfigError
+    | SubscriptionAlarmProtocolError,
+    EffectCfDurableObjectState.DurableObjectState | WorkerEnvironment
+  > = hostRuntime(baseRuntime, extend?.layer)
+
+  const libraryRpc = {
     subscription: (encoded: unknown) => handleRequest(encoded),
-  } satisfies EffectCfDurableObject.DurableObjectRpc<SubscriptionRuntimeServices>
+  } satisfies SubscriptionLibraryRpc
 
-  const SubscriptionPartitionObject = EffectCfDurableObject.make(runtime, {
-    initialize: Effect.void,
-    rpc,
-    alarms: alarmHandler(limits),
-  })
+  if (extend?.rpc !== undefined) {
+    for (const key of Object.keys(extend.rpc)) {
+      if (key in libraryRpc) {
+        throw new Error(`A consumer method named "${key}" collides with a library method`)
+      }
+    }
+  }
 
-  return SubscriptionPartitionObject
+  const rpc: SubscriptionLibraryRpc & ExtendRpc = Object.assign({}, libraryRpc, extend?.rpc)
+
+  return { runtime, rpc }
 }
+
+export const makeSubscriptionPartitionObjectClass = <
+  E,
+  ExtendServices = never,
+  ExtendFailure = never,
+  Requirements extends SubscriptionRuntimeServices = never,
+  const ExtendRpc extends EffectCfDurableObject.DurableObjectRpc<
+    SubscriptionRuntimeServices | ExtendServices
+  > = Record<never, never>,
+>(
+  host: Layer.Layer<
+    SubscriptionAuthorizer | EventSources | SubscriptionInputBindings | ThreadObjectNamespace,
+    E,
+    | EffectCfDurableObjectState.DurableObjectState
+    | WorkerEnvironment
+    | SubscriptionPartitionIdentity
+    | SecureRandom.SecureRandom
+  >,
+  limits: SubscriptionLimits = defaultSubscriptionLimits,
+  extend?: HostExtend<ExtendServices, ExtendFailure, Requirements, ExtendRpc>,
+): SubscriptionPartitionObjectClass => {
+  const built = buildSubscriptionPartitionObject<
+    E,
+    ExtendServices,
+    ExtendFailure,
+    Requirements,
+    ExtendRpc
+  >(host, limits, extend)
+
+  return EffectCfDurableObject.make<
+    SubscriptionRuntimeServices,
+    | E
+    | ExtendFailure
+    | SubscriptionError
+    | SubscriptionPartitionProtocolError
+    | CloudflareSubscriptionConfigError
+    | SubscriptionAlarmProtocolError,
+    never,
+    never,
+    SubscriptionLibraryRpc,
+    never
+  >(
+    hostRuntimeBase<
+      SubscriptionRuntimeServices,
+      | E
+      | ExtendFailure
+      | SubscriptionError
+      | SubscriptionPartitionProtocolError
+      | CloudflareSubscriptionConfigError
+      | SubscriptionAlarmProtocolError,
+      EffectCfDurableObjectState.DurableObjectState | WorkerEnvironment,
+      ExtendServices
+    >(built.runtime),
+    {
+      initialize: Effect.void,
+      rpc: built.rpc,
+      alarms: alarmHandler(limits),
+    },
+  )
+}
+
+export const mountSubscriptionPartitionObjectClass = <
+  E,
+  ExtendServices = never,
+  ExtendFailure = never,
+  Requirements extends SubscriptionRuntimeServices = never,
+  const ExtendRpc extends EffectCfDurableObject.DurableObjectRpc<
+    SubscriptionRuntimeServices | ExtendServices
+  > = Record<never, never>,
+  const Slot extends HostSlot = HostSlot,
+>(
+  host: Layer.Layer<
+    SubscriptionAuthorizer | EventSources | SubscriptionInputBindings | ThreadObjectNamespace,
+    E,
+    | EffectCfDurableObjectState.DurableObjectState
+    | WorkerEnvironment
+    | SubscriptionPartitionIdentity
+    | SecureRandom.SecureRandom
+  >,
+  limits: SubscriptionLimits = defaultSubscriptionLimits,
+) =>
+(
+  mountHost: HostMount<
+    Slot,
+    HostExtend<ExtendServices, ExtendFailure, Requirements, ExtendRpc>
+  >,
+): Effect.Effect<HostedRecord<SubscriptionLibraryRpc & ExtendRpc, Slot>, never> =>
+  Effect.suspend(() => {
+    const built = buildSubscriptionPartitionObject<
+      E,
+      ExtendServices,
+      ExtendFailure,
+      Requirements,
+      ExtendRpc
+    >(host, limits, mountHost.extend)
+
+    // effect-cf's mount erases its build failure to `unknown`; a failed mount is an assembly defect.
+    // @effect-diagnostics-next-line anyUnknownInErrorContext:off
+    return EffectCfDurableObject.mount<
+      SubscriptionRuntimeServices | ExtendServices,
+      | E
+      | ExtendFailure
+      | SubscriptionError
+      | SubscriptionPartitionProtocolError
+      | CloudflareSubscriptionConfigError
+      | SubscriptionAlarmProtocolError,
+      never,
+      never,
+      typeof built.rpc,
+      never,
+      Slot
+    >(built.runtime, {
+      initialize: Effect.void,
+      rpc: built.rpc,
+      alarms: alarmHandler(limits),
+      slot: mountHost.slot,
+    })(mountHost).pipe(Effect.orDie)
+  })

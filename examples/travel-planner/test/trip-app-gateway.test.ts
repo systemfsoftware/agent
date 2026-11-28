@@ -55,7 +55,7 @@ beforeAll(async () => {
       contents: `
 import { DurableObject } from "cloudflare:workers";
 import { Effect, Schema } from "effect";
-import { WorkerEnvironment } from "effect-cf";
+import { WorkerEnvironment } from "@systemfsoftware/effect-cf";
 import { AppBuildBucketLive } from "../src/trip-app/bindings";
 import { handleRequest } from "../src/worker";
 import { publishTripAppAddress, appAddressKey } from "../src/trip-app/addresses";

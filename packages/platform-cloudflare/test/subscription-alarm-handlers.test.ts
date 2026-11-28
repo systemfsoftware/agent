@@ -1,6 +1,6 @@
 import { makeSubscriptionPartitionAlarmHandler } from '@systemfsoftware/agent-platform-cloudflare/cloudflare-subscriptions'
 import { SubscriptionDriver } from '@systemfsoftware/agent/subscriptions'
-import { DurableObjectAlarm } from 'effect-cf'
+import { DurableObjectAlarm } from '@systemfsoftware/effect-cf'
 import * as Context from 'effect/Context'
 import * as DateTime from 'effect/DateTime'
 import * as Deferred from 'effect/Deferred'
