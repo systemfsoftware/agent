@@ -46,7 +46,7 @@ import * as Layer from 'effect/Layer'
 import * as Schema from 'effect/Schema'
 
 import { hostRuntime } from './ThreadObject'
-import type { HostExtend, HostMount, HostSlot } from './ThreadObject'
+import type { HostExtend, HostMount, HostSlot, HostedRecord, NoReservedHostMethods } from './ThreadObject'
 
 export interface MemoryObjectRpc extends Rpc.DurableObjectBranded {
   memory(encoded: string): Promise<string>
@@ -358,13 +358,18 @@ export interface MemoryObjectOptions {
   >
 }
 
+type MemoryLibraryRpc = {
+  readonly memory: (encoded: string) => ReturnType<typeof handleMemoryOwnerRequest>
+}
+
 const buildMemoryObject = <
   E,
   ExtendServices = never,
   ExtendFailure = never,
+  Requirements extends OwnerServices = never,
   const ExtendRpc extends EffectCfDurableObject.DurableObjectRpc<
     OwnerServices | ExtendServices
-  > = Record<never, never>,
+  > & NoReservedHostMethods<ExtendRpc> = Record<never, never>,
 >(
   host: Layer.Layer<
     MemoryOwnerAuthorizer,
@@ -372,7 +377,7 @@ const buildMemoryObject = <
     MemoryOwnerIdentity | DurableObjectState.DurableObjectState | WorkerEnvironment
   >,
   options: MemoryObjectOptions = {},
-  extend?: HostExtend<ExtendServices, ExtendFailure, ExtendRpc>,
+  extend?: HostExtend<ExtendServices, ExtendFailure, Requirements, ExtendRpc>,
 ) => {
   const identity = Layer.effect(
     MemoryOwnerIdentity,
@@ -403,14 +408,13 @@ const buildMemoryObject = <
     DurableObjectState.DurableObjectState | WorkerEnvironment
   > = Layer.effectContext(
     Effect.gen(function*() {
-      const state = yield* DurableObjectState.DurableObjectState
       const scope = yield* Effect.scope
 
       yield* Schema.decodeEffect(MemoryRpcLimits)(options.rpcLimits ?? defaultMemoryRpcLimits).pipe(
         Effect.mapError(() => MemoryRpcError.make({ reason: 'protocol' })),
       )
 
-      return yield* state.blockConcurrencyWhile(Layer.buildWithScope(application, scope))
+      return yield* Layer.buildWithScope(application, scope)
     }),
   )
 
@@ -418,7 +422,7 @@ const buildMemoryObject = <
 
   const libraryRpc = {
     memory: (encoded: string) => handleMemoryOwnerRequest(encoded, options.rpcLimits),
-  }
+  } satisfies MemoryLibraryRpc
 
   if (extend?.rpc !== undefined) {
     for (const key of Object.keys(extend.rpc)) {
@@ -428,20 +432,33 @@ const buildMemoryObject = <
     }
   }
 
-  const rpc = { ...libraryRpc, ...extend?.rpc }
+  const rpc: MemoryLibraryRpc & ExtendRpc = Object.assign({}, libraryRpc, extend?.rpc)
 
   return { runtime, rpc }
 }
 
-const makeMemoryObject = <E>(
+const makeMemoryObject = <
+  E,
+  ExtendServices = never,
+  ExtendFailure = never,
+  Requirements extends OwnerServices = never,
+  const ExtendRpc extends EffectCfDurableObject.DurableObjectRpc<
+    OwnerServices | ExtendServices
+  > & NoReservedHostMethods<ExtendRpc> = Record<never, never>,
+>(
   host: Layer.Layer<
     MemoryOwnerAuthorizer,
     E,
     MemoryOwnerIdentity | DurableObjectState.DurableObjectState | WorkerEnvironment
   >,
   options: MemoryObjectOptions = {},
+  extend?: HostExtend<ExtendServices, ExtendFailure, Requirements, ExtendRpc>,
 ): MemoryObjectClass => {
-  const built = buildMemoryObject<E>(host, options)
+  const built = buildMemoryObject<E, ExtendServices, ExtendFailure, Requirements, ExtendRpc>(
+    host,
+    options,
+    extend,
+  )
 
   return EffectCfDurableObject.make<
     OwnerServices,
@@ -456,9 +473,10 @@ const mountMemoryObject = <
   E,
   ExtendServices = never,
   ExtendFailure = never,
+  Requirements extends OwnerServices = never,
   const ExtendRpc extends EffectCfDurableObject.DurableObjectRpc<
     OwnerServices | ExtendServices
-  > = Record<never, never>,
+  > & NoReservedHostMethods<ExtendRpc> = Record<never, never>,
   const Slot extends HostSlot = HostSlot,
 >(
   host: Layer.Layer<
@@ -468,28 +486,29 @@ const mountMemoryObject = <
   >,
   options: MemoryObjectOptions = {},
 ) =>
-(mountHost: HostMount & {
-  readonly slot: Slot
-  readonly extend?: HostExtend<ExtendServices, ExtendFailure, ExtendRpc>
-}) => {
-  const built = buildMemoryObject<E, ExtendServices, ExtendFailure, ExtendRpc>(
-    host,
-    options,
-    mountHost.extend,
-  )
+(mountHost: HostMount<
+  Slot,
+  HostExtend<ExtendServices, ExtendFailure, Requirements, ExtendRpc>
+>): Effect.Effect<HostedRecord<MemoryLibraryRpc & ExtendRpc, Slot>, never> =>
+  Effect.suspend(() => {
+    const built = buildMemoryObject<E, ExtendServices, ExtendFailure, Requirements, ExtendRpc>(
+      host,
+      options,
+      mountHost.extend,
+    )
 
-  // effect-cf's mount erases its build failure to `unknown`; a failed mount is an assembly defect.
-  // @effect-diagnostics-next-line anyUnknownInErrorContext:off
-  return EffectCfDurableObject.mount<
-    OwnerServices | ExtendServices,
-    E | MemoryOwnerFailure | ExtendFailure,
-    never,
-    never,
-    typeof built.rpc,
-    never,
-    Slot
-  >(built.runtime, { rpc: built.rpc, slot: mountHost.slot })(mountHost).pipe(Effect.orDie)
-}
+    // effect-cf's mount erases its build failure to `unknown`; a failed mount is an assembly defect.
+    // @effect-diagnostics-next-line anyUnknownInErrorContext:off
+    return EffectCfDurableObject.mount<
+      OwnerServices | ExtendServices,
+      E | MemoryOwnerFailure | ExtendFailure,
+      never,
+      never,
+      typeof built.rpc,
+      never,
+      Slot
+    >(built.runtime, { rpc: built.rpc, slot: mountHost.slot })(mountHost).pipe(Effect.orDie)
+  })
 
 export const MemoryObject = {
   /** Build the SQLite Durable Object class with the application's owner authorization Layer. */

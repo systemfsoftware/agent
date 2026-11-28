@@ -55,7 +55,7 @@ import { CloudflareThreadClient } from './CloudflareThreadClient'
 import { cloudflareCryptoLayer } from './internal/crypto'
 import { cloudflarePreparedInputAdmissionLayer } from './internal/prepared-admission'
 import { hostRuntime } from './ThreadObject'
-import type { HostExtend, HostMount, HostSlot } from './ThreadObject'
+import type { HostExtend, HostMount, HostSlot, HostedRecord, NoReservedHostMethods } from './ThreadObject'
 
 const SCHEDULE_ALARM_TAG = 'effect-agent/ScheduleOwnerWake'
 const SCHEDULE_ALARM_ID = 'driver'
@@ -670,81 +670,18 @@ export interface ScheduleOwnerObjectClass {
  * cleanup in this Layer; acquire them inside scoped `manage` / `prepare` operations instead.
  * Native services belong to effect-cf; the database and alarm runtime remain instance-owned.
  */
-export const makeScheduleOwnerObjectClass = <E>(
-  host: Layer.Layer<
-    ScheduleAuthorizer | ThreadObjectNamespace,
-    E,
-    | EffectCfDurableObjectState.DurableObjectState
-    | WorkerEnvironment
-    | ScheduleOwnerIdentity
-    | SecureRandom.SecureRandom
-  >,
-  limits: SchedulingLimits = defaultSchedulingLimits,
-): ScheduleOwnerObjectClass => {
-  const ownerLayer = Layer.effect(
-    ScheduleOwnerIdentity,
-    Effect.gen(function*() {
-      const state = yield* EffectCfDurableObjectState.DurableObjectState
-
-      return ScheduleOwnerIdentity.of({ owner: yield* decodeOwnerName(state.raw.id.name) })
-    }),
-  )
-
-  const sqlLayer = Layer.unwrap(
-    Effect.map(
-      EffectCfDurableObjectState.DurableObjectState,
-      (state) => SqliteClient.layer({ storage: state.raw.storage }),
-    ),
-  )
-
-  const application = Layer.merge(Scheduling.layer(limits), ScheduleDriver.layer(limits)).pipe(
-    Layer.provideMerge(
-      scheduleStoreLayer.pipe(Layer.provide(transactionLayer), Layer.provide(sqlLayer)),
-    ),
-    Layer.provide(
-      cloudflarePreparedInputAdmissionLayer.pipe(Layer.provide(CloudflareThreadClient.layer)),
-    ),
-    Layer.provide(ScheduleWakeNoop),
-    Layer.provideMerge(DurableObjectAlarm.DurableObjectAlarm.layer),
-    Layer.provide(host),
-    Layer.provideMerge(ownerLayer),
-    Layer.provide(cloudflareCryptoLayer),
-  )
-
-  const runtime: Layer.Layer<
-    ScheduleRuntimeServices,
-    E | ScheduleStorageError | ScheduleOwnerProtocolError | ScheduleValidationError,
-    EffectCfDurableObjectState.DurableObjectState | WorkerEnvironment
-  > = Layer.effectContext(
-    Effect.gen(function*() {
-      const state = yield* EffectCfDurableObjectState.DurableObjectState
-      const scope = yield* Effect.scope
-
-      return yield* state.blockConcurrencyWhile(Layer.buildWithScope(application, scope))
-    }),
-  )
-
-  const rpc = {
-    schedule: (encoded: unknown) => handleScheduleRequest(encoded),
-  } satisfies EffectCfDurableObject.DurableObjectRpc<ScheduleRuntimeServices>
-
-  const ScheduleOwnerObject = EffectCfDurableObject.make(runtime, {
-    initialize: Effect.void,
-    rpc,
-    alarms: scheduleAlarmHandler(limits),
-  })
-
-  return ScheduleOwnerObject
+type ScheduleLibraryRpc = {
+  readonly schedule: (encoded: unknown) => ReturnType<typeof handleScheduleRequest>
 }
 
-export const mountScheduleOwnerObjectClass = <
+const buildScheduleOwnerObject = <
   E,
   ExtendServices = never,
   ExtendFailure = never,
+  Requirements extends ScheduleRuntimeServices = never,
   const ExtendRpc extends EffectCfDurableObject.DurableObjectRpc<
     ScheduleRuntimeServices | ExtendServices
-  > = Record<never, never>,
-  const Slot extends HostSlot = HostSlot,
+  > & NoReservedHostMethods<ExtendRpc> = Record<never, never>,
 >(
   host: Layer.Layer<
     ScheduleAuthorizer | ThreadObjectNamespace,
@@ -754,12 +691,9 @@ export const mountScheduleOwnerObjectClass = <
     | ScheduleOwnerIdentity
     | SecureRandom.SecureRandom
   >,
-  limits: SchedulingLimits = defaultSchedulingLimits,
-) =>
-(mountHost: HostMount & {
-  readonly slot: Slot
-  readonly extend?: HostExtend<ExtendServices, ExtendFailure, ExtendRpc>
-}) => {
+  limits: SchedulingLimits,
+  extend?: HostExtend<ExtendServices, ExtendFailure, Requirements, ExtendRpc>,
+) => {
   const ownerLayer = Layer.effect(
     ScheduleOwnerIdentity,
     Effect.gen(function*() {
@@ -796,43 +730,117 @@ export const mountScheduleOwnerObjectClass = <
     EffectCfDurableObjectState.DurableObjectState | WorkerEnvironment
   > = Layer.effectContext(
     Effect.gen(function*() {
-      const state = yield* EffectCfDurableObjectState.DurableObjectState
       const scope = yield* Effect.scope
 
-      return yield* state.blockConcurrencyWhile(Layer.buildWithScope(application, scope))
+      return yield* Layer.buildWithScope(application, scope)
     }),
   )
 
-  const runtime = hostRuntime(baseRuntime, mountHost.extend?.layer)
+  const runtime: Layer.Layer<
+    ScheduleRuntimeServices | ExtendServices,
+    E | ExtendFailure | ScheduleStorageError | ScheduleOwnerProtocolError | ScheduleValidationError,
+    EffectCfDurableObjectState.DurableObjectState | WorkerEnvironment
+  > = hostRuntime(baseRuntime, extend?.layer)
 
   const libraryRpc = {
     schedule: (encoded: unknown) => handleScheduleRequest(encoded),
-  } satisfies EffectCfDurableObject.DurableObjectRpc<ScheduleRuntimeServices>
+  } satisfies ScheduleLibraryRpc
 
-  if (mountHost.extend?.rpc !== undefined) {
-    for (const key of Object.keys(mountHost.extend.rpc)) {
+  if (extend?.rpc !== undefined) {
+    for (const key of Object.keys(extend.rpc)) {
       if (key in libraryRpc) {
         throw new Error(`A consumer method named "${key}" collides with a library method`)
       }
     }
   }
 
-  const rpc = { ...libraryRpc, ...mountHost.extend?.rpc }
+  const rpc: ScheduleLibraryRpc & ExtendRpc = Object.assign({}, libraryRpc, extend?.rpc)
 
-  // effect-cf's mount erases its build failure to `unknown`; a failed mount is an assembly defect.
-  // @effect-diagnostics-next-line anyUnknownInErrorContext:off
-  return EffectCfDurableObject.mount<
-    ScheduleRuntimeServices | ExtendServices,
-    E | ExtendFailure | ScheduleStorageError | ScheduleOwnerProtocolError | ScheduleValidationError,
-    never,
-    never,
-    typeof rpc,
-    never,
-    Slot
-  >(runtime, {
-    initialize: Effect.void,
-    rpc,
-    alarms: scheduleAlarmHandler(limits),
-    slot: mountHost.slot,
-  })(mountHost).pipe(Effect.orDie)
+  return { runtime, rpc }
 }
+
+export const makeScheduleOwnerObjectClass = <
+  E,
+  ExtendServices = never,
+  ExtendFailure = never,
+  Requirements extends ScheduleRuntimeServices = never,
+  const ExtendRpc extends EffectCfDurableObject.DurableObjectRpc<
+    ScheduleRuntimeServices | ExtendServices
+  > & NoReservedHostMethods<ExtendRpc> = Record<never, never>,
+>(
+  host: Layer.Layer<
+    ScheduleAuthorizer | ThreadObjectNamespace,
+    E,
+    | EffectCfDurableObjectState.DurableObjectState
+    | WorkerEnvironment
+    | ScheduleOwnerIdentity
+    | SecureRandom.SecureRandom
+  >,
+  limits: SchedulingLimits = defaultSchedulingLimits,
+  extend?: HostExtend<ExtendServices, ExtendFailure, Requirements, ExtendRpc>,
+): ScheduleOwnerObjectClass => {
+  const built = buildScheduleOwnerObject<
+    E,
+    ExtendServices,
+    ExtendFailure,
+    Requirements,
+    ExtendRpc
+  >(host, limits, extend)
+
+  return EffectCfDurableObject.make(built.runtime, {
+    initialize: Effect.void,
+    rpc: built.rpc,
+    alarms: scheduleAlarmHandler(limits),
+  })
+}
+
+export const mountScheduleOwnerObjectClass = <
+  E,
+  ExtendServices = never,
+  ExtendFailure = never,
+  Requirements extends ScheduleRuntimeServices = never,
+  const ExtendRpc extends EffectCfDurableObject.DurableObjectRpc<
+    ScheduleRuntimeServices | ExtendServices
+  > & NoReservedHostMethods<ExtendRpc> = Record<never, never>,
+  const Slot extends HostSlot = HostSlot,
+>(
+  host: Layer.Layer<
+    ScheduleAuthorizer | ThreadObjectNamespace,
+    E,
+    | EffectCfDurableObjectState.DurableObjectState
+    | WorkerEnvironment
+    | ScheduleOwnerIdentity
+    | SecureRandom.SecureRandom
+  >,
+  limits: SchedulingLimits = defaultSchedulingLimits,
+) =>
+(mountHost: HostMount<
+  Slot,
+  HostExtend<ExtendServices, ExtendFailure, Requirements, ExtendRpc>
+>): Effect.Effect<HostedRecord<ScheduleLibraryRpc & ExtendRpc, Slot>, never> =>
+  Effect.suspend(() => {
+    const built = buildScheduleOwnerObject<
+      E,
+      ExtendServices,
+      ExtendFailure,
+      Requirements,
+      ExtendRpc
+    >(host, limits, mountHost.extend)
+
+    // effect-cf's mount erases its build failure to `unknown`; a failed mount is an assembly defect.
+    // @effect-diagnostics-next-line anyUnknownInErrorContext:off
+    return EffectCfDurableObject.mount<
+      ScheduleRuntimeServices | ExtendServices,
+      E | ExtendFailure | ScheduleStorageError | ScheduleOwnerProtocolError | ScheduleValidationError,
+      never,
+      never,
+      typeof built.rpc,
+      never,
+      Slot
+    >(built.runtime, {
+      initialize: Effect.void,
+      rpc: built.rpc,
+      alarms: scheduleAlarmHandler(limits),
+      slot: mountHost.slot,
+    })(mountHost).pipe(Effect.orDie)
+  })

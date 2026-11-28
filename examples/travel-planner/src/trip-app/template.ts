@@ -86,8 +86,8 @@ export default defineConfig({
   "type": "module",
   "dependencies": {
     "@trip/contracts": "workspace:*",
-    "effect": "4.0.0",
-    "@systemfsoftware/effect-cf": "0.53.0"
+    "effect": "^4.1.0",
+    "@systemfsoftware/effect-cf": "^0.60.0"
   }
 }
 `,

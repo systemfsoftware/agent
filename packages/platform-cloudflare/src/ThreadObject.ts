@@ -147,28 +147,94 @@ export type HostSlotDelegate = DurableObjectAlarm.AlarmSlotDelegate
 
 export type HostSlotError = DurableObjectAlarm.AlarmSlotError
 
-export type HostedRecord<Rpc, Slot extends HostSlot = HostSlot> = EffectCfDurableObject.MountedRecord<
-  Rpc,
-  Slot
->
+export type HostedMethod<Handler> = Handler extends (
+  ...args: infer Args
+) => Effect.Effect<infer A, infer _E, infer _R>
+  ? (...args: Args) => Effect.Effect<A, unknown>
+  : never
 
-export interface HostMount {
-  readonly state: globalThis.DurableObjectState
-  readonly env: Cloudflare.Env
-}
+const DelegatedSlotTag = { _tag: 'Delegated' } as const
+type DelegatedSlotTag = typeof DelegatedSlotTag
 
-export interface HostExtend<Services = never, Failure = never, Rpc = Record<never, never>> {
-  readonly layer?: Layer.Layer<Services, Failure, never>
+export type HostedRecord<Rpc, Slot extends HostSlot = HostSlot> = {
+  readonly [K in keyof Rpc]: HostedMethod<Rpc[K]>
+} & (Slot extends DelegatedSlotTag ? {
+    readonly runAlarms: Effect.Effect<void, never>
+  }
+  : {
+    readonly alarm: (alarmInfo?: globalThis.AlarmInvocationInfo) => Effect.Effect<void, unknown>
+  })
+
+export interface HostExtend<
+  Services = never,
+  Failure = never,
+  Requirements = never,
+  Rpc = Record<never, never>,
+> {
+  readonly layer?: Layer.Layer<Services, Failure, Requirements>
   readonly rpc?: Rpc
 }
 
+export interface HostMount<
+  Slot extends HostSlot = HostSlot,
+  Extend = HostExtend<never, never, never, Record<never, never>>,
+> {
+  readonly state: globalThis.DurableObjectState
+  readonly env: Cloudflare.Env
+  readonly slot: Slot
+  readonly extend?: Extend
+}
+
+/**
+ * Names the Durable Object or its runtime already owns; a consumer method may not take one.
+ */
+export type ReservedHostMethodKey =
+  | 'constructor'
+  | 'fetch'
+  | 'connect'
+  | 'alarm'
+  | 'webSocketMessage'
+  | 'webSocketClose'
+  | 'webSocketError'
+  | 'then'
+  | 'dup'
+  | 'dispose'
+  | 'serialize'
+  | 'deserialize'
+  | 'ctx'
+  | 'env'
+  | 'runAlarms'
+  | 'toString'
+  | 'toLocaleString'
+  | 'valueOf'
+  | 'hasOwnProperty'
+  | 'isPrototypeOf'
+  | 'propertyIsEnumerable'
+  | '__defineGetter__'
+  | '__defineSetter__'
+  | '__lookupGetter__'
+  | '__lookupSetter__'
+  | '__proto__'
+
+/** Refuses an extension whose method names collide with the object's reserved names. */
+export type NoReservedHostMethods<Rpc> = Extract<keyof Rpc, ReservedHostMethodKey> extends never
+  ? Rpc
+  : never
+
+/**
+ * Compose a domain runtime Layer with a consumer extension. The extension may require the
+ * runtime's own services; effect's `provideMerge` feeds the base output into the extension's
+ * requirements, so the result never demands more than the base already provides. The
+ * absent-extension branch keeps the base's contravariant output, which TypeScript cannot widen
+ * generically, so that one branch is asserted.
+ */
 export const hostRuntime = <A, E, R, A2, E2>(
   base: Layer.Layer<A, E, R>,
-  extension: Layer.Layer<A2, E2, never> | undefined,
+  extension: Layer.Layer<A2, E2, A> | undefined,
 ): Layer.Layer<A | A2, E | E2, R> =>
-  (extension === undefined
-    ? base
-    : Layer.merge(base, extension)) as unknown as Layer.Layer<A | A2, E | E2, R>
+  extension === undefined
+    ? (base as Layer.Layer<A | A2, E | E2, R>)
+    : Layer.provideMerge(extension, base)
 
 /**
  * `ThreadObject.make(application, options)` — the Thread Durable Object
@@ -1305,6 +1371,15 @@ type ThreadApplicationLayer<ApplicationServices, ApplicationError, AlarmServices
   | ThreadObjectNamespace
 >
 
+type ThreadLibraryEncoded = (encoded: unknown) => Effect.Effect<unknown, never, EndpointServices>
+
+type ThreadLibraryRpc = typeof threadRpc & {
+  readonly explainEncoded: ThreadLibraryEncoded
+  readonly verifyEncoded: ThreadLibraryEncoded
+  readonly retryEncoded: ThreadLibraryEncoded
+  readonly obligationsEncoded: ThreadLibraryEncoded
+}
+
 const buildThreadObject = <
   ApplicationServices,
   ApplicationError,
@@ -1314,27 +1389,26 @@ const buildThreadObject = <
   AlarmError = never,
   ExtendServices = never,
   ExtendFailure = never,
+  Requirements extends CloudflareDurableRuntimeServices | ApplicationServices = never,
   const ExtendRpc extends EffectCfDurableObject.DurableObjectRpc<
     RuntimeServices | ApplicationServices | EventServices | ExtendServices
-  > = Record<never, never>,
+  > & NoReservedHostMethods<ExtendRpc> = Record<never, never>,
 >(
   applicationLayer: ThreadApplicationLayer<ApplicationServices, ApplicationError, AlarmServices>,
   options: Options<ApplicationServices, EventServices, EventLayerError, AlarmServices, AlarmError>,
-  extend?: HostExtend<ExtendServices, ExtendFailure, ExtendRpc>,
+  extend?: HostExtend<ExtendServices, ExtendFailure, Requirements, ExtendRpc>,
 ) => {
-  const extendedLayer = (extend?.layer === undefined
-    ? applicationLayer
-    : Layer.merge(applicationLayer, extend.layer)) as unknown as Layer.Layer<
-      CloudflareDurableRuntimeServices | ApplicationServices | ExtendServices,
-      ApplicationError | ExtendFailure,
-      | CloudflareBootstrapServices
-      | ThreadMaintenanceAlarm
-      | NoInfer<AlarmServices>
-      | EffectCfDurableObjectState.DurableObjectState
-      | WorkerEnvironment
-      | DurableObjectContext
-      | ThreadObjectNamespace
-    >
+  const extendedLayer: Layer.Layer<
+    CloudflareDurableRuntimeServices | ApplicationServices | ExtendServices,
+    ApplicationError | ExtendFailure,
+    | CloudflareBootstrapServices
+    | ThreadMaintenanceAlarm
+    | NoInfer<AlarmServices>
+    | EffectCfDurableObjectState.DurableObjectState
+    | WorkerEnvironment
+    | DurableObjectContext
+    | ThreadObjectNamespace
+  > = hostRuntime(applicationLayer, extend?.layer)
 
   const application = extendedLayer.pipe(
     Layer.provideMerge(layerConfig(options)),
@@ -1369,9 +1443,7 @@ const buildThreadObject = <
     verifyEncoded: (encoded: unknown) => verifyEndpoint(encoded),
     retryEncoded: (encoded: unknown) => retryEndpoint(encoded),
     obligationsEncoded: (encoded: unknown) => obligationsEndpoint(encoded),
-  } satisfies EffectCfDurableObject.DurableObjectRpc<
-    RuntimeServices | ApplicationServices | EventServices
-  >
+  } satisfies ThreadLibraryRpc
 
   if (extend?.rpc !== undefined) {
     for (const key of Object.keys(extend.rpc)) {
@@ -1381,7 +1453,7 @@ const buildThreadObject = <
     }
   }
 
-  const rpc = { ...libraryRpc, ...extend?.rpc }
+  const rpc: ThreadLibraryRpc & ExtendRpc = Object.assign({}, libraryRpc, extend?.rpc)
 
   return { runtime, rpc }
 }
@@ -1393,21 +1465,32 @@ export const make = <
   EventLayerError = never,
   AlarmServices = never,
   AlarmError = never,
+  ExtendServices = never,
+  ExtendFailure = never,
+  Requirements extends CloudflareDurableRuntimeServices | ApplicationServices = never,
+  const ExtendRpc extends EffectCfDurableObject.DurableObjectRpc<
+    RuntimeServices | ApplicationServices | EventServices | ExtendServices
+  > & NoReservedHostMethods<ExtendRpc> = Record<never, never>,
 >(
   applicationLayer: ThreadApplicationLayer<ApplicationServices, ApplicationError, AlarmServices>,
   options: Options<ApplicationServices, EventServices, EventLayerError, AlarmServices, AlarmError>,
-): Class<ApplicationServices | EventServices | AlarmServices> => {
+  extend?: HostExtend<ExtendServices, ExtendFailure, Requirements, ExtendRpc>,
+): Class<ApplicationServices | EventServices | AlarmServices | ExtendServices> => {
   const built = buildThreadObject<
     ApplicationServices,
     ApplicationError,
     EventServices,
     EventLayerError,
     AlarmServices,
-    AlarmError
-  >(applicationLayer, options)
+    AlarmError,
+    ExtendServices,
+    ExtendFailure,
+    Requirements,
+    ExtendRpc
+  >(applicationLayer, options, extend)
 
   type NativeOptions = EffectCfDurableObject.DurableObjectOptions<
-    RuntimeServices | ApplicationServices,
+    RuntimeServices | ApplicationServices | ExtendServices,
     EventServices,
     EventLayerError,
     typeof built.rpc,
@@ -1415,8 +1498,8 @@ export const make = <
   >
 
   return EffectCfDurableObject.make<
-    RuntimeServices | ApplicationServices,
-    ThreadObjectInitializationError | ApplicationError,
+    RuntimeServices | ApplicationServices | ExtendServices,
+    ThreadObjectInitializationError | ApplicationError | ExtendFailure,
     EventServices,
     EventLayerError,
     typeof built.rpc,
@@ -1444,54 +1527,57 @@ export const mount = <
   AlarmError = never,
   ExtendServices = never,
   ExtendFailure = never,
+  Requirements extends CloudflareDurableRuntimeServices | ApplicationServices = never,
   const ExtendRpc extends EffectCfDurableObject.DurableObjectRpc<
     RuntimeServices | ApplicationServices | EventServices | ExtendServices
-  > = Record<never, never>,
+  > & NoReservedHostMethods<ExtendRpc> = Record<never, never>,
   const Slot extends HostSlot = HostSlot,
 >(
   applicationLayer: ThreadApplicationLayer<ApplicationServices, ApplicationError, AlarmServices>,
   options: Options<ApplicationServices, EventServices, EventLayerError, AlarmServices, AlarmError>,
 ) =>
-(mountHost: HostMount & {
-  readonly slot: Slot
-  readonly extend?: HostExtend<ExtendServices, ExtendFailure, ExtendRpc>
-}) => {
-  const built = buildThreadObject<
-    ApplicationServices,
-    ApplicationError,
-    EventServices,
-    EventLayerError,
-    AlarmServices,
-    AlarmError,
-    ExtendServices,
-    ExtendFailure,
-    ExtendRpc
-  >(applicationLayer, options, mountHost.extend)
+(mountHost: HostMount<
+  Slot,
+  HostExtend<ExtendServices, ExtendFailure, Requirements, ExtendRpc>
+>): Effect.Effect<HostedRecord<ThreadLibraryRpc & ExtendRpc, Slot>, never> =>
+  Effect.suspend(() => {
+    const built = buildThreadObject<
+      ApplicationServices,
+      ApplicationError,
+      EventServices,
+      EventLayerError,
+      AlarmServices,
+      AlarmError,
+      ExtendServices,
+      ExtendFailure,
+      Requirements,
+      ExtendRpc
+    >(applicationLayer, options, mountHost.extend)
 
-  const hostedOptions = {
-    ...(options.rpcTracing === true ? { rpcTracing: { service: options.namespaceBinding } } : {}),
-    ...(options.eventLayer === undefined ? {} : { eventLayer: options.eventLayer }),
-    initialize: Effect.void,
-    rpc: built.rpc,
-    alarms: options.alarms === undefined ? alarms : DurableObjectAlarm.mergeAll(options.alarms, alarms),
-    slot: mountHost.slot,
-  } as EffectCfDurableObject.DurableObjectOptionsBase<
-    RuntimeServices | ApplicationServices | ExtendServices,
-    EventServices,
-    EventLayerError,
-    typeof built.rpc,
-    ThreadMaintenanceAlarm | AlarmServices
-  > & { readonly slot: Slot }
+    const hostedOptions = {
+      ...(options.rpcTracing === true ? { rpcTracing: { service: options.namespaceBinding } } : {}),
+      ...(options.eventLayer === undefined ? {} : { eventLayer: options.eventLayer }),
+      initialize: Effect.void,
+      rpc: built.rpc,
+      alarms: options.alarms === undefined ? alarms : DurableObjectAlarm.mergeAll(options.alarms, alarms),
+      slot: mountHost.slot,
+    } as EffectCfDurableObject.DurableObjectOptionsBase<
+      RuntimeServices | ApplicationServices | ExtendServices,
+      EventServices,
+      EventLayerError,
+      typeof built.rpc,
+      ThreadMaintenanceAlarm | AlarmServices
+    > & { readonly slot: Slot }
 
-  // effect-cf's mount erases its build failure to `unknown`; a failed mount is an assembly defect.
-  // @effect-diagnostics-next-line anyUnknownInErrorContext:off
-  return EffectCfDurableObject.mount<
-    RuntimeServices | ApplicationServices | ExtendServices,
-    ThreadObjectInitializationError | ApplicationError | ExtendFailure,
-    EventServices,
-    EventLayerError,
-    typeof built.rpc,
-    ThreadMaintenanceAlarm | AlarmServices,
-    Slot
-  >(built.runtime, hostedOptions)(mountHost).pipe(Effect.orDie)
-}
+    // effect-cf's mount erases its build failure to `unknown`; a failed mount is an assembly defect.
+    // @effect-diagnostics-next-line anyUnknownInErrorContext:off
+    return EffectCfDurableObject.mount<
+      RuntimeServices | ApplicationServices | ExtendServices,
+      ThreadObjectInitializationError | ApplicationError | ExtendFailure,
+      EventServices,
+      EventLayerError,
+      typeof built.rpc,
+      ThreadMaintenanceAlarm | AlarmServices,
+      Slot
+    >(built.runtime, hostedOptions)(mountHost).pipe(Effect.orDie)
+  })
